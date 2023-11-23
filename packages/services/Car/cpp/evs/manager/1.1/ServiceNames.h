@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
+#ifndef CPP_EVS_MANAGER_1_1_SERVICENAMES_H_
+#define CPP_EVS_MANAGER_1_1_SERVICENAMES_H_
 
 // This is the name as which we'll register ourselves
-const static char kManagedEnumeratorName[] = "default";
+static const char kManagedEnumeratorName[] = "default";
 
 // This is the name of the hardware provider to which we'll bind by default
-const static char kHardwareEnumeratorName[]  = "hw/1";
+static const char kHardwareEnumeratorName[] = "hw/1";
 
 // This is the name of the mock hardware provider selectable via command line.
 // (should match .../hardware/interfaces/automotive/evs/1.1/default/ServiceNames.h)
-const static char kMockEnumeratorName[]  = "EvsEnumeratorHw-Mock";
+static const char kMockEnumeratorName[] = "EvsEnumeratorHw-Mock";
 
+#endif  // CPP_EVS_MANAGER_1_1_SERVICENAMES_H_

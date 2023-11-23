@@ -61,6 +61,16 @@ public:
     static void resetListener(ScriptExecutorListener* listener);
 
 private:
+    // Invoked by a running Lua script to produce a log to logcat. This is useful for debugging.
+    // This does not invoke ScriptExecutorListener. Scripts are expected to call one of the
+    // terminating functions to end the script execution.
+    // This method returns 0 to indicate that no results were pushed to Lua stack according
+    // to Lua C function calling convention.
+    // More info: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
+    // Usage in lua script:
+    //   log("selected gear: ", g)
+    static int scriptLog(lua_State* lua);
+
     // Invoked by a running Lua script to store intermediate results.
     // The script will provide the results as a Lua table.
     // We currently support only non-nested fields in the table and the fields can be the following
@@ -91,6 +101,22 @@ private:
     // to Lua C function calling convention.
     // More info: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
     static int onError(lua_State* lua);
+
+    // Invoked by a running Lua script to produce a metrics report without completing
+    // the script's lifecycle,
+    // The metrics report will be sent to CarTelemetryService and then to the user.
+    // The script will provide the report as a Lua table.
+    // We currently support only non-nested fields in the table and the fields can be the following
+    // Lua types: boolean, number, integer, and string.
+    // The result pushed by Lua is converted to Android PersistableBundle and forwarded to
+    // ScriptExecutor service via callback interface.
+    // This method returns 0 to indicate that no results were pushed to Lua stack according
+    // to Lua C function calling convention.
+    // More info: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
+    // Usage in lua script:
+    //   on_metrics_report(report_as_a_table)
+    //   on_metrics_report(report_as_a_table, saved_state_as_a_table)
+    static int onMetricsReport(lua_State* lua);
 
     // Points to the current listener object.
     // Lua cannot call non-static class methods. We need to access listener object instance in

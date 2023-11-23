@@ -62,23 +62,31 @@ public abstract class QosFilter {
     public abstract int validate();
 
     /**
-     * Determines whether or not the parameters is a match for the filter.
+     * Determines whether or not the parameters will be matched with source address and port of this
+     * filter.
      *
-     * @param address the local address
-     * @param startPort the start of the port range
-     * @param endPort the end of the port range
-     * @return whether the parameters match the local address of the filter
+     * @param address the UE side address included in IP packet filter set of a QoS flow assigned
+     *                on {@link Network}.
+     * @param startPort the start of UE side port range included in IP packet filter set of a QoS
+     *                flow assigned on {@link Network}.
+     * @param endPort the end of UE side port range included in IP packet filter set of a QoS flow
+     *                assigned on {@link Network}.
+     * @return whether the parameters match the UE side address and port of the filter
      */
     public abstract boolean matchesLocalAddress(@NonNull InetAddress address,
             int startPort, int endPort);
 
     /**
-     * Determines whether or not the parameters is a match for the filter.
+     * Determines whether or not the parameters will be matched with remote address and port of
+     * this filter.
      *
-     * @param address the remote address
-     * @param startPort the start of the port range
-     * @param endPort the end of the port range
-     * @return whether the parameters match the remote address of the filter
+     * @param address the remote address included in IP packet filter set of a QoS flow
+     *                assigned on {@link Network}.
+     * @param startPort the start of remote port range included in IP packet filter set of a
+     *                 QoS flow assigned on {@link Network}.
+     * @param endPort the end of the remote range included in IP packet filter set of a QoS
+     *                flow assigned on {@link Network}.
+     * @return whether the parameters match the remote address and port of the filter
      */
     public abstract boolean matchesRemoteAddress(@NonNull InetAddress address,
             int startPort, int endPort);

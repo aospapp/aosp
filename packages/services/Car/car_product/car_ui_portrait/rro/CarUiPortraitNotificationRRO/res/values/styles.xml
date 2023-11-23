@@ -47,8 +47,13 @@
         <item name="android:background">@drawable/action_button_background</item>
     </style>
 
+    <style name="NotificationActionButton1" parent="NotificationActionButtonBase">
+        <item name="android:background">@drawable/play_button_background</item>
+    </style>
+
     <style name="NotificationActionButtonText" parent="@android:TextAppearance.DeviceDefault.Large">
         <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textSize">32sp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>

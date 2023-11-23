@@ -20,10 +20,15 @@ import android.annotation.NonNull;
 import android.car.Car;
 import android.car.hardware.power.CarPowerManager;
 import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
+import android.os.Handler;
+import android.os.HandlerExecutor;
+import android.os.Looper;
 import android.util.Log;
 
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.dagger.SysUISingleton;
+
+import java.util.concurrent.Executor;
 
 import javax.inject.Inject;
 
@@ -48,7 +53,7 @@ public class PowerManagerHelper {
             Log.d(TAG, "Car Service connected");
             mCarPowerManager = (CarPowerManager) car.getCarManager(Car.POWER_SERVICE);
             if (mCarPowerManager != null) {
-                mCarPowerManager.setListener(mCarPowerStateListener);
+                mCarPowerManager.setListener(getMainExecutor(), mCarPowerStateListener);
             } else {
                 Log.e(TAG, "CarPowerManager service not available");
             }
@@ -67,5 +72,9 @@ public class PowerManagerHelper {
      */
     public void connectToCarService() {
         mCarServiceProvider.addListener(mCarServiceLifecycleListener);
+    }
+
+    private static Executor getMainExecutor() {
+        return new HandlerExecutor(new Handler(Looper.getMainLooper()));
     }
 }

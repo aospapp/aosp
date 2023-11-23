@@ -260,7 +260,7 @@ public class EapSimTest extends EapMethodEndToEndTest {
         verify(mMockSecureRandom).nextBytes(any(byte[].class));
 
         // verify EAP-SIM/Start response
-        verify(mMockCallback).onResponse(eq(outgoingEapPacket));
+        verify(mMockCallback).onResponse(eq(outgoingEapPacket), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(
                 mMockContext,
                 mMockTelephonyManager,
@@ -308,7 +308,7 @@ public class EapSimTest extends EapMethodEndToEndTest {
                         eq(TelephonyManager.APPTYPE_USIM),
                         eq(TelephonyManager.AUTHTYPE_EAP_SIM),
                         eq(BASE64_RAND_3));
-        verify(mMockCallback).onResponse(eq(outgoingEapPacket));
+        verify(mMockCallback).onResponse(eq(outgoingEapPacket), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(
                 mMockContext,
                 mMockTelephonyManager,

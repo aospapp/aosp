@@ -93,6 +93,7 @@ import java.util.function.Consumer;
 public abstract class PreferenceController<V extends Preference> implements
         DefaultLifecycleObserver,
         OnUxRestrictionsChangedListener {
+    private static final Logger LOG = new Logger(PreferenceController.class);
 
     /**
      * Denotes the availability of a setting.
@@ -147,11 +148,13 @@ public abstract class PreferenceController<V extends Preference> implements
     private final String mPreferenceKey;
     private final FragmentController mFragmentController;
     private final String mRestrictedWhileDrivingMessage;
+    private final int mDebounceIntervalMs;
 
     private CarUxRestrictions mUxRestrictions;
     private V mPreference;
     private boolean mIsCreated;
     private boolean mIsStarted;
+    private long mDebounceStartTimeMs;
 
     /**
      * Controllers should be instantiated from XML. To pass additional arguments see
@@ -169,6 +172,8 @@ public abstract class PreferenceController<V extends Preference> implements
                 mContext.getResources().getBoolean(R.bool.config_always_ignore_ux_restrictions);
         mRestrictedWhileDrivingMessage =
                 mContext.getResources().getString(R.string.car_ui_restricted_while_driving);
+        mDebounceIntervalMs =
+                mContext.getResources().getInteger(R.integer.config_preference_onclick_debounce_ms);
     }
 
     /**
@@ -225,7 +230,17 @@ public abstract class PreferenceController<V extends Preference> implements
                 (changedPref, newValue) -> handlePreferenceChanged(
                         getPreferenceType().cast(changedPref), newValue));
         mPreference.setOnPreferenceClickListener(
-                clickedPref -> handlePreferenceClicked(getPreferenceType().cast(clickedPref)));
+                clickedPref -> {
+                    // Debounce onClick() calls
+                    long curTime = System.currentTimeMillis();
+                    if (mDebounceStartTimeMs != 0
+                            && curTime < (mDebounceStartTimeMs + mDebounceIntervalMs)) {
+                        LOG.i("OnClick event dropped due to debouncing");
+                        return true;
+                    }
+                    mDebounceStartTimeMs = curTime;
+                    return handlePreferenceClicked(getPreferenceType().cast(clickedPref));
+                });
         checkInitialized();
     }
 

@@ -18,8 +18,11 @@ package com.android.car.storagemonitoring;
 import android.annotation.NonNull;
 import android.car.storagemonitoring.WearEstimateChange;
 import android.util.JsonWriter;
-import com.android.car.CarStorageMonitoringService;
-import com.android.car.R;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,10 +31,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiPredicate;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * This class represents the entire history of flash wear changes as tracked

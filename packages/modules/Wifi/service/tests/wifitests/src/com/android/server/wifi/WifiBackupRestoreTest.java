@@ -106,7 +106,7 @@ public class WifiBackupRestoreTest extends WifiBaseTest {
                     + "<boolean name=\"HiddenSSID\" value=\"false\" />\n"
                     + "<boolean name=\"RequirePMF\" value=\"false\" />\n"
                     // Valid Value: 01
-                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"3\">010002</byte-array>\n"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"3\">010004</byte-array>\n"
                     // Valid Value: 03
                     + "<byte-array name=\"AllowedProtocols\" num=\"1\">13</byte-array>\n"
                     // Valid Value: 01
@@ -253,6 +253,7 @@ public class WifiBackupRestoreTest extends WifiBaseTest {
                     + "<boolean name=\"AutoJoinEnabled\" value=\"false\" />\n"
                     + "<int name=\"DeletionPriority\" value=\"0\" />\n"
                     + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"2\" />\n"
@@ -281,7 +282,7 @@ public class WifiBackupRestoreTest extends WifiBaseTest {
         when(mWifiPermissionsUtil.checkConfigOverridePermission(anyInt())).thenReturn(true);
         mWifiBackupRestore = new WifiBackupRestore(mWifiPermissionsUtil);
         // Enable verbose logging before tests to check the backup data dumps.
-        mWifiBackupRestore.enableVerboseLogging(1);
+        mWifiBackupRestore.enableVerboseLogging(true);
     }
 
     @After
@@ -984,6 +985,46 @@ public class WifiBackupRestoreTest extends WifiBaseTest {
     }
 
     /**
+     * Verify that a network that has never been connected to due to a wrong password
+     * is not serialized. Networks that have connected, or that have not connected for a
+     * different reason, should be serialized and deserialized correctly.
+     */
+    @Test
+    public void testNeverConnectedDueToWrongPasswordRestore() {
+        List<WifiConfiguration> configurations = new ArrayList<>();
+        List<WifiConfiguration> expectedConfigurations = new ArrayList<>();
+
+        // Never connected due to wrong password. Should not be in |expectedConfigurations|.
+        WifiConfiguration neverConnectedWrongPass = WifiConfigurationTestUtil.createWepNetwork();
+        neverConnectedWrongPass.getNetworkSelectionStatus().setHasEverConnected(false);
+        neverConnectedWrongPass.getNetworkSelectionStatus().setNetworkSelectionDisableReason(
+                WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD);
+        configurations.add(neverConnectedWrongPass);
+
+        // Has connected but has wrong password. Should be in |expectedConfigurations|.
+        WifiConfiguration hasConnectedWrongPass = WifiConfigurationTestUtil.createWepNetwork();
+        hasConnectedWrongPass.getNetworkSelectionStatus().setHasEverConnected(true);
+        hasConnectedWrongPass.getNetworkSelectionStatus().setNetworkSelectionDisableReason(
+                WifiConfiguration.NetworkSelectionStatus.DISABLED_BY_WRONG_PASSWORD);
+        configurations.add(hasConnectedWrongPass);
+        expectedConfigurations.add(hasConnectedWrongPass);
+
+        // Never connected for some other reason. Should be in |expectedConfigurations|.
+        WifiConfiguration neverConnectedOtherReason = WifiConfigurationTestUtil.createWepNetwork();
+        neverConnectedOtherReason.getNetworkSelectionStatus().setHasEverConnected(false);
+        neverConnectedOtherReason.getNetworkSelectionStatus().setNetworkSelectionDisableReason(
+                WifiConfiguration.NetworkSelectionStatus.DISABLED_NO_INTERNET_TEMPORARY);
+        configurations.add(neverConnectedOtherReason);
+        expectedConfigurations.add(neverConnectedOtherReason);
+
+        byte[] backupData = mWifiBackupRestore.retrieveBackupDataFromConfigurations(configurations);
+        List<WifiConfiguration> retrievedConfigurations =
+                mWifiBackupRestore.retrieveConfigurationsFromBackupData(backupData);
+        WifiConfigurationTestUtil.assertConfigurationsEqualForBackup(
+                expectedConfigurations, retrievedConfigurations);
+    }
+
+    /**
      * Verifying that backup data containing some unknown keys is properly restored.
      * The backup data used here is a PII masked version of a backup data seen in a reported bug.
      */
@@ -1231,10 +1272,11 @@ public class WifiBackupRestoreTest extends WifiBaseTest {
             out.write("        " + "wep_tx_keyidx=" + configuration.wepTxKeyIndex + "\n");
         }
         Map<String, String> extras = new HashMap<>();
-        extras.put(SupplicantStaNetworkHal.ID_STRING_KEY_CONFIG_KEY, configuration.getKey());
-        extras.put(SupplicantStaNetworkHal.ID_STRING_KEY_CREATOR_UID,
+        extras.put(SupplicantStaNetworkHalHidlImpl.ID_STRING_KEY_CONFIG_KEY,
+                configuration.getKey());
+        extras.put(SupplicantStaNetworkHalHidlImpl.ID_STRING_KEY_CREATOR_UID,
                 Integer.toString(configuration.creatorUid));
-        String idString = "\"" + SupplicantStaNetworkHal.createNetworkExtra(extras) + "\"";
+        String idString = "\"" + SupplicantStaNetworkHalHidlImpl.createNetworkExtra(extras) + "\"";
         if (idString != null) {
             out.write("        " + "id_str=" + idString + "\n");
         }

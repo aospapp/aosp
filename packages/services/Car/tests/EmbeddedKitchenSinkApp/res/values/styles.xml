@@ -26,7 +26,7 @@
         <item name="android:ellipsize">end</item>
     </style>
 
-    <style name="OverviewButton">
+    <style name="OverviewButton" parent="ButtonStyle">
         <item name="android:layout_width">@dimen/overview_icon_size</item>
         <item name="android:layout_height">@dimen/overview_icon_size</item>
         <item name="android:padding">6dp</item>
@@ -34,7 +34,27 @@
         <item name="android:clickable">true</item>
     </style>
 
+    <style name="ButtonStyle" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_background</item>
+    </style>
+
+    <style name="RadioButtonStyle" parent="Widget.AppCompat.CompoundButton.RadioButton">
+        <item name="android:background">@drawable/focus_highlight_background</item>
+    </style>
+
+    <style name="CheckBoxStyle" parent="Widget.AppCompat.CompoundButton.CheckBox">
+        <item name="android:background">@drawable/focus_highlight_background</item>
+    </style>
+
+    <style name="SpinnerStyle" parent="Widget.AppCompat.Spinner">
+        <item name="android:background">@drawable/spinner_background</item>
+    </style>
+
     <style name="KitchenSinkActivityTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="android:textSize">24sp</item>
+        <item name="android:buttonStyle">@style/ButtonStyle</item>
+        <item name="android:radioButtonStyle">@style/RadioButtonStyle</item>
+        <item name="android:checkboxStyle">@style/CheckBoxStyle</item>
+        <item name="android:spinnerStyle">@style/SpinnerStyle</item>
     </style>
 </resources>

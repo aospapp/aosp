@@ -18,24 +18,14 @@ package com.android.tv.settings.overlay;
 
 import androidx.annotation.Keep;
 
-import com.android.tv.settings.basic.BasicModeFeatureProvider;
-import com.android.tv.settings.basic.BasicModeFeatureProviderImplX;
-import com.android.tv.settings.startup.StartupVerificationFeatureProvider;
-import com.android.tv.settings.startup.StartupVerificationFeatureProviderImplX;
+import com.android.tv.settings.library.basic.BasicModeFeatureProvider;
+import com.android.tv.settings.library.basic.BasicModeFeatureProviderImplX;
+import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProvider;
+import com.android.tv.settings.library.startup.startup.StartupVerificationFeatureProviderImplX;
 
 /** Implementation of {@FeatureFactory} that can be utilized with resource overlay. */
 @Keep
 public class FeatureFactoryImplX extends FeatureFactoryImplTwoPanel {
 
     protected static final String TAG = "FeatureFactoryImplX";
-
-    @Override
-    public BasicModeFeatureProvider getBasicModeFeatureProvider() {
-        return new BasicModeFeatureProviderImplX();
-    }
-
-    @Override
-    public StartupVerificationFeatureProvider getStartupVerificationFeatureProvider() {
-        return new StartupVerificationFeatureProviderImplX();
-    }
 }

@@ -25,15 +25,19 @@
     android:gravity="center"
     android:orientation="horizontal">
 
-    <com.android.systemui.car.systembar.CarSystemBarButton
-        android:id="@+id/user_name"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_marginStart="@dimen/car_padding_3"
-        android:layout_gravity="start"
-        android:gravity="start"
-        android:orientation="horizontal"
-        systemui:intent="intent:#Intent;component=com.android.car.settings/.profiles.ProfileSwitcherActivity;launchFlags=0x24000000;end">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.android.systemui.car.systembar.CarSystemBarButton
+            android:id="@+id/user_name"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="@dimen/car_padding_3"
+            android:layout_alignParentLeft="true"
+            android:layout_gravity="start"
+            android:gravity="start"
+            android:orientation="horizontal"
+            systemui:intent="intent:#Intent;component=com.android.car.settings/.profiles.ProfileSwitcherActivity;launchFlags=0x24000000;end">
             <ImageView
                 android:id="@+id/user_avatar"
                 android:layout_width="wrap_content"
@@ -48,51 +52,67 @@
                 android:textAppearance="@style/TextAppearance.SystemBar.Username"
                 android:maxLines="1"
                 android:maxLength="10"/>
-    </com.android.systemui.car.systembar.CarSystemBarButton>
+        </com.android.systemui.car.systembar.CarSystemBarButton>
 
-    <com.android.systemui.statusbar.policy.Clock
-        android:id="@+id/clock"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
-        android:layout_gravity="center"
-        android:gravity="center"
-        android:paddingStart="@dimen/car_padding_2"
-        android:paddingEnd="@dimen/car_padding_2"
-        android:elevation="5dp"
-        android:singleLine="true"
-        android:textAppearance="@style/TextAppearance.SystemBar.Clock"
-        systemui:amPmStyle="normal"/>
+        <LinearLayout
+            android:id="@+id/qc_entry_points_container"
+            android:layout_width="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_height="match_parent"
+            android:layout_centerVertical="true"
+            android:layout_toRightOf="@+id/user_name"/>
 
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:orientation="horizontal"
-        android:gravity="end">
-
-        <include layout="@layout/mic_privacy_chip"
-                 android:layout_width="wrap_content"
-                 android:layout_height="match_parent"
-                 android:layout_gravity="center_vertical"/>
-
-        <com.android.systemui.car.systembar.CarSystemBarButton
-            android:id="@+id/system_icon_area"
+        <com.android.systemui.statusbar.policy.Clock
+            android:id="@+id/clock"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_marginEnd="@dimen/car_padding_3"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:paddingStart="@dimen/car_padding_2"
+            android:paddingEnd="@dimen/car_padding_2"
+            android:elevation="5dp"
+            android:singleLine="true"
+            android:textAppearance="@style/TextAppearance.SystemBar.Clock"
+            systemui:amPmStyle="normal"/>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
             android:layout_gravity="end"
-            android:gravity="end"
-            systemui:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$HomepageActivity;launchFlags=0x24000000;end">
+            android:layout_alignParentRight="true"
+            android:orientation="horizontal"
+            android:gravity="end">
 
-            <com.android.systemui.statusbar.phone.StatusIconContainer
-                android:id="@+id/statusIcons"
-                android:layout_width="match_parent"
+            <include layout="@layout/camera_privacy_chip"
+                     android:layout_width="wrap_content"
+                     android:layout_height="match_parent"
+                     android:layout_gravity="center_vertical" />
+
+            <include layout="@layout/mic_privacy_chip"
+                     android:layout_width="wrap_content"
+                     android:layout_height="match_parent"
+                     android:layout_gravity="center_vertical"/>
+
+            <com.android.systemui.car.systembar.CarSystemBarButton
+                android:id="@+id/system_icon_area"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:scaleType="fitCenter"
-                android:gravity="center"
-                android:orientation="horizontal"/>
+                android:layout_marginEnd="@dimen/car_padding_3"
+                android:layout_gravity="end"
+                android:gravity="end"
+                systemui:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$HomepageActivity;launchFlags=0x24000000;end">
 
-        </com.android.systemui.car.systembar.CarSystemBarButton>
-    </LinearLayout>
+                <com.android.systemui.statusbar.phone.StatusIconContainer
+                    android:id="@+id/statusIcons"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitCenter"
+                    android:gravity="center"
+                    android:orientation="horizontal"/>
+
+            </com.android.systemui.car.systembar.CarSystemBarButton>
+        </LinearLayout>
+    </RelativeLayout>
 </com.android.systemui.car.systembar.CarSystemBarView>

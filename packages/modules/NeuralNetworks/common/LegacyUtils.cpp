@@ -20,7 +20,6 @@
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
-#include <android-base/strings.h>
 #include <errno.h>
 #include <nnapi/TypeUtils.h>
 #include <poll.h>
@@ -43,52 +42,26 @@
 namespace android {
 namespace nn {
 
-const char kVLogPropKey[] = "debug.nn.vlog";
-int vLogMask = ~0;
-
-// Split the space separated list of tags from verbose log setting and build the
-// logging mask from it. note that '1' and 'all' are special cases to enable all
-// verbose logging.
-//
-// NN API verbose logging setting comes from system property debug.nn.vlog.
-// Example:
-// setprop debug.nn.vlog 1 : enable all logging tags.
-// setprop debug.nn.vlog "model compilation" : only enable logging for MODEL and
-//                                             COMPILATION tags.
-void initVLogMask() {
-    vLogMask = 0;
-    const std::string vLogSetting = android::base::GetProperty(kVLogPropKey, "");
-    if (vLogSetting.empty()) {
-        return;
+std::ostream& operator<<(std::ostream& os, const HalVersion& halVersion) {
+    switch (halVersion) {
+        case HalVersion::UNKNOWN:
+            return os << "UNKNOWN HAL version";
+        case HalVersion::V1_0:
+            return os << "HAL version 1.0";
+        case HalVersion::V1_1:
+            return os << "HAL version 1.1";
+        case HalVersion::V1_2:
+            return os << "HAL version 1.2";
+        case HalVersion::V1_3:
+            return os << "HAL version 1.3";
+        case HalVersion::AIDL_V1:
+            return os << "HAL version AIDL_V1";
+        case HalVersion::AIDL_V2:
+            return os << "HAL version AIDL_V2";
+        case HalVersion::AIDL_UNSTABLE:
+            return os << "HAL uses unstable AIDL";
     }
-
-    std::unordered_map<std::string, int> vLogFlags = {{"1", -1},
-                                                      {"all", -1},
-                                                      {"model", MODEL},
-                                                      {"compilation", COMPILATION},
-                                                      {"execution", EXECUTION},
-                                                      {"cpuexe", CPUEXE},
-                                                      {"manager", MANAGER},
-                                                      {"driver", DRIVER},
-                                                      {"memory", MEMORY}};
-
-    std::vector<std::string> elements = android::base::Split(vLogSetting, " ,:");
-    for (const auto& elem : elements) {
-        const auto& flag = vLogFlags.find(elem);
-        if (flag == vLogFlags.end()) {
-            LOG(ERROR) << "Unknown trace flag: " << elem;
-            continue;
-        }
-
-        if (flag->second == -1) {
-            // -1 is used for the special values "1" and "all" that enable all
-            // tracing.
-            vLogMask = ~0;
-            return;
-        } else {
-            vLogMask |= 1 << flag->second;
-        }
-    }
+    return os << "HalVersion{" << static_cast<int32_t>(halVersion) << "}";
 }
 
 Duration makeTimeoutDuration(uint64_t nanoseconds) {
@@ -150,7 +123,7 @@ EntryType tableLookup(const EntryType (&table)[entryCount],
     } else if (code >= kOEMCodeBase && (code - kOEMCodeBase) < entryCountOEM) {
         return tableOEM[code - kOEMCodeBase];
     } else {
-        nnAssert(!"tableLookup: bad code");
+        LOG(FATAL) << "tableLookup: bad code";
         return EntryType();
     }
 }
@@ -160,15 +133,19 @@ static Version convert(HalVersion halVersion) {
         case HalVersion::UNKNOWN:
             break;
         case HalVersion::V1_0:
-            return Version::ANDROID_OC_MR1;
+            return kVersionFeatureLevel1;
         case HalVersion::V1_1:
-            return Version::ANDROID_P;
+            return kVersionFeatureLevel2;
         case HalVersion::V1_2:
-            return Version::ANDROID_Q;
+            return kVersionFeatureLevel3;
         case HalVersion::V1_3:
-            return Version::ANDROID_R;
+            return kVersionFeatureLevel4;
+        case HalVersion::AIDL_V1:
+            return kVersionFeatureLevel5;
+        case HalVersion::AIDL_V2:
+            return kVersionFeatureLevel6;
         case HalVersion::AIDL_UNSTABLE:
-            return Version::ANDROID_S;
+            return kVersionFeatureLevel7;
     }
     LOG(FATAL) << "Cannot convert " << halVersion;
     return {};
@@ -374,17 +351,8 @@ bool tensorHasUnspecifiedDimensions(int type, const uint32_t* dim, uint32_t dimC
     return dimCount == 0 || std::find(dim, dim + dimCount, 0) != (dim + dimCount);
 }
 
-bool tensorHasUnspecifiedDimensions(OperandType type, const std::vector<uint32_t>& dimensions) {
-    return tensorHasUnspecifiedDimensions(static_cast<int>(type), dimensions.data(),
-                                          dimensions.size());
-}
-
 bool tensorHasUnspecifiedDimensions(const ANeuralNetworksOperandType* type) {
     return tensorHasUnspecifiedDimensions(type->type, type->dimensions, type->dimensionCount);
-}
-
-bool tensorHasUnspecifiedDimensions(const Operand& operand) {
-    return tensorHasUnspecifiedDimensions(operand.type, operand.dimensions);
 }
 
 uint32_t alignBytesNeeded(uint32_t index, size_t length) {
@@ -787,6 +755,10 @@ int validateOperation(ANeuralNetworksOperationType opType, uint32_t inputCount,
                 inExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM_SIGNED,
                                    OperandType::TENSOR_INT32};
                 outExpectedTypes = {OperandType::TENSOR_QUANT8_ASYMM_SIGNED};
+            } else if (inputType == OperandType::TENSOR_INT32) {
+                NN_RETURN_IF_ERROR(validateHalVersion(opType, halVersion, HalVersion::AIDL_V2));
+                inExpectedTypes = {OperandType::TENSOR_INT32, OperandType::TENSOR_INT32};
+                outExpectedTypes = {OperandType::TENSOR_INT32};
             } else {
                 LOG(ERROR) << "Unsupported input tensor type for operation " << opType;
                 return ANEURALNETWORKS_BAD_DATA;

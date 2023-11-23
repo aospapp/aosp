@@ -26,7 +26,9 @@ import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiMigration;
+import android.net.wifi.WifiSsid;
 import android.util.BackupUtils;
 import android.util.SparseIntArray;
 
@@ -78,6 +80,7 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
     private static final int TEST_BAND_2G = SoftApConfiguration.BAND_2GHZ;
     private static final int TEST_BAND_5G = SoftApConfiguration.BAND_5GHZ;
     private static final boolean TEST_BRIDGED_OPPORTUNISTIC_SHUTDOWN_ENABLED = false;
+    private static final boolean TEST_AUTO_SHUTDOWN_ENABLED = false;
     private static final int TEST_MAC_RANDOMIZATIONSETTING =
             SoftApConfiguration.RANDOMIZATION_NONE;
     private static final SparseIntArray TEST_CHANNELS = new SparseIntArray() {{
@@ -93,7 +96,7 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
      */
     public static void assertWifiConfigurationEqualSoftApConfiguration(
             WifiConfiguration backup, SoftApConfiguration restore) {
-        assertEquals(backup.SSID, restore.getSsid());
+        assertEquals(backup.SSID, restore.getWifiSsid().getUtf8Text());
         assertEquals(backup.BSSID, restore.getBssid());
         assertEquals(ApConfigUtil.convertWifiConfigBandToSoftApConfigBand(backup.apBand),
                 restore.getBand());
@@ -272,27 +275,9 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
      * Verifies that the serialization/de-serialization for all customized configure field in .
      */
     @Test
-    public void testSoftApConfigBackupAndRestoreWithAllConfigInS() throws Exception {
-        assumeTrue(SdkLevel.isAtLeastS());
-        mTestBlockedList.add(MacAddress.fromString(TEST_BLOCKED_CLIENT));
-        mTestAllowedList.add(MacAddress.fromString(TEST_ALLOWED_CLIENT));
-        SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
-        configBuilder.setSsid(TEST_SSID);
-        configBuilder.setBand(SoftApConfiguration.BAND_5GHZ);
-        configBuilder.setChannel(40, SoftApConfiguration.BAND_5GHZ);
-        configBuilder.setPassphrase(TEST_PASSPHRASE, TEST_SECURITY);
-        configBuilder.setHiddenSsid(TEST_HIDDEN);
-        configBuilder.setMaxNumberOfClients(TEST_MAXNUMBEROFCLIENTS);
-        configBuilder.setShutdownTimeoutMillis(TEST_SHUTDOWNTIMEOUTMILLIS);
-        configBuilder.setClientControlByUserEnabled(TEST_CLIENTCONTROLENABLE);
-        configBuilder.setBlockedClientList(mTestBlockedList);
-        configBuilder.setAllowedClientList(mTestAllowedList);
-        configBuilder.setChannels(TEST_CHANNELS);
-        configBuilder.setMacRandomizationSetting(TEST_MAC_RANDOMIZATIONSETTING);
-        configBuilder.setBridgedModeOpportunisticShutdownEnabled(
-                TEST_BRIDGED_OPPORTUNISTIC_SHUTDOWN_ENABLED);
-        configBuilder.setIeee80211axEnabled(TEST_80211AX_ENABLED);
-        SoftApConfiguration config = configBuilder.build();
+    public void testSoftApConfigBackupAndRestoreWithAllConfigInT() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastT());
+        SoftApConfiguration config = generateExpectedSoftApConfigurationWithTestData(9);
 
         byte[] data = mSoftApBackupRestore.retrieveBackupDataFromSoftApConfiguration(config);
         SoftApConfiguration restoredConfig =
@@ -307,85 +292,34 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
      */
     @Test
     public void testSoftApConfigRestoreFromVersion5() throws Exception {
-        mTestBlockedList.add(MacAddress.fromString(TEST_BLOCKED_CLIENT));
-        mTestAllowedList.add(MacAddress.fromString(TEST_ALLOWED_CLIENT));
-        SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
-        configBuilder.setSsid(TEST_SSID);
-        configBuilder.setBand(TEST_BAND);
-        configBuilder.setChannel(TEST_CHANNEL, TEST_BAND);
-        configBuilder.setPassphrase(TEST_PASSPHRASE, TEST_SECURITY);
-        configBuilder.setHiddenSsid(TEST_HIDDEN);
-        configBuilder.setMaxNumberOfClients(TEST_MAXNUMBEROFCLIENTS);
-        configBuilder.setShutdownTimeoutMillis(TEST_SHUTDOWNTIMEOUTMILLIS);
-        configBuilder.setClientControlByUserEnabled(TEST_CLIENTCONTROLENABLE);
-        configBuilder.setBlockedClientList(mTestBlockedList);
-        configBuilder.setAllowedClientList(mTestAllowedList);
+        SoftApConfiguration.Builder configBuilder =
+                new SoftApConfiguration.Builder(generateExpectedSoftApConfigurationWithTestData(5));
 
         // Toggle on when migrating.
         when(mOemMigrationData.isSoftApTimeoutEnabled()).thenReturn(true);
         SoftApConfiguration expectedConfig = configBuilder.setAutoShutdownEnabled(true).build();
         SoftApConfiguration restoredConfig =
                 mSoftApBackupRestore.retrieveSoftApConfigurationFromBackupData(
-                        retrieveVersion5BackupDataFromSoftApConfiguration(expectedConfig));
+                retrieveSpecificVersionBackupDataFromSoftApConfiguration(expectedConfig, 5));
         assertEquals(expectedConfig, restoredConfig);
 
         // Toggle off when migrating.
         when(mOemMigrationData.isSoftApTimeoutEnabled()).thenReturn(false);
         expectedConfig = configBuilder.setAutoShutdownEnabled(false).build();
         restoredConfig = mSoftApBackupRestore.retrieveSoftApConfigurationFromBackupData(
-                retrieveVersion5BackupDataFromSoftApConfiguration(expectedConfig));
+                retrieveSpecificVersionBackupDataFromSoftApConfiguration(expectedConfig, 5));
         assertEquals(expectedConfig, restoredConfig);
     }
-
-    /**
-     * This is a copy of the old serialization code (version 5)
-     *
-     * Changes: Version = 5, AutoShutdown tag is missing.
-     */
-    private byte[] retrieveVersion5BackupDataFromSoftApConfiguration(SoftApConfiguration config)
-            throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-
-        out.writeInt(5);
-        BackupUtils.writeString(out, config.getSsid());
-        out.writeInt(config.getBand());
-        out.writeInt(config.getChannel());
-        BackupUtils.writeString(out, config.getPassphrase());
-        out.writeInt(config.getSecurityType());
-        out.writeBoolean(config.isHiddenSsid());
-        out.writeInt(config.getMaxNumberOfClients());
-        out.writeInt((int) config.getShutdownTimeoutMillis());
-        out.writeBoolean(config.isClientControlByUserEnabled());
-        writeMacAddressList(out, config.getBlockedClientList());
-        writeMacAddressList(out, config.getAllowedClientList());
-        return baos.toByteArray();
-    }
-
 
     /**
      * Verifies that the restore of version 6 backup data will read the auto shutdown with int.
      */
     @Test
     public void testSoftApConfigRestoreFromVersion6() throws Exception {
-        mTestBlockedList.add(MacAddress.fromString(TEST_BLOCKED_CLIENT));
-        mTestAllowedList.add(MacAddress.fromString(TEST_ALLOWED_CLIENT));
-        SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
-        configBuilder.setSsid(TEST_SSID);
-        configBuilder.setBand(TEST_BAND);
-        configBuilder.setChannel(TEST_CHANNEL, TEST_BAND);
-        configBuilder.setPassphrase(TEST_PASSPHRASE, TEST_SECURITY);
-        configBuilder.setHiddenSsid(TEST_HIDDEN);
-        configBuilder.setMaxNumberOfClients(TEST_MAXNUMBEROFCLIENTS);
-        configBuilder.setShutdownTimeoutMillis(TEST_SHUTDOWNTIMEOUTMILLIS);
-        configBuilder.setClientControlByUserEnabled(TEST_CLIENTCONTROLENABLE);
-        configBuilder.setBlockedClientList(mTestBlockedList);
-        configBuilder.setAllowedClientList(mTestAllowedList);
-
-        SoftApConfiguration expectedConfig = configBuilder.build();
+        SoftApConfiguration expectedConfig = generateExpectedSoftApConfigurationWithTestData(6);
         SoftApConfiguration restoredConfig = mSoftApBackupRestore
                 .retrieveSoftApConfigurationFromBackupData(
-                retrieveVersion6BackupDataFromSoftApConfiguration(expectedConfig));
+                retrieveSpecificVersionBackupDataFromSoftApConfiguration(expectedConfig, 6));
         assertEquals(expectedConfig, restoredConfig);
     }
 
@@ -394,6 +328,28 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
      */
     @Test
     public void testSoftApConfigRestoreFromVersion7() throws Exception {
+        SoftApConfiguration expectedConfig = generateExpectedSoftApConfigurationWithTestData(7);
+        SoftApConfiguration restoredConfig = mSoftApBackupRestore
+                .retrieveSoftApConfigurationFromBackupData(
+                retrieveSpecificVersionBackupDataFromSoftApConfiguration(expectedConfig, 7));
+        assertEquals(expectedConfig, restoredConfig);
+    }
+
+    /**
+     * Verifies that the restore of version 8 (Android S)
+     */
+    @Test
+    public void testSoftApConfigRestoreFromVersion8() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastS());
+        SoftApConfiguration expectedConfig = generateExpectedSoftApConfigurationWithTestData(8);
+        SoftApConfiguration restoredConfig = mSoftApBackupRestore
+                .retrieveSoftApConfigurationFromBackupData(
+                retrieveSpecificVersionBackupDataFromSoftApConfiguration(expectedConfig, 8));
+        assertEquals(expectedConfig, restoredConfig);
+    }
+
+    // Test util methods
+    private SoftApConfiguration generateExpectedSoftApConfigurationWithTestData(int version) {
         mTestBlockedList.add(MacAddress.fromString(TEST_BLOCKED_CLIENT));
         mTestAllowedList.add(MacAddress.fromString(TEST_ALLOWED_CLIENT));
         SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
@@ -407,63 +363,75 @@ public class SoftApBackupRestoreTest extends WifiBaseTest {
         configBuilder.setClientControlByUserEnabled(TEST_CLIENTCONTROLENABLE);
         configBuilder.setBlockedClientList(mTestBlockedList);
         configBuilder.setAllowedClientList(mTestAllowedList);
-
-        SoftApConfiguration expectedConfig = configBuilder.build();
-        SoftApConfiguration restoredConfig = mSoftApBackupRestore
-                .retrieveSoftApConfigurationFromBackupData(
-                retrieveVersion7BackupDataFromSoftApConfiguration(expectedConfig));
-        assertEquals(expectedConfig, restoredConfig);
+        if (version > 5) {
+            configBuilder.setAutoShutdownEnabled(TEST_AUTO_SHUTDOWN_ENABLED);
+        }
+        if (version > 7) { // Android S
+            configBuilder.setChannels(TEST_CHANNELS);
+            configBuilder.setMacRandomizationSetting(TEST_MAC_RANDOMIZATIONSETTING);
+            configBuilder.setBridgedModeOpportunisticShutdownEnabled(
+                    TEST_BRIDGED_OPPORTUNISTIC_SHUTDOWN_ENABLED);
+            configBuilder.setIeee80211axEnabled(TEST_80211AX_ENABLED);
+        }
+        return configBuilder.build();
     }
 
+
     /**
-     * This is a copy of the old serialization code (version 6)
+     * Util method to write SoftApConfiguration to OutputStream for V5 to V8.
      *
-     * Changes: Version = 6, AutoShutdown use int type
+     * Some release notes for each android.
+     *
+     * Android R: Version#4 ~ Version#7 (Start to use SoftApConfiguration)
+     * Android S: Version#8
+     * Android T: Version#9, start to support XML backup, no need to call this function.
      */
-    private byte[] retrieveVersion6BackupDataFromSoftApConfiguration(SoftApConfiguration config)
-            throws Exception {
+    private byte[] retrieveSpecificVersionBackupDataFromSoftApConfiguration(
+            SoftApConfiguration config, int version) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
 
-        out.writeInt(6);
-        BackupUtils.writeString(out, config.getSsid());
+        out.writeInt(version);
+        WifiSsid wifiSsid = config.getWifiSsid();
+        if (wifiSsid != null) {
+            CharSequence utf8Ssid = wifiSsid.getUtf8Text();
+            BackupUtils.writeString(out, utf8Ssid != null
+                    ? utf8Ssid.toString() : WifiManager.UNKNOWN_SSID);
+        } else {
+            BackupUtils.writeString(out, null);
+        }
         out.writeInt(config.getBand());
         out.writeInt(config.getChannel());
         BackupUtils.writeString(out, config.getPassphrase());
         out.writeInt(config.getSecurityType());
         out.writeBoolean(config.isHiddenSsid());
         out.writeInt(config.getMaxNumberOfClients());
-        out.writeInt((int) config.getShutdownTimeoutMillis());
+        // Start from version#7, ShutdownTimeoutMillis changed from int to Long.
+        if (version > 6) {
+            out.writeLong(config.getShutdownTimeoutMillis());
+        } else {
+            out.writeInt((int) config.getShutdownTimeoutMillis());
+        }
         out.writeBoolean(config.isClientControlByUserEnabled());
         writeMacAddressList(out, config.getBlockedClientList());
         writeMacAddressList(out, config.getAllowedClientList());
-        out.writeBoolean(config.isAutoShutdownEnabled());
-        return baos.toByteArray();
-    }
+        // Start from version#6, AutoShutdownEnabled stored in configuration
+        if (version > 5) {
+            out.writeBoolean(config.isAutoShutdownEnabled());
+        }
+        if (version > 7) { // Version#8 is backup version in android S.
+            out.writeBoolean(config.isBridgedModeOpportunisticShutdownEnabled());
+            out.writeInt(config.getMacRandomizationSetting());
+            SparseIntArray channels = config.getChannels();
+            int numOfChannels = channels.size();
+            out.writeInt(numOfChannels);
+            for (int i = 0; i < numOfChannels; i++) {
+                out.writeInt(channels.keyAt(i));
+                out.writeInt(channels.valueAt(i));
+            }
+            out.writeBoolean(config.isIeee80211axEnabled());
+        }
 
-    /**
-     * This is a copy of the old serialization code (version 6)
-     *
-     * Changes: Version = 7
-     */
-    private byte[] retrieveVersion7BackupDataFromSoftApConfiguration(SoftApConfiguration config)
-            throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(baos);
-
-        out.writeInt(7);
-        BackupUtils.writeString(out, config.getSsid());
-        out.writeInt(config.getBand());
-        out.writeInt(config.getChannel());
-        BackupUtils.writeString(out, config.getPassphrase());
-        out.writeInt(config.getSecurityType());
-        out.writeBoolean(config.isHiddenSsid());
-        out.writeInt(config.getMaxNumberOfClients());
-        out.writeLong(config.getShutdownTimeoutMillis());
-        out.writeBoolean(config.isClientControlByUserEnabled());
-        writeMacAddressList(out, config.getBlockedClientList());
-        writeMacAddressList(out, config.getAllowedClientList());
-        out.writeBoolean(config.isAutoShutdownEnabled());
         return baos.toByteArray();
     }
 

@@ -32,7 +32,6 @@ PRODUCT_PACKAGES += \
 
 
 PRODUCT_PACKAGES += \
-    clatd \
     pppd \
     screenrecord
 
@@ -47,6 +46,9 @@ PRODUCT_PACKAGES += \
     NetworkPreferenceApp \
     SampleCustomInputService \
     AdasLocationTestApp \
+    curl \
+    CarTelemetryApp \
+    RailwayReferenceApp \
 
 # SEPolicy for test apps / services
 BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
@@ -65,8 +67,11 @@ PRODUCT_COPY_FILES += \
     frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf
 
 PRODUCT_PROPERTY_OVERRIDES += \
-    persist.bluetooth.enablenewavrcp=false \
     ro.carrier=unknown
+
+# Set default Bluetooth profiles
+TARGET_SYSTEM_PROP += \
+    packages/services/Car/car_product/properties/bluetooth.prop
 
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     config.disable_systemtextclassifier=true
@@ -83,6 +88,12 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     android.car.number_pre_created_users?=1 \
     android.car.number_pre_created_guests?=1
+
+# Enable User HAL integration
+# NOTE: when set to true, VHAL must also implement the user-related properties,
+# otherwise CarService will ignore it
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    android.car.user_hal_enabled?=true
 
 ### end of multi-user properties ###
 
@@ -112,6 +123,18 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_SYSTEM_PROPERTIES += \
     persist.wm.enable_remote_keyguard_animation=0
 
+# TODO(b/198516172): Find a better location to add this read only property
+# It is added here to check the functionality, will be updated in next CL
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.android.car.carservice.overlay.packages?=com.android.car.resources.vendor;com.google.android.car.resources.vendor;
+
+# vendor layer can override this
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.android.car.carservice.package?=com.android.car.updatable
+
+# Update with PLATFORM_VERSION_MINOR_INT update
+PRODUCT_SYSTEM_PROPERTIES += ro.android.car.version.platform_minor=0
+
 # Automotive specific packages
 PRODUCT_PACKAGES += \
     CarFrameworkPackageStubs \
@@ -131,11 +154,12 @@ PRODUCT_PACKAGES += \
     CarLatinIME \
     CarSettings \
     CarUsbHandler \
-    android.car \
+    RotaryIME \
+    RotaryPlayground \
+    android.car.builtin \
     car-frameworks-service \
     com.android.car.procfsinspector \
-    libcar-framework-service-jni \
-    ScriptExecutor \
+    com.android.permission \
 
 # RROs
 PRODUCT_PACKAGES += \
@@ -231,16 +255,29 @@ PRODUCT_LOCALES := \
     zu_ZA
 
 PRODUCT_BOOT_JARS += \
-    android.car
+    android.car.builtin
 
-PRODUCT_HIDDENAPI_STUBS := \
-    android.car-stubs-dex
+USE_CAR_FRAMEWORK_APEX ?= true
 
-PRODUCT_HIDDENAPI_STUBS_SYSTEM := \
-    android.car-system-stubs-dex
+ifeq ($(USE_CAR_FRAMEWORK_APEX),true)
+    PRODUCT_PACKAGES += com.android.car.framework
 
-PRODUCT_HIDDENAPI_STUBS_TEST := \
-    android.car-test-stubs-dex
+    PRODUCT_APEX_BOOT_JARS += com.android.car.framework:android.car-module
+    PRODUCT_APEX_SYSTEM_SERVER_JARS += com.android.car.framework:car-frameworks-service-module
+
+    PRODUCT_HIDDENAPI_STUBS := android.car-module.stubs
+    PRODUCT_HIDDENAPI_STUBS_SYSTEM := android.car-module.stubs.system
+    PRODUCT_HIDDENAPI_STUBS_TEST := android.car-module.stubs.test
+else # !USE_CAR_FRAMEWORK_APEX
+    $(warning NOT using CarFramework APEX)
+    PRODUCT_BOOT_JARS += android.car
+    PRODUCT_PACKAGES += android.car CarServiceUpdatableNonModule car-frameworks-service-module
+    PRODUCT_SYSTEM_SERVER_JARS += car-frameworks-service-module
+
+    PRODUCT_HIDDENAPI_STUBS := android.car-stubs-dex
+    PRODUCT_HIDDENAPI_STUBS_SYSTEM := android.car-system-stubs-dex
+    PRODUCT_HIDDENAPI_STUBS_TEST := android.car-test-stubs-dex
+endif # USE_CAR_FRAMEWORK_APEX
 
 # Disable Prime Shader Cache in SurfaceFlinger to make it available faster
 PRODUCT_PROPERTY_OVERRIDES += \

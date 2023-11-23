@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_VALIDATE_HAL_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_VALIDATE_HAL_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_VALIDATE_HAL_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_VALIDATE_HAL_H
 
 #include <nnapi/TypeUtils.h>
 #include <nnapi/Validation.h>
@@ -24,6 +24,7 @@
 #include <tuple>
 
 #include "HalInterfaces.h"
+#include "LegacyUtils.h"
 #include "nnapi/TypeUtils.h"
 #include "nnapi/Validation.h"
 
@@ -90,4 +91,4 @@ bool validateMemoryDesc(const V1_3::BufferDesc& desc,
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_VALIDATE_HAL_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_VALIDATE_HAL_H

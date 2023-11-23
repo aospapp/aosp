@@ -30,6 +30,7 @@ import com.android.timezone.location.storage.util.Visitor;
 
 import java.io.File;
 
+/** A {@link TzS2RangeFileReader.TzS2RangeFileVisitor} that dumps information to a file. */
 public final class TzS2RangeFileDumper implements TzS2RangeFileReader.TzS2RangeFileVisitor {
 
     private final File mOutputDir;

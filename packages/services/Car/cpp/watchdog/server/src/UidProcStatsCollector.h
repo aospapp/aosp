@@ -62,12 +62,12 @@ struct UidProcStats {
     std::string toString() const;
 };
 
-/**
- * Collector/parser for `/proc/[pid]/stat`, `/proc/[pid]/task/[tid]/stat` and /proc/[pid]/status`
- * files.
- */
+// Collector/parser for `/proc/[pid]/stat`, `/proc/[pid]/task/[tid]/stat` and /proc/[pid]/status`
+// files.
 class UidProcStatsCollectorInterface : public RefBase {
 public:
+    // Initializes the collector.
+    virtual void init() = 0;
     // Collects the per-uid stats from /proc directory.
     virtual android::base::Result<void> collect() = 0;
     // Returns the latest per-uid process stats.
@@ -83,18 +83,11 @@ public:
 class UidProcStatsCollector final : public UidProcStatsCollectorInterface {
 public:
     explicit UidProcStatsCollector(const std::string& path = kProcDirPath) :
-          mLatestStats({}),
-          mPath(path) {
-        std::string pidStatPath = StringPrintf((mPath + kStatFileFormat).c_str(), PID_FOR_INIT);
-        std::string tidStatPath = StringPrintf((mPath + kTaskDirFormat + kStatFileFormat).c_str(),
-                                               PID_FOR_INIT, PID_FOR_INIT);
-        std::string pidStatusPath = StringPrintf((mPath + kStatusFileFormat).c_str(), PID_FOR_INIT);
-
-        mEnabled = !access(pidStatPath.c_str(), R_OK) && !access(tidStatPath.c_str(), R_OK) &&
-                !access(pidStatusPath.c_str(), R_OK);
-    }
+          mPath(path), mLatestStats({}) {}
 
     ~UidProcStatsCollector() {}
+
+    void init() override;
 
     android::base::Result<void> collect() override;
 
@@ -108,44 +101,41 @@ public:
         return mDeltaStats;
     }
 
-    bool enabled() const { return mEnabled; }
+    bool enabled() const {
+        Mutex::Autolock lock(mMutex);
+        return mEnabled;
+    }
 
     const std::string dirPath() const { return mPath; }
 
 private:
     android::base::Result<std::unordered_map<uid_t, UidProcStats>> readUidProcStatsLocked() const;
 
-    /**
-     * Reads the contents of the below files:
-     * 1. Pid stat file at |mPath| + |kStatFileFormat|
-     * 2. Aggregated per-process status at |mPath| + |kStatusFileFormat|
-     * 3. Tid stat file at |mPath| + |kTaskDirFormat| + |kStatFileFormat|
-     */
+    // Reads the contents of the below files:
+    // 1. Pid stat file at |mPath| + |kStatFileFormat|
+    // 2. Aggregated per-process status at |mPath| + |kStatusFileFormat|
+    // 3. Tid stat file at |mPath| + |kTaskDirFormat| + |kStatFileFormat|
     android::base::Result<std::tuple<uid_t, ProcessStats>> readProcessStatsLocked(pid_t pid) const;
+
+    // Proc directory path. Default value is |kProcDirPath|.
+    // Updated by tests to point to a different location when needed.
+    std::string mPath;
 
     // Makes sure only one collection is running at any given time.
     mutable Mutex mMutex;
+
+    // True if the below files are accessible:
+    // 1. Pid stat file at |mPath| + |kTaskStatFileFormat|
+    // 2. Tid stat file at |mPath| + |kTaskDirFormat| + |kStatFileFormat|
+    // 3. Pid status file at |mPath| + |kStatusFileFormat|
+    // Otherwise, set to false.
+    bool mEnabled GUARDED_BY(mMutex);
 
     // Latest dump of per-UID stats.
     std::unordered_map<uid_t, UidProcStats> mLatestStats GUARDED_BY(mMutex);
 
     // Latest delta of per-uid stats.
     std::unordered_map<uid_t, UidProcStats> mDeltaStats GUARDED_BY(mMutex);
-
-    /**
-     * True if the below files are accessible:
-     * 1. Pid stat file at |mPath| + |kTaskStatFileFormat|
-     * 2. Tid stat file at |mPath| + |kTaskDirFormat| + |kStatFileFormat|
-     * 3. Pid status file at |mPath| + |kStatusFileFormat|
-     * Otherwise, set to false.
-     */
-    bool mEnabled;
-
-    /**
-     * Proc directory path. Default value is |kProcDirPath|.
-     * Updated by tests to point to a different location when needed.
-     */
-    std::string mPath;
 
     FRIEND_TEST(IoPerfCollectionTest, TestValidProcPidContents);
     FRIEND_TEST(UidProcStatsCollectorTest, TestValidStatFiles);

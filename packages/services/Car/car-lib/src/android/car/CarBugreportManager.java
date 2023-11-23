@@ -20,6 +20,7 @@ import android.annotation.FloatRange;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
@@ -60,17 +61,21 @@ public final class CarBugreportManager extends CarManagerBase {
         }
 
         /** Dumpstate failed to generate bugreport. */
+        @AddedInOrBefore(majorVersion = 33)
         public static final int CAR_BUGREPORT_DUMPSTATE_FAILED = 1;
 
         /**
          * Another bugreport is in progress.
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final int CAR_BUGREPORT_IN_PROGRESS = 2;
 
         /** Cannot connect to dumpstate */
+        @AddedInOrBefore(majorVersion = 33)
         public static final int CAR_BUGREPORT_DUMPSTATE_CONNECTION_FAILED = 3;
 
         /** Car bugreport service is not available (true for user builds) */
+        @AddedInOrBefore(majorVersion = 33)
         public static final int CAR_BUGREPORT_SERVICE_NOT_AVAILABLE = 4;
 
         /**
@@ -80,6 +85,7 @@ public final class CarBugreportManager extends CarManagerBase {
          *
          * @param progress - a number in [0.0, 100.0].
          */
+        @AddedInOrBefore(majorVersion = 33)
         public void onProgress(@FloatRange(from = 0f, to = 100f) float progress) {
         }
 
@@ -88,12 +94,14 @@ public final class CarBugreportManager extends CarManagerBase {
          *
          * @param errorCode the error code that defines failure reason.
          */
+        @AddedInOrBefore(majorVersion = 33)
         public void onError(@CarBugreportErrorCode int errorCode) {
         }
 
         /**
          * Called when taking bugreport finishes successfully.
          */
+        @AddedInOrBefore(majorVersion = 33)
         public void onFinished() {
         }
     }
@@ -175,6 +183,7 @@ public final class CarBugreportManager extends CarManagerBase {
      * @param callback the callback for reporting dump status.
      */
     @RequiresPermission(android.Manifest.permission.DUMP)
+    @AddedInOrBefore(majorVersion = 33)
     public void requestBugreport(
             @NonNull ParcelFileDescriptor output,
             @NonNull ParcelFileDescriptor extraOutput,
@@ -189,6 +198,7 @@ public final class CarBugreportManager extends CarManagerBase {
      */
     @RequiresPermission(android.Manifest.permission.DUMP)
     @VisibleForTesting
+    @AddedInOrBefore(majorVersion = 33)
     public void requestBugreportForTesting(
             @NonNull ParcelFileDescriptor output,
             @NonNull ParcelFileDescriptor extraOutput,
@@ -230,6 +240,7 @@ public final class CarBugreportManager extends CarManagerBase {
      * complete the cancellation.
      */
     @RequiresPermission(android.Manifest.permission.DUMP)
+    @AddedInOrBefore(majorVersion = 33)
     public void cancelBugreport() {
         try {
             mService.cancelBugreport();
@@ -239,6 +250,7 @@ public final class CarBugreportManager extends CarManagerBase {
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
     }
 }

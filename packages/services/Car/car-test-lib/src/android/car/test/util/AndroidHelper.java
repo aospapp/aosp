@@ -15,8 +15,11 @@
  */
 package android.car.test.util;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.annotation.NonNull;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 
 import java.util.Iterator;
@@ -54,6 +57,24 @@ public final class AndroidHelper {
             }
         }
         return string.append(']').toString();
+    }
+
+    /**
+     * Asserts that the {@code intentFilter} has the {@code action}.
+     */
+    public static void assertFilterHasActions(IntentFilter intentFilter, String... actions) {
+        for (String action : actions) {
+            assertWithMessage("Filter %s has action %s", intentFilter, action)
+                    .that(intentFilter.hasAction(action)).isTrue();
+        }
+    }
+
+    /**
+     * Asserts that the {@code intentFilter} has the {@code dataScheme}.
+     */
+    public static void assertFilterHasDataScheme(IntentFilter intentFilter, String dataScheme) {
+        assertWithMessage("Filter %s has data scheme %s", intentFilter, dataScheme)
+                .that(intentFilter.hasDataScheme(dataScheme)).isTrue();
     }
 
     private AndroidHelper() {

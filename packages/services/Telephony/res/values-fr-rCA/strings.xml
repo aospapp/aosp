@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Mode de rappel d\'urgence"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Connexion des données désactivée"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Aucune connexion de données avant <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">Le téléphone sera en mode de rappel d\'urgence pendant <xliff:g id="COUNT_1">%s</xliff:g> minute.  Lorsque ce mode est activé, vous ne pouvez pas utiliser d\'applications nécessitant une connexion à Internet. Voulez-vous quitter l\'écran maintenant?</item>
-      <item quantity="other"> Le téléphone sera en mode de rappel d\'urgence pendant <xliff:g id="COUNT_1">%s</xliff:g> minutes. Lorsque ce mode est activé, vous ne pouvez pas utiliser d\'applications nécessitant une connexion à Internet. Voulez-vous quitter l\'écran maintenant?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">L\'action sélectionnée n\'est pas disponible lorsque le mode de rappel d\'urgence est activé. Ce mode restera activé sur ce téléphone pendant <xliff:g id="COUNT_1">%s</xliff:g> minute. Voulez-vous quitter l\'écran maintenant?</item>
-      <item quantity="other">L\'action sélectionnée n\'est pas disponible lorsque le mode de rappel d\'urgence est activé. Ce mode restera activé sur ce téléphone pendant <xliff:g id="COUNT_1">%s</xliff:g> minutes. Voulez-vous quitter l\'écran maintenant?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"L\'action sélectionnée n\'est pas disponible pendant un appel d\'urgence."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Sortie du mode de rappel d\'urgence…"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Oui"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Ignorer"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Le téléphone est en mode de rappel d\'urgence"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Jusqu\'à <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">Le mode de rappel d\'urgence sera activé sur le téléphone pour une durée de <xliff:g id="COUNT_1">%s</xliff:g> minute.\nVoulez-vous quitter ce mode maintenant?</item>
-      <item quantity="other">Le mode de rappel d\'urgence sera activé sur le téléphone pour une durée de <xliff:g id="COUNT_1">%s</xliff:g> minutes.\nVoulez-vous quitter ce mode maintenant?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Service"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Configuration"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Non défini&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Accessibilité"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Appel Wi-Fi de"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Appel Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Touchez à nouveau pour ouvrir"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Une erreur s\'est produite lors du décodage du message."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Une carte SIM a activé votre service et mis à jour les fonctionnalités d\'itinérance de votre téléphone."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Il y a trop d\'appels actifs. Veuillez mettre fin aux appels existants ou les fusionner avant d\'en passer un nouveau."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Impossible de passer un appel, car un autre appel sortant est déjà en cours de composition."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Impossible de passer un appel, car il y a un appel entrant sans réponse. Répondez à l\'appel entrant ou refusez-le avant de passer un nouvel appel."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Impossible de passer un appel, car la fonction d\'appel a été désactivée à l\'aide de la propriété système ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Impossible de passer un appel, car deux appels sont déjà en cours. Déconnectez-en un ou fusionnez-les en conférence téléphonique avant de passer un nouvel appel."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Impossible de passer un appel, car deux appels sont déjà en cours. Déconnectez-en un ou fusionnez-les en conférence téléphonique avant de passer un nouvel appel."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Avant d\'utiliser <xliff:g id="SUPP_SERVICE">%s</xliff:g>, assurez-vous que les données cellulaires sont activées. Vous pouvez modifier cette option dans les paramètres du réseau cellulaire."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Avant d\'utiliser <xliff:g id="SUPP_SERVICE">%s</xliff:g>, assurez-vous que les données cellulaires et l\'itinérance des données sont activées. Vous pouvez modifier ces options dans les paramètres du réseau cellulaire."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Avant d\'utiliser <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, assurez-vous que les données cellulaires sont activées pour la carte SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Vous pouvez modifier cette option dans les paramètres du réseau cellulaire."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Vous devez redémarrer votre appareil pour modifier ce paramètre."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Redémarrer"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Annuler"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Définir la carte eSIM amovible comme carte SIM par défaut"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Alimentation de radio cellulaire"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Afficher le carnet d\'adresses de la carte SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Afficher les numéros d\'appel fixes"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Sélectionner la bande radio"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Type de réseau vocal :"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Type de réseau de données :"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Remplacer le type de réseau :"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Sélectionner l\'indice du téléphone"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Définir le type de réseau préféré :"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Faire un ping de l\'IPv4 du nom d\'hôte (www.google.com) :"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Actualiser"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Basculer la vérification DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informations/paramètres OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC disponible :"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR restreinte :"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR disponible :"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"État NR :"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"Disponibilité EN-DC (NSA) :"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"Restriction DCNR (NSA) :"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"Disponibilité NR (NSA) :"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"État NR (NSA) :"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Fréquence NR :"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Définir le mode de bande radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Chargement de la liste de bandes en cours…"</string>

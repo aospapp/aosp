@@ -256,6 +256,8 @@ public class ScoringParamsTest extends WifiBaseTest {
     int mBad5GHz, mEntry5GHz, mSufficient5GHz, mGood5GHz;
     int mBad6GHz, mEntry6GHz, mSufficient6GHz, mGood6GHz;
     int mEstimateRssiErrorMargin;
+    int mBand6GhzBonus;
+    int mScoringBucketStepSize;
 
     @Mock Context mContext;
     @Spy private MockResources mResources = new MockResources();
@@ -297,6 +299,9 @@ public class ScoringParamsTest extends WifiBaseTest {
                 R.integer.config_wifiFrameworkScoreGoodRssiThreshold6ghz, -50);
         mEstimateRssiErrorMargin = setupIntegerResource(
                 R.integer.config_wifiEstimateRssiErrorMarginDb, 5);
+        mBand6GhzBonus = setupIntegerResource(R.integer.config_wifiBand6GhzBonus, 7);
+        mScoringBucketStepSize = setupIntegerResource(R.integer.config_wifiScoringBucketStepSize,
+                567);
     }
 
     /**
@@ -324,5 +329,7 @@ public class ScoringParamsTest extends WifiBaseTest {
         assertEquals(mGood6GHz, mScoringParams.getGoodRssi(6275));
         assertEquals(mGood6GHz, mScoringParams.getGoodRssi(ScanResult.BAND_6_GHZ_START_FREQ_MHZ));
         assertEquals(mEstimateRssiErrorMargin, mScoringParams.getEstimateRssiErrorMargin());
+        assertEquals(mBand6GhzBonus, mScoringParams.getBand6GhzBonus());
+        assertEquals(mScoringBucketStepSize, mScoringParams.getScoringBucketStepSize());
     }
 }

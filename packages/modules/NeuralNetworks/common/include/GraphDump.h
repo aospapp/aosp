@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_GRAPH_DUMP_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_GRAPH_DUMP_H
 
 #include <iostream>
 
@@ -50,4 +50,4 @@ void graphDump(const char* name, const Model& model, std::ostream* outStream = n
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_GRAPH_DUMP_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_GRAPH_DUMP_H

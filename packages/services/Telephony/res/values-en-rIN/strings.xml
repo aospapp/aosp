@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Emergency Callback Mode"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Data connection disabled"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"No data connection until <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">The phone will be in Emergency Callback mode for <xliff:g id="COUNT_1">%s</xliff:g> minutes. While in this mode no applications using a data connection can be used. Do you want to exit now?</item>
-      <item quantity="one">The phone will be in Emergency Callback mode for <xliff:g id="COUNT_0">%s</xliff:g> minute. While in this mode no apps using a data connection can be used. Do you want to exit now?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for <xliff:g id="COUNT_1">%s</xliff:g> minutes. Do you want to exit now?</item>
-      <item quantity="one">The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for <xliff:g id="COUNT_0">%s</xliff:g> minute. Do you want to exit now?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{The phone will be in emergency callback mode for one minute. While in this mode, no apps using a data connection can be used. Do you want to exit now?}other{The phone will be in emergency callback mode for %s minutes. While in this mode, no applications using a data connection can be used. Do you want to exit now?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{The selected action isn\'t available while in the emergency callback mode. The phone will be in this mode for one minute. Do you want to exit now?}other{The selected action isn\'t available while in the emergency callback mode. The phone will be in this mode for %s minutes. Do you want to exit now?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"The action selected isn\'t available during an emergency call."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Exiting Emergency Callback mode"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Yes"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Dismiss"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"The phone is in emergency callback mode"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Until <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">The phone will be in emergency callback mode for <xliff:g id="COUNT_1">%s</xliff:g> minutes.\nDo you want to exit now?</item>
-      <item quantity="one">The phone will be in emergency callback mode for <xliff:g id="COUNT_0">%s</xliff:g> minute.\nDo you want to exit now?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{The phone will be in emergency callback mode for one minute.\nDo you want to exit now?}other{The phone will be in emergency callback mode for %s minutes.\nDo you want to exit now?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Service"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Setup"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Not set&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Accessibility"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi call from"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi call"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Tap again to open"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"There was an error while decoding the message."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"A SIM card has activated your service and updated your phone\'s roaming capabilities."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"There are too many active calls. Please end or merge existing calls before placing a new one."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Cannot place a call as another outgoing call is already dialling."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Cannot place a call as there is an unanswered incoming call. Answer or reject the incoming call prior to placing a new call."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Cannot place a call as calling has been disabled using the ro.telephony.disable-call system property."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Cannot place a call a there are already two calls in progress. Disconnect one of the calls or merge them into a conference prior to placing a new call."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Cannot place a call as there are already two calls in progress. Disconnect one of the calls or merge them into a conference prior to placing a new call."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"To use <xliff:g id="SUPP_SERVICE">%s</xliff:g>, make sure that mobile data is turned on. You can change this in mobile network settings."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"To use <xliff:g id="SUPP_SERVICE">%s</xliff:g>, make sure that mobile data and data roaming are turned on. You can change these in mobile network settings."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"To use <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, make sure that mobile data is turned on for SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. You can change this in mobile network settings."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"You need to restart your device to change this setting."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Restart"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Cancel"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Set removable eSIM as default"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobile radio power"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"View SIM address book"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"View fixed dialling numbers"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Select radio band"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Voice network type:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Data network type:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Override network type:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Select phone index"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Set preferred network type:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping hostname(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Refresh"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Toggle DNS check"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-specific info/settings"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC available:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR restricted:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR available:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR status:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC available (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR restricted (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR available (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR state (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR frequency:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Set radio band mode"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Loading band list…"</string>

@@ -25,6 +25,7 @@ cc_defaults {
         "-Wno-unused-variable",
         "-Wunused-parameter",
         "-Wno-error=deprecated",
+        "-DANDROID_UTILS_REF_BASE_DISABLE_IMPLICIT_CONSTRUCTION",
     ],
     include_dirs: [
         "system/libbase/include",
@@ -34,13 +35,18 @@ cc_defaults {
         "libbinder",
         "liblog",
         "libutils",
+        "packagemanager_aidl-cpp",
     ],
     static_libs: [
-        "android.automotive.watchdog.internal-cpp",
+        "android.automotive.watchdog.internal-V1-cpp",
         "android.automotive.watchdog-V3-cpp",
+        "libvhalclient",
     ],
     header_libs: [
         "libgtest_prod_headers",
+    ],
+    defaults: [
+        "vhalclient_defaults",
     ],
 }
 
@@ -83,8 +89,8 @@ cc_library {
         "src/IoPerfCollection.cpp",
         "src/LooperWrapper.cpp",
         "src/OveruseConfigurationXmlHelper.cpp",
-        "src/ProcDiskStats.cpp",
-        "src/ProcStat.cpp",
+        "src/ProcDiskStatsCollector.cpp",
+        "src/ProcStatCollector.cpp",
         "src/UidIoStatsCollector.cpp",
         "src/UidProcStatsCollector.cpp",
         "src/UidStatsCollector.cpp",
@@ -116,6 +122,14 @@ cc_test {
         "libwatchdog_process_service_defaults",
     ],
     test_suites: ["general-tests"],
+    tidy_disabled_srcs: [
+        // b/207508335
+        "tests/PackageInfoResolverTest.cpp",
+    ],
+    tidy_timeout_srcs: [
+        "tests/IoOveruseMonitorTest.cpp",
+        "tests/WatchdogServiceHelperTest.cpp",
+    ],
     srcs: [
         "tests/IoOveruseConfigsTest.cpp",
         "tests/IoOveruseMonitorTest.cpp",
@@ -125,9 +139,9 @@ cc_test {
         "tests/OveruseConfigurationXmlHelperTest.cpp",
         "tests/PackageInfoResolverTest.cpp",
         "tests/PackageInfoTestUtils.cpp",
-        "tests/ProcDiskStatsTest.cpp",
+        "tests/ProcDiskStatsCollectorTest.cpp",
         "tests/ProcPidDir.cpp",
-        "tests/ProcStatTest.cpp",
+        "tests/ProcStatCollectorTest.cpp",
         "tests/UidIoStatsCollectorTest.cpp",
         "tests/UidProcStatsCollectorTest.cpp",
         "tests/UidStatsCollectorTest.cpp",

@@ -44,26 +44,30 @@ def readScreenDimens(configini):
     height = 1920
     density = 160
     with open(configini, 'r') as f:
-        for line in f.readlines():
-            parts = line.split(' = ')
+        for line in f:
+            parts = line.split('=')
             if len(parts) != 2:
                 continue
+            parts[0] = parts[0].strip()
+            parts[1] = parts[1].strip()
             if parts[0] == 'hw.lcd.width':
-                width = parts[1]
+                width = int(parts[1])
             if parts[0] == 'hw.lcd.height':
-                height = parts[1]
+                height = int(parts[1])
+            if parts[0] == 'hw.lcd.density':
+                density = int(parts[1])
     return (width, height, density)
 
 def buildAVD(outputDir, abi):
-    os.makedirs(os.path.join(outputDir, '.android/avd/my_car_avd.avd/'), exist_ok=True)
-    with open(os.path.join(outputDir, '.android/avd/my_car_avd.ini'), 'w') as f:
+    os.makedirs(os.path.join(outputDir, 'android/avd/my_car_avd.avd/'), exist_ok=True)
+    with open(os.path.join(outputDir, 'android/avd/my_car_avd.ini'), 'w') as f:
         f.write('avd.ini.encoding=UTF-8\n')
         f.write('path=required_but_we_want_to_use_path.rel_instead\n')
         f.write('path.rel=avd/my_car_avd.avd\n')
 
     width, height, density = readScreenDimens(fromProductOut('config.ini'))
 
-    with open(os.path.join(outputDir, '.android/avd/my_car_avd.avd/config.ini'), 'w') as f:
+    with open(os.path.join(outputDir, 'android/avd/my_car_avd.avd/config.ini'), 'w') as f:
         f.write(f'''
 image.sysdir.1 = unused_because_passing_-sysdir_to_emulator
 hw.lcd.density = {density}
@@ -141,8 +145,8 @@ fi
 # in the avd ini file. But I couldn't figure out how to make that work
 # with a relative path.
 
-ANDROID_EMULATOR_HOME=$(dirname $0)/.android \
-ANDROID_AVD_HOME=.android/avd \
+ANDROID_EMULATOR_HOME=$(dirname $0)/android \
+ANDROID_AVD_HOME=android/avd \
 ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT \
 $ANDROID_SDK_ROOT/emulator/emulator \
 -avd my_car_avd -sysdir x86_64 $@

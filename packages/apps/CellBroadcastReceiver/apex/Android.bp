@@ -1,18 +1,11 @@
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "packages_apps_CellBroadcastReceiver_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    default_applicable_licenses: [
-        "packages_apps_CellBroadcastReceiver_license",
-    ],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 apex_defaults {
     name: "com.android.cellbroadcast-defaults",
-    updatable: true,
-    min_sdk_version: "30",
+    defaults: ["r-launched-apex-module"],
 
     manifest: "apex_manifest.json",
 
@@ -41,4 +34,8 @@ apex {
     name: "com.android.cellbroadcast",
     defaults:["com.android.cellbroadcast-defaults"],
     apps: ["CellBroadcastApp", "CellBroadcastServiceModule"],
+    prebuilts: [
+        "privapp_allowlist_com.android.cellbroadcastservice.xml",
+        "privapp_allowlist_com.android.cellbroadcastreceiver.module.xml",
+    ],
 }

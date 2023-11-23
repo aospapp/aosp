@@ -31,6 +31,7 @@
     -->
     <application android:name=".ClusterHomeApplication"
             android:label="ClusterHomeSample"
+            android:persistent="true"
             android:directBootAware="true">
         <!-- android:showForAllUsers to keep the Activity regardless of user-switching -->
         <activity android:name=".ClusterHomeActivity"

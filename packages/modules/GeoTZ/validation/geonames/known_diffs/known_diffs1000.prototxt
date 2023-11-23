@@ -1,276 +1,6 @@
 knownDifferences {
-  cityName: "Navis"
-  s2CellId: 5160467523547693056
-  referenceDataResult {
-    isoCountryCodes: "at"
-    zoneIds: "Europe/Vienna"
-  }
-  actualResult {
-    isoCountryCodes: "de"
-    zoneIds: "Europe/Berlin"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Watson Lake"
-  s2CellId: 6051529110713270272
-  referenceDataResult {
-    isoCountryCodes: "ca"
-    zoneIds: "America/Vancouver"
-  }
-  actualResult {
-    isoCountryCodes: "ca"
-    zoneIds: "America/Whitehorse"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Dangchengwan"
-  s2CellId: 4005214967853744128
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Yuanquan"
-  s2CellId: 4017494470479052800
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Suicheng"
-  s2CellId: 3939852979795918848
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Shuidong"
-  s2CellId: 3939707009963655168
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Potou"
-  s2CellId: 3554233391815589888
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Mazhang"
-  s2CellId: 3554137857247412224
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Maoming"
-  s2CellId: 3939690856054784000
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Chikan"
-  s2CellId: 3554230989318258688
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Nanhai"
-  s2CellId: 3939706688377978880
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Leicheng"
-  s2CellId: 3554165646759559168
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Dongzhen"
-  s2CellId: 3939538178557345792
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Luozhou"
-  s2CellId: 3939847974548406272
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Hexi"
-  s2CellId: 3939781156131569664
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Shazhou"
-  s2CellId: 4029245347992698880
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Hongliuwan"
-  s2CellId: 4005071068195717120
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Meilu"
   s2CellId: 3939725057416232960
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Nierong"
-  s2CellId: 3997666483374129152
   referenceDataResult {
     isoCountryCodes: "cn"
     zoneIds: "Asia/Urumqi"
@@ -368,36 +98,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "sv"
     zoneIds: "America/El_Salvador"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Danaupanggang"
-  s2CellId: 3307090924990889984
-  referenceDataResult {
-    isoCountryCodes: "id"
-    zoneIds: "Asia/Jakarta"
-  }
-  actualResult {
-    isoCountryCodes: "id"
-    zoneIds: "Asia/Makassar"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Jembrana Subdistrict"
-  s2CellId: 3301526775531569152
-  referenceDataResult {
-    isoCountryCodes: "id"
-    zoneIds: "Asia/Jakarta"
-  }
-  actualResult {
-    isoCountryCodes: "id"
-    zoneIds: "Asia/Makassar"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -545,66 +245,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Uk\303\272m"
-  s2CellId: 10329511310001176576
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Cancun"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Xmab\303\251n"
-  s2CellId: 10329508737852637184
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Cancun"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Xpujil"
-  s2CellId: 10329320328374779904
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Cancun"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Zoh-Laguna"
-  s2CellId: 10329255059367395328
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Cancun"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Prax\303\251dis Guerrero"
   s2CellId: 9720747440260251648
   referenceDataResult {
@@ -646,21 +286,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "mx"
     zoneIds: "America/Matamoros"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Puente de Camotl\303\241n"
-  s2CellId: 9522746425868288000
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Chihuahua"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -836,21 +461,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Ejido Doctor Alberto Oviedo Mota (El Indiviso)"
-  s2CellId: 9284122192377806848
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Hermosillo"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Tijuana"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Colonia Venustiano Carranza"
   s2CellId: 9682610790867140608
   referenceDataResult {
@@ -990,7 +600,7 @@ knownDifferences {
   s2CellId: 6875725836339642368
   referenceDataResult {
     isoCountryCodes: "ru"
-    zoneIds: "Asia/Tokyo"
+    zoneIds: "Asia/Magadan"
   }
   actualResult {
     isoCountryCodes: "ru"
@@ -1106,36 +716,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Ordzhonikidze"
-  s2CellId: 4677980750170030080
-  referenceDataResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Kiev"
-  }
-  actualResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Simferopol"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Mysovoe"
-  s2CellId: 4677368386080997376
-  referenceDataResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Kiev"
-  }
-  actualResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Simferopol"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Huguley"
   s2CellId: 9839418635947343872
   referenceDataResult {
@@ -1145,21 +725,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "us"
     zoneIds: "America/New_York"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Fort Pierre"
-  s2CellId: 9763823498538516480
-  referenceDataResult {
-    isoCountryCodes: "us"
-    zoneIds: "America/Denver"
-  }
-  actualResult {
-    isoCountryCodes: "us"
-    zoneIds: "America/Chicago"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -3045,21 +2610,6 @@ knownDifferences {
 knownDifferences {
   cityName: "C\341\272\251m Th\341\273\247y"
   s2CellId: 3546190912008749056
-  referenceDataResult {
-    isoCountryCodes: "vn"
-    zoneIds: "Asia/Bangkok"
-  }
-  actualResult {
-    isoCountryCodes: "th"
-    zoneIds: "Asia/Bangkok"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "C\341\272\251m Ph\341\272\243"
-  s2CellId: 3551930755158376448
   referenceDataResult {
     isoCountryCodes: "vn"
     zoneIds: "Asia/Bangkok"
@@ -5692,6 +5242,21 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "rs"
     zoneIds: "Europe/Belgrade"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Fernando de Noronha (Distrito Estadual)"
+  s2CellId: 447635812889133056
+  referenceDataResult {
+    isoCountryCodes: "br"
+    zoneIds: "America/Sao_Paulo"
+  }
+  actualResult {
+    isoCountryCodes: "br"
+    zoneIds: "America/Noronha"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"

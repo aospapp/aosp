@@ -20,6 +20,7 @@ import static android.net.ConnectivitySettingsManager.NETWORK_AVOID_BAD_WIFI;
 import static android.net.ConnectivitySettingsManager.NETWORK_METERED_MULTIPATH_PREFERENCE;
 
 import android.annotation.NonNull;
+import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -29,6 +30,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.net.ConnectivityResources;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.provider.Settings;
 import android.telephony.SubscriptionManager;
@@ -92,8 +94,8 @@ public class MultinetworkPolicyTracker {
             }
         }
     }
-
-    @VisibleForTesting
+    // TODO: Set the mini sdk to 31 and remove @TargetApi annotation when b/205923322 is addressed.
+    @VisibleForTesting @TargetApi(Build.VERSION_CODES.S)
     protected class ActiveDataSubscriptionIdListener extends TelephonyCallback
             implements TelephonyCallback.ActiveDataSubscriptionIdListener {
         @Override
@@ -107,6 +109,8 @@ public class MultinetworkPolicyTracker {
         this(ctx, handler, null);
     }
 
+    // TODO: Set the mini sdk to 31 and remove @TargetApi annotation when b/205923322 is addressed.
+    @TargetApi(Build.VERSION_CODES.S)
     public MultinetworkPolicyTracker(Context ctx, Handler handler, Runnable avoidBadWifiCallback) {
         mContext = ctx;
         mResources = new ConnectivityResources(ctx);
@@ -180,7 +184,7 @@ public class MultinetworkPolicyTracker {
      * The value works when the time set is more than {@link System.currentTimeMillis()}.
      */
     public void setTestAllowBadWifiUntil(long timeMs) {
-        Log.d(TAG, "setTestAllowBadWifiUntil: " + mTestAllowBadWifiUntilMs);
+        Log.d(TAG, "setTestAllowBadWifiUntil: " + timeMs);
         mTestAllowBadWifiUntilMs = timeMs;
         reevaluateInternal();
     }

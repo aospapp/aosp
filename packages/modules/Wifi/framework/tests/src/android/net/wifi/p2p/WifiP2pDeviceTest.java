@@ -18,10 +18,19 @@ package android.net.wifi.p2p;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
+import android.net.wifi.ScanResult;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Unit test harness for {@link android.net.wifi.p2p.WifiP2pDevice}
@@ -114,5 +123,19 @@ public class WifiP2pDeviceTest {
         device.wfdInfo = null;
         WifiP2pDevice copy = new WifiP2pDevice(device);
         compareWifiP2pDevices(device, copy);
+    }
+
+    /**
+     * Test that application information setter/getter.
+     */
+    @Test
+    public void testVendorElementsSetterGetter() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiP2pDevice device = new WifiP2pDevice();
+        List<ScanResult.InformationElement> ies =  new ArrayList<>(Arrays.asList(
+                new ScanResult.InformationElement(ScanResult.InformationElement.EID_VSA,
+                        0, new byte[]{1, 2, 3, 4})));
+        device.setVendorElements(ies);
+        assertEquals(ies, device.getVendorElements());
     }
 }

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-syntax = "proto2";
+syntax = "proto3";
 
-package android_nn_fuzz;
+package android.nn.fuzz;
 
 enum OperandType {
     FLOAT32 = 0;
@@ -34,6 +34,7 @@ enum OperandType {
     TENSOR_QUANT16_ASYMM = 12;
     TENSOR_QUANT8_SYMM = 13;
     TENSOR_QUANT8_ASYMM_SIGNED = 14;
+    SUBGRAPH_OPERAND = 15;
 }
 
 enum OperationType {
@@ -132,6 +133,17 @@ enum OperationType {
     UNIDIRECTIONAL_SEQUENCE_LSTM = 92;
     UNIDIRECTIONAL_SEQUENCE_RNN = 93;
     RESIZE_NEAREST_NEIGHBOR = 94;
+    QUANTIZED_LSTM = 95;
+    IF = 96;
+    WHILE = 97;
+    ELU = 98;
+    HARD_SWISH = 99;
+    FILL = 100;
+    RANK = 101;
+    BATCH_MATMUL = 102;
+    PACK = 103;
+    MIRROR_PAD = 104;
+    REVERSE = 105;
 }
 
 enum OperandLifeTime {
@@ -141,10 +153,17 @@ enum OperandLifeTime {
     CONSTANT_COPY = 3;
     CONSTANT_REFERENCE = 4;
     NO_VALUE = 5;
+    SUBGRAPH_LIFETIME = 6;
 }
 
+message EmptyBuffer {}
+
 message Buffer {
-    required uint32 random_seed = 1;
+    oneof type {
+        EmptyBuffer empty = 1;
+        uint32 scalar = 2;
+        uint32 random_seed = 3;
+    }
 }
 
 message Scales {
@@ -152,8 +171,8 @@ message Scales {
 }
 
 message SymmPerChannelQuantParams {
-    required Scales scales = 1;
-    required uint32 channel_dim = 2;
+    Scales scales = 1;
+    uint32 channel_dim = 2;
 }
 
 message Dimensions {
@@ -161,13 +180,13 @@ message Dimensions {
 }
 
 message Operand {
-    required OperandType type = 1;
-    required Dimensions dimensions = 2;
-    required float scale = 4;
-    required int32 zero_point = 5;
-    required OperandLifeTime lifetime = 6;
-    required SymmPerChannelQuantParams channel_quant = 7;
-    required Buffer data = 8;
+    OperandType type = 1;
+    Dimensions dimensions = 2;
+    float scale = 4;
+    int32 zero_point = 5;
+    OperandLifeTime lifetime = 6;
+    SymmPerChannelQuantParams channel_quant = 7;
+    Buffer data = 8;
 }
 
 message Operands {
@@ -179,23 +198,32 @@ message Indexes {
 }
 
 message Operation {
-    required OperationType type = 1;
-    required Indexes inputs = 2;
-    required Indexes outputs = 3;
+    OperationType type = 1;
+    Indexes inputs = 2;
+    Indexes outputs = 3;
 }
 
 message Operations {
     repeated Operation operation = 1;
 }
 
+message Subgraph {
+    Operands operands = 1;
+    Operations operations = 2;
+    Indexes input_indexes = 3;
+    Indexes output_indexes = 4;
+}
+
+message Subgraphs {
+    repeated Subgraph subgraph = 1;
+}
+
 message Model {
-    required Operands operands = 1;
-    required Operations operations = 2;
-    required Indexes input_indexes = 3;
-    required Indexes output_indexes = 4;
-    required bool is_relaxed = 5;
+    Subgraph main = 1;
+    Subgraphs referenced = 2;
+    bool is_relaxed = 3;
 }
 
 message Test {
-    required Model model = 1;
+    Model model = 1;
 }

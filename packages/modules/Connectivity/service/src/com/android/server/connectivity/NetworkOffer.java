@@ -22,6 +22,7 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.RemoteException;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -143,6 +144,11 @@ public class NetworkOffer implements NetworkRanker.Scoreable {
 
     @Override
     public String toString() {
-        return "NetworkOffer [ Score " + score + " Caps " + caps + "]";
+        final ArrayList<Integer> neededRequestIds = new ArrayList<>();
+        for (final NetworkRequest request : mCurrentlyNeeded) {
+            neededRequestIds.add(request.requestId);
+        }
+        return "NetworkOffer [ Provider Id (" + providerId + ") " + score + " Caps "
+                + caps + " Needed by " + neededRequestIds + "]";
     }
 }

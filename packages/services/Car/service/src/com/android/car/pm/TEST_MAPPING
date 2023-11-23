@@ -15,6 +15,9 @@
       "name": "CarServiceUnitTest",
       "options" : [
         {
+          "include-filter": "com.android.car.pm.CarPackageManagerServiceUnitTest"
+        },
+        {
           "include-filter": "com.android.car.pm.VendorServiceControllerTest"
         },
         {

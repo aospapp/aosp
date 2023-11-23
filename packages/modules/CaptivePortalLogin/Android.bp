@@ -23,7 +23,7 @@ java_defaults {
     srcs: ["src/**/*.java"],
     sdk_version: "system_current",
     min_sdk_version: "29",
-    target_sdk_version: "30",
+    target_sdk_version: "33", // Keep in sync with CaptivePortalLoginTests
     static_libs: [
         "androidx.annotation_annotation",
         "androidx.legacy_legacy-support-v4",
@@ -32,6 +32,7 @@ java_defaults {
     ],
     manifest: "AndroidManifest.xml",
     plugins: ["java_api_finder"],
+    lint: { strict_updatability_linting: true }
 }
 
 android_app {
@@ -44,6 +45,7 @@ android_app {
 android_library {
     name: "CaptivePortalLoginTestLib",
     defaults: ["CaptivePortalLoginDefaults"],
+    lint: { strict_updatability_linting: true }
 }
 
 // Alternative CaptivePortalLogin signed with the platform cert, to use
@@ -53,4 +55,5 @@ android_app {
     defaults: ["CaptivePortalLoginDefaults"],
     certificate: "platform",
     overrides: ["CaptivePortalLogin"],
+    lint: { strict_updatability_linting: true }
 }

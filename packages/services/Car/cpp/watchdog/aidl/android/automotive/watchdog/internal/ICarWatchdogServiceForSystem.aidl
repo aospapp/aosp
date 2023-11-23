@@ -72,7 +72,7 @@ interface ICarWatchdogServiceForSystem {
   oneway void resetResourceOveruseStats(in @utf8InCpp List<String> packageNames);
 
   /**
-   * Fetches today's I/O usage stats for all packages collected during the
+   * Fetches current UTC calendar day's I/O usage stats for all packages collected during the
    * previous boot.
    */
   List<UserPackageIoUsageStats> getTodayIoUsageStats();

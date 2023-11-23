@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"アカウントの追加"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"アカウントとログイン"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"アカウントなし"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> 件のアカウント</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> 件のアカウント</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# 個のアカウント}other{# 個のアカウント}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"メディア サービス、アシスタント、お支払い"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"ネ⁠ッ⁠ト⁠ワ⁠ー⁠ク⁠とイ⁠ン⁠タ⁠ー⁠ネ⁠ッ⁠ト"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"サウンド"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"アプリ"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"デバイス設定"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"リモコンとアクセサリ"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Bluetooth デバイスの接続なし"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> 個のアクセサリ</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> 個のアクセサリ</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"ディスプレイと音"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"ヘルプとフィードバック"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"プライバシー"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"データの初期化"</string>
     <string name="device_calibration" msgid="2907914144048739705">"キャリブレーション"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"省エネツール"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"デバイス"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"形式の選択"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"サラウンド サウンド"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"ドルビー デジタル"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"有効な形式"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"無効な形式"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"無効にするには、[形式の選択] を [手動] に切り替えてください。"</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"解像度"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"自動"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"解像度を変更しました"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"これから %1$s を使用するには、[OK] を選択してください。"</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"キャンセル"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"キャッシュデータを削除しますか？"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"すべてのアプリのキャッシュデータが削除されます。"</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"アクセサリを追加"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"ペアに設定しています…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"接続しています…"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"アクセサリ"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"リモコン"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"リモコンの設定"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"リモコンボタンのセットアップ"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"テレビ、レシーバー、サウンドバーの音量、電源の操作や、入力の切り替えを行えます"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"接続"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s に接続"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"接続を解除"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"利用できません"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"デバイス管理アプリ"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"アクティブなアプリはありません"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other">有効なアプリ: <xliff:g id="COUNT_1">%d</xliff:g> 個</item>
-      <item quantity="one">有効なアプリ: <xliff:g id="COUNT_0">%d</xliff:g> 個</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"管理者、暗号化ポリシー、または認証情報ストレージにより無効化"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"管理対象デバイスの情報"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"変更と設定は組織によって管理されています"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"なし"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"アプリがインストールされています"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"アプリの数は推定値です。Play ストア以外からインストールしたアプリが含まれていないことがあります。"</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">アプリ: <xliff:g id="COUNT_1">%d</xliff:g> 個以上</item>
-      <item quantity="one">アプリ: <xliff:g id="COUNT_0">%d</xliff:g> 個以上</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{# 個以上のアプリ}other{# 個以上のアプリ}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"位置情報の権限"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"マイクの権限"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"カメラの権限"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"デフォルト アプリ"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other">アプリ: <xliff:g id="COUNT_1">%d</xliff:g> 個</item>
-      <item quantity="one">アプリ: <xliff:g id="COUNT_0">%d</xliff:g> 個</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# 個のアプリ}other{# 個のアプリ}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"デフォルト キーボード"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g> に設定済み"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"常時接続 VPN は ON です"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"信頼できる認証情報"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"個人用プロファイル内の信頼できる認証情報"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"仕事用プロファイル内の信頼できる認証情報"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">CA 証明書: <xliff:g id="COUNT_1">%d</xliff:g> 件以上</item>
-      <item quantity="one">CA 証明書: <xliff:g id="COUNT_0">%d</xliff:g> 件以上</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# 件のCA 証明書}other{# 件のCA 証明書}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"管理者はデバイスをロックしてパスワードを再設定できます"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"管理者はデバイスのすべてのデータを削除できます"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"すべてのデバイスデータが削除されるまでのパスワード入力回数"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"仕事用プロファイルのデータが削除されるまでのパスワード入力回数"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other">入力回数: <xliff:g id="COUNT_1">%d</xliff:g> 回</item>
-      <item quantity="one">入力回数: <xliff:g id="COUNT_0">%d</xliff:g> 回</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{入力回数 # 回}other{入力回数 # 回}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"このデバイスは組織によって管理されています。"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"このデバイスは <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> により管理されています。"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"詳細"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">カメラアプリ</item>
-      <item quantity="one">カメラアプリ</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{カメラアプリ}other{カメラアプリ}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"カレンダー アプリ"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"連絡帳アプリ"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">メール クライアント アプリ</item>
-      <item quantity="one">メール クライアント アプリ</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{メール クライアント アプリ}other{メール クライアント アプリ}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"地図アプリ"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">電話アプリ</item>
-      <item quantity="one">電話アプリ</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{電話アプリ}other{電話アプリ}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"ブラウザアプリ"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>、<xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>、<xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>、<xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV の OS バージョン"</string>
     <string name="about_serial" msgid="3432319328808745459">"シリアル番号"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV の OS ビルド"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">開発者向けオプションが有効になるまであと <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> 回です</item>
-      <item quantity="one">開発者向けオプションが有効になるまであと <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> 回です</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{あと # ステップでデベロッパー設定が有効になります}other{あと # ステップでデベロッパー設定が有効になります}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"広告"</string>
     <string name="ads_description" msgid="8081069475265061074">"広告設定（広告 ID のリセットなど）を管理します。"</string>
     <string name="ads_content_description" msgid="1006489792324920289">"広告。広告設定（広告 ID のリセットなど）を管理します。"</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"その他のシステム アップデート"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"ネットワークが監視されている可能性があります"</string>
     <string name="done_button" msgid="616159688526431451">"完了"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">証明書の信頼または削除</item>
-      <item quantity="one">証明書の信頼または削除</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> が、あなたのデバイスに認証局をインストールしました。これにより、デバイスのネットワーク アクティビティ（メール、アプリ、保護されたウェブサイトなど）が管理される可能性があります。\n\nこれらの証明書について詳しくは、管理者にお問い合わせください。</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> が、あなたのデバイスに認証局をインストールしました。これにより、デバイスのネットワーク アクティビティ（メール、アプリ、保護されたウェブサイトなど）が管理される可能性があります。\n\nこの証明書について詳しくは、管理者にお問い合わせください。</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> が、あなたの仕事用プロファイルに認証局をインストールしました。これにより、仕事のネットワーク アクティビティ（メール、アプリ、保護されたウェブサイトなど）が管理される可能性があります。\n\nこれらの証明書について詳しくは、管理者にお問い合わせください。</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> が、あなたの仕事用プロファイルに認証局をインストールしました。これにより、仕事のネットワーク アクティビティ（メール、アプリ、保護されたウェブサイトなど）が管理される可能性があります。\n\nこの証明書について詳しくは、管理者にお問い合わせください。</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"第三者があなたのネットワークアクティビティ（メール、アプリ、保護されたウェブサイトなど）を監視できます。\n\nこれは、信頼できる認証情報がデバイスにインストールされているためです。"</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">証明書を確認</item>
-      <item quantity="one">証明書を確認</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{証明書を信頼または削除する}other{証明書を信頼または削除する}}"</string>
     <string name="device_status" msgid="8266002761193692207">"ステータス"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"ネットワーク、シリアル番号などの情報"</string>
     <string name="manual" msgid="5683935624321864999">"マニュアル"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"接続"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"ネットワークから切断"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"これにより、このネットワークへの接続に使用されている情報（保存したパスワードなど）が消去されます"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"スマートフォンで QR コードをスキャンして Wi-Fi に接続し、手順に沿って操作してください。"</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" スマートフォンで QR コードをスキャンして Wi-Fi に接続し、手順に沿って操作してください。\n \n "<b>"Android スマートフォン"</b>"で [設定] -&gt; [ネットワークとインターネット] -&gt; [Wi-Fi] -&gt; [Wi-Fi を選択] -&gt; [詳細設定] -&gt; [デバイスを追加] に移動し、QR コードをスキャンします。"</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"キャンセルするには戻るボタンを押します"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"OK"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"次へ"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"デバイスのストレージ"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"リムーバブルストレージ"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"リセット"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"空き容量を増やす"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"キャッシュに保存されたデータの削除"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"空き容量が <xliff:g id="SPACE">%1$s</xliff:g> 増えます"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"容量を使用する一時ファイルを削除します。保存済みのデータ（アプリの設定、オフライン動画など）は削除されません。アプリにログインし直す必要もありません。"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"キャッシュに保存されたデータを削除しますか？"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"すべてのアプリのキャッシュデータが削除されます。"</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"アプリのアンインストール"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g>をマウントしました"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"<xliff:g id="NAME">%1$s</xliff:g>をマウントできませんでした"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USBストレージを再接続しました"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"マイク"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"マイクへのアクセス"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"マイクへのアプリのアクセス"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"マイクへのアクセスがブロックされています"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"ブロックを解除するには、デバイスのプライバシー スイッチをマイクオンの位置に移動し、マイクへのアクセスを許可してください。"</string>
     <string name="camera" msgid="1226671478936288283">"カメラ"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"カメラへのアクセス"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"カメラへのアプリのアクセス"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"カメラへのアクセスがブロックされています"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"ブロックを解除するには、デバイスのプライバシー スイッチをカメラオンの位置に移動し、カメラへのアクセスを許可してください。"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"マイクへのアクセス: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"ON にすると、権限を持つすべてのアプリとサービスがこのデバイスのマイクにアクセスできるようになります。\n\nカスタムのプロトコルが設定されたオーディオ周辺機器はこの設定の影響を受けません。"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"カメラへのアクセス: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"シアン"</string>
     <string name="color_yellow" msgid="3519470952904560404">"黄"</string>
     <string name="color_magenta" msgid="2377854703399624607">"マゼンタ"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"音声による説明"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"対応する映画や番組で画面に表示されている内容の説明が読み上げられます"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"有効にする"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"設定"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g>を利用しますか？"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"監視"</string>
     <string name="system_apps" msgid="8481888654606868074">"アプリ"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"スリープモードにしない"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"画面をスリープ状態にしない"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP チェック"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI最適化"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"今すぐ再起動しますか？"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"テレビでHDMIデバイスの電源をオフにします"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"テレビの自動電源オン"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"HDMIデバイスでテレビの電源をオンにします"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">接続済みの入力</item>
-      <item quantity="one">接続済みの入力</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">スタンバイ入力</item>
-      <item quantity="one">スタンバイ入力</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">未接続の入力</item>
-      <item quantity="one">未接続の入力</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{接続済みの入力}other{接続済みの入力}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{スタンバイ入力}other{スタンバイ入力}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{未接続の入力}other{未接続の入力}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"あなたのアカウントでアプリやその他のコンテンツへのアクセスを制限します"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"制限付きプロファイル"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g>によって制御"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"制限付きプロファイルの作成"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"設定"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"許可されたアプリ"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d個のアプリを許可</item>
-      <item quantity="one">1個のアプリを許可</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"許可済み"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"許可しない"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"制限をカスタマイズ"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"サードパーティのソース"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"権限"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"アプリを利用できません"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"使用されていないアプリ"</string>
     <string name="settings_ok" msgid="5950888975075541964">"OK"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"確認"</string>
     <string name="settings_cancel" msgid="576094334743686152">"キャンセル"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"この権限により、アプリはシステム設定を変更できます。"</string>
     <string name="write_settings_on" msgid="71675710746513956">"変更可能"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"変更不可"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"すべてのファイルへのアクセス"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"全ファイルの管理権を付与"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"このアプリに対して、デバイス内または接続されているストレージ ボリューム内のファイルすべての参照、変更、削除を許可します。許可されている場合、アプリがユーザーの事前の承認なしにファイルにアクセスすることもあります。"</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"ピクチャー イン ピクチャー"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"ピクチャー イン ピクチャーを許可"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"ピクチャー イン ピクチャーに対応したアプリはインストールされていません"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"このアプリを開いている間や、アプリを離れた後にピクチャー イン ピクチャー ウィンドウを表示させることを許可します。このウィンドウにより、再生中の動画などを、使用中の他のアプリの上に重ねて表示できます。"</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"アラームの設定や日時が決まっているアクションのスケジュールをアプリに許可します。これによりアプリがバックグラウンドで実行できるようになるため、消費電力が増えることがあります。\n\nこの権限が OFF の場合、アプリで設定された既存のアラームと時間ベースのイベントは機能しなくなります。"</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"画面を ON にする"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"画面を ON にすることを許可する"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"画面を ON にすることをアプリに許可します。許可すると、ユーザーからの明示的インテントを必要とせずに、アプリがいつでも画面を ON にできるようになります。"</string>
     <string name="special_access" msgid="21806055758289916">"特別なアプリアクセス"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>、<xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"音声"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"データセーバー"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"モバイルデータ使用量を節約するため、動画の画質を自動的に調整します"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"データ使用量と通知"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Wi-Fi、イーサネット、またはスマートフォンのアクセス ポイントを介してインターネットに接続できます。詳しくは、"<b>"g.co/network"</b>" をご覧ください。"</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Wi-Fi、イーサネット、またはスマートフォンのアクセス ポイントを介してインターネットに接続できます。"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"操作が許可されていません"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"音量を変更することはできません"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"電源と省エネ設定"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"電源オン時の画面"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"リセット"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"イーサネット ペア設定コード"</string>
 </resources>

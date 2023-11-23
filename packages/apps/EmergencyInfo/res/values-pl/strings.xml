@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Brak informacji o właścicielu telefonu"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Jeśli to Twój telefon, kliknij ikonę ołówka, by dodać informacje, które będą tutaj wyświetlane w sytuacji awaryjnej"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Kiedy Twój telefon jest odblokowany, kliknij ikonę ołówka, by dodać informacje, które będą tutaj wyświetlane w sytuacji awaryjnej"</string>
     <string name="clear_all" msgid="8899013032870561633">"Wyczyść wszystko"</string>
     <string name="clear" msgid="3648880442502887163">"Usuń"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Usunąć wszystkie informacje i kontakty?"</string>

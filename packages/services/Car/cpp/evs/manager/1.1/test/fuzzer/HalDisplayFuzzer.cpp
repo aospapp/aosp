@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-#include <fuzzer/FuzzedDataProvider.h>
-#include <sys/time.h>
-#include <iostream>
 #include "Common.h"
 #include "Enumerator.h"
 #include "HalDisplay.h"
 #include "MockHWDisplay.h"
 
-using DisplayDesc = ::android::hardware::automotive::evs::V1_0::DisplayDesc;
+#include <fuzzer/FuzzedDataProvider.h>
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+#include <sys/time.h>
+
+#include <iostream>
+
+using ::android::hardware::automotive::evs::V1_0::DisplayDesc;
+using ::android::hardware::automotive::evs::V1_0::DisplayState;
+using IEvsDisplay_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
+
+namespace android::automotive::evs::V1_1::implementation {
 
 namespace {
 
@@ -68,9 +69,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
                 uint32_t state =
                         fdp.ConsumeIntegralInRange<uint32_t>(0,
                                                              static_cast<uint32_t>(
-                                                                     EvsDisplayState::NUM_STATES) -
+                                                                     DisplayState::NUM_STATES) -
                                                                      1);
-                halDisplay->setDisplayState(static_cast<EvsDisplayState>(state));
+                halDisplay->setDisplayState(static_cast<DisplayState>(state));
                 break;
             }
             case EVS_FUZZ_GET_DISPLAY_STATE: {
@@ -110,8 +111,4 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 }
 
 }  // namespace
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation

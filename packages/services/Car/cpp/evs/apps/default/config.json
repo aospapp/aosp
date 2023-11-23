@@ -8,11 +8,13 @@
   },
   "displays" : [
     {
+      "_comment": "Seahawk",
       "displayPort" : 129,
       "frontRange" : 100,
       "rearRange" : 100
     },
     {
+      "_comment": "Osprey",
       "displayPort" : 130,
       "frontRange" : 100,
       "rearRange" : 100

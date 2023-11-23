@@ -428,7 +428,8 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                                     default: // not reachable
                                         s = getContext().getText(R.string.disable_cfnrc_forbidden);
                                 }
-                                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                                AlertDialog.Builder builder =
+                                        FrameworksUtils.makeAlertDialogBuilder(getContext());
                                 builder.setNeutralButton(R.string.close_dialog, null);
                                 builder.setTitle(getContext()
                                         .getText(R.string.error_updating_title));
@@ -441,7 +442,8 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                                 // Handle the fail-to-enable case.
                                 CharSequence s = getContext()
                                     .getText(R.string.registration_cf_forbidden);
-                                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                                AlertDialog.Builder builder =
+                                        FrameworksUtils.makeAlertDialogBuilder(getContext());
                                 builder.setNeutralButton(R.string.close_dialog, null);
                                 builder.setTitle(getContext()
                                         .getText(R.string.error_updating_title));

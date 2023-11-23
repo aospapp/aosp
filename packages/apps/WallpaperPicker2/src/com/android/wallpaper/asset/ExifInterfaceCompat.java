@@ -1,11 +1,11 @@
 package com.android.wallpaper.asset;
 
-import com.android.wallpaper.compat.BuildCompat;
+import android.os.Build;
+
+import androidx.exifinterface.media.ExifInterface;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import androidx.exifinterface.media.ExifInterface;
 
 /**
  * Provides access to basic ExifInterface APIs using {@link android.media.ExifInterface} in OMR1+
@@ -29,7 +29,7 @@ class ExifInterfaceCompat {
     public ExifInterfaceCompat(InputStream inputStream) throws IOException {
         // O-MR1 added support for more formats (HEIF), which Support Library cannot implement,
         // so use the framework version for SDK 27+
-        if (BuildCompat.isAtLeastOMR1()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             mFrameworkExifInterface = new android.media.ExifInterface(inputStream);
         } else {
             mSupportExifInterface = new ExifInterface(inputStream);

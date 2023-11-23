@@ -1,100 +1,106 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 3
-        dimension: 2
-        dimension: 3
-        dimension: 1
-      }
-      scale: 2
-      zero_point: 128
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 2
         }
-        channel_dim: 0
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 797982799
+        }
       }
-      data {
-        random_seed: 4293998139
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 2
+        }
+        scale: 4
+        zero_point: 100
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 4235904811
+        }
+      }
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2050951530
+        }
+      }
+      operand {
+        type: TENSOR_FLOAT32
+        dimensions {
+          dimension: 1
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 0
+        }
+      }
+      operand {
+        type: INT32
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 0
+        }
       }
     }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 4
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+    operations {
+      operation {
+        inputs {
+          index: 2
+          index: 3
+          index: 4
         }
-        channel_dim: 0
+        outputs {
+          index: 0
+        }
       }
-      data {
-        random_seed: 2958023433
+      operation {
+        type: CAST
+        inputs {
+          index: 0
+        }
+        outputs {
+          index: 1
+        }
       }
     }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 4
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 1666865276
-      }
+    input_indexes {
+      index: 2
     }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 2
-        dimension: 1
-        dimension: 3
-        dimension: 1
-      }
-      scale: 2
-      zero_point: 128
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 1496729826
-      }
+    output_indexes {
+      index: 1
     }
   }
-  operations {
-    operation {
-      type: SLICE
-      inputs {
-        index: 0
-        index: 1
-        index: 2
-      }
-      outputs {
-        index: 3
-      }
-    }
-  }
-  input_indexes {
-    index: 0
-    index: 1
-    index: 2
-  }
-  output_indexes {
-    index: 3
+  referenced {
   }
   is_relaxed: true
 }

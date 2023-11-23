@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"התראות שמוצגות בהן הורדות שהושלמו או בוטלו"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"התקדמות ההורדה"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"התראות שמוצגת בהן ההתקדמות של הורדות קבצים"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"ההורדה בוטלה"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"הקובץ גדול מדי: ההורדה בוטלה."</string>
 </resources>

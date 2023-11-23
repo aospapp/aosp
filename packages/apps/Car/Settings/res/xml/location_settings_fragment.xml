@@ -35,11 +35,13 @@
         settings:controller="com.android.car.settings.location.AdasLocationSwitchPreferenceController"
         settings:searchable="true"/>
     <com.android.car.settings.common.DividerPreference/>
-    <Preference
-        android:fragment="com.android.car.settings.location.RecentLocationRequestsFragment"
-        android:key="@string/pk_location_recent_requests_entry"
-        android:title="@string/location_settings_recent_requests_title"
-        settings:controller="com.android.car.settings.location.RecentLocationRequestsEntryPreferenceController"/>
+    <PreferenceCategory
+        android:key="@string/pk_location_recent_accesses_category"
+        android:title="@string/location_recently_accessed"
+        settings:controller="com.android.car.settings.location.LocationRecentAccessesPreferenceController">
+        <com.android.car.settings.common.DividerPreference
+            android:order="999"/>
+    </PreferenceCategory>
     <Preference
         android:key="@string/pk_location_app_permissions"
         android:title="@string/location_settings_app_permissions_title"

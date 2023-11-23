@@ -16,8 +16,6 @@
 
 package com.android.car.notification;
 
-import android.app.Notification;
-import android.os.Bundle;
 import android.os.Handler;
 import android.service.notification.StatusBarNotification;
 import android.view.View;
@@ -37,6 +35,8 @@ public class HeadsUpEntry extends AlertEntry {
 
     boolean mIsAlertAgain;
     boolean mIsNewHeadsUp;
+    boolean mIsDismissing;
+    boolean mShouldRemove;
 
     HeadsUpEntry(StatusBarNotification statusBarNotification) {
         super(statusBarNotification);

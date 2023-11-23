@@ -25,9 +25,9 @@
          to non-full screen cases. -->
     <FrameLayout
         android:id="@+id/preview_header"
+        style="@style/PreviewHeaderStyle"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="?android:attr/actionBarSize">
+        android:layout_height="wrap_content">
     </FrameLayout>
 
     <FrameLayout
@@ -42,29 +42,30 @@
 
     <FrameLayout
         android:id="@+id/screen_preview_layout"
+        style="@style/ScreenPreviewLayoutStyle"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="?android:attr/actionBarSize"
         android:layout_marginBottom="@dimen/bottom_actions_plus_separated_tabs">
 
         <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/live_wallpaper_preview"
+            android:id="@+id/container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center"
             android:clipChildren="false"
-            android:clipToPadding="false"
-            android:padding="@dimen/full_preview_page_default_padding_top">
+            android:paddingHorizontal="@dimen/full_preview_page_default_horizontal_padding"
+            android:paddingVertical="@dimen/full_preview_page_default_padding_top">
 
             <com.android.wallpaper.picker.TouchForwardingLayout
                 android:id="@+id/touch_forwarding_layout"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:background="@android:color/transparent"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintRight_toRightOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent">
+                app:layout_constraintVertical_bias="@dimen/full_preview_page_vertical_bias">
 
                 <include
                     android:id="@+id/wallpaper_full_preview_card"

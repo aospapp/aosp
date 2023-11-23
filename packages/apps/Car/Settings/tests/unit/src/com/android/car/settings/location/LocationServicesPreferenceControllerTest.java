@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -94,7 +95,8 @@ public class LocationServicesPreferenceControllerTest {
         mPreferenceController.onStart(mLifecycleOwner);
         ArgumentCaptor<BroadcastReceiver> captor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
-        verify(mContext).registerReceiver(captor.capture(), any());
+        verify(mContext).registerReceiver(captor.capture(), any(),
+                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
 
         captor.getValue().onReceive(mContext, new Intent());
         verify(mSettingsInjector).reloadStatusMessages();
@@ -106,7 +108,8 @@ public class LocationServicesPreferenceControllerTest {
         mPreferenceController.onStart(mLifecycleOwner);
         ArgumentCaptor<BroadcastReceiver> captor = ArgumentCaptor.forClass(
                 BroadcastReceiver.class);
-        verify(mContext).registerReceiver(captor.capture(), any());
+        verify(mContext).registerReceiver(captor.capture(), any(),
+                eq(Context.RECEIVER_EXPORTED_UNAUDITED));
 
         mPreferenceController.onStop(mLifecycleOwner);
         verify(mContext).unregisterReceiver(captor.getValue());

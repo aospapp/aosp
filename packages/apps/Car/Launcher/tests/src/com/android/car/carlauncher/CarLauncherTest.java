@@ -21,6 +21,11 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.verify;
+
+import android.car.user.CarUserManager;
+import android.car.user.CarUserManager.UserLifecycleListener;
 import android.testing.TestableContext;
 
 import androidx.lifecycle.Lifecycle;
@@ -33,14 +38,23 @@ import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class CarLauncherTest {
 
     @Rule
+    public final MockitoRule rule = MockitoJUnit.rule();
+
+    @Rule
     public TestableContext mContext = new TestableContext(InstrumentationRegistry.getContext());
     private ActivityScenario<CarLauncher> mActivityScenario;
+
+    @Mock
+    private CarUserManager mMockCarUserManager;
 
     @After
     public void tearDown() {
@@ -71,5 +85,15 @@ public class CarLauncherTest {
         mActivityScenario.moveToState(Lifecycle.State.RESUMED);
 
         onView(withId(R.id.bottom_card)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void onDestroy_unregistersUserLifecycleListener() {
+        mActivityScenario = ActivityScenario.launch(CarLauncher.class);
+        mActivityScenario.onActivity(activity -> activity.setCarUserManager(mMockCarUserManager));
+
+        mActivityScenario.moveToState(Lifecycle.State.DESTROYED);
+
+        verify(mMockCarUserManager).removeListener(any(UserLifecycleListener.class));
     }
 }

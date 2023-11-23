@@ -37,7 +37,7 @@ cc_defaults {
     ],
     static_libs: [
         "libutils",
-        "statsd-aidl-ndk_platform",
+        "statsd-aidl-ndk",
     ],
     target: {
         android: {
@@ -52,7 +52,6 @@ cc_library {
     name: "libstatspull",
     defaults: [
         "libstatspull_defaults",
-        "libbinder_ndk_host_user",
     ],
     host_supported: true,
     target: {
@@ -65,6 +64,9 @@ cc_library {
             shared: {
                 enabled: false,
             },
+        },
+        darwin: {
+            enabled: false,
         },
     },
     // enumerate stable entry points for APEX use

@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
@@ -39,7 +40,8 @@ public abstract class ProfileDetailsBasePreferenceController<V extends Preferenc
 
     private UserInfo mUserInfo;
 
-    private final BroadcastReceiver mProfileUpdateReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mProfileUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             refreshUserInfo();

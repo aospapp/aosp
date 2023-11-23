@@ -12,6 +12,7 @@
     <int name="maxSubjectLength" value="80"/>
     <int name="maxMessageSize" value="1048576"/>
     <int name="maxImageWidth" value="2592"/>
+    <int name="default_mtu_int" value="1430"/>
     <string name="carrier_name_string">Rogers</string>
     <string name="gps.lpp_profile">2</string>
     <string-array name="read_only_apn_types_string_array" num="1">

@@ -92,6 +92,14 @@ public class MakeBeforeBreakManagerTest extends WifiBaseTest {
     }
 
     @Test
+    public void onL3ValidatedSecondaryTransientThatWasPreviouslyPrimary_noOp() {
+        when(mNewPrimaryCmm.getPreviousRole()).thenReturn(ROLE_CLIENT_PRIMARY);
+        mCmiListenerCaptor.getValue().onInternetValidated(mNewPrimaryCmm);
+
+        verify(mNewPrimaryCmm, never()).setRole(any(), any());
+    }
+
+    @Test
     public void onL3ValidatedNonSecondaryTransient_noOp() {
         when(mNewPrimaryCmm.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_LONG_LIVED);
         mCmiListenerCaptor.getValue().onInternetValidated(mNewPrimaryCmm);

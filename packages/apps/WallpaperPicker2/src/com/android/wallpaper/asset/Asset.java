@@ -26,7 +26,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Display;
 import android.view.View;
 import android.widget.ImageView;
@@ -41,11 +42,14 @@ import com.android.wallpaper.util.WallpaperCropUtils;
 
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * Interface representing an image asset.
  */
 public abstract class Asset {
-
+    private static final ExecutorService sExecutorService = Executors.newSingleThreadExecutor();
     /**
      * Creates and returns a placeholder Drawable instance sized exactly to the target ImageView and
      * filled completely with pixels of the provided placeholder color.
@@ -80,6 +84,17 @@ public abstract class Asset {
      *                     bitmap.
      */
     public abstract void decodeBitmap(int targetWidth, int targetHeight, BitmapReceiver receiver);
+
+    /**
+     * For {@link #decodeBitmap(int, int, BitmapReceiver)} to use when it is done. It then call
+     * the receiver with decoded bitmap in the main thread.
+     *
+     * @param receiver The receiver to handle decoded bitmap or null if decoding failed.
+     * @param decodedBitmap The bitmap which is already decoded.
+     */
+    protected void decodeBitmapCompleted(BitmapReceiver receiver, Bitmap decodedBitmap) {
+        new Handler(Looper.getMainLooper()).post(() -> receiver.onBitmapDecoded(decodedBitmap));
+    }
 
     /**
      * Decodes and downscales a bitmap region off the main UI thread.
@@ -228,7 +243,7 @@ public abstract class Asset {
             public void onBitmapDecoded(Bitmap bitmap) {
                 final Resources resources = context.getResources();
 
-                new CenterCropBitmapTask(bitmap, imageView, new BitmapReceiver() {
+                centerCropBitmap(bitmap, imageView, new BitmapReceiver() {
                     @Override
                     public void onBitmapDecoded(@Nullable Bitmap newBitmap) {
                         Drawable[] layers = new Drawable[2];
@@ -259,7 +274,7 @@ public abstract class Asset {
                             drawableLoadedListener.onDrawableLoaded();
                         }
                     }
-                }).execute();
+                });
             }
         });
     }
@@ -368,58 +383,35 @@ public abstract class Asset {
     }
 
     /**
-     * Custom AsyncTask which returns a copy of the given bitmap which is center cropped and scaled
-     * to fit in the given ImageView.
+     * Returns a copy of the given bitmap which is center cropped and scaled
+     * to fit in the given ImageView and the thread runs on ExecutorService.
      */
-    public static class CenterCropBitmapTask extends AsyncTask<Void, Void, Bitmap> {
+    public void centerCropBitmap(Bitmap bitmap, View view, BitmapReceiver bitmapReceiver) {
+        Point imageViewDimensions = getViewDimensions(view);
+        sExecutorService.execute(() -> {
+            int measuredWidth = imageViewDimensions.x;
+            int measuredHeight = imageViewDimensions.y;
 
-        private Bitmap mBitmap;
-        private BitmapReceiver mBitmapReceiver;
-
-        private int mImageViewWidth;
-        private int mImageViewHeight;
-
-        public CenterCropBitmapTask(Bitmap bitmap, View view,
-                BitmapReceiver bitmapReceiver) {
-            mBitmap = bitmap;
-            mBitmapReceiver = bitmapReceiver;
-
-            Point imageViewDimensions = getViewDimensions(view);
-
-            mImageViewWidth = imageViewDimensions.x;
-            mImageViewHeight = imageViewDimensions.y;
-        }
-
-        @Override
-        protected Bitmap doInBackground(Void... unused) {
-            int measuredWidth = mImageViewWidth;
-            int measuredHeight = mImageViewHeight;
-
-            int bitmapWidth = mBitmap.getWidth();
-            int bitmapHeight = mBitmap.getHeight();
+            int bitmapWidth = bitmap.getWidth();
+            int bitmapHeight = bitmap.getHeight();
 
             float scale = Math.min(
                     (float) bitmapWidth / measuredWidth,
                     (float) bitmapHeight / measuredHeight);
 
             Bitmap scaledBitmap = Bitmap.createScaledBitmap(
-                    mBitmap, Math.round(bitmapWidth / scale), Math.round(bitmapHeight / scale),
+                    bitmap, Math.round(bitmapWidth / scale), Math.round(bitmapHeight / scale),
                     true);
 
             int horizontalGutterPx = Math.max(0, (scaledBitmap.getWidth() - measuredWidth) / 2);
             int verticalGutterPx = Math.max(0, (scaledBitmap.getHeight() - measuredHeight) / 2);
-
-            return Bitmap.createBitmap(
+            Bitmap result = Bitmap.createBitmap(
                     scaledBitmap,
                     horizontalGutterPx,
                     verticalGutterPx,
                     scaledBitmap.getWidth() - (2 * horizontalGutterPx),
                     scaledBitmap.getHeight() - (2 * verticalGutterPx));
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap newBitmap) {
-            mBitmapReceiver.onBitmapDecoded(newBitmap);
-        }
+            decodeBitmapCompleted(bitmapReceiver, result);
+        });
     }
 }

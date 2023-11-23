@@ -24,14 +24,13 @@ import android.content.res.Resources;
 import android.os.Handler;
 import android.util.Log;
 
+import com.android.systemui.CoreStartable;
 import com.android.systemui.R;
-import com.android.systemui.SystemUI;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.volume.VolumeDialogComponent;
 
-import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
 import javax.inject.Inject;
@@ -40,7 +39,7 @@ import dagger.Lazy;
 
 /** The entry point for controlling the volume ui in cars. */
 @SysUISingleton
-public class VolumeUI extends SystemUI {
+public class VolumeUI extends CoreStartable {
 
     private static final String TAG = "VolumeUI";
     private final Resources mResources;
@@ -119,11 +118,11 @@ public class VolumeUI extends SystemUI {
     }
 
     @Override
-    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+    public void dump(PrintWriter pw, String[] args) {
         pw.print("mEnabled="); pw.println(mEnabled);
         if (!mEnabled) return;
         if (mVolumeDialogComponent != null) {
-            mVolumeDialogComponent.dump(fd, pw, args);
+            mVolumeDialogComponent.dump(pw, args);
         }
     }
 }

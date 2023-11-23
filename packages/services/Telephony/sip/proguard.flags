@@ -1,3 +1,0 @@
--verbose
--keep class com.android.services.telephony.sip.SipConnectionService
--keep class com.android.services.telephony.sip.SipIncomingCallReceiver

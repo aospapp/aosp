@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"Negalite naudoti šios funkcijos vairuodami"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"Jei norite pradėti iš naujo naudodami saugias programos funkcijas, pasirinkite <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
+    <string name="exit_button" msgid="3491899413031549265">"Atgal"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"Uždaryti programą"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"Atgal"</string>
+    <string name="importance_default" msgid="8017186728206153704">"Numatytoji svarba"</string>
+    <string name="importance_high" msgid="3393374688015554727">"Didelė svarba"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"„Android“ sistema"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"Būtina atkurti gamyklinius nustatymus"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"Visi informacinės pramoginės sistemos duomenys bus ištrinti. Pasibaigus nustatymo iš naujo procesui, galite nustatyti naują profilį."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"Daugiau"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"Įrenginys bus ištrintas"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"Administratoriaus programos negalima naudoti. Dabar įrenginio duomenys bus ištrinti.\n\nJei turite klausimų, susisiekite su organizacijos administratoriumi."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"Programa „<xliff:g id="ID_1">^1</xliff:g>“ paveikia sistemos našumą"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Išjunkite programą, kad pagerintumėte sistemos našumą. Ją galite vėl įgalinti skiltyje „Nustatymai“."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Suteikite prioritetą programai, kad ji būtų toliau naudojama."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Pašalinkite programą, kad pagerintumėte sistemos našumą."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Išjungti programą"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Suteikti prioritetą programai"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Pašalinti programą"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"Programa „<xliff:g id="ID_1">^1</xliff:g>“ buvo išjungta. Ją galite vėl įgalinti skiltyje „Nustatymai“."</string>
+</resources>

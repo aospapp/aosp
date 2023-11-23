@@ -17,6 +17,14 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+genrule {
+    name: "statslog-remoteprovisioner-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module remoteprovisioner " +
+         "--javaPackage com.android.remoteprovisioner --javaClass RemoteProvisionerStatsLog",
+    out: ["com/android/remoteprovisioner/RemoteProvisionerStatsLog.java"],
+}
+
 android_app {
     name: "RemoteProvisioner",
     platform_apis: true,
@@ -26,11 +34,18 @@ android_app {
         "android.system.keystore2-V1-java",
         "framework-annotations-lib",
     ],
+    optimize: {
+        proguard_flags_files: ["proguard.flags"]
+    },
     static_libs: [
         "android.hardware.security.keymint-V1-java",
         "android.security.remoteprovisioning-java",
+        "androidx.work_work-runtime",
         "cbor-java",
     ],
     resource_dirs: ["res"],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        ":statslog-remoteprovisioner-java-gen",
+        "src/**/*.java"
+    ],
 }

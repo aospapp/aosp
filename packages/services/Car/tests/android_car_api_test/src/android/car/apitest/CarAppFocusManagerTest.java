@@ -33,17 +33,19 @@ import android.util.Log;
 import androidx.test.filters.FlakyTest;
 import androidx.test.filters.RequiresDevice;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 @MediumTest
 public class CarAppFocusManagerTest extends CarApiTestBase {
     private static final String TAG = CarAppFocusManagerTest.class.getSimpleName();
+
+    private static final long NEGATIVE_CASE_WAIT_TIMEOUT_MS = 100L;
+
     private CarAppFocusManager mManager;
 
     private final LooperThread mEventThread = new LooperThread();
@@ -52,20 +54,29 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
     public void setUp() throws Exception {
         mManager = (CarAppFocusManager) getCar().getCarManager(Car.APP_FOCUS_SERVICE);
         assertThat(mManager).isNotNull();
+        abandonAllAppFocuses();
 
+        mEventThread.start();
+        mEventThread.waitForReadyState();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        abandonAllAppFocuses();
+    }
+
+    private void abandonAllAppFocuses() throws Exception {
         // Request all application focuses and abandon them to ensure no active context is present
-        // when test starts.
+        // when test starts and ends.
         int[] activeTypes =  mManager.getActiveAppTypes();
         FocusOwnershipCallback owner = new FocusOwnershipCallback(/* assertEventThread= */ false);
         for (int i = 0; i < activeTypes.length; i++) {
             mManager.requestAppFocus(activeTypes[i], owner);
-            owner.waitForOwnershipGrantAndAssert(DEFAULT_WAIT_TIMEOUT_MS, activeTypes[i]);
+            owner.waitForOwnershipGrantAndAssert(NEGATIVE_CASE_WAIT_TIMEOUT_MS, activeTypes[i]);
             mManager.abandonAppFocus(owner, activeTypes[i]);
             owner.waitForOwnershipLossAndAssert(
-                    DEFAULT_WAIT_TIMEOUT_MS, activeTypes[i]);
+                    NEGATIVE_CASE_WAIT_TIMEOUT_MS, activeTypes[i]);
         }
-        mEventThread.start();
-        mEventThread.waitForReadyState();
     }
 
     @Test
@@ -106,15 +117,18 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
         // Unregistred from nav app, no events expected.
         assertThat(listener1.waitForFocusChangeAndAssert(
-                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+                NEGATIVE_CASE_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION,
+                true)).isFalse();
         assertThat(listener2.waitForFocusChangeAndAssert(
                 DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isTrue();
 
         manager.removeFocusListener(listener2, APP_FOCUS_TYPE_NAVIGATION);
+        // Used a new FocusOwnershipCallback to generate a new focus change event.
         assertThat(manager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION, new FocusOwnershipCallback()))
                 .isEqualTo(CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED);
         assertThat(listener2.waitForFocusChangeAndAssert(
-                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+                NEGATIVE_CASE_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION,
+                true)).isFalse();
 
         manager.removeFocusListener(listener2, 2);
         manager.removeFocusListener(listener2, 2);    // Double-unregister is OK
@@ -326,17 +340,15 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
         boolean waitForFocusChangeAndAssert(long timeoutMs, int expectedAppType,
                 boolean expectedAppActive) throws Exception {
-
             if (!mChangeWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
                 return false;
             }
-
             assertThat(mLastChangeAppType).isEqualTo(expectedAppType);
             assertThat(mLastChangeAppActive).isEqualTo(expectedAppActive);
             return true;
         }
 
-        void reset() throws InterruptedException {
+        void reset() {
             mLastChangeAppType = 0;
             mLastChangeAppActive = false;
             mChangeWait.drainPermits();

@@ -33,6 +33,10 @@ public class HostsideVpnTests extends HostsideNetworkTestCase {
         uninstallPackage(TEST_APP2_PKG, true);
     }
 
+    public void testChangeUnderlyingNetworks() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testChangeUnderlyingNetworks");
+    }
+
     public void testDefault() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testDefault");
     }
@@ -99,5 +103,17 @@ public class HostsideVpnTests extends HostsideNetworkTestCase {
     public void testDownloadWithDownloadManagerDisallowed() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest",
                 "testDownloadWithDownloadManagerDisallowed");
+    }
+
+    public void testExcludedRoutes() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testExcludedRoutes");
+    }
+
+    public void testIncludedRoutes() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testIncludedRoutes");
+    }
+
+    public void testInterleavedRoutes() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".VpnTest", "testInterleavedRoutes");
     }
 }

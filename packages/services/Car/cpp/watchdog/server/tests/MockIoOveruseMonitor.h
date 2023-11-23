@@ -29,7 +29,7 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-class MockIoOveruseMonitor : public MockDataProcessor, public IIoOveruseMonitor {
+class MockIoOveruseMonitor : public MockDataProcessor, public IoOveruseMonitorInterface {
 public:
     MockIoOveruseMonitor() {
         ON_CALL(*this, name()).WillByDefault(::testing::Return("MockIoOveruseMonitor"));

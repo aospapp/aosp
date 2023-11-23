@@ -20,7 +20,7 @@ import android.car.user.UserCreationResult;
 import android.car.user.UserRemovalResult;
 import android.car.user.UserStartResult;
 import android.car.user.UserStopResult;
-import com.android.internal.infra.AndroidFuture;
+import android.car.util.concurrent.AndroidFuture;
 
 /** @hide */
 interface ICarDevicePolicyService {
@@ -28,4 +28,6 @@ interface ICarDevicePolicyService {
     void createUser(String name, int flags, in AndroidFuture<UserCreationResult> receiver);
     void startUserInBackground(int userId, in AndroidFuture<UserStartResult> receiver);
     void stopUser(int userId, in AndroidFuture<UserStopResult> receiver);
+    void setUserDisclaimerShown(int userId);
+    void setUserDisclaimerAcknowledged(int userId);
 }

@@ -33,6 +33,7 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Play a call-related tone (ringback, busy signal, etc.) either through ToneGenerator, or using a
@@ -181,12 +182,15 @@ public class InCallTonePlayer extends Thread {
     private static final int STATE_ON = 1;
     private static final int STATE_STOPPED = 2;
 
+    // Invalid audio stream
+    private static final int STREAM_INVALID = -1;
+
     /**
      * Keeps count of the number of actively playing tones so that we can notify CallAudioManager
      * when we need focus and when it can be release. This should only be manipulated from the main
      * thread.
      */
-    private static int sTonesPlaying = 0;
+    private static AtomicInteger sTonesPlaying = new AtomicInteger(0);
 
     private final CallAudioManager mCallAudioManager;
     private final CallAudioRoutePeripheralAdapter mCallAudioRoutePeripheralAdapter;
@@ -211,6 +215,12 @@ public class InCallTonePlayer extends Thread {
     private final ToneGeneratorFactory mToneGenerator;
     private final MediaPlayerFactory mMediaPlayerFactory;
     private final AudioManagerAdapter mAudioManagerAdapter;
+
+    /**
+     * Latch used for awaiting on playback, which may be interrupted if the tone is stopped from
+     * outside the playback.
+     */
+    private final CountDownLatch mPlaybackLatch = new CountDownLatch(1);
 
     /**
      * Initializes the tone player. Private; use the {@link Factory} to create tone players.
@@ -355,8 +365,14 @@ public class InCallTonePlayer extends Thread {
             if (mCallAudioRoutePeripheralAdapter.isBluetoothAudioOn()) {
                 stream = AudioManager.STREAM_BLUETOOTH_SCO;
             }
-
             if (toneType != ToneGenerator.TONE_UNKNOWN) {
+                if (stream == AudioManager.STREAM_BLUETOOTH_SCO) {
+                    // Override audio stream for BT le device and hearing aid device
+                    if (mCallAudioRoutePeripheralAdapter.isLeAudioDeviceOn()
+                            || mCallAudioRoutePeripheralAdapter.isHearingAidDeviceOn()) {
+                        stream = AudioManager.STREAM_VOICE_CALL;
+                    }
+                }
                 playToneGeneratorTone(stream, toneVolume, toneType, toneLengthMillis);
             } else if (mediaResourceId != TONE_RESOURCE_ID_UNDEFINED) {
                 playMediaTone(stream, mediaResourceId);
@@ -388,26 +404,21 @@ public class InCallTonePlayer extends Thread {
             }
 
             Log.i(this, "playToneGeneratorTone: toneType=%d", toneType);
-            // TODO: Certain CDMA tones need to check the ringer-volume state before
-            // playing. See CallNotifier.InCallTonePlayer.
 
-            // TODO: Some tones play through the end of a call so we need to inform
-            // CallAudioManager that we want focus the same way that Ringer does.
-
-            synchronized (this) {
-                if (mState != STATE_STOPPED) {
-                    mState = STATE_ON;
-                    toneGenerator.startTone(toneType);
-                    try {
-                        Log.v(this, "Starting tone %d...waiting for %d ms.", mToneId,
-                                toneLengthMillis + TIMEOUT_BUFFER_MILLIS);
-                        wait(toneLengthMillis + TIMEOUT_BUFFER_MILLIS);
-                    } catch (InterruptedException e) {
-                        Log.w(this, "wait interrupted", e);
-                    }
+            mState = STATE_ON;
+            toneGenerator.startTone(toneType);
+            try {
+                Log.v(this, "Starting tone %d...waiting for %d ms.", mToneId,
+                        toneLengthMillis + TIMEOUT_BUFFER_MILLIS);
+                if (mPlaybackLatch.await(toneLengthMillis + TIMEOUT_BUFFER_MILLIS,
+                        TimeUnit.MILLISECONDS)) {
+                    Log.i(this, "playToneGeneratorTone: tone playback stopped.");
                 }
+            } catch (InterruptedException e) {
+                Log.w(this, "playToneGeneratorTone: wait interrupted", e);
             }
-            mState = STATE_OFF;
+            // Redundant; don't want anyone re-using at this point.
+            mState = STATE_STOPPED;
         } finally {
             if (toneGenerator != null) {
                 toneGenerator.release();
@@ -421,42 +432,40 @@ public class InCallTonePlayer extends Thread {
      * @param toneResourceId The resource ID of the tone to play.
      */
     private void playMediaTone(int stream, int toneResourceId) {
-        synchronized (this) {
-            if (mState != STATE_STOPPED) {
-                mState = STATE_ON;
+        mState = STATE_ON;
+        Log.i(this, "playMediaTone: toneResourceId=%d", toneResourceId);
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setLegacyStreamType(stream)
+                .build();
+        mToneMediaPlayer = mMediaPlayerFactory.get(toneResourceId, attributes);
+        mToneMediaPlayer.setLooping(false);
+        int durationMillis = mToneMediaPlayer.getDuration();
+        mToneMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                Log.i(InCallTonePlayer.this, "playMediaTone: toneResourceId=%d completed.",
+                        toneResourceId);
+                mPlaybackLatch.countDown();
             }
-            Log.i(this, "playMediaTone: toneResourceId=%d", toneResourceId);
-            AudioAttributes attributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .setLegacyStreamType(stream)
-                    .build();
-            mToneMediaPlayer = mMediaPlayerFactory.get(toneResourceId, attributes);
-            mToneMediaPlayer.setLooping(false);
-            int durationMillis = mToneMediaPlayer.getDuration();
-            final CountDownLatch toneLatch = new CountDownLatch(1);
-            mToneMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                @Override
-                public void onCompletion(MediaPlayer mp) {
-                    Log.i(this, "playMediaTone: toneResourceId=%d completed.", toneResourceId);
-                    synchronized (InCallTonePlayer.this) {
-                        mState = STATE_OFF;
-                    }
-                    mToneMediaPlayer.release();
-                    mToneMediaPlayer = null;
-                    toneLatch.countDown();
-                }
-            });
-            mToneMediaPlayer.start();
-            try {
-                // Wait for the tone to stop playing; timeout at 2x the length of the file just to
-                // be on the safe side.
-                toneLatch.await(durationMillis * 2, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException ie) {
-                Log.e(this, ie, "playMediaTone: tone playback interrupted.");
-            }
-        }
+        });
 
+        try {
+            mToneMediaPlayer.start();
+            // Wait for the tone to stop playing; timeout at 2x the length of the file just to
+            // be on the safe side.  Playback can also be stopped via stopTone().
+            if (mPlaybackLatch.await(durationMillis * 2, TimeUnit.MILLISECONDS)) {
+                Log.i(this, "playMediaTone: tone playback stopped.");
+            }
+        } catch (InterruptedException ie) {
+            Log.e(this, ie, "playMediaTone: tone playback interrupted.");
+        } finally {
+            // Redundant; don't want anyone re-using at this point.
+            mState = STATE_STOPPED;
+            mToneMediaPlayer.release();
+            mToneMediaPlayer = null;
+        }
     }
 
     @VisibleForTesting
@@ -467,8 +476,12 @@ public class InCallTonePlayer extends Thread {
             return false;
         }
 
-        sTonesPlaying++;
-        if (sTonesPlaying == 1) {
+        // Tone already done; don't allow re-used
+        if (mState == STATE_STOPPED) {
+            return false;
+        }
+
+        if (sTonesPlaying.incrementAndGet() == 1) {
             mCallAudioManager.setIsTonePlaying(true);
         }
 
@@ -493,29 +506,38 @@ public class InCallTonePlayer extends Thread {
      */
     @VisibleForTesting
     public void stopTone() {
-        synchronized (this) {
-            if (mState == STATE_ON) {
-                Log.d(this, "Stopping the tone %d.", mToneId);
-                notify();
-            }
-            mState = STATE_STOPPED;
-        }
+        Log.i(this, "stopTone: Stopping the tone %d.", mToneId);
+        // Notify the playback to end early.
+        mPlaybackLatch.countDown();
+
+        mState = STATE_STOPPED;
     }
 
     @VisibleForTesting
     public void cleanup() {
-        sTonesPlaying = 0;
+        sTonesPlaying.set(0);
     }
 
     private void cleanUpTonePlayer() {
+        Log.d(this, "cleanUpTonePlayer(): posting cleanup");
         // Release focus on the main thread.
         mMainThreadHandler.post(new Runnable("ICTP.cUTP", mLock) {
             @Override
             public void loggedRun() {
-                if (sTonesPlaying == 0) {
-                    Log.wtf(this, "Over-releasing focus for tone player.");
-                } else if (--sTonesPlaying == 0 && mCallAudioManager != null) {
-                    mCallAudioManager.setIsTonePlaying(false);
+                int newToneCount = sTonesPlaying.updateAndGet( t -> Math.min(0, t--));
+
+                if (newToneCount == 0) {
+                    Log.i(InCallTonePlayer.this,
+                            "cleanUpTonePlayer(): tonesPlaying=%d, tone completed", newToneCount);
+                    if (mCallAudioManager != null) {
+                        mCallAudioManager.setIsTonePlaying(false);
+                    } else {
+                        Log.w(InCallTonePlayer.this,
+                                "cleanUpTonePlayer(): mCallAudioManager is null!");
+                    }
+                } else {
+                    Log.i(InCallTonePlayer.this,
+                            "cleanUpTonePlayer(): tonesPlaying=%d; still playing", newToneCount);
                 }
             }
         }.prepare());

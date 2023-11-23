@@ -18,10 +18,10 @@ package com.android.car;
 
 import android.annotation.Nullable;
 import android.car.Car;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerManager;
 import android.content.Context;
 import android.util.ArrayMap;
-import android.util.Slog;
 
 import com.android.car.power.CarPowerManagementService;
 import com.android.internal.annotations.VisibleForTesting;
@@ -47,9 +47,10 @@ public class CarLocalServices {
      * @return The service object.
      */
     @SuppressWarnings("unchecked")
+    @Nullable
     public static <T> T getService(Class<T> type) {
         if (DBG) {
-            Slog.d(TAG, " getService " + type.getSimpleName());
+            Slogf.d(TAG, " getService " + type.getSimpleName());
         }
         synchronized (sLocalServiceObjects) {
             return (T) sLocalServiceObjects.get(type);
@@ -65,7 +66,7 @@ public class CarLocalServices {
                 throw new IllegalStateException("Overriding service registration");
             }
             if (DBG) {
-                Slog.d(TAG, " Adding " + type.getSimpleName());
+                Slogf.d(TAG, " Adding " + type.getSimpleName());
             }
             sLocalServiceObjects.put(type, service);
         }
@@ -77,7 +78,7 @@ public class CarLocalServices {
     @VisibleForTesting
     public static <T> void removeServiceForTest(Class<T> type) {
         if (DBG) {
-            Slog.d(TAG, " Removing " + type.getSimpleName());
+            Slogf.d(TAG, " Removing " + type.getSimpleName());
         }
         synchronized (sLocalServiceObjects) {
             sLocalServiceObjects.remove(type);
@@ -89,7 +90,7 @@ public class CarLocalServices {
      */
     public static void removeAllServices() {
         if (DBG) {
-            Slog.d(TAG, " removeAllServices");
+            Slogf.d(TAG, " removeAllServices");
         }
         synchronized (sLocalServiceObjects) {
             sLocalServiceObjects.clear();

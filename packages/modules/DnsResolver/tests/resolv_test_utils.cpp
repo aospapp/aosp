@@ -20,7 +20,7 @@
 #include <arpa/inet.h>
 
 #include <android-base/chrono_utils.h>
-#include <netdutils/InternetAddresses.h>
+#include <android-base/logging.h>
 
 using android::netdutils::ScopedAddrinfo;
 
@@ -145,4 +145,73 @@ bool PollForCondition(const std::function<bool()>& condition, std::chrono::milli
         std::this_thread::sleep_for(retryIntervalMs);
     }
     return false;
+}
+
+ScopedAddrinfo safe_getaddrinfo(const char* node, const char* service,
+                                const struct addrinfo* hints) {
+    addrinfo* result = nullptr;
+    if (getaddrinfo(node, service, hints, &result) != 0) {
+        result = nullptr;  // Should already be the case, but...
+    }
+    return ScopedAddrinfo(result);
+}
+
+int WaitChild(pid_t pid) {
+    int status;
+    const pid_t got_pid = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
+
+    if (got_pid != pid) {
+        PLOG(WARNING) << __func__ << ": waitpid failed: wanted " << pid << ", got " << got_pid;
+        return 1;
+    }
+
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return 0;
+    } else {
+        return status;
+    }
+}
+
+int ForkAndRun(const std::vector<std::string>& args) {
+    std::vector<const char*> argv;
+    argv.resize(args.size() + 1, nullptr);
+    std::transform(args.begin(), args.end(), argv.begin(),
+                   [](const std::string& in) { return in.c_str(); });
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        // Fork failed.
+        PLOG(ERROR) << __func__ << ": Unable to fork";
+        return -1;
+    }
+
+    if (pid == 0) {
+        execv(argv[0], const_cast<char**>(argv.data()));
+        PLOG(ERROR) << __func__ << ": execv failed";
+        _exit(1);
+    }
+
+    int rc = WaitChild(pid);
+    if (rc != 0) {
+        PLOG(ERROR) << __func__ << ": Failed run: status=" << rc;
+    }
+    return rc;
+}
+
+// Add routing rules for MDNS packets, or MDNS packets won't know the destination is MDNS
+// muticast address "224.0.0.251".
+void SetMdnsRoute() {
+    const std::vector<std::string> args = {
+            "system/bin/ip", "route",  "add",   "local", "224.0.0.251", "dev",       "lo",
+            "proto",         "static", "scope", "host",  "src",         "127.0.0.1",
+    };
+    EXPECT_EQ(0, ForkAndRun(args));
+}
+
+void RemoveMdnsRoute() {
+    const std::vector<std::string> args = {
+            "system/bin/ip", "route",  "del",   "local", "224.0.0.251", "dev",       "lo",
+            "proto",         "static", "scope", "host",  "src",         "127.0.0.1",
+    };
+    EXPECT_EQ(0, ForkAndRun(args));
 }

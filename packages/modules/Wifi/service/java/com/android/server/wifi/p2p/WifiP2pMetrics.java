@@ -22,6 +22,7 @@ import android.net.wifi.p2p.WifiP2pGroupList;
 import android.util.Log;
 
 import com.android.server.wifi.Clock;
+import com.android.server.wifi.proto.WifiStatsLog;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.GroupEvent;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.P2pConnectionEvent;
 import com.android.server.wifi.proto.nano.WifiMetricsProto.WifiP2pStats;
@@ -167,8 +168,16 @@ public class WifiP2pMetrics {
                 Calendar c = Calendar.getInstance();
                 c.setTimeInMillis(event.startTimeMillis);
                 sb.append("startTime=");
-                sb.append(event.startTimeMillis == 0 ? "            <null>" :
-                        String.format("%tm-%td %tH:%tM:%tS.%tL", c, c, c, c, c, c));
+                if (event.startTimeMillis == 0) {
+                    sb.append("            <null>");
+                } else {
+                    sb.append(c.get(Calendar.MONTH)).append("-")
+                            .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                            .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                            .append(c.get(Calendar.MINUTE)).append(":")
+                            .append(c.get(Calendar.SECOND)).append(".")
+                            .append(c.get(Calendar.MILLISECOND));
+                }
                 sb.append(", connectionType=");
                 switch (event.connectionType) {
                     case P2pConnectionEvent.CONNECTION_FRESH:
@@ -210,6 +219,18 @@ public class WifiP2pMetrics {
                 }
                 sb.append(", durationTakenToConnectMillis=");
                 sb.append(event.durationTakenToConnectMillis);
+                sb.append(", groupRole=");
+                switch (event.groupRole) {
+                    case GroupEvent.GROUP_OWNER:
+                        sb.append("OWNER");
+                        break;
+                    case GroupEvent.GROUP_CLIENT:
+                        sb.append("CLIENT");
+                        break;
+                    default:
+                        sb.append("UNKNOWN DURING CONNECT");
+                        break;
+                }
                 sb.append(", connectivityLevelFailureCode=");
                 switch (event.connectivityLevelFailureCode) {
                     case P2pConnectionEvent.CLF_NONE:
@@ -312,14 +333,15 @@ public class WifiP2pMetrics {
     }
 
     /**
-     * Create a new connection event. Call when p2p attmpts to make a new connection to
+     * Create a new connection event. Call when p2p attempts to make a new connection to
      * another peer. If there is a current 'un-ended' connection event, it will be ended with
-     * P2pConnectionEvent.CLF_NEW_CONNNECTION_ATTEMPT.
+     * P2pConnectionEvent.CLF_NEW_CONNECTION_ATTEMPT.
      *
      * @param connectionType indicate this connection is fresh or reinvoke.
      * @param config configuration used for this connection.
+     * @param groupRole groupRole used for this connection.
      */
-    public void startConnectionEvent(int connectionType, WifiP2pConfig config) {
+    public void startConnectionEvent(int connectionType, WifiP2pConfig config, int groupRole) {
         synchronized (mLock) {
             // handle overlapping connection event first.
             if (mCurrentConnectionEvent != null) {
@@ -334,6 +356,7 @@ public class WifiP2pMetrics {
             mCurrentConnectionEvent = new P2pConnectionEvent();
             mCurrentConnectionEvent.startTimeMillis = mClock.getWallClockMillis();
             mCurrentConnectionEvent.connectionType = connectionType;
+            mCurrentConnectionEvent.groupRole = groupRole;
             if (config != null) {
                 mCurrentConnectionEvent.wpsMethod = config.wps.setup;
             }
@@ -355,7 +378,8 @@ public class WifiP2pMetrics {
                 // Reinvoking a group with invitation will be handled in supplicant.
                 // There won't be a connection starting event in framework.
                 // THe framework only get the connection ending event in GroupStarted state.
-                startConnectionEvent(P2pConnectionEvent.CONNECTION_REINVOKE, null);
+                startConnectionEvent(P2pConnectionEvent.CONNECTION_REINVOKE, null,
+                        GroupEvent.GROUP_UNKNOWN);
             }
 
             mCurrentConnectionEvent.durationTakenToConnectMillis = (int)
@@ -363,7 +387,62 @@ public class WifiP2pMetrics {
                     - mCurrentConnectionEventStartTime);
             mCurrentConnectionEvent.connectivityLevelFailureCode = failure;
 
+            WifiStatsLog.write(WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED,
+                    convertConnectionType(mCurrentConnectionEvent.connectionType),
+                    mCurrentConnectionEvent.durationTakenToConnectMillis,
+                    mCurrentConnectionEvent.durationTakenToConnectMillis / 200,
+                    convertFailureCode(failure),
+                    convertGroupRole(mCurrentConnectionEvent.groupRole));
             mCurrentConnectionEvent = null;
+        }
+    }
+
+    private int convertConnectionType(int connectionType) {
+        switch (connectionType) {
+            case P2pConnectionEvent.CONNECTION_FRESH:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__TYPE__FRESH;
+            case P2pConnectionEvent.CONNECTION_REINVOKE:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__TYPE__REINVOKE;
+            case P2pConnectionEvent.CONNECTION_LOCAL:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__TYPE__LOCAL;
+            case P2pConnectionEvent.CONNECTION_FAST:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__TYPE__FAST;
+            default:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__TYPE__UNSPECIFIED;
+        }
+    }
+
+    private int convertFailureCode(int failureCode) {
+        switch (failureCode) {
+            case P2pConnectionEvent.CLF_NONE:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__NONE;
+            case P2pConnectionEvent.CLF_TIMEOUT:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__TIMEOUT;
+            case P2pConnectionEvent.CLF_CANCEL:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__CANCEL;
+            case P2pConnectionEvent.CLF_PROV_DISC_FAIL:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__PROV_DISC_FAIL;
+            case P2pConnectionEvent.CLF_INVITATION_FAIL:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__INVITATION_FAIL;
+            case P2pConnectionEvent.CLF_USER_REJECT:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__USER_REJECT;
+            case P2pConnectionEvent.CLF_NEW_CONNECTION_ATTEMPT:
+                return WifiStatsLog
+                        .WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__NEW_CONNECTION_ATTEMPT;
+            case P2pConnectionEvent.CLF_UNKNOWN:
+            default:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__FAILURE_CODE__UNKNOWN;
+        }
+    }
+
+    private int convertGroupRole(int groupRole) {
+        switch (groupRole) {
+            case GroupEvent.GROUP_OWNER:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__GROUP_ROLE__GROUP_OWNER;
+            case GroupEvent.GROUP_CLIENT:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__GROUP_ROLE__GROUP_CLIENT;
+            default:
+                return WifiStatsLog.WIFI_P2P_CONNECTION_REPORTED__GROUP_ROLE__GROUP_UNKNOWN;
         }
     }
 

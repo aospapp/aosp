@@ -26,12 +26,12 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 
 /** Helper methods for dumping data to files. */
-public final class DumpUtils {
+final class DumpUtils {
 
     private DumpUtils() {
     }
 
-    public static PrintWriter createPrintWriter(File file) throws Visitor.VisitException {
+    static PrintWriter createPrintWriter(File file) throws Visitor.VisitException {
         try {
             OutputStreamWriter utf8Writer = new OutputStreamWriter(
                     new FileOutputStream(file), StandardCharsets.UTF_8);
@@ -41,7 +41,7 @@ public final class DumpUtils {
         }
     }
 
-    public static File generateDumpFile(File dir, String filePrefix, int blockId, int maxBlockId) {
+    static File generateDumpFile(File dir, String filePrefix, int blockId, int maxBlockId) {
         final String fileSuffix = ".txt";
 
         int blockIdLength = hexStringLength(maxBlockId);
@@ -55,16 +55,16 @@ public final class DumpUtils {
         return new File(dir, sb.toString());
     }
 
-    public static int hexStringLength(int value) {
+    static int hexStringLength(int value) {
         int bitsNeeded = Integer.SIZE - Integer.numberOfLeadingZeros(value);
         return (bitsNeeded + 3) / 4;
     }
 
-    public static int binaryStringLength(int value) {
+    static int binaryStringLength(int value) {
         return Integer.SIZE - Integer.numberOfLeadingZeros(value);
     }
 
-    public static String zeroPadHex(int length, int value) {
+    static String zeroPadHex(int length, int value) {
         String hexString = Integer.toHexString(value);
         int unpaddedLength = hexString.length();
         if (unpaddedLength >= length) {
@@ -73,7 +73,7 @@ public final class DumpUtils {
         return zeroPad(length, hexString);
     }
 
-    public static String zeroPadBinary(int length, int value) {
+    static String zeroPadBinary(int length, int value) {
         String binaryString = Integer.toBinaryString(value);
         int unpaddedLength = binaryString.length();
         if (unpaddedLength >= length) {

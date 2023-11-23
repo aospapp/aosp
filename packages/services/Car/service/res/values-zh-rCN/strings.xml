@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"访问汽车摄像头。"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"访问汽车的能耗信息"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"访问汽车的能耗信息。"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"控制电动汽车的充电设置"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"控制您电动汽车的充电设置。"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"调整汽车的剩余可行驶距离"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"调整汽车的剩余可行驶距离值。"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"访问汽车的暖通空调"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"允许应用声明即将在仪表板上显示的活动"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"仪表板控制"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"在仪表板上启动应用"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"仪表板导航状态"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"监听仪表板导航状态更改"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"仪表板呈现"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"接收仪表板数据"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"用户体验限制条件配置"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"允许控制 Occupant Awareness System 检测图表的启动和停止"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"汽车输入服务"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"处理输入事件"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN 总线故障"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN 总线没有响应。请将主机盒插头拔下并插回，然后重新启动汽车"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"您不能在驾车时使用此功能"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"要重新开始使用安全的应用功能，请选择<xliff:g id="EXIT_BUTTON">%s</xliff:g>。"</string>
-    <string name="exit_button" msgid="5829638404777671253">"返回"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"关闭应用"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"返回"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"读取诊断数据"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"读取汽车的诊断数据。"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"清除诊断数据"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"控制车座。"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"访问汽车的基本信息"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"访问汽车的基本信息。"</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"访问汽车的机密信息"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"访问汽车的机密信息。"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"访问汽车的供应商权限信息"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"访问汽车的供应商权限信息。"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"读取汽车的外部灯具状态信息"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"读取汽车电源政策。"</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"控制汽车电源政策"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"控制汽车电源政策。"</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"调整关闭进程"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"调整关闭进程。"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"渲染模板"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"渲染模板。"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"控制应用启动"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"控制应用启动。"</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN 总线故障"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN 总线没有响应。请将主机盒插头拔下并插回，然后重新启动汽车"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"我的设备"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"访客"</string>
-    <string name="importance_default" msgid="8587741629268312938">"重要性：默认"</string>
-    <string name="importance_high" msgid="3141530792377745041">"重要性：高"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"需要恢复出厂设置"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"系统将清空信息娱乐系统中的所有数据。重置完成后，您可以设置新的个人资料。"</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"更多"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"重置信息娱乐系统"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"您的系统已收到恢复出厂设置并清空所有数据的请求。您可以立即重置，也可以让系统在下次汽车发动时重置。重置完成后，您可以设置新的个人资料。"</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"立即重置"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"以后再重置"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"信息娱乐系统将在下次汽车发动时重置。"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"必须停车才能启动重置流程。"</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"“<xliff:g id="ID_1">^1</xliff:g>”给系统性能造成了影响"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"停用应用可提高系统性能。您可以在“设置”中重新启用应用。"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"优先运行应用可继续使用应用。"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"卸载应用可提高系统性能。"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"停用应用"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"优先运行应用"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"卸载应用"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"已停用“<xliff:g id="ID_1">^1</xliff:g>”。您可以在“设置”中重新启用该应用。"</string>
 </resources>

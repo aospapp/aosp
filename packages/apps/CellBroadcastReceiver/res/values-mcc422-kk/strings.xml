@@ -13,7 +13,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="3211812107922643307">"Төтенше жағдай хабарландыруы"</string>
-    <string name="pws_other_message_identifiers" msgid="7325727748670134223">"Ескертуші хабарландыру"</string>
-    <string name="cmas_exercise_alert" msgid="8865117243431902282">"Жаттығу хабарландыруы"</string>
+    <string name="cmas_presidential_level_alert" msgid="6613961558395121121">"Төтенше жағдай дабылы"</string>
+    <string name="pws_other_message_identifiers" msgid="482796856521435227">"Дабыл"</string>
+    <string name="cmas_exercise_alert" msgid="4408794918342482664">"Жаттығулар туралы ескерту"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="6262235749991861558">"Жаттығулар туралы ескертулер"</string>
 </resources>

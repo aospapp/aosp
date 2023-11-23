@@ -16,61 +16,93 @@
 
 package android.car.hardware.power;
 
+import android.car.annotation.AddedInOrBefore;
+
 /**
  * Copy from android.frameworks.automotive.powerpolicy-java-source/gen/android/frameworks/automotive
- * /powerpolicy/PowerComponent.java.
- * Must be updated when power components are added to
+ * /powerpolicy/PowerComponent.java. Must be updated when power components are added to
  * {@link android.frameworks.hardware.automotivie.powerpolicy.PowerComponent}.
  */
 public @interface PowerComponent {
-  /**
+    /**
      * This is used to turn on/off audio through power policy.
-     */int AUDIO = 1;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int AUDIO = 1;
+    /**
      * This is used to turn on/off media playing/recording through power policy.
-     */int MEDIA = 2;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int MEDIA = 2;
+    /**
      * This is used to turn on/off display through power policy.
-     */int DISPLAY = 3;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int DISPLAY = 3;
+    /**
      * This is used to turn on/off bluetooth through power policy.
-     */int BLUETOOTH = 4;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int BLUETOOTH = 4;
+    /**
      * This is used to turn on/off WiFi network through power policy.
-     */int WIFI = 5;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int WIFI = 5;
+    /**
      * This is used to turn on/off cellular network through power policy.
-     */int CELLULAR = 6;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int CELLULAR = 6;
+    /**
      * This is used to turn on/off ethernet through power policy.
-     */int ETHERNET = 7;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int ETHERNET = 7;
+    /**
      * This is used to turn on/off projection from other devices through power policy.
-     */int PROJECTION = 8;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int PROJECTION = 8;
+    /**
      * This is used to turn on/off NFC through power policy.
-     */int NFC = 9;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int NFC = 9;
+    /**
      * This is used to turn on/off all inputs from users through power policy.
-     */int INPUT = 10;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int INPUT = 10;
+    /**
      * This is used to turn on/off voice interaction through power policy.
-     */int VOICE_INTERACTION = 11;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int VOICE_INTERACTION = 11;
+    /**
      * This is used to turn on/off visual interaction through power policy.
-     */int VISUAL_INTERACTION = 12;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int VISUAL_INTERACTION = 12;
+    /**
      * This is used to turn on/off trusted device detection through power policy.
-     */int TRUSTED_DEVICE_DETECTION = 13;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int TRUSTED_DEVICE_DETECTION = 13;
+    /**
      * This is used to turn on/off location through power policy.
-     */int LOCATION = 14;
-  /**
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int LOCATION = 14;
+    /**
      * This is used to turn on/off microphone through power policy.
-     */int MICROPHONE = 15;
-  /**
-     * This is used to turn on/off CPU through power policy.
-     * It will turn into off state when system goes into sleep state. It will be restored to on
-     * state when system gets out of sleep state.
-     */int CPU = 16;
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int MICROPHONE = 15;
+    /**
+     * This is used to turn on/off CPU through power policy. It will turn into off state when system
+     * goes into sleep state. It will be restored to on state when system gets out of sleep state.
+     */
+    @AddedInOrBefore(majorVersion = 33)
+    int CPU = 16;
 }

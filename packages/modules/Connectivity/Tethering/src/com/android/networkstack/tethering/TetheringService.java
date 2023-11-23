@@ -17,6 +17,7 @@
 package com.android.networkstack.tethering;
 
 import static android.Manifest.permission.ACCESS_NETWORK_STATE;
+import static android.Manifest.permission.NETWORK_SETTINGS;
 import static android.Manifest.permission.NETWORK_STACK;
 import static android.Manifest.permission.TETHER_PRIVILEGED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
@@ -201,6 +202,18 @@ public class TetheringService extends Service {
             try {
                 listener.onResult(TETHER_ERROR_NO_ERROR);
             } catch (RemoteException e) { }
+        }
+
+        @Override
+        public void setPreferTestNetworks(boolean prefer, IIntResultListener listener) {
+            if (!checkCallingOrSelfPermission(NETWORK_SETTINGS)) {
+                try {
+                    listener.onResult(TETHER_ERROR_NO_CHANGE_TETHERING_PERMISSION);
+                } catch (RemoteException e) { }
+                return;
+            }
+
+            mTethering.setPreferTestNetworks(prefer, listener);
         }
 
         @Override

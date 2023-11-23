@@ -44,8 +44,6 @@ public class SmsMessageReceiver extends BroadcastReceiver {
             String fromAddress = message.getOriginatingAddress();
             String messageBody = message.getMessageBody().toString();
 
-            Log.i(LOG_TAG, "From: " + fromAddress + " message: " + messageBody);
-
             addNotification(context, fromAddress, messageBody);
         }
     }

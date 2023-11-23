@@ -15,6 +15,8 @@
  */
 package com.android.internal.net.ipsec.ike.utils;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -35,13 +37,28 @@ public class RandomnessFactory implements EapRandomFactory {
 
     private final boolean mIsTestModeEnabled;
 
-    public RandomnessFactory(Context context, Network network) {
-        ConnectivityManager connectManager =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkCapabilities networkCapabilities = connectManager.getNetworkCapabilities(network);
+    /**
+     * Constructor of the RandomnessFactory
+     *
+     * @param context a Context instance
+     * @param callerConfiguredNetwork the caller configured Network. Pass null if caller will use a
+     *     default network (@see {@link ConnectivityManager#getActiveNetwork()})
+     */
+    public RandomnessFactory(@NonNull Context context, @Nullable Network callerConfiguredNetwork) {
+        if (callerConfiguredNetwork == null) {
+            // Test network can never be a default network. Thus when callerConfiguredNetwork is
+            // null, RandomnessFactory will be used on a default network and will not be in test
+            // mode.
+            mIsTestModeEnabled = false;
+        } else {
+            ConnectivityManager connectManager =
+                    context.getSystemService(ConnectivityManager.class);
+            NetworkCapabilities networkCapabilities =
+                    connectManager.getNetworkCapabilities(callerConfiguredNetwork);
 
-        mIsTestModeEnabled =
-                networkCapabilities != null && networkCapabilities.hasTransport(TRANSPORT_TEST);
+            mIsTestModeEnabled =
+                    networkCapabilities != null && networkCapabilities.hasTransport(TRANSPORT_TEST);
+        }
     }
 
     /**

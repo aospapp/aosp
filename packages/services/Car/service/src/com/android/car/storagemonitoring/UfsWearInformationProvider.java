@@ -17,7 +17,7 @@ package com.android.car.storagemonitoring;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.util.Slog;
+import android.car.builtin.util.Slogf;
 
 import com.android.car.CarLog;
 import com.android.internal.annotations.VisibleForTesting;
@@ -57,14 +57,14 @@ public class UfsWearInformationProvider implements WearInformationProvider {
     @Override
     public WearInformation load() {
         if (!mFile.exists() || !mFile.isFile()) {
-            Slog.i(CarLog.TAG_STORAGE, mFile + " does not exist or is not a file");
+            Slogf.i(CarLog.TAG_STORAGE, mFile + " does not exist or is not a file");
             return null;
         }
         List<String> lifetimeData;
         try {
             lifetimeData = java.nio.file.Files.readAllLines(mFile.toPath());
         } catch (IOException e) {
-            Slog.w(CarLog.TAG_STORAGE, "error reading " + mFile, e);
+            Slogf.w(CarLog.TAG_STORAGE,  "error reading " + mFile, e);
             return null;
         }
         if (lifetimeData == null || lifetimeData.size() < 4) {
@@ -79,31 +79,32 @@ public class UfsWearInformationProvider implements WearInformationProvider {
         Optional<Integer> eol = Optional.empty();
 
         for(String lifetimeInfo : lifetimeData) {
-            Scanner scanner = new Scanner(lifetimeInfo);
-            if (null == scanner.findInLine(infoPattern)) {
-                continue;
-            }
-            MatchResult match = scanner.match();
-            if (match.groupCount() != 2) {
-                continue;
-            }
-            String name = match.group(1);
-            String value = "0x" + match.group(2);
-            try {
-                switch (name) {
-                    case "bPreEOLInfo":
-                        eol = Optional.of(Integer.decode(value));
-                        break;
-                    case "bDeviceLifeTimeEstA":
-                        lifetimeA = Optional.of(Integer.decode(value));
-                        break;
-                    case "bDeviceLifeTimeEstB":
-                        lifetimeB = Optional.of(Integer.decode(value));
-                        break;
+            try (Scanner scanner = new Scanner(lifetimeInfo)) {
+                if (null == scanner.findInLine(infoPattern)) {
+                    continue;
                 }
-            } catch (NumberFormatException e) {
-                Slog.w(CarLog.TAG_STORAGE,
-                    "trying to decode key " + name + " value " + value + " didn't parse properly", e);
+                MatchResult match = scanner.match();
+                if (match.groupCount() != 2) {
+                    continue;
+                }
+                String name = match.group(1);
+                String value = "0x" + match.group(2);
+                try {
+                    switch (name) {
+                        case "bPreEOLInfo":
+                            eol = Optional.of(Integer.decode(value));
+                            break;
+                        case "bDeviceLifeTimeEstA":
+                            lifetimeA = Optional.of(Integer.decode(value));
+                            break;
+                        case "bDeviceLifeTimeEstB":
+                            lifetimeB = Optional.of(Integer.decode(value));
+                            break;
+                    }
+                } catch (NumberFormatException e) {
+                    Slogf.w(CarLog.TAG_STORAGE, "trying to decode key " + name + " value " + value
+                            + " didn't parse properly", e);
+                }
             }
         }
 

@@ -1,19 +1,4 @@
 knownDifferences {
-  cityName: "Itamarac\303\241"
-  s2CellId: 552609014618259456
-  referenceDataResult {
-    isoCountryCodes: "br"
-    zoneIds: "America/Noronha"
-  }
-  actualResult {
-    isoCountryCodes: "br"
-    zoneIds: "America/Sao_Paulo"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Paral\303\255mni"
   s2CellId: 1504138485882159104
   referenceDataResult {
@@ -166,21 +151,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Tayoltita"
-  s2CellId: 9698598183856242688
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Chihuahua"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "San Juan de Abajo"
   s2CellId: 9520952381521526784
   referenceDataResult {
@@ -273,21 +243,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Salf\304\253t"
-  s2CellId: 1521415989336473600
-  referenceDataResult {
-    isoCountryCodes: "ps"
-    zoneIds: "Asia/Jerusalem"
-  }
-  actualResult {
-    isoCountryCodes: "ps"
-    zoneIds: "Asia/Hebron"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Khandyga"
   s2CellId: 6627854273046642688
   referenceDataResult {
@@ -333,21 +288,6 @@ knownDifferences {
   bugUri: "http://b/bugId"
 }
 knownDifferences {
-  cityName: "Roschinskiy"
-  s2CellId: 4712454939215921152
-  referenceDataResult {
-    isoCountryCodes: "ru"
-    zoneIds: "Europe/Moscow"
-  }
-  actualResult {
-    isoCountryCodes: "ru"
-    zoneIds: "Europe/Samara"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
   cityName: "Buq\342\200\230\304\201t\304\201"
   s2CellId: 1521848172031246336
   referenceDataResult {
@@ -372,21 +312,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "mw"
     zoneIds: "Africa/Blantyre"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Shchyolkino"
-  s2CellId: 4677366645008629760
-  referenceDataResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Kiev"
-  }
-  actualResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Simferopol"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -659,6 +584,38 @@ knownDifferences {
     isoCountryCodes: "mk"
     zoneIds: "Europe/Belgrade"
     zoneIds: "Europe/Skopje"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Tyuratam"
+  s2CellId: 4752462147261300736
+  referenceDataResult {
+    isoCountryCodes: "kz"
+    zoneIds: "Asia/Almaty"
+  }
+  actualResult {
+    isoCountryCodes: "kz"
+    zoneIds: "Asia/Oral"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Th\341\273\213 Tr\341\272\245n \304\220\341\273\223ng \304\220\304\203ng"
+  s2CellId: 3942156659056443392
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    isoCountryCodes: "cn"
+    zoneIds: "Asia/Bangkok"
+    zoneIds: "Asia/Shanghai"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"

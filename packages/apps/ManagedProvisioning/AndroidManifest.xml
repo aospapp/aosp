@@ -16,6 +16,7 @@
 */
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.android.managedprovisioning" >
 
     <permission
@@ -35,7 +36,7 @@
     <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.MANAGE_APP_OPS_MODES"/>
-    <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"/>
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS"/>
 
     <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" />
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
@@ -77,6 +78,13 @@
 
     <uses-permission android:name="android.permission.START_FOREGROUND_SERVICES_FROM_BACKGROUND"/>
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-permission android:name="android.permission.LAUNCH_DEVICE_MANAGER_SETUP" />
+
+    <!-- Used to read the device management role holder package name -->
+    <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
+
     <application
         android:label="@string/app_label"
         android:allowClearUserData="false"
@@ -95,7 +103,7 @@
              android:excludeFromRecents="true"
              android:immersive="true"
              android:launchMode="singleTop"
-             android:theme="@style/SudThemeGlifV3.DayNight">
+             android:theme="@style/SudThemeGlifV4.DayNight">
         </activity>
 
         <activity
@@ -103,7 +111,7 @@
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SudThemeGlifV3.DayNight">
+            android:theme="@style/SudThemeGlifV4.DayNight">
         </activity>
 
         <activity
@@ -112,7 +120,7 @@
             android:immersive="true"
             android:launchMode="singleTop"
             android:exported="true"
-            android:theme="@style/SudThemeGlifV3.DayNight">
+            android:theme="@style/SudThemeGlifV4.DayNight">
             <intent-filter android:priority="10">
                 <action android:name="android.app.action.PROVISION_MANAGED_PROFILE" />
                 <action android:name="android.app.action.PROVISION_MANAGED_DEVICE" />
@@ -124,23 +132,23 @@
             android:name=".provisioning.ResetAndReturnDeviceActivity"
             android:excludeFromRecents="true"
             android:immersive="true"
-            android:theme="@style/SudThemeGlifV3.Light"/>
+            android:theme="@style/SudThemeGlifV4.Light"/>
 
         <!--
             Nfc bump entry for device owner provisioning, protected by a permission so only the Nfc
             stack can trigger this.
         -->
-        <activity-alias
-            android:name=".PreProvisioningActivityViaNfc"
-            android:targetActivity=".preprovisioning.PreProvisioningActivity"
+        <activity
+            android:name=".preprovisioning.PreProvisioningActivityViaNfc"
             android:permission="android.permission.DISPATCH_NFC_MESSAGE"
+            android:theme="@style/SudThemeGlifV4.DayNight"
             android:exported="true">
             <intent-filter android:priority="10">
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/com.android.managedprovisioning" />
             </intent-filter>
-        </activity-alias>
+        </activity>
         <!--
             Trusted app entry for device owner provisioning, protected by a permission so only
             privileged app can trigger this.
@@ -177,7 +185,7 @@
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SudThemeGlifV3.DayNight"/>
+            android:theme="@style/SudThemeGlifV4.DayNight"/>
         <activity
             android:name=".preprovisioning.EncryptDeviceActivity"
             android:immersive="true"
@@ -201,7 +209,7 @@
             android:name=".preprovisioning.WebActivity"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SudThemeGlifV3.DayNight"
+            android:theme="@style/SudThemeGlifV4.DayNight"
             android:process=":webview">
         </activity>
 
@@ -248,15 +256,15 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name="com.android.managedprovisioning.manageduser.ManagedUserCreationListener"
+        <receiver android:name="com.android.managedprovisioning.provisioninglisteners.ProvisioningCompletedListener"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.app.action.MANAGED_USER_CREATED" />
+                <action android:name="android.app.action.PROVISIONING_COMPLETED" />
             </intent-filter>
         </receiver>
 
         <receiver
-            android:name="com.android.managedprovisioning.manageduser.ManagedUserRemovalListener"
+            android:name="com.android.managedprovisioning.provisioninglisteners.ManagedUserRemovalListener"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.USER_REMOVED" />
@@ -264,12 +272,12 @@
         </receiver>
 
         <!-- TODO (b/146135268): Add permission for setup-wizard to guard access? -->
-        <activity android:name=".finalization.FinalizationInsideSuwActivity"
+        <activity android:name=".finalization.FinalizationForwarderActivity"
                   android:excludeFromRecents="true"
                   android:exported="true"
                   android:immersive="true"
                   android:launchMode="singleTop"
-                  android:theme="@style/SudThemeGlifV3.DayNight">
+                  android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <!-- TODO (b/177666246): Remove PROVISION_FINALIZATION_INSIDE_SUW
                 after the setup wizard change which calls PROVISION_FINALIZATION is in prebuilt -->
@@ -279,18 +287,54 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".finalization.FinalizationInsideSuwActivity"
+                  android:excludeFromRecents="true"
+                  android:immersive="true"
+                  android:launchMode="singleTop"
+                  android:theme="@style/SudThemeGlifV4.DayNight" />
+
         <activity
             android:name=".provisioning.LandingActivity"
-            android:theme="@style/SudThemeGlifV3.DayNight"
+            android:theme="@style/SudThemeGlifV4.DayNight"
             android:immersive="true" />
 
         <activity
             android:name=".provisioning.FinancedDeviceLandingActivity"
-            android:theme="@style/SudThemeGlifV3.DayNight"
+            android:theme="@style/SudThemeGlifV4.DayNight"
             android:immersive="true" />
+
+        <activity
+            android:name=".preprovisioning.DownloadRoleHolderActivity"
+            android:theme="@style/SudThemeGlifV4.DayNight"
+            android:immersive="true" />
+
+        <activity
+            android:name=".common.RetryLaunchActivity"
+            android:theme="@style/SudThemeGlifV4.DayNight"
+            android:immersive="true" />
+
+        <activity
+            android:name=".networkconnection.EstablishNetworkConnectionActivity"
+            android:excludeFromRecents="true"
+            android:immersive="true"
+            android:launchMode="singleTop"
+            android:theme="@style/SudThemeGlifV3.DayNight"
+            android:permission="android.permission.DISPATCH_PROVISIONING_MESSAGE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.action.ESTABLISH_NETWORK_CONNECTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <service
             android:name=".analytics.ProcessMetricsJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"/>
+
+        <!-- (b/197919878) Disable startup provider due to resource loading issue. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
     </application>
 </manifest>

@@ -18,7 +18,6 @@ package com.android.systemui;
 
 import com.android.systemui.dagger.GlobalModule;
 import com.android.systemui.dagger.GlobalRootComponent;
-import com.android.systemui.dagger.WMModule;
 import com.android.systemui.wmshell.CarWMComponent;
 
 import javax.inject.Singleton;
@@ -27,12 +26,7 @@ import dagger.Component;
 
 /** Car subclass for GlobalRootComponent. */
 @Singleton
-@Component(
-        modules = {
-                GlobalModule.class,
-                CarSysUIComponentModule.class,
-                WMModule.class
-        })
+@Component(modules = {GlobalModule.class})
 public interface CarGlobalRootComponent extends GlobalRootComponent {
     /**
      * Builder for a CarGlobalRootComponent.

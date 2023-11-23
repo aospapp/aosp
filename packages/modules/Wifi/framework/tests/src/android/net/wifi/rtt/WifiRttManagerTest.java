@@ -19,6 +19,7 @@ package android.net.wifi.rtt;
 import static junit.framework.Assert.fail;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,7 @@ import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.aware.PeerHandle;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.test.TestLooper;
@@ -92,7 +94,7 @@ public class WifiRttManagerTest {
         // verify ranging request passed to service
         mDut.startRanging(request, mMockLooperExecutor, callbackMock);
         verify(mockRttService).startRanging(any(IBinder.class), eq(packageName), eq(featureId),
-                eq(null),  eq(request), callbackCaptor.capture());
+                eq(null),  eq(request), callbackCaptor.capture(), any(Bundle.class));
 
         // service calls back with success
         callbackCaptor.getValue().onRangingResults(results);
@@ -116,7 +118,7 @@ public class WifiRttManagerTest {
         // verify ranging request passed to service
         mDut.startRanging(request, mMockLooperExecutor, callbackMock);
         verify(mockRttService).startRanging(any(IBinder.class), eq(packageName), eq(featureId),
-                eq(null), eq(request), callbackCaptor.capture());
+                eq(null), eq(request), callbackCaptor.capture(), any(Bundle.class));
 
         // service calls back with failure code
         callbackCaptor.getValue().onRangingFailure(failureCode);
@@ -169,7 +171,7 @@ public class WifiRttManagerTest {
     }
 
     /**
-     * Validate the rtt burst size is set correctly when in range.
+     * Validate 80211mc APs cannot be used in Non-80211mc ranging request builders.
      */
     @Test
     public void test802llmcCapableAccessPointFailsForNon11mcBuilderMethods() {
@@ -260,24 +262,59 @@ public class WifiRttManagerTest {
 
     /**
      * Validate that can request as many range operation as the upper limit on number of requests.
+     * Testing all methods to add 80211mc capable responders.
      */
     @Test
     public void testRangingRequestAtLimit() {
-        ScanResult scanResult = new ScanResult();
-        scanResult.BSSID = "AA:BB:CC:DD:EE:FF";
-        scanResult.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
+        ScanResult scanResult1 = new ScanResult();
+        scanResult1.BSSID = "AA:BB:CC:DD:EE:FF";
+        scanResult1.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
+
         List<ScanResult> scanResultList = new ArrayList<>();
-        for (int i = 0; i < RangingRequest.getMaxPeers() - 3; ++i) {
-            scanResultList.add(scanResult);
+        for (int i = 0; i < RangingRequest.getMaxPeers() - 5; ++i) {
+            scanResultList.add(scanResult1);
         }
+
+        ScanResult scanResult2 = new ScanResult();
+        scanResult2.BSSID = "11:22:33:44:55:66";
+        scanResult2.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
+
+        ResponderConfig responderConfig2a = ResponderConfig.fromScanResult(scanResult2);
+        int preamble = responderConfig2a.getPreamble();
+
+        ResponderConfig.Builder responderBuilder = new ResponderConfig.Builder();
+        ResponderConfig responderConfig2b = responderBuilder
+                .setMacAddress(MacAddress.fromString(scanResult2.BSSID))
+                .set80211mcSupported(scanResult2.is80211mcResponder())
+                .setChannelWidth(scanResult2.channelWidth)
+                .setFrequencyMhz(scanResult2.frequency)
+                .setCenterFreq0Mhz(scanResult2.centerFreq0)
+                .setCenterFreq1Mhz(scanResult2.centerFreq1)
+                .setPreamble(preamble)
+                .build();
+
+        // Validate ResponderConfig.Builder setter method arguments match getter method results.
+        assertTrue(responderConfig2a.getMacAddress().toString().equalsIgnoreCase(scanResult2.BSSID)
+                && responderConfig2a.is80211mcSupported() == scanResult2.is80211mcResponder()
+                && responderConfig2a.getChannelWidth() == scanResult2.channelWidth
+                && responderConfig2a.getFrequencyMhz() == scanResult2.frequency
+                && responderConfig2a.getCenterFreq0Mhz() == scanResult2.centerFreq0
+                && responderConfig2a.getCenterFreq1Mhz() == scanResult2.centerFreq1
+                && responderConfig2a.getPreamble() == preamble);
+
+        ArrayList<ResponderConfig> responderList = new ArrayList<>();
+        responderList.add(responderConfig2b);
+
         MacAddress mac1 = MacAddress.fromString("00:01:02:03:04:05");
 
         // create request using max RTT Peers
         RangingRequest.Builder builder = new RangingRequest.Builder();
-        builder.addAccessPoint(scanResult);
-        builder.addAccessPoints(scanResultList);
-        builder.addAccessPoint(scanResult);
-        builder.addWifiAwarePeer(mac1);
+        builder.addAccessPoint(scanResult1);        // Add 1
+        builder.addAccessPoints(scanResultList);    // Add MaxPeers - 5
+        builder.addResponder(responderConfig2a);    // Add 1
+        builder.addResponders(responderList);       // Add 1
+        builder.addAccessPoint(scanResult2);        // Add 1
+        builder.addWifiAwarePeer(mac1);             // Add 1
         RangingRequest request = builder.build();
 
         // verify request
@@ -289,10 +326,66 @@ public class WifiRttManagerTest {
         int numRttPeers = rttPeers.size();
         assertEquals(RangingRequest.getMaxPeers(), numRttPeers);
         // confirm each peer has the correct mac address
-        for (int i = 0; i < numRttPeers - 1; ++i) {
-            assertEquals("AA:BB:CC:DD:EE:FF", rttPeers.get(i).macAddress.toString().toUpperCase());
-            assertEquals("00:01:02:03:04:05",
-                    rttPeers.get(numRttPeers - 1).macAddress.toString().toUpperCase());
+        for (int i = 0; i < numRttPeers - 4; ++i) {
+            assertEquals("AA:BB:CC:DD:EE:FF",
+                    rttPeers.get(i).macAddress.toString().toUpperCase());
+        }
+        for (int i = numRttPeers - 4; i < numRttPeers - 1; ++i) {
+            assertEquals("11:22:33:44:55:66",
+                    rttPeers.get(i).macAddress.toString().toUpperCase());
+        }
+        assertEquals("00:01:02:03:04:05",
+                rttPeers.get(numRttPeers - 1).macAddress.toString().toUpperCase());
+    }
+
+    /**
+     * Validate that a non802llmc ranging request can have as many range operations as the upper
+     * limit for number of requests. Testing all methods to add non-80211mc capable responders using
+     * a mix of ScanResults and ResponderConfigs.
+     */
+    @Test
+    public void testNon80211mcRangingRequestAtLimit() {
+        ScanResult scanResult1 = new ScanResult();
+        scanResult1.BSSID = "AA:BB:CC:DD:EE:FF";
+
+        List<ScanResult> scanResultList = new ArrayList<>();
+        for (int i = 0; i < RangingRequest.getMaxPeers() - 5; ++i) {
+            scanResultList.add(scanResult1);
+        }
+
+        ScanResult scanResult2 = new ScanResult();
+        scanResult2.BSSID = "11:22:33:44:55:66";
+
+        ResponderConfig responderConfig2 = ResponderConfig.fromScanResult(scanResult2);
+        List<ResponderConfig> responderConfigList = new ArrayList<>();
+        for (int i = 0; i < 3; ++i) {
+            responderConfigList.add(responderConfig2);
+        }
+
+        // create request using max RTT Peers
+        RangingRequest.Builder builder = new RangingRequest.Builder();
+        builder.addNon80211mcCapableAccessPoint(scanResult1);        // Add 1
+        builder.addNon80211mcCapableAccessPoints(scanResultList);    // Add MaxPeers - 5 = 5
+        builder.addResponders(responderConfigList);                  // Add 3
+        builder.addNon80211mcCapableAccessPoint(scanResult2);        // Add 1
+        RangingRequest request = builder.build();
+
+        // verify request
+        request.enforceValidity(true);
+        // confirm rtt burst size is set correctly to default value
+        assertEquals(request.getRttBurstSize(), RangingRequest.getDefaultRttBurstSize());
+        // confirm the number of peers in the request is the max number of peers
+        List<ResponderConfig> rttPeers = request.getRttResponders();
+        int numRttPeers = rttPeers.size();
+        assertEquals(RangingRequest.getMaxPeers(), numRttPeers);
+        // confirm each peer has the correct mac address
+        for (int i = 0; i < numRttPeers - 4; ++i) {
+            assertEquals("AA:BB:CC:DD:EE:FF",
+                    rttPeers.get(i).macAddress.toString().toUpperCase());
+        }
+        for (int i = numRttPeers - 4; i < numRttPeers; ++i) {
+            assertEquals("11:22:33:44:55:66",
+                    rttPeers.get(i).macAddress.toString().toUpperCase());
         }
     }
 
@@ -467,6 +560,10 @@ public class WifiRttManagerTest {
         ScanResult.InformationElement vsa = new ScanResult.InformationElement();
         vsa.id = ScanResult.InformationElement.EID_VSA;
 
+        ScanResult.InformationElement heCap = new ScanResult.InformationElement();
+        heCap.id = ScanResult.InformationElement.EID_EXTENSION_PRESENT;
+        heCap.idExt = ScanResult.InformationElement.EID_EXT_HE_CAPABILITIES;
+
         // no IE
         ScanResult scan = new ScanResult();
         scan.BSSID = "00:01:02:03:04:05";
@@ -503,5 +600,24 @@ public class WifiRttManagerTest {
         config = ResponderConfig.fromScanResult(scan);
 
         assertEquals(ResponderConfig.PREAMBLE_HT, config.preamble);
+
+        // IE with VHT and HE on 5G
+
+        scan.frequency = 5200;
+        scan.informationElements[0] = vhtCap;
+        scan.informationElements[1] = heCap;
+
+        config = ResponderConfig.fromScanResult(scan);
+
+        assertEquals(ResponderConfig.PREAMBLE_VHT, config.preamble);
+
+        // IE with VHT and HE on 6G
+        scan.frequency = 5935;
+        scan.informationElements[0] = vhtCap;
+        scan.informationElements[1] = heCap;
+
+        config = ResponderConfig.fromScanResult(scan);
+
+        assertEquals(ResponderConfig.PREAMBLE_HE, config.preamble);
     }
 }

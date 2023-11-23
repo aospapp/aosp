@@ -16,6 +16,9 @@
 
 package com.google.android.car.kitchensink.audio;
 
+import static android.media.AudioDeviceInfo.TYPE_BUS;
+import static android.media.AudioDeviceInfo.TYPE_FM_TUNER;
+
 import static com.google.android.car.kitchensink.audio.CarAudioInputTestFragment.getAudioInputLogTag;
 
 import android.car.media.CarAudioManager;
@@ -36,6 +39,7 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.R;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,27 +115,31 @@ public final class CarAudioZoneInputFragment extends Fragment {
     void initAudioInputInfo(int audioZoneId) {
         List<AudioDeviceInfo> inputDevices =
                 mCarAudioManager.getInputDevicesForZoneId(audioZoneId);
-        mCarInputDevicesInfos = new CarAudioAudioInputInfo[inputDevices.size() + 1];
+        List<CarAudioAudioInputInfo> audioInputInfos = new ArrayList<>();
         CarAudioAudioInputInfo titlesInfo = new CarAudioAudioInputInfo();
         titlesInfo.mDeviceAddress = "Device Address";
         titlesInfo.mPlayerState = STOPPED_STATE;
-        mCarInputDevicesInfos[0] = titlesInfo;
+        audioInputInfos.add(titlesInfo);
 
         synchronized (mLock) {
             for (int index = 0; index < inputDevices.size(); index++) {
                 AudioDeviceInfo info = inputDevices.get(index);
-                CarAudioAudioInputInfo audioInput = new CarAudioAudioInputInfo();
-                audioInput.mCarAudioZone = mAudioZoneId;
-                audioInput.mDeviceAddress = info.getAddress();
-                audioInput.mPlayerState = STOPPED_STATE;
-                mCarInputDevicesInfos[index + 1] = audioInput;
+                if (isFMTunerOrBusDeviceType(info)) {
+                    CarAudioAudioInputInfo audioInput = new CarAudioAudioInputInfo();
+                    audioInput.mCarAudioZone = mAudioZoneId;
+                    audioInput.mDeviceAddress = info.getAddress();
+                    audioInput.mPlayerState = STOPPED_STATE;
+                    audioInputInfos.add(audioInput);
 
-                if (DEBUG) {
-                    Log.d(TAG, audioInput.toString());
+                    if (DEBUG) {
+                        Log.d(TAG, audioInput.toString());
+                    }
+                    mAudioDeviceInfoMap.put(info.getAddress(), audioInput);
                 }
-                mAudioDeviceInfoMap.put(info.getAddress(), audioInput);
             }
         }
+        mCarInputDevicesInfos =
+                audioInputInfos.toArray(new CarAudioAudioInputInfo[audioInputInfos.size()]);
         mCarAudioInputAdapter.refreshAudioInputs(mCarInputDevicesInfos);
     }
 
@@ -278,5 +286,9 @@ public final class CarAudioZoneInputFragment extends Fragment {
         public String toString() {
             return "Device address " + mDeviceAddress + ", Audio zone id " + mCarAudioZone;
         }
+    }
+
+    private static boolean isFMTunerOrBusDeviceType(AudioDeviceInfo info) {
+        return info.getType() == TYPE_FM_TUNER || info.getType() == TYPE_BUS;
     }
 }

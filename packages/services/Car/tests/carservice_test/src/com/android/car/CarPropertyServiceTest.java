@@ -28,17 +28,17 @@ import static org.mockito.Mockito.verify;
 
 import static java.lang.Integer.toHexString;
 
-import android.hardware.automotive.vehicle.V2_0.VehicleGear;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleGear;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
+import com.android.car.hal.test.AidlMockedVehicleHal.VehicleHalPropertyHandler;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,34 +66,34 @@ public class CarPropertyServiceTest extends MockedCarTestBase {
         // CarPropertyService.registerListener. Unusual default values like the car is in motion,
         // night mode is on, or the car is low on fuel.
         mDefaultPropValues.put(VehicleProperty.GEAR_SELECTION,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                .addIntValue(VehicleGear.GEAR_DRIVE)
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                .addIntValues(VehicleGear.GEAR_DRIVE)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos()).build());
         mDefaultPropValues.put(VehicleProperty.PARKING_BRAKE_ON,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setBooleanValue(false)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos()).build());
         mDefaultPropValues.put(VehicleProperty.PERF_VEHICLE_SPEED,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                .addFloatValue(30.0f)
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                .addFloatValues(30.0f)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos()).build());
         mDefaultPropValues.put(VehicleProperty.NIGHT_MODE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.NIGHT_MODE)
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.NIGHT_MODE)
                 .setBooleanValue(true)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos()).build());
     }
 
     @Override
-    protected synchronized void configureMockedHal() {
+    protected void configureMockedHal() {
         PropertyHandler handler = new PropertyHandler();
         for (VehiclePropValue value : mDefaultPropValues.values()) {
             handler.onPropertySet(value);
-            addProperty(value.prop, handler);
+            addAidlProperty(value.prop, handler);
         }
     }
 
     @Override
-    protected synchronized void spyOnBeforeCarImplInit() {
+    protected void spyOnBeforeCarImplInit(ICarImpl carImpl) {
         mService = CarLocalServices.getService(CarPropertyService.class);
         assertThat(mService).isNotNull();
         spyOn(mService);

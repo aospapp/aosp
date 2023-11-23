@@ -25,7 +25,6 @@ import android.net.EthernetManager
 import android.net.InetAddresses
 import android.net.NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL
 import android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED
-import android.net.NetworkCapabilities.TRANSPORT_ETHERNET
 import android.net.NetworkCapabilities.TRANSPORT_TEST
 import android.net.NetworkRequest
 import android.net.TestNetworkInterface
@@ -96,7 +95,6 @@ class NetworkValidationTest {
     private val ethRequest = NetworkRequest.Builder()
             // ETHERNET|TEST transport networks do not have NET_CAPABILITY_TRUSTED
             .removeCapability(NET_CAPABILITY_TRUSTED)
-            .addTransportType(TRANSPORT_ETHERNET)
             .addTransportType(TRANSPORT_TEST).build()
     private val ethRequestCb = TestableNetworkCallback()
 

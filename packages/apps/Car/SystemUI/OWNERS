@@ -1,8 +1,7 @@
 # Primary
-kwaky@google.com
+alexstetson@google.com
 
 # Secondary
-hseog@google.com
 nehah@google.com
 
 # Owners from Core Android SystemUI in case quick approval is needed for simple refactoring.
@@ -10,3 +9,5 @@ nehah@google.com
 dupin@google.com
 mankoff@google.com
 pixel@google.com
+dsandler@android.com
+adamcohen@google.com

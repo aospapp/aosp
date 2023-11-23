@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"வாகனம் ஓட்டும்போது இந்த அம்சத்தைப் பயன்படுத்த முடியாது"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"ஆப்ஸைப் பாதுகாப்பான அம்சங்களுடன் மீண்டும் தொடங்க <xliff:g id="EXIT_BUTTON">%s</xliff:g>ஐத் தேர்ந்தெடுக்கவும்."</string>
+    <string name="exit_button" msgid="3491899413031549265">"பின்செல்"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"ஆப்ஸை மூடு"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"பின்செல்"</string>
+    <string name="importance_default" msgid="8017186728206153704">"இயல்புநிலை முக்கியத்துவம்"</string>
+    <string name="importance_high" msgid="3393374688015554727">"அதிக முக்கியத்துவம்"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Android அமைப்பு"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"ஆரம்பநிலைக்கு மீட்டமைக்க வேண்டும்"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"இன்ஃபோடெயின்மென்ட் சிஸ்டத்திலுள்ள அனைத்துத் தரவும் அழிக்கப்படும். மீட்டமைத்த பிறகு, புதிய சுயவிவரத்தை அமைக்கலாம்."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"மேலும்"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"சாதனத் தரவு அழிக்கப்படும்"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"நிர்வாகி ஆப்ஸைப் பயன்படுத்த முடியாது. உங்கள் சாதனம் ஆரம்ப நிலைக்கு மீட்டமைக்கப்படும்.\n\nகேள்விகள் இருந்தால் உங்கள் நிறுவனத்தின் நிர்வாகியைத் தொடர்புகொள்ளவும்."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"உங்கள் சிஸ்டத்தின் செயல்திறனை <xliff:g id="ID_1">^1</xliff:g> பாதிக்கிறது"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"சிஸ்டத்தின் செயல்திறனை மேம்படுத்த ஆப்ஸை முடக்கவும். அமைப்புகளுக்குச் சென்று மீண்டும் ஆப்ஸை இயக்கலாம்."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"ஆப்ஸைத் தொடர்ந்து பயன்படுத்த அதை முன்னுரிமைப்படுத்தவும்."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"சிஸ்டத்தின் செயல்திறனை மேம்படுத்த ஆப்ஸை நிறுவல் நீக்கவும்."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"ஆப்ஸை முடக்கு"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"ஆப்ஸை முன்னுரிமைப்படுத்துங்கள்"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"ஆப்ஸை நிறுவல் நீக்குங்கள்"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> முடக்கப்பட்டது. அமைப்புகளுக்குச் சென்று மீண்டும் அதை இயக்கலாம்."</string>
+</resources>

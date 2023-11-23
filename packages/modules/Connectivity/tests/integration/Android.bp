@@ -40,7 +40,7 @@ android_test {
         "mockito-target-extended-minus-junit4",
         "net-tests-utils",
         "service-connectivity-pre-jarjar",
-        "services.core",
+        "service-connectivity-tiramisu-pre-jarjar",
         "services.net",
         "testables",
     ],
@@ -53,6 +53,8 @@ android_test {
         // android_library does not include JNI libs: include NetworkStack dependencies here
         "libnativehelper_compat_libc++",
         "libnetworkstackutilsjni",
+        "libandroid_net_connectivity_com_android_net_module_util_jni",
+        "libservice-connectivity",
     ],
     jarjar_rules: ":connectivity-jarjar-rules",
 }
@@ -69,7 +71,7 @@ java_library {
         "net-tests-utils",
     ],
     libs: [
-        "service-connectivity",
+        "service-connectivity-for-tests",
         "services.core",
         "services.net",
     ],

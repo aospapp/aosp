@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Chặn các cuộc gọi từ điện thoại công cộng"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Không xác định"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Chặn cuộc gọi từ người gọi không xác định"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Không có sẵn"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Chặn cuộc gọi khi không có sẵn số điện thoại"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Chặn cuộc gọi"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Đã tắt tính năng Chặn cuộc gọi"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Đã thực hiện cuộc gọi khẩn cấp"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Đã tắt tính năng Chặn cuộc gọi để cho phép người trả lời khẩn cấp liên hệ với bạn."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menu nhà phát triển dịch vụ viễn thông"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Bạn không thể gọi điện trong khi thực hiện cuộc gọi khẩn cấp."</string>
+    <string name="cancel" msgid="6733466216239934756">"Hủy"</string>
 </resources>

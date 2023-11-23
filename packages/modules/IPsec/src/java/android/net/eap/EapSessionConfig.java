@@ -260,7 +260,23 @@ public final class EapSessionConfig {
          */
         @NonNull
         public Builder setEapAkaConfig(int subId, @UiccAppType int apptype) {
-            mEapConfigs.put(EapMethodConfig.EAP_TYPE_AKA, new EapAkaConfig(subId, apptype));
+            setEapAkaConfig(subId, apptype, null);
+            return this;
+        }
+
+        /**
+         * Sets the configuration for EAP AKA with options.
+         *
+         * @param subId int the client's subId to be authenticated.
+         * @param apptype the {@link UiccAppType} apptype to be used for authentication.
+         * @param options optional configuration for EAP AKA
+         * @return Builder this, to facilitate chaining.
+         */
+        @NonNull
+        public Builder setEapAkaConfig(
+                int subId, @UiccAppType int apptype, @NonNull EapAkaOption options) {
+            mEapConfigs.put(
+                    EapMethodConfig.EAP_TYPE_AKA, new EapAkaConfig(subId, apptype, options));
             return this;
         }
 
@@ -620,15 +636,26 @@ public final class EapSessionConfig {
      * EapAkaConfig represents the configs needed for an EAP AKA session.
      */
     public static class EapAkaConfig extends EapUiccConfig {
+        private static final String AKA_OPTION_KEY = "akaOption";
+
+        private final EapAkaOption mEapAkaOption;
+
         /** @hide */
         @VisibleForTesting
         public EapAkaConfig(int subId, @UiccAppType int apptype) {
-            this(EAP_TYPE_AKA, subId, apptype);
+            this(EAP_TYPE_AKA, subId, apptype, null);
         }
 
         /** @hide */
-        EapAkaConfig(int methodType, int subId, @UiccAppType int apptype) {
+        @VisibleForTesting
+        public EapAkaConfig(int subId, @UiccAppType int apptype, EapAkaOption options) {
+            this(EAP_TYPE_AKA, subId, apptype, options);
+        }
+
+        /** @hide */
+        EapAkaConfig(int methodType, int subId, @UiccAppType int apptype, EapAkaOption options) {
             super(methodType, subId, apptype);
+            mEapAkaOption = options;
         }
 
         /**
@@ -639,7 +666,40 @@ public final class EapSessionConfig {
         @NonNull
         public static EapAkaConfig fromPersistableBundle(@NonNull PersistableBundle in) {
             Objects.requireNonNull(in, "PersistableBundle is null");
-            return new EapAkaConfig(in.getInt(SUB_ID_KEY), in.getInt(APP_TYPE_KEY));
+
+            EapAkaOption eapAkaOption = null;
+            PersistableBundle bundle = in.getPersistableBundle(AKA_OPTION_KEY);
+            if (bundle != null) {
+                eapAkaOption = EapAkaOption.fromPersistableBundle(bundle);
+            }
+
+            return new EapAkaConfig(in.getInt(SUB_ID_KEY), in.getInt(APP_TYPE_KEY), eapAkaOption);
+        }
+
+        /**
+         * Serializes this object to a PersistableBundle
+         *
+         * @hide
+         */
+        @Override
+        @NonNull
+        protected PersistableBundle toPersistableBundle() {
+            final PersistableBundle result = super.toPersistableBundle();
+            if (mEapAkaOption != null) {
+                result.putPersistableBundle(AKA_OPTION_KEY, mEapAkaOption.toPersistableBundle());
+            }
+
+            return result;
+        }
+
+        /**
+         * Retrieves EapAkaOption
+         *
+         * @return the {@link EapAkaOption}
+         */
+        @NonNull
+        public EapAkaOption getEapAkaOption() {
+            return mEapAkaOption;
         }
     }
 
@@ -660,7 +720,7 @@ public final class EapSessionConfig {
                 @UiccAppType int apptype,
                 @NonNull String networkName,
                 boolean allowMismatchedNetworkNames) {
-            super(EAP_TYPE_AKA_PRIME, subId, apptype);
+            super(EAP_TYPE_AKA_PRIME, subId, apptype, null);
 
             Objects.requireNonNull(networkName, "networkName must not be null");
 
@@ -965,6 +1025,138 @@ public final class EapSessionConfig {
                     && Objects.equals(
                             mOverrideTrustAnchor.getTrustedCert(),
                             other.mOverrideTrustAnchor.getTrustedCert());
+        }
+    }
+
+    /**
+     * EapAkaOption represents optional configurations for EAP AKA authentication.
+     */
+    public static final class EapAkaOption {
+        /** @hide */
+        private static final String REAUTH_ID_KEY = "reauthId";
+
+        /** @hide */
+        private final byte[] mReauthId;
+
+        /** @hide */
+        @VisibleForTesting
+        public EapAkaOption(@Nullable byte[] reauthId) {
+            if (reauthId != null) {
+                mReauthId = new byte[reauthId.length];
+                System.arraycopy(reauthId, 0, mReauthId, 0, reauthId.length);
+            } else {
+                mReauthId = null;
+            }
+        }
+
+        /**
+         * Constructs this object by deserializing a PersistableBundle
+         *
+         * @hide
+         */
+        @NonNull
+        public static EapAkaOption fromPersistableBundle(@NonNull PersistableBundle in) {
+            Objects.requireNonNull(in, "PersistableBundle is null");
+
+            EapAkaOption.Builder builder = new EapAkaOption.Builder();
+            PersistableBundle reauthIdBundle = in.getPersistableBundle(REAUTH_ID_KEY);
+            if (reauthIdBundle != null) {
+                byte[] reauthId = PersistableBundleUtils.toByteArray(reauthIdBundle);
+                builder.setReauthId(reauthId);
+            }
+
+            return builder.build();
+        }
+
+        /**
+         * Serializes this object to a PersistableBundle
+         *
+         * @hide
+         */
+        @NonNull
+        protected PersistableBundle toPersistableBundle() {
+            final PersistableBundle result = new PersistableBundle();
+
+            if (mReauthId != null) {
+                result.putPersistableBundle(
+                        REAUTH_ID_KEY, PersistableBundleUtils.fromByteArray(mReauthId));
+            }
+            return result;
+        }
+
+        /**
+         * Retrieves the re-authentication ID
+         *
+         * @return the re-authentication ID
+         */
+        @Nullable
+        public byte[] getReauthId() {
+            return mReauthId;
+        }
+
+        /** @hide */
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), mReauthId);
+        }
+
+        /** @hide */
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof EapAkaOption)) {
+                return false;
+            }
+
+            EapAkaOption other = (EapAkaOption) o;
+
+            return Arrays.equals(mReauthId, other.mReauthId);
+        }
+
+        /**
+         * This class can be used to incrementally construct an {@link EapAkaOption}.
+         */
+        public static final class Builder {
+            byte[] mReauthId;
+
+            /**
+             * Set fast re-authentication ID
+             *
+             * <p>If keys are found matching the combination of reauthId and permanent ID,
+             * re-authentication will be attempted.
+             *
+             * <p>Permanent ID MUST be set in setEapIdentity
+             *
+             * <p>Upon session establishment, new re-authentication IDs will be listed in the
+             * EapAkaInfo returned as part of IkeSessionCallback#onOpened().
+             *
+             * <p>Reauthentication is generally considered less secure, as it does not prove the
+             * existence of the full credentials, and should be used only when a strong correlation
+             * can be provided to the full authentication (eg shared keys from previous
+             * authentication runs)
+             *
+             * @see <a href="https://datatracker.ietf.org/doc/html/rfc4187#section-5">RFC 4186,
+             *     Extensible Authentication Protocol Method for 3rd Generation Authentication and
+             *     Key Agreement (EAP-AKA)</a>
+             *
+             * @param reauthId re-authentication ID encoded with UTF-8
+             * @return Builder this, to facilitate chaining.
+             */
+            @NonNull
+            public Builder setReauthId(@NonNull byte[] reauthId) {
+                mReauthId = reauthId;
+                return this;
+            }
+
+            /**
+             * Constructs and returns an EapAkaOption with the configurations applied to this
+             * Builder.
+             *
+             * @return the EapAkaOption constructed by this Builder.
+             */
+            @NonNull
+            public EapAkaOption build() {
+                return new EapAkaOption(mReauthId);
+            }
         }
     }
 

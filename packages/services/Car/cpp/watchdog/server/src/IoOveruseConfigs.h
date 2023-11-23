@@ -71,7 +71,7 @@ class IoOveruseConfigsPeer;
 /**
  * Defines the methods that the I/O overuse configs module should implement.
  */
-class IIoOveruseConfigs : public android::RefBase {
+class IoOveruseConfigsInterface : public android::RefBase {
 public:
     // Overwrites the existing configurations.
     virtual android::base::Result<void>
@@ -180,7 +180,7 @@ private:
  * applications. This class is not thread safe for performance purposes. The caller is responsible
  * for calling the methods in a thread safe manner.
  */
-class IoOveruseConfigs final : public IIoOveruseConfigs {
+class IoOveruseConfigs final : public IoOveruseConfigsInterface {
 public:
     IoOveruseConfigs();
     ~IoOveruseConfigs() {

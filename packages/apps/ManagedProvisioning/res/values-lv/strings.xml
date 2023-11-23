@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Šī lietotne pārvaldīs jūsu ierīci:"</string>
     <string name="next" msgid="1004321437324424398">"Tālāk"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Notiek darba profila iestatīšana..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT administrators var pārraudzīt un pārvaldīt ar šo profilu saistītos iestatījumus, korporatīvo piekļuvi, lietotnes, atļaujas un datus, tostarp aktivitāti tīklā, kā arī informāciju par ierīces atrašanās vietu, zvanu vēsturi un kontaktpersonu meklēšanas vēsturi.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Lai iegūtu plašāku informāciju, tostarp informāciju par organizācijas konfidencialitātes politikām, sazinieties ar IT administratoru."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Jūsu IT administrators var pārraudzīt un pārvaldīt ar šo profilu saistītos iestatījumus, korporatīvo piekļuvi, lietotnes, atļaujas, datus un tīkla darbības, kā arī jūsu zvanu vēsturi un kontaktpersonu meklēšanas vēsturi. Lai iegūtu plašāku informāciju un uzzinātu vairāk par savas organizācijas konfidencialitātes politikām, sazinieties ar savu IT administratoru."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT administrators var pārraudzīt un pārvaldīt ar šo ierīci saistītos iestatījumus, korporatīvo piekļuvi, lietotnes, atļaujas un datus, tostarp aktivitāti tīklā, kā arī informāciju par ierīces atrašanās vietu, zvanu vēsturi un kontaktpersonu meklēšanas vēsturi.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Lai iegūtu plašāku informāciju, tostarp informāciju par organizācijas konfidencialitātes politikām, sazinieties ar IT administratoru."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> var instalēt lietotni <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, lai jūs varētu veikt maksājumus par šo ierīci."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Šo ierīci var ierobežot"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> var ierobežot piekļuvi šai ierīcei, ja jūs neveicat maksājumus."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Neizdodas iestatīt ierīci. Sazinieties ar IT administratoru un norādiet iemeslu “Nederīga kontrolsumma”."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Vēlāk mēģiniet vēlreiz vai lūdziet palīdzību IT administratoram."</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Neizdodas iestatīt ierīci. Sazinieties ar IT administratoru un norādiet iemeslu “Trūkstoši vai bojāti komponenti”."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Notiek iestatīšana…"</string>
 </resources>

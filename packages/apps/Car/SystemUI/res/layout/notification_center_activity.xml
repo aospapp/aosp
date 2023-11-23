@@ -70,6 +70,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
-    <include layout="@layout/notification_handle_bar"/>
+    <include
+        layout="@layout/notification_handle_bar"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
 </com.android.car.notification.CarNotificationView>

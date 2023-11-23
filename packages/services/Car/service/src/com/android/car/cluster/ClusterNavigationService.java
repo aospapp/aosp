@@ -19,23 +19,29 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 
 import android.car.Car;
 import android.car.CarAppFocusManager;
+import android.car.builtin.util.Slogf;
+import android.car.cluster.navigation.NavigationState.Maneuver;
+import android.car.cluster.navigation.NavigationState.NavigationStateProto;
+import android.car.cluster.navigation.NavigationState.Step;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.content.Context;
 import android.os.Binder;
 import android.os.Bundle;
-import android.util.IndentingPrintWriter;
 import android.util.Log;
-import android.util.Slog;
 
 import com.android.car.AppFocusService;
 import com.android.car.AppFocusService.FocusOwnershipCallback;
 import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
 import com.android.car.CarServiceBase;
-import com.android.car.ICarImpl;
+import com.android.car.CarServiceUtils;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
+
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.Objects;
 
@@ -46,8 +52,12 @@ import java.util.Objects;
  */
 public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
         implements CarServiceBase, FocusOwnershipCallback {
-    private static final String TAG = CarLog.TAG_CLUSTER;
+
+    @VisibleForTesting
+    static final String TAG = CarLog.TAG_CLUSTER;
+
     private static final ContextOwner NO_OWNER = new ContextOwner(0, 0);
+    private static final String NAV_STATE_PROTO_BUNDLE_KEY = "navstate2";
 
     private final Context mContext;
     private final AppFocusService mAppFocusService;
@@ -59,7 +69,9 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
 
     interface ClusterNavigationServiceCallback {
         void onNavigationStateChanged(Bundle bundle);
+
         CarNavigationInstrumentCluster getInstrumentClusterInfo();
+
         void notifyNavContextOwnerChanged(ContextOwner owner);
     }
 
@@ -68,8 +80,9 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
 
     @Override
     public void onNavigationStateChanged(Bundle bundle) {
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_NAVIGATION_MANAGER);
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_NAVIGATION_MANAGER);
         assertNavigationFocus();
+        assertNavStateProtoValid(bundle);
         ClusterNavigationServiceCallback callback;
         synchronized (mLock) {
             callback = mClusterServiceCallback;
@@ -80,7 +93,7 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
 
     @Override
     public CarNavigationInstrumentCluster getInstrumentClusterInfo() {
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_NAVIGATION_MANAGER);
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_CAR_NAVIGATION_MANAGER);
         ClusterNavigationServiceCallback callback;
         synchronized (mLock) {
             callback = mClusterServiceCallback;
@@ -103,16 +116,16 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
 
     @Override
     public void init() {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Slog.d(TAG, "initClusterNavigationService");
+        if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+            Slogf.d(TAG, "initClusterNavigationService");
         }
         mAppFocusService.registerContextOwnerChangedCallback(this /* FocusOwnershipCallback */);
     }
 
     @Override
     public void release() {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Slog.d(TAG, "releaseClusterNavigationService");
+        if (Slogf.isLoggable(TAG, Log.DEBUG)) {
+            Slogf.d(TAG, "releaseClusterNavigationService");
         }
         setClusterServiceCallback(null);
         mAppFocusService.unregisterContextOwnerChangedCallback(this);
@@ -166,7 +179,7 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
                     || (!acquire && !Objects.equals(mNavContextOwner, requester))) {
                 // Nothing to do here. Either the same owner is acquiring twice, or someone is
                 // abandoning a focus they didn't have.
-                Slog.w(TAG, "Invalid nav context owner change (acquiring: " + acquire
+                Slogf.w(TAG, "Invalid nav context owner change (acquiring: " + acquire
                         + "), current owner: [" + mNavContextOwner
                         + "], requester: [" + requester + "]");
                 return;
@@ -178,6 +191,29 @@ public class ClusterNavigationService extends IInstrumentClusterNavigation.Stub
         if (callback == null) return;
 
         callback.notifyNavContextOwnerChanged(newOwner);
+    }
+
+    private void assertNavStateProtoValid(Bundle bundle) {
+        byte[] protoBytes = bundle.getByteArray(NAV_STATE_PROTO_BUNDLE_KEY);
+        if (protoBytes == null) {
+            throw new IllegalArgumentException("Received navigation state byte array is null.");
+        }
+        try {
+            NavigationStateProto navigationStateProto = NavigationStateProto.parseFrom(protoBytes);
+            if (navigationStateProto.getStepsCount() == 0) {
+                return;
+            }
+            for (Step step : navigationStateProto.getStepsList()) {
+                Maneuver maneuver = step.getManeuver();
+                if (!Maneuver.TypeV2.UNKNOWN_V2.equals(maneuver.getTypeV2())
+                        && Maneuver.Type.UNKNOWN.equals(maneuver.getType())) {
+                    throw new IllegalArgumentException(
+                        "Maneuver#type must be populated if Maneuver#typeV2 is also populated.");
+                }
+            }
+        } catch (InvalidProtocolBufferException e) {
+            throw new IllegalArgumentException("Error parsing navigation state proto", e);
+        }
     }
 
     static class ContextOwner {

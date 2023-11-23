@@ -35,6 +35,8 @@ android_library {
         "androidx.viewpager2_viewpager2",
         "com.google.android.material_material",
         "glide-prebuilt",
+        "glide-gifdecoder-prebuilt",
+        "glide-disklrucache-prebuilt",
         "kotlinx-coroutines-android",
         "kotlinx-coroutines-core",
         "libbackup",
@@ -42,6 +44,7 @@ android_library {
         "subsampling-scale-image-view",
         "SystemUISharedLib",
         "volley",
+        "SettingsLibActivityEmbedding",
     ],
 
     resource_dirs: ["res"],
@@ -94,7 +97,12 @@ java_defaults {
     name: "WallpaperPicker2_defaults",
 
     static_libs: [
+        "renderscript_toolkit",
         "wallpaper-common-deps",
+    ],
+
+    jni_libs: [
+        "librenderscript-toolkit",
     ],
 
     srcs: [

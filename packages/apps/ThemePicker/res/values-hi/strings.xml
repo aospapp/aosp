@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"थीम वाले आइकॉन"</string>
     <string name="beta_title" msgid="8703819523760746458">"बीटा"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ऐप्लिकेशन ग्रिड बदलें"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"वॉलपेपर के रंग"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"वॉलपेपर का रंग"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"सामान्य रंग"</string>
+    <string name="color_changed" msgid="7029571720331641235">"रंग बदल दिया गया है"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"डाइनैमिक"</string>
 </resources>

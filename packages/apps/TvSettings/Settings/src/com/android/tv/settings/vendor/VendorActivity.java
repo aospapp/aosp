@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.vendor;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.slice.SliceActivity;

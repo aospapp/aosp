@@ -1,23 +1,45 @@
-mod local_file;
+mod attr;
+mod dir;
 mod remote_file;
 
-pub use local_file::LocalFileReader;
+pub use attr::Attr;
+pub use dir::{InMemoryDir, RemoteDirEditor};
 pub use remote_file::{RemoteFileEditor, RemoteFileReader, RemoteMerkleTreeReader};
 
+use binder::unstable_api::{new_spibinder, AIBinder};
+use binder::FromIBinder;
+use std::convert::TryFrom;
 use std::io;
+use std::path::{Path, MAIN_SEPARATOR};
 
-use crate::common::CHUNK_SIZE;
+use crate::common::{divide_roundup, CHUNK_SIZE};
+use authfs_aidl_interface::aidl::com::android::virt::fs::IVirtFdService::IVirtFdService;
+use authfs_aidl_interface::binder::{Status, Strong};
 
-use authfs_aidl_interface::aidl::com::android::virt::fs::IVirtFdService;
-use authfs_aidl_interface::binder::{get_interface, Strong};
-
-// TODO(victorhsieh): use remote binder.
-pub fn get_local_binder() -> Strong<dyn IVirtFdService::IVirtFdService> {
-    let service_name = "authfs_fd_server";
-    get_interface(&service_name).expect("Cannot reach authfs_fd_server binder service")
-}
+pub type VirtFdService = Strong<dyn IVirtFdService>;
+pub type VirtFdServiceStatus = Status;
 
 pub type ChunkBuffer = [u8; CHUNK_SIZE as usize];
+
+pub const RPC_SERVICE_PORT: u32 = 3264;
+
+pub fn get_rpc_binder_service(cid: u32) -> io::Result<VirtFdService> {
+    // SAFETY: AIBinder returned by RpcClient has correct reference count, and the ownership can be
+    // safely taken by new_spibinder.
+    let ibinder = unsafe {
+        new_spibinder(binder_rpc_unstable_bindgen::RpcClient(cid, RPC_SERVICE_PORT) as *mut AIBinder)
+    };
+    if let Some(ibinder) = ibinder {
+        Ok(<dyn IVirtFdService>::try_from(ibinder).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                format!("Cannot connect to RPC service: {}", e),
+            )
+        })?)
+    } else {
+        Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid raw AIBinder"))
+    }
+}
 
 /// A trait for reading data by chunks. Chunks can be read by specifying the chunk index. Only the
 /// last chunk may have incomplete chunk size.
@@ -52,4 +74,49 @@ pub trait RandomWrite {
 
     /// Resizes the file to the new size.
     fn resize(&self, size: u64) -> io::Result<()>;
+}
+
+/// Checks whether the path is a simple file name without any directory separator.
+pub fn validate_basename(path: &Path) -> io::Result<()> {
+    if matches!(path.to_str(), Some(path_str) if !path_str.contains(MAIN_SEPARATOR)) {
+        Ok(())
+    } else {
+        Err(io::Error::from_raw_os_error(libc::EINVAL))
+    }
+}
+
+pub struct EagerChunkReader {
+    buffer: Vec<u8>,
+}
+
+impl EagerChunkReader {
+    pub fn new<F: ReadByChunk>(chunked_file: F, file_size: u64) -> io::Result<EagerChunkReader> {
+        let last_index = divide_roundup(file_size, CHUNK_SIZE);
+        let file_size = usize::try_from(file_size).unwrap();
+        let mut buffer = Vec::with_capacity(file_size);
+        let mut chunk_buffer = [0; CHUNK_SIZE as usize];
+        for index in 0..last_index {
+            let size = chunked_file.read_chunk(index, &mut chunk_buffer)?;
+            buffer.extend_from_slice(&chunk_buffer[..size]);
+        }
+        if buffer.len() < file_size {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Insufficient data size ({} < {})", buffer.len(), file_size),
+            ))
+        } else {
+            Ok(EagerChunkReader { buffer })
+        }
+    }
+}
+
+impl ReadByChunk for EagerChunkReader {
+    fn read_chunk(&self, chunk_index: u64, buf: &mut ChunkBuffer) -> io::Result<usize> {
+        if let Some(chunk) = &self.buffer.chunks(CHUNK_SIZE as usize).nth(chunk_index as usize) {
+            buf[..chunk.len()].copy_from_slice(chunk);
+            Ok(chunk.len())
+        } else {
+            Ok(0) // Read beyond EOF is normal
+        }
+    }
 }

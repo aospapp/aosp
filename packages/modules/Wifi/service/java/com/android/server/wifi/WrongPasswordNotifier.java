@@ -18,18 +18,17 @@ package com.android.server.wifi;
 
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
-import android.os.UserHandle;
-import android.os.UserManager;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
+import android.net.wifi.WifiSsid;
 import android.provider.Settings;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
-import com.android.modules.utils.build.SdkLevel;
-import com.android.server.wifi.util.NativeUtil;
 
 /**
  * Responsible for notifying user for wrong password errors.
@@ -60,10 +59,10 @@ public class WrongPasswordNotifier {
     /**
      * Invoked when a wrong password error for a Wi-Fi network is detected.
      *
-     * @param ssid The SSID of the Wi-Fi network
+     * @param wifiConfiguration the network
      */
-    public void onWrongPasswordError(String ssid) {
-        showNotification(ssid);
+    public void onWrongPasswordError(@NonNull WifiConfiguration wifiConfiguration) {
+        showNotification(wifiConfiguration);
         mWrongPasswordDetected = true;
     }
 
@@ -80,26 +79,26 @@ public class WrongPasswordNotifier {
     /**
      * Display wrong password notification for a given Wi-Fi network (specified by its SSID).
      *
-     * @param ssid SSID of the Wi-FI network
+     * @param wifiConfiguration the network
      */
-    private void showNotification(String ssid) {
+    private void showNotification(@NonNull WifiConfiguration wifiConfiguration) {
+        CharSequence utf8Ssid = WifiSsid.fromString(wifiConfiguration.SSID).getUtf8Text();
+        if (utf8Ssid == null) {
+            // TODO(qal): Non-utf-8 SSIDs are currently not supported in Settings, and the intent
+            //            action will fail to open the password dialog for the correct network. In
+            //            addition, it is unclear which charset is appropriate for the non-utf-8
+            //            SSID. We may need to re-evaluate if we should support displaying non-utf-8
+            //            SSIDs from the framework or not. For now, fallback to the raw
+            //            WifiConfiguration.SSID so the user still gets a notification.
+            utf8Ssid = wifiConfiguration.SSID;
+        }
         String settingsPackage = mFrameworkFacade.getSettingsPackageName(mContext);
         if (settingsPackage == null) return;
         Intent intent = new Intent(Settings.ACTION_WIFI_SETTINGS)
                 .setPackage(settingsPackage)
-                .putExtra("wifi_start_connect_ssid", NativeUtil.removeEnclosingQuotes(ssid));
+                .putExtra("wifi_start_connect_ssid", utf8Ssid.toString());
         CharSequence title = mContext.getString(
                 com.android.wifi.resources.R.string.wifi_available_title_failed_to_connect);
-
-        Context userContext = mContext;
-        if (SdkLevel.isAtLeastS() && UserManager.isHeadlessSystemUserMode()) {
-            // Need to pass the context of the current user to the activity that's launched when
-            // the notification is tapped
-            userContext = mContext.createContextAsUser(UserHandle.CURRENT, /* flags= */ 0);
-        }
-
-        Log.i(TAG, "Showing '" + title + "' notification for user " + userContext.getUser()
-                + " and package " + settingsPackage);
         Notification.Builder builder = mFrameworkFacade.makeNotificationBuilder(mContext,
                 WifiService.NOTIFICATION_NETWORK_ALERTS)
                 .setAutoCancel(true)
@@ -108,9 +107,9 @@ public class WrongPasswordNotifier {
                 .setSmallIcon(Icon.createWithResource(mContext.getWifiOverlayApkPkgName(),
                         com.android.wifi.resources.R.drawable.stat_notify_wifi_in_range))
                 .setContentTitle(title)
-                .setContentText(ssid)
+                .setContentText(utf8Ssid)
                 .setContentIntent(mFrameworkFacade.getActivity(
-                        userContext, 0, intent,
+                        mContext, 0, intent,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .setColor(mContext.getResources().getColor(
                         android.R.color.system_notification_accent_color));

@@ -18,6 +18,7 @@ package com.android.permissioncontroller.role.utils;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -36,16 +37,18 @@ public class UserUtils {
     private UserUtils() {}
 
     /**
-     * Check whether a user is a work profile.
+     * Check whether a user is a profile.
      *
      * @param user the user to check
      * @param context the {@code Context} to retrieve system services
      *
-     * @return whether the user is a work profile
+     * @return whether the user is a profile
      */
-    public static boolean isWorkProfile(@NonNull UserHandle user, @NonNull Context context) {
-        UserManager userManager = context.getSystemService(UserManager.class);
-        return userManager.isManagedProfile(user.getIdentifier());
+    public static boolean isProfile(@NonNull UserHandle user, @NonNull Context context) {
+        Context userContext = getUserContext(context, user);
+        UserManager userUserManager = userContext.getSystemService(UserManager.class);
+        return userUserManager.isManagedProfile(user.getIdentifier()) || (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && userUserManager.isCloneProfile());
     }
 
     /**

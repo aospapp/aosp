@@ -180,6 +180,11 @@ public class ProvisioningManager implements ProvisioningControllerCallback,
         mHelper.error(titleId, messageId, factoryResetRequired);
     }
 
+    @Override
+    public void error(int titleId, String errorMessage, boolean factoryResetRequired) {
+        mHelper.error(titleId, errorMessage, factoryResetRequired);
+    }
+
     void saveTransitionAnimationState(TransitionAnimationState transitionAnimationState) {
         mViewModel.saveTransitionAnimationState(transitionAnimationState);
     }

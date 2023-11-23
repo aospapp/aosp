@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.device.display.ambient;
 
-import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.slice.SliceActivity;

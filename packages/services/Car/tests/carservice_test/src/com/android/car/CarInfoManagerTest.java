@@ -21,14 +21,14 @@ import android.car.Car;
 import android.car.CarInfoManager;
 import android.car.PortLocationType;
 import android.car.VehicleAreaSeat;
-import android.hardware.automotive.vehicle.V2_0.EvConnectorType;
-import android.hardware.automotive.vehicle.V2_0.FuelType;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.EvConnectorType;
+import android.hardware.automotive.vehicle.FuelType;
+import android.hardware.automotive.vehicle.VehicleProperty;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -58,46 +58,46 @@ public class CarInfoManagerTest extends MockedCarTestBase {
     public TestName mTestName = new TestName();
 
     @Override
-    protected synchronized void configureMockedHal() {
+    protected void configureMockedHal() {
         // test if the sensor is unimplemented in cars.
         if (mTestName.getMethodName().endsWith("unimplemented")) {
             return;
         }
-        addStaticProperty(VehicleProperty.INFO_MAKE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MAKE)
+        addAidlStaticProperty(VehicleProperty.INFO_MAKE,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MAKE)
                         .setStringValue(MAKE_NAME)
                         .build());
-        addStaticProperty(VehicleProperty.INFO_MODEL_YEAR,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MODEL_YEAR)
-                        .addIntValue(MODEL_YEAR).build());
-        addStaticProperty(VehicleProperty.INFO_FUEL_CAPACITY,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_CAPACITY)
-                        .addFloatValue(FAKE_CAPACITY).build());
-        addStaticProperty(VehicleProperty.INFO_EV_BATTERY_CAPACITY,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_BATTERY_CAPACITY)
-                        .addFloatValue(FAKE_CAPACITY).build());
-        addStaticProperty(VehicleProperty.INFO_MODEL,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MODEL)
+        addAidlStaticProperty(VehicleProperty.INFO_MODEL_YEAR,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MODEL_YEAR)
+                        .addIntValues(MODEL_YEAR).build());
+        addAidlStaticProperty(VehicleProperty.INFO_FUEL_CAPACITY,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_CAPACITY)
+                        .addFloatValues(FAKE_CAPACITY).build());
+        addAidlStaticProperty(VehicleProperty.INFO_EV_BATTERY_CAPACITY,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_BATTERY_CAPACITY)
+                        .addFloatValues(FAKE_CAPACITY).build());
+        addAidlStaticProperty(VehicleProperty.INFO_MODEL,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_MODEL)
                         .setStringValue(MODEL_NAME).build());
-        addStaticProperty(VehicleProperty.INFO_FUEL_TYPE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_TYPE)
-                        .addIntValue(FuelType.FUEL_TYPE_CNG)
-                        .addIntValue(FuelType.FUEL_TYPE_BIODIESEL)
+        addAidlStaticProperty(VehicleProperty.INFO_FUEL_TYPE,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_TYPE)
+                        .addIntValues(FuelType.FUEL_TYPE_CNG)
+                        .addIntValues(FuelType.FUEL_TYPE_BIODIESEL)
                         .build());
-        addStaticProperty(VehicleProperty.INFO_EV_CONNECTOR_TYPE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_CONNECTOR_TYPE)
-                        .addIntValue(EvConnectorType.GBT_AC)
-                        .addIntValue(EvConnectorType.GBT_DC)
+        addAidlStaticProperty(VehicleProperty.INFO_EV_CONNECTOR_TYPE,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_CONNECTOR_TYPE)
+                        .addIntValues(EvConnectorType.GBT_AC)
+                        .addIntValues(EvConnectorType.GBT_DC)
                         .build());
-        addStaticProperty(VehicleProperty.INFO_EV_PORT_LOCATION,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_PORT_LOCATION)
-                        .addIntValue(PortLocationType.FRONT).build());
-        addStaticProperty(VehicleProperty.INFO_FUEL_DOOR_LOCATION,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_DOOR_LOCATION)
-                        .addIntValue(PortLocationType.FRONT_LEFT).build());
-        addStaticProperty(VehicleProperty.INFO_DRIVER_SEAT,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_DOOR_LOCATION)
-                        .addIntValue(VehicleAreaSeat.SEAT_ROW_1_LEFT).build());
+        addAidlStaticProperty(VehicleProperty.INFO_EV_PORT_LOCATION,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_EV_PORT_LOCATION)
+                        .addIntValues(PortLocationType.FRONT).build());
+        addAidlStaticProperty(VehicleProperty.INFO_FUEL_DOOR_LOCATION,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_DOOR_LOCATION)
+                        .addIntValues(PortLocationType.FRONT_LEFT).build());
+        addAidlStaticProperty(VehicleProperty.INFO_DRIVER_SEAT,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.INFO_FUEL_DOOR_LOCATION)
+                        .addIntValues(VehicleAreaSeat.SEAT_ROW_1_LEFT).build());
     }
 
     @Override

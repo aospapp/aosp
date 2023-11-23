@@ -64,23 +64,15 @@ TEST(UidMapTest, TestIsolatedUID) {
 
 TEST(UidMapTest, TestMatching) {
     UidMap m;
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> apps;
-    vector<String16> versionStrings;
-    vector<String16> installers;
+    const vector<int32_t> uids{1000, 1000};
+    const vector<int64_t> versions{4, 5};
+    const vector<String16> versionStrings{String16("v1"), String16("v1")};
+    const vector<String16> apps{String16(kApp1.c_str()), String16(kApp2.c_str())};
+    const vector<String16> installers{String16(""), String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}, {}};
 
-    uids.push_back(1000);
-    uids.push_back(1000);
-    versionStrings.push_back(String16("v1"));
-    versionStrings.push_back(String16("v1"));
-    installers.push_back(String16(""));
-    installers.push_back(String16(""));
-    apps.push_back(String16(kApp1.c_str()));
-    apps.push_back(String16(kApp2.c_str()));
-    versions.push_back(4);
-    versions.push_back(5);
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
     EXPECT_TRUE(m.hasApp(1000, kApp1));
     EXPECT_TRUE(m.hasApp(1000, kApp2));
     EXPECT_FALSE(m.hasApp(1000, "not.app"));
@@ -96,23 +88,15 @@ TEST(UidMapTest, TestMatching) {
 
 TEST(UidMapTest, TestAddAndRemove) {
     UidMap m;
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> apps;
-    vector<String16> versionStrings;
-    vector<String16> installers;
+    const vector<int32_t> uids{1000, 1000};
+    const vector<int64_t> versions{4, 5};
+    const vector<String16> versionStrings{String16("v1"), String16("v1")};
+    const vector<String16> apps{String16(kApp1.c_str()), String16(kApp2.c_str())};
+    const vector<String16> installers{String16(""), String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}, {}};
 
-    uids.push_back(1000);
-    uids.push_back(1000);
-    versionStrings.push_back(String16("v1"));
-    versionStrings.push_back(String16("v1"));
-    installers.push_back(String16(""));
-    installers.push_back(String16(""));
-    apps.push_back(String16(kApp1.c_str()));
-    apps.push_back(String16(kApp2.c_str()));
-    versions.push_back(4);
-    versions.push_back(5);
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
     std::set<string> name_set = m.getAppNamesFromUid(1000, true /* returnNormalized */);
     ASSERT_EQ(name_set.size(), 2u);
@@ -120,7 +104,8 @@ TEST(UidMapTest, TestAddAndRemove) {
     EXPECT_TRUE(name_set.find(kApp2) != name_set.end());
 
     // Update the app1 version.
-    m.updateApp(2, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""));
+    m.updateApp(2, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""),
+                /* certificateHash */ {});
     EXPECT_EQ(40, m.getAppVersion(1000, kApp1));
 
     name_set = m.getAppNamesFromUid(1000, true /* returnNormalized */);
@@ -147,14 +132,16 @@ TEST(UidMapTest, TestAddAndRemove) {
 TEST(UidMapTest, TestUpdateApp) {
     UidMap m;
     m.updateMap(1, {1000, 1000}, {4, 5}, {String16("v4"), String16("v5")},
-                {String16(kApp1.c_str()), String16(kApp2.c_str())}, {String16(""), String16("")});
+                {String16(kApp1.c_str()), String16(kApp2.c_str())}, {String16(""), String16("")},
+                /* certificateHash */ {{}, {}});
     std::set<string> name_set = m.getAppNamesFromUid(1000, true /* returnNormalized */);
     ASSERT_EQ(name_set.size(), 2u);
     EXPECT_TRUE(name_set.find(kApp1) != name_set.end());
     EXPECT_TRUE(name_set.find(kApp2) != name_set.end());
 
     // Adds a new name for uid 1000.
-    m.updateApp(2, String16("NeW_aPP1_NAmE"), 1000, 40, String16("v40"), String16(""));
+    m.updateApp(2, String16("NeW_aPP1_NAmE"), 1000, 40, String16("v40"), String16(""),
+                /* certificateHash */ {});
     name_set = m.getAppNamesFromUid(1000, true /* returnNormalized */);
     ASSERT_EQ(name_set.size(), 3u);
     EXPECT_TRUE(name_set.find(kApp1) != name_set.end());
@@ -163,7 +150,8 @@ TEST(UidMapTest, TestUpdateApp) {
     EXPECT_TRUE(name_set.find("new_app1_name") != name_set.end());
 
     // This name is also reused by another uid 2000.
-    m.updateApp(3, String16("NeW_aPP1_NAmE"), 2000, 1, String16("v1"), String16(""));
+    m.updateApp(3, String16("NeW_aPP1_NAmE"), 2000, 1, String16("v1"), String16(""),
+                /* certificateHash */ {});
     name_set = m.getAppNamesFromUid(2000, true /* returnNormalized */);
     ASSERT_EQ(name_set.size(), 1u);
     EXPECT_TRUE(name_set.find("NeW_aPP1_NAmE") == name_set.end());
@@ -191,23 +179,23 @@ TEST(UidMapTest, TestOutputIncludesAtLeastOneSnapshot) {
     // Initialize single config key.
     ConfigKey config1(1, StringToId("config1"));
     m.OnConfigUpdated(config1);
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> apps;
-    vector<String16> versionStrings;
-    vector<String16> installers;
-    uids.push_back(1000);
-    apps.push_back(String16(kApp2.c_str()));
-    versionStrings.push_back(String16("v1"));
-    installers.push_back(String16(""));
-    versions.push_back(5);
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    const vector<int32_t> uids{1000};
+    const vector<int64_t> versions{5};
+    const vector<String16> versionStrings{String16("v1")};
+    const vector<String16> apps{String16(kApp2.c_str())};
+    const vector<String16> installers{String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}};
+
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
     // Set the last timestamp for this config key to be newer.
     m.mLastUpdatePerConfigKey[config1] = 2;
 
     ProtoOutputStream proto;
-    m.appendUidMap(3, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 3, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
 
     // Check there's still a uidmap attached this one.
     UidMapping results;
@@ -221,21 +209,21 @@ TEST(UidMapTest, TestRemovedAppRetained) {
     // Initialize single config key.
     ConfigKey config1(1, StringToId("config1"));
     m.OnConfigUpdated(config1);
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> versionStrings;
-    vector<String16> installers;
-    vector<String16> apps;
-    uids.push_back(1000);
-    apps.push_back(String16(kApp2.c_str()));
-    versions.push_back(5);
-    versionStrings.push_back(String16("v5"));
-    installers.push_back(String16(""));
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    const vector<int32_t> uids{1000};
+    const vector<int64_t> versions{5};
+    const vector<String16> versionStrings{String16("v5")};
+    const vector<String16> apps{String16(kApp2.c_str())};
+    const vector<String16> installers{String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}};
+
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
     m.removeApp(2, String16(kApp2.c_str()), 1000);
 
     ProtoOutputStream proto;
-    m.appendUidMap(3, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 3, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
 
     // Snapshot should still contain this item as deleted.
     UidMapping results;
@@ -254,6 +242,7 @@ TEST(UidMapTest, TestRemovedAppOverGuardrail) {
     vector<String16> versionStrings;
     vector<String16> installers;
     vector<String16> apps;
+    vector<vector<uint8_t>> certificateHashes;
     const int maxDeletedApps = StatsdStats::kMaxDeletedAppsInUidMap;
     for (int j = 0; j < maxDeletedApps + 10; j++) {
         uids.push_back(j);
@@ -261,24 +250,31 @@ TEST(UidMapTest, TestRemovedAppOverGuardrail) {
         versions.push_back(j);
         versionStrings.push_back(String16("v"));
         installers.push_back(String16(""));
+        certificateHashes.push_back({});
     }
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
     // First, verify that we have the expected number of items.
     UidMapping results;
     ProtoOutputStream proto;
-    m.appendUidMap(3, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 3, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(maxDeletedApps + 10, results.snapshots(0).package_info_size());
 
     // Now remove all the apps.
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
     for (int j = 0; j < maxDeletedApps + 10; j++) {
         m.removeApp(4, String16(kApp1.c_str()), j);
     }
 
     proto.clear();
-    m.appendUidMap(5, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 5, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     // Snapshot drops the first nine items.
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(maxDeletedApps, results.snapshots(0).package_info_size());
@@ -292,60 +288,64 @@ TEST(UidMapTest, TestClearingOutput) {
 
     m.OnConfigUpdated(config1);
 
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> versionStrings;
-    vector<String16> installers;
-    vector<String16> apps;
-    uids.push_back(1000);
-    uids.push_back(1000);
-    apps.push_back(String16(kApp1.c_str()));
-    apps.push_back(String16(kApp2.c_str()));
-    versions.push_back(4);
-    versions.push_back(5);
-    versionStrings.push_back(String16("v4"));
-    versionStrings.push_back(String16("v5"));
-    installers.push_back(String16(""));
-    installers.push_back(String16(""));
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    const vector<int32_t> uids{1000, 1000};
+    const vector<int64_t> versions{4, 5};
+    const vector<String16> versionStrings{String16("v4"), String16("v5")};
+    const vector<String16> apps{String16(kApp1.c_str()), String16(kApp2.c_str())};
+    const vector<String16> installers{String16(""), String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}, {}};
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
     ProtoOutputStream proto;
-    m.appendUidMap(2, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 2, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     UidMapping results;
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(1, results.snapshots_size());
 
     // We have to keep at least one snapshot in memory at all times.
     proto.clear();
-    m.appendUidMap(2, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 2, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(1, results.snapshots_size());
 
     // Now add another configuration.
     m.OnConfigUpdated(config2);
-    m.updateApp(5, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""));
+    m.updateApp(5, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""),
+                /* certificateHash */ {});
     ASSERT_EQ(1U, m.mChanges.size());
     proto.clear();
-    m.appendUidMap(6, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 6, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(1, results.snapshots_size());
     ASSERT_EQ(1, results.changes_size());
     ASSERT_EQ(1U, m.mChanges.size());
 
     // Add another delta update.
-    m.updateApp(7, String16(kApp2.c_str()), 1001, 41, String16("v41"), String16(""));
+    m.updateApp(7, String16(kApp2.c_str()), 1001, 41, String16("v41"), String16(""),
+                /* certificateHash */ {});
     ASSERT_EQ(2U, m.mChanges.size());
 
     // We still can't remove anything.
     proto.clear();
-    m.appendUidMap(8, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 8, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(1, results.snapshots_size());
     ASSERT_EQ(1, results.changes_size());
     ASSERT_EQ(2U, m.mChanges.size());
 
     proto.clear();
-    m.appendUidMap(9, config2, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 9, config2, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     protoOutputStreamToUidMapping(&proto, &results);
     ASSERT_EQ(1, results.snapshots_size());
     ASSERT_EQ(2, results.changes_size());
@@ -360,26 +360,28 @@ TEST(UidMapTest, TestMemoryComputed) {
     m.OnConfigUpdated(config1);
 
     size_t startBytes = m.mBytesUsed;
-    vector<int32_t> uids;
-    vector<int64_t> versions;
-    vector<String16> apps;
-    vector<String16> versionStrings;
-    vector<String16> installers;
-    uids.push_back(1000);
-    apps.push_back(String16(kApp1.c_str()));
-    versions.push_back(1);
-    versionStrings.push_back(String16("v1"));
-    installers.push_back(String16(""));
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    const vector<int32_t> uids{1000};
+    const vector<int64_t> versions{1};
+    const vector<String16> versionStrings{String16("v1")};
+    const vector<String16> apps{String16(kApp1.c_str())};
+    const vector<String16> installers{String16("")};
+    const vector<vector<uint8_t>> certificateHashes{{}};
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
-    m.updateApp(3, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""));
+    m.updateApp(3, String16(kApp1.c_str()), 1000, 40, String16("v40"), String16(""),
+                /* certificateHash */ {});
 
     ProtoOutputStream proto;
     vector<uint8_t> bytes;
-    m.appendUidMap(2, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 2, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     size_t prevBytes = m.mBytesUsed;
 
-    m.appendUidMap(4, config1, nullptr, true, true, &proto);
+    m.appendUidMap(/* timestamp */ 4, config1, /* includeVersionStrings */ true,
+                   /* includeInstaller */ true, /* truncatedCertificateHashSize */ 0,
+                   /* str_set */ nullptr, &proto);
     EXPECT_TRUE(m.mBytesUsed < prevBytes);
 }
 
@@ -396,6 +398,7 @@ TEST(UidMapTest, TestMemoryGuardrail) {
     vector<String16> versionStrings;
     vector<String16> installers;
     vector<String16> apps;
+    vector<vector<uint8_t>> certificateHashes;
     for (int i = 0; i < 100; i++) {
         uids.push_back(1);
         buf = "EXTREMELY_LONG_STRING_FOR_APP_TO_WASTE_MEMORY." + to_string(i);
@@ -403,17 +406,19 @@ TEST(UidMapTest, TestMemoryGuardrail) {
         versions.push_back(1);
         versionStrings.push_back(String16("v1"));
         installers.push_back(String16(""));
+        certificateHashes.push_back({});
     }
-    m.updateMap(1, uids, versions, versionStrings, apps, installers);
+    m.updateMap(1 /* timestamp */, uids, versions, versionStrings, apps, installers,
+                certificateHashes);
 
     m.updateApp(3, String16("EXTREMELY_LONG_STRING_FOR_APP_TO_WASTE_MEMORY.0"), 1000, 2,
-                String16("v2"), String16(""));
+                String16("v2"), String16(""), /* certificateHash */ {});
     ASSERT_EQ(1U, m.mChanges.size());
 
     // Now force deletion by limiting the memory to hold one delta change.
     m.maxBytesOverride = 120; // Since the app string alone requires >45 characters.
     m.updateApp(5, String16("EXTREMELY_LONG_STRING_FOR_APP_TO_WASTE_MEMORY.0"), 1000, 4,
-                String16("v4"), String16(""));
+                String16("v4"), String16(""), /* certificateHash */ {});
     ASSERT_EQ(1U, m.mChanges.size());
 }
 

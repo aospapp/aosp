@@ -16,9 +16,12 @@
 
 package com.android.managedprovisioning.finalization;
 
+import static java.util.Objects.requireNonNull;
+
 import android.content.Context;
 
 import java.io.File;
+import java.util.function.Function;
 
 /**
  * Class containing utility methods for working with stored provisioning parameters.
@@ -28,11 +31,20 @@ class ProvisioningParamsUtils {
     private static final String PROVISIONING_PARAMS_FILE_NAME =
             "finalization_activity_provisioning_params.xml";
 
+    public static Function<Context, File> DEFAULT_PROVISIONING_PARAMS_FILE_PROVIDER =
+            context -> new File(context.getFilesDir(), PROVISIONING_PARAMS_FILE_NAME);
+
+    private final Function<Context, File> mProvisioningParamsFileProvider;
+
+    ProvisioningParamsUtils(Function<Context, File> provisioningParamsFileProvider) {
+        mProvisioningParamsFileProvider = requireNonNull(provisioningParamsFileProvider);
+    }
+
     /**
      * Returns a handle to the provisioning params file, which is used to store the params
      * for use during provisioning finalization.
      */
     File getProvisioningParamsFile(Context context) {
-        return new File(context.getFilesDir(), PROVISIONING_PARAMS_FILE_NAME);
+        return mProvisioningParamsFileProvider.apply(context);
     }
 }

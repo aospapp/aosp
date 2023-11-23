@@ -168,7 +168,7 @@ public class DefaultAppChildFragment<PF extends PreferenceFragmentCompat
 
         Preference descriptionPreference = oldDescriptionPreference;
         if (descriptionPreference == null) {
-            descriptionPreference = preferenceFragment.createFooterPreference(context);
+            descriptionPreference = preferenceFragment.createFooterPreference();
             descriptionPreference.setKey(PREFERENCE_KEY_DESCRIPTION);
             descriptionPreference.setSummary(mRole.getDescriptionResource());
         }
@@ -197,7 +197,7 @@ public class DefaultAppChildFragment<PF extends PreferenceFragmentCompat
             @NonNull PreferenceScreen preferenceScreen, @NonNull Context context) {
         TwoStatePreference preference = (TwoStatePreference) oldPreferences.get(key);
         if (preference == null) {
-            preference = requirePreferenceFragment().createApplicationPreference(context);
+            preference = requirePreferenceFragment().createApplicationPreference();
             preference.setKey(key);
             preference.setIcon(icon);
             preference.setTitle(title);
@@ -275,22 +275,18 @@ public class DefaultAppChildFragment<PF extends PreferenceFragmentCompat
         /**
          * Create a new preference for an application.
          *
-         * @param context the {@code Context} to use when creating the preference.
-         *
          * @return a new preference for an application
          */
         @NonNull
-        TwoStatePreference createApplicationPreference(@NonNull Context context);
+        TwoStatePreference createApplicationPreference();
 
         /**
          * Create a new preference for the footer.
          *
-         * @param context the {@code Context} to use when creating the preference.
-         *
          * @return a new preference for the footer
          */
         @NonNull
-        Preference createFooterPreference(@NonNull Context context);
+        Preference createFooterPreference();
 
         /**
          * Callback when changes have been made to the {@link PreferenceScreen} of the parent

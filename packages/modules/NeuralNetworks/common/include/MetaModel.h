@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_META_MODEL_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_META_MODEL_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_META_MODEL_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_META_MODEL_H
 
 #include <android-base/macros.h>
 
@@ -48,7 +48,7 @@ namespace android::nn {
 // example:
 //
 //     const MetaModel& metaModel = ...;
-//     auto ret = metaModel.getSlice(Version::ANDROID_OC_MR1);
+//     auto ret = metaModel.getSlice(kVersionFeatureLevel1);
 //     if (ret.has_value()) {
 //         const Model model = ret->first;  // the slice
 //         auto mapper = ret->second;
@@ -59,7 +59,7 @@ namespace android::nn {
 //     } else {
 //         // Could not obtain a slice.  For example, perhaps none of the
 //         // original model's operations are compliant with
-//         // Version::ANDROID_OC_MR1.
+//         // kVersionFeatureLevel1.
 //     }
 //
 class MetaModel {
@@ -110,7 +110,10 @@ class MetaModel {
         std::vector<uint32_t> mSlicedOperationIndexToOrigIndex;
     };
 
-    mutable std::map<Version, Slice> mCachedSlices;
+    struct Comparison {
+        bool operator()(Version lhs, Version rhs) const;
+    };
+    mutable std::map<Version, Slice, Comparison> mCachedSlices;
 
     Slice makeSlice(Version version) const;
 
@@ -130,4 +133,4 @@ class MetaModel {
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_META_MODEL_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_META_MODEL_H

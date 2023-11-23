@@ -46,6 +46,47 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     private static final int MSG_MEDIA_SESSION_INITIALIZE = 0;
     private static final int MSG_MEDIA_SESSION_SET_ACTIVE = 1;
 
+    /**
+     * Wrapper class that abstracts an instance of {@link MediaSession} to the
+     * {@link MediaSessionAdapter} interface this class uses.  This is done because
+     * {@link MediaSession} is a final class and cannot be mocked for testing purposes.
+     */
+    public class MediaSessionWrapper implements MediaSessionAdapter {
+        private final MediaSession mMediaSession;
+
+        public MediaSessionWrapper(MediaSession mediaSession) {
+            mMediaSession = mediaSession;
+        }
+
+        /**
+         * Sets the underlying {@link MediaSession} active status.
+         * @param active
+         */
+        @Override
+        public void setActive(boolean active) {
+            mMediaSession.setActive(active);
+        }
+
+        /**
+         * Gets the underlying {@link MediaSession} active status.
+         * @return {@code true} if active, {@code false} otherwise.
+         */
+        @Override
+        public boolean isActive() {
+            return mMediaSession.isActive();
+        }
+    }
+
+    /**
+     * Interface which defines the basic functionality of a {@link MediaSession} which is important
+     * for the {@link HeadsetMediaButton} to operator; this is for testing purposes so we can mock
+     * out that functionality.
+     */
+    public interface MediaSessionAdapter {
+        void setActive(boolean active);
+        boolean isActive();
+    }
+
     private final MediaSession.Callback mSessionCallback = new MediaSession.Callback() {
         @Override
         public boolean onMediaButtonEvent(Intent intent) {
@@ -81,7 +122,7 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
                     session.setFlags(MediaSession.FLAG_EXCLUSIVE_GLOBAL_PRIORITY
                             | MediaSession.FLAG_HANDLES_MEDIA_BUTTONS);
                     session.setPlaybackToLocal(AUDIO_ATTRIBUTES);
-                    mSession = session;
+                    mSession = new MediaSessionWrapper(session);
                     break;
                 }
                 case MSG_MEDIA_SESSION_SET_ACTIVE: {
@@ -102,9 +143,37 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     private final Context mContext;
     private final CallsManager mCallsManager;
     private final TelecomSystem.SyncRoot mLock;
-    private MediaSession mSession;
+    private MediaSessionAdapter mSession;
     private KeyEvent mLastHookEvent;
 
+    /**
+     * Constructor used for testing purposes to initialize a {@link HeadsetMediaButton} with a
+     * specified {@link MediaSessionAdapter}.  Will not trigger MSG_MEDIA_SESSION_INITIALIZE and
+     * cause an actual {@link MediaSession} instance to be created.
+     * @param context the context
+     * @param callsManager the mock calls manager
+     * @param lock the lock
+     * @param adapter the adapter
+     */
+    @VisibleForTesting
+    public HeadsetMediaButton(
+            Context context,
+            CallsManager callsManager,
+            TelecomSystem.SyncRoot lock,
+            MediaSessionAdapter adapter) {
+        mContext = context;
+        mCallsManager = callsManager;
+        mLock = lock;
+        mSession = adapter;
+    }
+
+    /**
+     * Production code constructor; this version triggers MSG_MEDIA_SESSION_INITIALIZE which will
+     * create an actual instance of {@link MediaSession}.
+     * @param context the context
+     * @param callsManager the calls manager
+     * @param lock the telecom lock
+     */
     public HeadsetMediaButton(
             Context context,
             CallsManager callsManager,
@@ -155,6 +224,13 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
         if (call.isExternalCall()) {
             return;
         }
+        handleCallAddition();
+    }
+
+    /**
+     * Triggers session activation due to call addition.
+     */
+    private void handleCallAddition() {
         mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 1, 0).sendToTarget();
     }
 
@@ -164,6 +240,13 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
         if (call.isExternalCall()) {
             return;
         }
+        handleCallRemoval();
+    }
+
+    /**
+     * Triggers session deactivation due to call removal.
+     */
+    private void handleCallRemoval() {
         if (!mCallsManager.hasAnyCalls()) {
             mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 0, 0).sendToTarget();
         }
@@ -172,10 +255,20 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     /** ${inheritDoc} */
     @Override
     public void onExternalCallChanged(Call call, boolean isExternalCall) {
+        // Note: We don't use the onCallAdded/onCallRemoved methods here since they do checks to see
+        // if the call is external or not and would skip the session activation/deactivation.
         if (isExternalCall) {
-            onCallRemoved(call);
+            handleCallRemoval();
         } else {
-            onCallAdded(call);
+            handleCallAddition();
         }
+    }
+
+    @VisibleForTesting
+    /**
+     * @return the handler this class instance uses for operation; used for unit testing.
+     */
+    public Handler getHandler() {
+        return mMediaSessionHandler;
     }
 }

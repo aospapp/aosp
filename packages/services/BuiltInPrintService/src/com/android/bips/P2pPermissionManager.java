@@ -16,7 +16,7 @@
 
 package com.android.bips;
 
-import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.Manifest.permission.NEARBY_WIFI_DEVICES;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -29,7 +29,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
-import android.location.LocationManager;
+import android.net.Uri;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
@@ -44,11 +44,13 @@ public class P2pPermissionManager {
     private static final String TAG = P2pPermissionManager.class.getCanonicalName();
     private static final boolean DEBUG = false;
 
+    private static final String PACKAGE_TAG = "package";
     private static final String CHANNEL_ID_CONNECTIONS = "connections";
     public static final int REQUEST_P2P_PERMISSION_CODE = 1000;
-    public static final int REQUEST_LOCATION_ENABLE = 1001;
+    public static final int REQUEST_P2P_PERMISSION_ENABLE = 1001;
 
     private static final String STATE_KEY = "state";
+    private static final String PERMISSION_RATIONALE_KEY = "permissionRationale";
 
     private static final P2pPermissionRequest sFinishedRequest = () -> { };
 
@@ -109,7 +111,7 @@ public class P2pPermissionManager {
      * Return true if the user has granted P2P-related permission.
      */
     private boolean hasP2pPermission() {
-        return mContext.checkSelfPermission(ACCESS_FINE_LOCATION)
+        return mContext.checkSelfPermission(NEARBY_WIFI_DEVICES)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -139,14 +141,17 @@ public class P2pPermissionManager {
 
         if (mContext instanceof Activity) {
             Activity activity = (Activity) mContext;
-            if (!isLocationEnabled()) {
-                requestLocation(activity);
-            } else if (!hasP2pPermission()) {
-                if (explain && activity.shouldShowRequestPermissionRationale(
-                        ACCESS_FINE_LOCATION)) {
-                    explain(activity);
+            if (!hasP2pPermission()) {
+                boolean rationale = activity.shouldShowRequestPermissionRationale(
+                        NEARBY_WIFI_DEVICES);
+                if (explain && (rationale || mPrefs.getBoolean(PERMISSION_RATIONALE_KEY, false))) {
+                    explain(activity, rationale);
                 } else {
                     request(activity);
+                }
+                if (rationale) {
+                    // Saving the permission to prefs to handle "Don't ask again" scenario
+                    mPrefs.edit().putBoolean(PERMISSION_RATIONALE_KEY, true).apply();
                 }
             }
         } else {
@@ -164,34 +169,28 @@ public class P2pPermissionManager {
      * Use the activity to request permissions if possible.
      */
     private void request(Activity activity) {
-        activity.requestPermissions(new String[]{ACCESS_FINE_LOCATION},
-                    REQUEST_P2P_PERMISSION_CODE);
+        activity.requestPermissions(new String[]{NEARBY_WIFI_DEVICES},
+                REQUEST_P2P_PERMISSION_CODE);
     }
 
-    private void explain(Activity activity) {
+    private void redirectToSettings(Activity activity) {
+        Intent settingsIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts(PACKAGE_TAG, activity.getPackageName(), null));
+        activity.startActivityForResult(settingsIntent, REQUEST_P2P_PERMISSION_ENABLE);
+    }
+
+    private void explain(Activity activity, boolean rationale) {
         // User denied, but asked us to use P2P, so explain and redirect to settings
         new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
                 .setMessage(mContext.getString(R.string.wifi_direct_permission_rationale))
-                .setPositiveButton(R.string.fix, (dialog, which) -> request(activity))
+                .setPositiveButton(R.string.fix, (dialog, which) -> {
+                    if (rationale) {
+                        request(activity);
+                    } else {
+                        redirectToSettings(activity);
+                    }
+                })
                 .show();
-    }
-
-    /**
-     * Request location services be enabled globally.
-     */
-    private void requestLocation(Activity activity) {
-        new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Light_Dialog_Alert)
-            .setMessage(mContext.getString(R.string.wifi_direct_location_rationale))
-            .setPositiveButton(R.string.enable_location, (dialog, which) ->
-                activity.startActivityForResult(new Intent(
-                        Settings.ACTION_LOCATION_SOURCE_SETTINGS), REQUEST_LOCATION_ENABLE)
-            )
-            .setOnCancelListener(dialog -> {
-                if (getState() == State.DENIED) {
-                    setState(State.TEMPORARILY_DISABLED);
-                }
-            })
-            .show();
     }
 
     private SharedPreferences.OnSharedPreferenceChangeListener listenForPreferenceChanges(
@@ -201,6 +200,9 @@ public class P2pPermissionManager {
                     @Override
                     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
                                                           String key) {
+                        if (PERMISSION_RATIONALE_KEY.equals(key)) {
+                            return;
+                        }
                         State state = getState();
                         if (state.isTerminal() || state == State.DENIED) {
                             listener.onP2pPermissionComplete(state == State.ALLOWED);
@@ -273,7 +275,7 @@ public class P2pPermissionManager {
             return state;
         }
 
-        boolean allowed = isLocationEnabled() && hasP2pPermission();
+        boolean allowed = hasP2pPermission();
         if (allowed && state != State.ALLOWED) {
             // Upgrade state if now allowed
             state = State.ALLOWED;
@@ -283,15 +285,6 @@ public class P2pPermissionManager {
             setState(state);
         }
         return state;
-    }
-
-    /**
-     * Return true if location services are enabled.
-     */
-    private boolean isLocationEnabled() {
-        LocationManager manager = (LocationManager) mContext.getSystemService(
-                Context.LOCATION_SERVICE);
-        return manager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER);
     }
 
     /**

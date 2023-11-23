@@ -44,6 +44,7 @@
 #include "NeuralNetworks.h"
 #include "NeuralNetworksOEM.h"
 #include "TestNeuralNetworksWrapper.h"
+#include "TmpDirectoryUtils.h"
 
 // Uncomment the following line to generate some debugging output that
 // may be useful when analyzing failures:
@@ -848,7 +849,7 @@ class PartitioningModel : private WrapperModel {
                          const OptionalTimePoint& deadline, ExecutionPlan* plan) {
         return reinterpret_cast<ModelBuilder*>(getHandle())
                 ->partitionTheWork(devices, static_cast<uint32_t>(preference),
-                                   static_cast<int32_t>(priority), deadline, plan);
+                                   static_cast<int32_t>(priority), deadline, plan, {});
     }
 
 #ifdef VERBOSE
@@ -2609,7 +2610,7 @@ class CacheTest : public PartitioningTest {
    protected:
     virtual void SetUp() override {
         PartitioningTest::SetUp();
-        char cacheDirTemp[] = "/data/local/tmp/TestCompilationCachingXXXXXX";
+        char cacheDirTemp[] = NN_TMP_DIR "/TestCompilationCachingXXXXXX";
         char* cacheDir = mkdtemp(cacheDirTemp);
         ASSERT_NE(cacheDir, nullptr);
         mCacheDir = cacheDir;
@@ -2851,6 +2852,7 @@ TEST_F(CacheTest, CacheTokenDifferentPreferencesSimpleBody) {
     expectUniqueTokens({fastToken, powerToken, sustainedToken});
 }
 
+// TODO (b/207721221): add test for AIDL compilation hints.
 // Test if the runtime maps to different cache tokens for compilations with different priorities
 // in execution plan with a simple body.
 TEST_F(CacheTest, CacheTokenDifferentPrioritiesSimpleBody) {

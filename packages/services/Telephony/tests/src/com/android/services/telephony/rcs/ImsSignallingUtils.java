@@ -28,4 +28,6 @@ public class ImsSignallingUtils {
             "+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gppservice.ims.icsi.oma.cpm.session\"";
     public static final String FILE_TRANSFER_HTTP_TAG =
             "+g.3gpp.iari-ref=\"urn%3Aurn-7%3A3gppapplication.ims.iari.rcs.fthttp\"";
+    public static final String CHATBOT_COMMUNICATION_USING_SESSION_TAG =
+            "+g.3gpp.iari-ref=\"urn%3Aurn-7%3A3gpp-application.ims.iari.rcs.chatbot\"";
 }

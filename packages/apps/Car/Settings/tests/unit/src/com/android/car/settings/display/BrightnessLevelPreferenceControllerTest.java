@@ -79,11 +79,6 @@ public class BrightnessLevelPreferenceControllerTest {
         mCountDownLatch = new CountDownLatch(1);
 
         mContext = spy(ApplicationProvider.getApplicationContext());
-        mMin = mContext.getResources().getInteger(
-                com.android.internal.R.integer.config_screenBrightnessSettingMinimum);
-        mMax = mContext.getResources().getInteger(
-                com.android.internal.R.integer.config_screenBrightnessSettingMaximum);
-        mMid = (mMax + mMin) / 2;
 
         mSeekBarPreference = new SeekBarPreference(mContext);
         CarUxRestrictions carUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
@@ -91,7 +86,9 @@ public class BrightnessLevelPreferenceControllerTest {
         mController = new BrightnessLevelPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, carUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mController, mSeekBarPreference);
-
+        mMin = mController.mMinimumBacklight;
+        mMax = mController.mMaximumBacklight;
+        mMid = (mMax + mMin) / 2;
         mController.onCreate(mLifecycleOwner);
     }
 

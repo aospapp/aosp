@@ -115,6 +115,7 @@ public class MobileNetworkEntryPreferenceControllerTest {
 
         when(mTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_PRESENT);
         when(mTelephonyManager.getSimCount()).thenReturn(1);
+        when(mTelephonyManager.isDataEnabled()).thenReturn(true);
 
         when(mUserManager.isAdminUser()).thenReturn(true);
         when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS))
@@ -209,7 +210,7 @@ public class MobileNetworkEntryPreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_oneSim_summaryIsDisplayName() {
+    public void onCreate_dataEnabled_oneSim_summaryIsDisplayName() {
         SubscriptionInfo info = createSubscriptionInfo(/* subId= */ 1,
                 /* simSlotIndex= */ 1, TEST_NETWORK_NAME);
         List<SubscriptionInfo> selectable = Lists.newArrayList(info);
@@ -218,6 +219,20 @@ public class MobileNetworkEntryPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreference.getSummary()).isEqualTo(TEST_NETWORK_NAME);
+    }
+
+    @Test
+    public void onCreate_dataDisabled_summaryIsOff() {
+        SubscriptionInfo info = createSubscriptionInfo(/* subId= */ 1,
+                /* simSlotIndex= */ 1, TEST_NETWORK_NAME);
+        List<SubscriptionInfo> selectable = Lists.newArrayList(info);
+        when(mSubscriptionManager.getSelectableSubscriptionInfoList()).thenReturn(selectable);
+        when(mTelephonyManager.isDataEnabled()).thenReturn(false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreference.getSummary()).isEqualTo(
+                mContext.getString(R.string.mobile_network_state_off));
     }
 
     @Test

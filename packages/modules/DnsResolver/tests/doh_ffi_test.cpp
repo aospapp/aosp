@@ -16,18 +16,68 @@
 
 #include "doh.h"
 
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+
+#include <resolv.h>
+
+#include <NetdClient.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+static const char* GOOGLE_SERVER_IP = "8.8.8.8";
+static const int TIMEOUT_MS = 3000;
+constexpr int MAXPACKET = (8 * 1024);
+constexpr unsigned int MINIMAL_NET_ID = 100;
+
+std::mutex m;
+std::condition_variable cv;
+unsigned int dnsNetId;
+
 TEST(DoHFFITest, SmokeTest) {
-    EXPECT_STREQ(doh_init(), "1.0");
-    DohServer* doh = doh_new("https://dns.google/dns-query", "8.8.8.8", 0, "");
+    getNetworkForDns(&dnsNetId);
+    // To ensure that we have a real network.
+    ASSERT_GE(dnsNetId, MINIMAL_NET_ID) << "No available networks";
+
+    auto validation_cb = [](uint32_t netId, bool success, const char* ip_addr, const char* host) {
+        EXPECT_EQ(netId, dnsNetId);
+        EXPECT_TRUE(success);
+        EXPECT_STREQ(ip_addr, GOOGLE_SERVER_IP);
+        EXPECT_STREQ(host, "");
+        cv.notify_one();
+    };
+
+    auto tag_socket_cb = [](int32_t sock) { EXPECT_GE(sock, 0); };
+
+    DohDispatcher* doh = doh_dispatcher_new(validation_cb, tag_socket_cb);
     EXPECT_TRUE(doh != nullptr);
 
-    // www.example.com
-    uint8_t query[] = "q80BAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
+    const FeatureFlags flags = {
+            .probe_timeout_ms = TIMEOUT_MS,
+            .idle_timeout_ms = TIMEOUT_MS,
+            .use_session_resumption = true,
+    };
+
+    // TODO: Use a local server instead of dns.google.
+    // sk_mark doesn't matter here because this test doesn't have permission to set sk_mark.
+    // The DNS packet would be sent via default network.
+    EXPECT_EQ(doh_net_new(doh, dnsNetId, "https://dns.google/dns-query", /* domain */ "",
+                          GOOGLE_SERVER_IP, /* sk_mark */ 0, /* cert_path */ "", &flags),
+              0);
+    {
+        std::unique_lock<std::mutex> lk(m);
+        EXPECT_EQ(cv.wait_for(lk, std::chrono::milliseconds(TIMEOUT_MS)),
+                  std::cv_status::no_timeout);
+    }
+
+    std::vector<uint8_t> buf(MAXPACKET, 0);
+    ssize_t len = res_mkquery(ns_o_query, "www.example.com", ns_c_in, ns_t_aaaa, nullptr, 0,
+                              nullptr, buf.data(), MAXPACKET);
     uint8_t answer[8192];
-    ssize_t len = doh_query(doh, query, sizeof query, answer, sizeof answer);
+
+    len = doh_query(doh, dnsNetId, buf.data(), len, answer, sizeof answer, TIMEOUT_MS);
     EXPECT_GT(len, 0);
-    doh_delete(doh);
+    doh_net_delete(doh, dnsNetId);
+    doh_dispatcher_delete(doh);
 }

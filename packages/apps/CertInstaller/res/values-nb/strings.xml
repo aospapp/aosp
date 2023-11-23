@@ -58,7 +58,7 @@
     <string name="cert_too_large_error" msgid="8715414972725646285">"Kunne ikke installere fordi sertifikatet er for stort."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Kunne ikke installere fordi sertifikatfilen ikke ble funnet."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Kunne ikke installere fordi sertifikatfilen ikke kunne leses."</string>
-    <string name="cert_temp_error" msgid="617276803992714550">"Midlertidig feil. Prøv igjen senere."</string>
+    <string name="cert_temp_error" msgid="617276803992714550">"Midlertidig feil. Prøv på nytt senere."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Bare eieren av denne enheten kan installere sertifikater."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Bruk av legitimasjon:"</string>
   <string-array name="credential_usage">

@@ -89,6 +89,7 @@ public class ResetActivity extends FragmentActivity {
             actions.add(new GuidedAction.Builder(getContext())
                     .clickAction(GuidedAction.ACTION_ID_OK)
                     .title(getString(R.string.device_reset))
+                    .multilineDescription(true)
                     .build());
         }
 

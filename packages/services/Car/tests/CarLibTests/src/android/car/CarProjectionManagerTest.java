@@ -36,6 +36,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.MacAddress;
 import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.WifiConfiguration;
 import android.util.ArraySet;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -113,6 +114,23 @@ public class CarProjectionManagerTest {
         mProjectionManager.startProjectionAccessPoint(mApCallback);
         mApCallback.mStarted.await(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         assertThat(mApCallback.mSoftApConfiguration).isEqualTo(config);
+    }
+
+    @Test
+    public void startAp_success_setWifiConfiguration() throws InterruptedException {
+        SoftApConfiguration config = new SoftApConfiguration.Builder()
+                .setSsid("Hello")
+                .setBssid(MacAddress.fromString("AA:BB:CC:CC:DD:EE"))
+                .setPassphrase("password", SoftApConfiguration.SECURITY_TYPE_WPA2_PSK)
+                .build();
+        WifiConfiguration wifiConfig = config.toWifiConfiguration();
+        mController.setWifiConfiguration(wifiConfig);
+
+        mProjectionManager.startProjectionAccessPoint(mApCallback);
+        mApCallback.mStarted.await(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+        assertThat(mApCallback.mSoftApConfiguration).isNull();
+        assertThat(mApCallback.mWifiConfiguration).isEqualTo(wifiConfig);
     }
 
     @Test
@@ -260,6 +278,13 @@ public class CarProjectionManagerTest {
         CountDownLatch mFailed = new CountDownLatch(1);
         int mFailureReason = -1;
         SoftApConfiguration mSoftApConfiguration;
+        WifiConfiguration mWifiConfiguration;
+
+        @Override
+        public void onStarted(WifiConfiguration wifiConfiguration) {
+            mWifiConfiguration = wifiConfiguration;
+            mStarted.countDown();
+        }
 
         @Override
         public void onStarted(SoftApConfiguration softApConfiguration) {

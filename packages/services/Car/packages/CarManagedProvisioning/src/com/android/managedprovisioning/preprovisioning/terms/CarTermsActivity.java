@@ -35,7 +35,6 @@ import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
 import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.StylerHelper;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.preprovisioning.terms.TermsViewModel.TermsViewModelFactory;
 import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapter;
@@ -112,8 +111,8 @@ public final class CarTermsActivity extends TermsActivity implements
      * {@code CarSetupWizardLayout}
      */
     @Override
-    protected void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
-            CustomizationParams params) {
+    protected void initializeLayoutParams(
+            int layoutResourceId, @Nullable Integer headerResourceId) {
         CarSetupWizardLayoutHelper layoutHelper = new CarSetupWizardLayoutHelper(this);
         layoutHelper.setBaseLayout(
                 /* mainLayoutResId= */ CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID,

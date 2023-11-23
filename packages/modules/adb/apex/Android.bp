@@ -9,7 +9,7 @@ package {
 
 apex_defaults {
     name: "com.android.adbd-defaults",
-    updatable: true,
+    defaults: ["r-launched-apex-module"],
 
     binaries: ["adbd"],
     compile_multilib: "both",
@@ -36,7 +36,6 @@ soong_config_module_type_import {
     module_types: ["library_linking_strategy_apex_defaults"],
 }
 
-// TODO(b/178585590): delete after testing linking strategy
 library_linking_strategy_apex_defaults {
     name: "adbd_manifest_defaults",
     soong_config_variables: {
@@ -64,7 +63,6 @@ apex_test {
     name: "test_com.android.adbd",
     defaults: ["com.android.adbd-defaults"],
     manifest: "test_apex_manifest.json",
-    min_sdk_version: "30",
     file_contexts: ":com.android.adbd-file_contexts",
     installable: false,
 }

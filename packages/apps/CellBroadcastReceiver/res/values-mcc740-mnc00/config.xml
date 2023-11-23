@@ -15,10 +15,13 @@
 -->
 
 <resources>
-    <string-array name="additional_cbs_channels_strings" translatable="false">
-        <!-- Channel 50 for area update info -->
-        <item>0x032:type=area, emergency=false</item>
+    <!-- 50 -->
+    <string-array name="emergency_alerts_channels_range_strings" translatable="false">
+        <item>0x0032:rat=gsm, emergency=true, dialog_with_notification=true</item>
     </string-array>
+    <string-array name="additional_cbs_channels_strings" translatable="false">
+    </string-array>
+
     <!-- Show area update info settings in CellBroadcastReceiver and information in SIM status in Settings app -->
-    <bool name="config_showAreaUpdateInfoSettings">true</bool>
+    <bool name="config_showAreaUpdateInfoSettings">false</bool>
 </resources>

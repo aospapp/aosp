@@ -257,11 +257,11 @@ public class MultiActionPreferenceTest {
                 anyInt())).thenReturn(0);
         mPref = new MultiActionPreference(mContext);
         mPref.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM1)
-                .setPreferenceRestricted(true);
+                .setRestricted(true);
         mPref.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM2)
-                .setPreferenceRestricted(true);
+                .setRestricted(true);
         mPref.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM3)
-                .setPreferenceRestricted(true);
+                .setRestricted(true);
         mPref.onBindViewHolder(mHolder);
 
         assertThat(((ToggleButtonActionItem) mPref.getActionItem(

@@ -16,6 +16,7 @@
 
 package android.net.wifi;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -28,6 +29,7 @@ import android.net.MacAddress;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.PasspointTestUtils;
 import android.os.Parcel;
+import android.os.ParcelUuid;
 import android.telephony.SubscriptionManager;
 
 import androidx.test.filters.SmallTest;
@@ -36,6 +38,7 @@ import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Test;
 
+import java.nio.charset.Charset;
 import java.security.cert.X509Certificate;
 
 /**
@@ -53,6 +56,8 @@ public class WifiNetworkSuggestionTest {
     private static final int DEFAULT_PRIORITY_GROUP = 0;
     private static final int TEST_PRIORITY_GROUP = 1;
     private static final int TEST_CARRIER_ID = 1998;
+    private static final ParcelUuid GROUP_UUID = ParcelUuid
+            .fromString("0000110B-0000-1000-8000-00805F9B34FB");
 
     /**
      * Validate correctness of WifiNetworkSuggestion object created by
@@ -951,6 +956,8 @@ public class WifiNetworkSuggestionTest {
                 .build();
         assertEquals(WifiConfiguration.RANDOMIZATION_PERSISTENT,
                 suggestion.wifiConfiguration.macRandomizationSetting);
+        assertEquals(WifiNetworkSuggestion.RANDOMIZATION_PERSISTENT,
+                suggestion.getMacRandomizationSetting());
 
         suggestion = new WifiNetworkSuggestion.Builder()
                 .setSsid(TEST_SSID)
@@ -959,6 +966,8 @@ public class WifiNetworkSuggestionTest {
                 .build();
         assertEquals(WifiConfiguration.RANDOMIZATION_NON_PERSISTENT,
                 suggestion.wifiConfiguration.macRandomizationSetting);
+        assertEquals(WifiNetworkSuggestion.RANDOMIZATION_NON_PERSISTENT,
+                suggestion.getMacRandomizationSetting());
     }
 
     /**
@@ -968,24 +977,35 @@ public class WifiNetworkSuggestionTest {
     @Test
     public void testWifiNetworkSuggestionBuilderSetMacRandomizationPasspoint() {
         PasspointConfiguration passpointConfiguration = PasspointTestUtils.createConfig();
+        passpointConfiguration.setMacRandomizationEnabled(false);
         WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
                 .setPasspointConfig(passpointConfiguration)
                 .build();
-        assertEquals(false, suggestion.passpointConfiguration.isEnhancedMacRandomizationEnabled());
+        assertEquals(false,
+                suggestion.passpointConfiguration.isNonPersistentMacRandomizationEnabled());
+        assertTrue(suggestion.passpointConfiguration.isMacRandomizationEnabled());
 
         suggestion = new WifiNetworkSuggestion.Builder()
                 .setPasspointConfig(passpointConfiguration)
                 .setMacRandomizationSetting(
                         WifiNetworkSuggestion.RANDOMIZATION_PERSISTENT)
                 .build();
-        assertEquals(false, suggestion.passpointConfiguration.isEnhancedMacRandomizationEnabled());
+        assertEquals(false,
+                suggestion.passpointConfiguration.isNonPersistentMacRandomizationEnabled());
+        assertTrue(suggestion.passpointConfiguration.isMacRandomizationEnabled());
+        assertEquals(WifiNetworkSuggestion.RANDOMIZATION_PERSISTENT,
+                suggestion.getMacRandomizationSetting());
 
         suggestion = new WifiNetworkSuggestion.Builder()
                 .setPasspointConfig(passpointConfiguration)
                 .setMacRandomizationSetting(
                         WifiNetworkSuggestion.RANDOMIZATION_NON_PERSISTENT)
                 .build();
-        assertEquals(true, suggestion.passpointConfiguration.isEnhancedMacRandomizationEnabled());
+        assertEquals(true,
+                suggestion.passpointConfiguration.isNonPersistentMacRandomizationEnabled());
+        assertTrue(suggestion.passpointConfiguration.isMacRandomizationEnabled());
+        assertEquals(WifiNetworkSuggestion.RANDOMIZATION_NON_PERSISTENT,
+                suggestion.getMacRandomizationSetting());
     }
 
     /**
@@ -1606,6 +1626,113 @@ public class WifiNetworkSuggestionTest {
                 .setSsid(TEST_SSID)
                 .setWpa2Passphrase(TEST_PRESHARED_KEY)
                 .setIsWpa3SaeH2eOnlyModeEnabled(true)
+                .build();
+    }
+
+    /**
+     * Test set a network suggestion with restricted
+     */
+    @Test
+    public void testSetRestrictedNetwork() {
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setSsid(TEST_SSID)
+                .setWpa2Passphrase(TEST_PRESHARED_KEY)
+                .setRestricted(true)
+                .build();
+        assertTrue(suggestion.isRestricted());
+        assertFalse(suggestion.isUserAllowedToManuallyConnect);
+    }
+
+    /**
+     * Ensure {@link WifiNetworkSuggestion.Builder#build()} throws an exception
+     * when set {@link WifiNetworkSuggestion.Builder#setRestricted(boolean)} to true and
+     * set {@link WifiNetworkSuggestion.Builder#setCredentialSharedWithUser(boolean)} to true
+     * together.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testCredentialSharedWithUserWithSetRestrictedNetwork() {
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setSsid(TEST_SSID)
+                .setWpa2Passphrase(TEST_PRESHARED_KEY)
+                .setRestricted(true)
+                .setCredentialSharedWithUser(true)
+                .build();
+    }
+
+    /**
+     * Test set a network suggestion with Subscription Group
+     */
+    @Test
+    public void testSetSubscriptionGroup() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setSsid(TEST_SSID)
+                .setWpa2Passphrase(TEST_PRESHARED_KEY)
+                .setSubscriptionGroup(GROUP_UUID)
+                .build();
+        assertEquals(suggestion.getSubscriptionGroup(), GROUP_UUID);
+    }
+
+    /**
+     * Test set a passpoint network suggestion with Subscription Group
+     */
+    @Test
+    public void testSetSubscriptionGroupOnPasspoint() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setPasspointConfig(PasspointTestUtils.createConfig())
+                .setSubscriptionGroup(GROUP_UUID)
+                .build();
+        assertEquals(suggestion.getSubscriptionGroup(), GROUP_UUID);
+        assertEquals(suggestion.getPasspointConfig().getSubscriptionGroup(), GROUP_UUID);
+    }
+
+
+    /**
+     * Ensure {@link WifiNetworkSuggestion.Builder#build()} throws an exception
+     * when set {@link WifiNetworkSuggestion.Builder#setSubscriptionGroup(ParcelUuid)} to null
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetSubscriptionGroupWithNull() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setSsid(TEST_SSID)
+                .setWpa2Passphrase(TEST_PRESHARED_KEY)
+                .setSubscriptionGroup(null)
+                .build();
+    }
+
+    /**
+     * Ensure {@link WifiNetworkSuggestion.Builder#build()} throws an exception
+     * when set both {@link WifiNetworkSuggestion.Builder#setSubscriptionGroup(ParcelUuid)} and
+     * {@link WifiNetworkSuggestion.Builder#setSubscriptionId(int)}
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testSetBothSubscriptionGroupAdnSubscriptionId() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setSsid(TEST_SSID)
+                .setWpa2Passphrase(TEST_PRESHARED_KEY)
+                .setSubscriptionGroup(GROUP_UUID)
+                .setSubscriptionId(1)
+                .build();
+    }
+
+    @Test
+    public void testSetWifiSsid() {
+        WifiSsid ssid = WifiSsid.fromBytes("服務集識別碼".getBytes(Charset.forName("GBK")));
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setWifiSsid(ssid)
+                .build();
+        assertArrayEquals(ssid.getBytes(), suggestion.getWifiSsid().getBytes());
+        assertNull(suggestion.getSsid());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetEmptyWifiSsid() {
+        WifiSsid ssid = WifiSsid.fromBytes(null);
+        WifiNetworkSuggestion suggestion = new WifiNetworkSuggestion.Builder()
+                .setWifiSsid(ssid)
                 .build();
     }
 }

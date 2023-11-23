@@ -27,7 +27,7 @@
     </Preference>
 
     <!-- System update settings - launches activity -->
-    <com.android.tv.twopanelsettings.slices.CustomContentDescriptionPreference
+    <com.android.tv.twopanelsettings.slices.CustomContentDescriptionRestrictedPreference
         android:key="system_update_settings"
         android:title="@string/about_system_update"
         android:fragment="com.android.tv.settings.about.SystemUpdateInfoFragment" />
@@ -44,7 +44,7 @@
         <intent android:action="android.settings.DEVICE_NAME" />
     </Preference>
 
-    <com.android.tv.twopanelsettings.slices.CustomContentDescriptionPreference
+    <com.android.tv.twopanelsettings.slices.CustomContentDescriptionRestrictedPreference
         android:key="reset"
         android:title="@string/device_reset"
         android:fragment="com.android.tv.settings.about.FactoryResetInfoFragment"

@@ -43,7 +43,7 @@
     <string name="action_missing_user_cert" msgid="3727411730202316771">"Потребен е сертификат за инсталирање приватен клуч"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"Изберете тип сертификат"</string>
     <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"Инсталирајте сертификати CA во „Поставки“"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Овој сертификат од <xliff:g id="REQUESTING_APP">%1$s</xliff:g> мора да се инсталира во „Поставки“. Инсталирајте сертификати CA само од организации во кои имате доверба."</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"Овој сертификат од <xliff:g id="REQUESTING_APP">%1$s</xliff:g> мора да се инсталира во „Поставки“. Инсталирајте CA-сертификати само од организации во кои имате доверба."</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"Затвори"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"Не може да се користи датотекава"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"Затвори"</string>

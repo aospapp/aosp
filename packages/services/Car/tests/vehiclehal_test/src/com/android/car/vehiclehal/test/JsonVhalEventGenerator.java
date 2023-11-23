@@ -18,18 +18,15 @@ package com.android.car.vehiclehal.test;
 import static org.junit.Assert.assertEquals;
 
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.hardware.automotive.vehicle.V2_0.StatusCode;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.os.RemoteException;
-
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 class JsonVhalEventGenerator implements VhalEventGenerator {
 
     // Exactly one iteration is required for JSON-based end-to-end test
-    private static final int NUM_OF_ITERATION = 1;
+    private static final String NUM_OF_ITERATION = "1";
 
     private IVehicle mVehicle;
     private File mFile;
@@ -47,22 +44,27 @@ class JsonVhalEventGenerator implements VhalEventGenerator {
     }
 
     @Override
-    public void start() throws RemoteException {
-        VehiclePropValue request =
-                VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                    .addIntValue(CMD_START_JSON, NUM_OF_ITERATION)
-                    .setStringValue(mFile.getAbsolutePath())
-                    .build();
-        assertEquals(StatusCode.OK, mVehicle.set(request));
+    public void start() throws Exception {
+        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
+                "--debughal", "--genfakedata", "--startjson", mFile.getAbsolutePath(),
+                NUM_OF_ITERATION));
+
+        NativePipeHelper pipe = new NativePipeHelper();
+        pipe.create();
+        mVehicle.debug(pipe.getNativeHandle(), options);
+        assertEquals("", pipe.getOutput());
+        pipe.close();
     }
 
     @Override
-    public void stop() throws RemoteException {
-        VehiclePropValue request =
-                VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                    .addIntValue(CMD_STOP_JSON)
-                    .setStringValue(mFile.getAbsolutePath())
-                    .build();
-        assertEquals(StatusCode.OK, mVehicle.set(request));
+    public void stop() throws Exception {
+        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
+                "--debughal", "--genfakedata", "--stopjson",
+                mFile.getAbsolutePath()));
+        NativePipeHelper pipe = new NativePipeHelper();
+        pipe.create();
+        mVehicle.debug(pipe.getNativeHandle(), options);
+        assertEquals("", pipe.getOutput());
+        pipe.close();
     }
 }

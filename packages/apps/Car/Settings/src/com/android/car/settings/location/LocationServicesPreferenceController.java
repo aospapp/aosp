@@ -75,7 +75,8 @@ public class LocationServicesPreferenceController extends PreferenceController<P
      */
     @Override
     protected void onStartInternal() {
-        getContext().registerReceiver(mReceiver, INTENT_FILTER_INJECTED_SETTING_CHANGED);
+        getContext().registerReceiver(mReceiver, INTENT_FILTER_INJECTED_SETTING_CHANGED,
+                Context.RECEIVER_EXPORTED);
     }
 
     /**

@@ -99,7 +99,7 @@ private:
     void onConditionChangedLocked(const bool conditionMet, const int64_t eventTime) override;
 
     // Internal interface to handle active state change.
-    void onActiveStateChangedLocked(const int64_t& eventTimeNs) override;
+    void onActiveStateChangedLocked(const int64_t eventTimeNs) override;
 
     // Internal interface to handle sliced condition change.
     void onSlicedConditionMayChangeLocked(bool overallCondition, const int64_t eventTime) override;
@@ -189,6 +189,7 @@ private:
     FRIEND_TEST(WakelockDurationE2eTest, TestAggregatedPredicates);
     FRIEND_TEST(DurationMetricTrackerTest, TestFirstBucket);
 
+    FRIEND_TEST(DurationMetricProducerTest, TestSumDurationAppUpgradeSplitDisabled);
     FRIEND_TEST(DurationMetricProducerTest_PartialBucket, TestSumDuration);
     FRIEND_TEST(DurationMetricProducerTest_PartialBucket,
                 TestSumDurationWithSplitInFollowingBucket);

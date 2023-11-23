@@ -350,7 +350,12 @@ public class IwlanNetworkServiceTest {
         NetworkRegistrationInfo.Builder expectedStateBuilder =
                 new NetworkRegistrationInfo.Builder();
         expectedStateBuilder
-                .setAccessNetworkTechnology(TelephonyManager.NETWORK_TYPE_IWLAN)
+                .setAccessNetworkTechnology(
+                        (registrationState
+                                        == NetworkRegistrationInfo
+                                                .REGISTRATION_STATE_NOT_REGISTERED_SEARCHING)
+                                ? TelephonyManager.NETWORK_TYPE_UNKNOWN
+                                : TelephonyManager.NETWORK_TYPE_IWLAN)
                 .setAvailableServices(Arrays.asList(NetworkRegistrationInfo.SERVICE_TYPE_DATA))
                 .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
                 .setEmergencyOnly(!isSubActive)

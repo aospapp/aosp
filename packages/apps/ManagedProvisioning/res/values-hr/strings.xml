@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Vašim će uređajem upravljati sljedeća aplikacija:"</string>
     <string name="next" msgid="1004321437324424398">"Dalje"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Postavljanje poslovnog profila…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Vaš IT administrator može nadzirati postavke, korporacijski pristup, aplikacije, dopuštenja i podatke povezane s ovim profilom, uključujući vašu aktivnost na mreži i lokaciju uređaja, povijest poziva i povijest pretraživanja kontakata te upravljati njima.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Više informacija, uključujući pravila o privatnosti u organizaciji, možete saznati od IT administratora."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Vaš IT administrator može nadzirati postavke, korporativni pristup, aplikacije, dopuštenja, podatke i aktivnost mreže povezane s ovim profilom te vašu povijest poziva i pretraživanja kontakata i upravljati njima. Obratite se svojem IT administratoru za više informacija i kako biste saznali više o pravilima o privatnosti svoje organizacije."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Vaš IT administrator može nadzirati postavke, korporacijski pristup, aplikacije, dopuštenja i podatke o uređaju, uključujući vašu aktivnost na mreži i lokaciju uređaja, povijest poziva i povijest pretraživanja kontakata te upravljati njima.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Više informacija, uključujući pravila o privatnosti u organizaciji, možete saznati od IT administratora."</string>
@@ -115,7 +113,7 @@
     <string name="your_org_app_used" msgid="5336414768293540831">"Organizacija <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> upravljat će ovim uređajem i nadzirati ga pomoću sljedeće aplikacije:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Vaša organizacija"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"vaša organizacija"</string>
-    <string name="view_terms" msgid="7230493092383341605">"Prikaz uvjeta"</string>
+    <string name="view_terms" msgid="7230493092383341605">"Pregledajte uvjete"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Prihvati i nastavi"</string>
     <string name="back" msgid="6455622465896147127">"Natrag"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Postavljanje uređaja"</string>
@@ -161,10 +159,10 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Za upravljanje telefonom i njegovo praćenje koristit će se sljedeća aplikacija"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Računom se upravlja"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Vaš IT administrator upotrebljava upravljanje mobilnim uređajima za provedbu sigurnosnih pravila"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"Priprema za postavljanje radnog profila…"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Priprema za postavljanje poslovnog profila…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Postavimo vaš poslovni profil"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Radne aplikacije nalaze se na vašem radnom profilu"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pauzirajte radne aplikacije kad završite s poslom za taj dan"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Poslovne aplikacije nalaze se na vašem poslovnom profilu"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pauzirajte poslovne aplikacije kad završite s poslom za taj dan"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Podaci na vašem poslovnom profilu vidljivi su vašem IT administratoru"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Postavljanje poslovnog profila…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Poslovne aplikacije nalaze se na vašem poslovnom profilu. Poslovne aplikacije možete pauzirati kad završite s poslom za taj dan. Podaci na vašem poslovnom profilu vidljivi su vašem IT administratoru."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> može instalirati aplikaciju <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> kako biste mogli otplaćivati ovaj uređaj."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Ovaj se uređaj može ograničiti"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> može ograničiti pristup ovom uređaju ako ga ne otplaćujete."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Postavljanje uređaja nije moguće. Za pomoć se obratite svom IT administratoru i navedite \"nevažeći kontrolni zbroj\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Pokušajte ponovno kasnije ili se obratite svom IT administratoru za pomoć"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Postavljanje uređaja nije moguće. Za pomoć se obratite svom IT administratoru i navedite \"komponente koje nedostaju ili koje su oštećene\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Postavljanje…"</string>
 </resources>

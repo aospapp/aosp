@@ -34,6 +34,13 @@
 #include "AndroidVersionUtil.h"
 #include "NeuralNetworks.h"
 #include "NeuralNetworksOEM.h"
+#include "TmpDirectoryUtils.h"
+
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#else  // __ANDROID__
+#include <android-base/file.h>
+#endif  // __ANDROID__
 
 #ifndef NNTEST_ONLY_PUBLIC_API
 #include "NeuralNetworksExtensions.h"
@@ -248,7 +255,13 @@ class ValidationTestMemoryDesc : public ValidationTestCompilation {
     }
 
     ANeuralNetworksMemory* createAshmem(uint32_t size) {
+#ifdef __ANDROID__
         int fd = ASharedMemory_create("nnMemory", size);
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        int fd = tmpFile.release();
+        CHECK_EQ(ftruncate(fd, size), 0);
+#endif  // __ANDROID__
         EXPECT_GT(fd, 0);
         mFds.push_back(fd);
         ANeuralNetworksMemory* ashmem = nullptr;
@@ -609,7 +622,13 @@ TEST_F(ValidationTestModel, SetOperandValueFromMemory) {
     EXPECT_EQ(ANeuralNetworksModel_addOperand(mModel, &floatType), ANEURALNETWORKS_NO_ERROR);
 
     const size_t memorySize = 20;
+#ifdef __ANDROID__
     int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(memoryFd, 0);
 
     ANeuralNetworksMemory* memory;
@@ -654,6 +673,7 @@ TEST_F(ValidationTestModel, SetOperandValueFromMemory) {
     close(memoryFd);
 }
 
+#ifdef __ANDROID__
 TEST_F(ValidationTestModel, SetOperandValueFromAHardwareBuffer) {
     uint32_t dimensions[]{1};
     ANeuralNetworksOperandType quant8Type{.type = ANEURALNETWORKS_TENSOR_QUANT8_ASYMM,
@@ -723,6 +743,7 @@ TEST_F(ValidationTestModel, SetOperandValueFromAHardwareBufferBlob) {
     ANeuralNetworksMemory_free(memory);
     AHardwareBuffer_release(buffer);
 }
+#endif  // __ANDROID__
 
 TEST_F(ValidationTestModel, SetOperandValueFromModel) {
     uint32_t dimensions[] = {2};
@@ -1109,11 +1130,11 @@ TEST_F(ValidationTestCompilation, SetPreference) {
 // Also see TEST_F(ValidationTestCompilationForDevices_1, SetCaching)
 TEST_F(ValidationTestCompilation, SetCaching) {
     std::vector<uint8_t> token(ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN, 0);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(nullptr, "/data/local/tmp", token.data()),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(nullptr, NN_TMP_DIR, token.data()),
               ANEURALNETWORKS_UNEXPECTED_NULL);
     EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, nullptr, token.data()),
               ANEURALNETWORKS_UNEXPECTED_NULL);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, "/data/local/tmp", nullptr),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, NN_TMP_DIR, nullptr),
               ANEURALNETWORKS_UNEXPECTED_NULL);
 }
 
@@ -1234,7 +1255,7 @@ TEST_F(ValidationTestCompilation, Finish) {
     EXPECT_EQ(ANeuralNetworksCompilation_setTimeout(mCompilation, kShortWaitInNanoseconds),
               ANEURALNETWORKS_BAD_STATE);
     std::vector<uint8_t> token(ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN, 0);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, "/data/local/tmp", token.data()),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, NN_TMP_DIR, token.data()),
               ANEURALNETWORKS_BAD_STATE);
     EXPECT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_BAD_STATE);
 }
@@ -1309,7 +1330,13 @@ TEST_F(ValidationTestCompilation, ExecutionUsability) {
                     ANEURALNETWORKS_NO_ERROR);
 
             const size_t memorySize = std::max(sizeof(in0), sizeof(out0));
+#ifdef __ANDROID__
             int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+            TemporaryFile tmpFile;
+            int memoryFd = tmpFile.release();
+            CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
             ASSERT_GT(memoryFd, 0);
             ANeuralNetworksMemory* memory;
             EXPECT_EQ(ANeuralNetworksMemory_createFromFd(memorySize, PROT_READ | PROT_WRITE,
@@ -1672,7 +1699,13 @@ TEST_F(ValidationTestExecution, SetOutputEnablePadding) {
 
 TEST_F(ValidationTestExecution, SetInputFromMemory) {
     const size_t memorySize = 20;
+#ifdef __ANDROID__
     int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(memoryFd, 0);
 
     ANeuralNetworksMemory* memory;
@@ -1737,7 +1770,13 @@ TEST_F(ValidationTestExecution, SetInputFromMemory) {
 TEST_F(ValidationTestExecution, SetInputFromMemoryEnablePadding) {
     if (__builtin_available(android __NNAPI_FL5_MIN_ANDROID_API__, *)) {
         const size_t memorySize = 20;
+#ifdef __ANDROID__
         int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        int memoryFd = tmpFile.release();
+        CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
         ASSERT_GT(memoryFd, 0);
 
         ANeuralNetworksMemory* memory;
@@ -1761,6 +1800,7 @@ TEST_F(ValidationTestExecution, SetInputFromMemoryEnablePadding) {
     }
 }
 
+#ifdef __ANDROID__
 TEST_F(ValidationTestExecution, SetInputFromAHardwareBufferBlob) {
     const size_t memorySize = 20;
 
@@ -1841,13 +1881,20 @@ TEST_F(ValidationTestExecution, SetInputFromAHardwareBufferBlobEnablePadding) {
         GTEST_SKIP();
     }
 }
+#endif  // __ANDROID__
 
 TEST_F(ValidationTestExecution, SetOutputFromMemory) {
     ANeuralNetworksExecution* execution;
     EXPECT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
 
     const size_t memorySize = 20;
+#ifdef __ANDROID__
     int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(memoryFd, 0);
 
     ANeuralNetworksMemory* memory;
@@ -1917,7 +1964,13 @@ TEST_F(ValidationTestExecution, SetOutputFromMemoryEnablePadding) {
                   ANEURALNETWORKS_NO_ERROR);
 
         const size_t memorySize = 20;
+#ifdef __ANDROID__
         int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        int memoryFd = tmpFile.release();
+        CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
         ASSERT_GT(memoryFd, 0);
 
         ANeuralNetworksMemory* memory;
@@ -1942,6 +1995,7 @@ TEST_F(ValidationTestExecution, SetOutputFromMemoryEnablePadding) {
     }
 }
 
+#ifdef __ANDROID__
 TEST_F(ValidationTestExecution, SetOutputFromAHardwareBufferBlob) {
     const size_t memorySize = 20;
 
@@ -2023,13 +2077,20 @@ TEST_F(ValidationTestExecution, SetOutputFromAHardwareBufferBlobEnablePadding) {
         GTEST_SKIP();
     }
 }
+#endif  // __ANDROID__
 
 TEST_F(ValidationTestExecution, EnablePaddingAfterSetInputOutput) {
     if (__builtin_available(android __NNAPI_FL5_MIN_ANDROID_API__, *)) {
         ANeuralNetworksExecution* execution;
         char buffer[20];
         const size_t memorySize = 20;
+#ifdef __ANDROID__
         int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        int memoryFd = tmpFile.release();
+        CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
         ASSERT_GT(memoryFd, 0);
 
         ANeuralNetworksMemory* memory;
@@ -2621,7 +2682,13 @@ TEST_F(ValidationTestBurst, FreeMemoryBeforeBurst) {
     int32_t input2[] = {0};
 
     const size_t memorySize = sizeof(output0);
+#ifdef __ANDROID__
     int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(memoryFd, 0);
 
     ANeuralNetworksMemory* memory;
@@ -2662,7 +2729,13 @@ TEST_F(ValidationTestBurst, FreeBurstBeforeMemory) {
     float input0[] = {1.0f, 1.0f}, input1[] = {2.0f, 2.0f}, output0[2];
     int32_t input2[] = {0};
     const size_t memorySize = sizeof(output0);
+#ifdef __ANDROID__
     int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
     ASSERT_GT(memoryFd, 0);
 
     ANeuralNetworksMemory* memory;
@@ -2857,14 +2930,14 @@ TEST_F(ValidationTestCompilationForDevices_1, SetPreference) {
 // Also see TEST_F(ValidationTestCompilation, SetCaching)
 TEST_F(ValidationTestCompilationForDevices_1, SetCaching) {
     std::vector<uint8_t> token(ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN, 0);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(nullptr, "/data/local/tmp", token.data()),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(nullptr, NN_TMP_DIR, token.data()),
               ANEURALNETWORKS_UNEXPECTED_NULL);
     if (!mCompilation) {
         return;
     }
     EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, nullptr, token.data()),
               ANEURALNETWORKS_UNEXPECTED_NULL);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, "/data/local/tmp", nullptr),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, NN_TMP_DIR, nullptr),
               ANEURALNETWORKS_UNEXPECTED_NULL);
 }
 
@@ -2897,7 +2970,7 @@ TEST_F(ValidationTestCompilationForDevices_1, Finish) {
     EXPECT_EQ(ANeuralNetworksCompilation_setTimeout(mCompilation, kShortWaitInNanoseconds),
               ANEURALNETWORKS_BAD_STATE);
     std::vector<uint8_t> token(ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN, 0);
-    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, "/data/local/tmp", token.data()),
+    EXPECT_EQ(ANeuralNetworksCompilation_setCaching(mCompilation, NN_TMP_DIR, token.data()),
               ANEURALNETWORKS_BAD_STATE);
     EXPECT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_BAD_STATE);
 }
@@ -3752,6 +3825,46 @@ TEST_F(ValidationTestMemoryDesc, CreateMemory) {
     ANeuralNetworksMemory_free(memory);
 }
 
+TEST(ValidationTestMemory, CreateFromFd) {
+    const size_t memorySize = 20;
+#ifdef __ANDROID__
+    int memoryFd = ASharedMemory_create("nnMemory", memorySize);
+#else   // __ANDROID__
+    TemporaryFile tmpFile;
+    int memoryFd = tmpFile.release();
+    CHECK_EQ(ftruncate(memoryFd, memorySize), 0);
+#endif  // __ANDROID__
+    ASSERT_GT(memoryFd, 0);
+
+    EXPECT_EQ(ANeuralNetworksMemory_createFromFd(memorySize, PROT_READ | PROT_WRITE, memoryFd, 0,
+                                                 nullptr),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    close(memoryFd);
+}
+
+#ifdef __ANDROID__
+TEST(ValidationTestMemory, CreateFromAHardwareBuffer) {
+    const size_t memorySize = 20;
+    AHardwareBuffer_Desc desc{
+            .width = memorySize,
+            .height = 1,
+            .layers = 1,
+            .format = AHARDWAREBUFFER_FORMAT_BLOB,
+            .usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
+    };
+    AHardwareBuffer* buffer = nullptr;
+    ASSERT_EQ(AHardwareBuffer_allocate(&desc, &buffer), 0);
+    EXPECT_EQ(ANeuralNetworksMemory_createFromAHardwareBuffer(buffer, nullptr),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    AHardwareBuffer_release(buffer);
+
+    ANeuralNetworksMemory* memory = nullptr;
+    EXPECT_EQ(ANeuralNetworksMemory_createFromAHardwareBuffer(nullptr, &memory),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+}
+#endif  // __ANDROID__
+
 TEST_F(ValidationTestMemoryDesc, MemoryCopying) {
     uint32_t goodSize = sizeof(float) * 2, badSize1 = sizeof(float), badSize2 = sizeof(float) * 4;
     ANeuralNetworksMemory* goodAshmem = createAshmem(goodSize);
@@ -3891,6 +4004,220 @@ TEST(ValidationTestDevice, GetExtensionSupport) {
                   ANEURALNETWORKS_NO_ERROR);
     }
 }
-#endif
+
+constexpr const char* kTestAttributeExtensionName = "com.android.test_attribute_extension";
+const uint16_t kAttributeCode = 0;
+const uint16_t kAttributeCode2 = 2;
+const uint8_t kAttributeValue = 0;
+
+class ValidationTestCompilationExtension : public ValidationTestCompilation {
+   protected:
+    virtual void SetUp() {
+        ValidationTestCompilation::SetUp();
+        EXPECT_TRUE(::android::nn::TypeManager::get()->forTest_registerExtension({
+                .name = kTestAttributeExtensionName,
+                .operandTypes = {},
+        }));
+    }
+
+    virtual void TearDown() {
+        ::android::nn::TypeManager::get()->forTest_reset();
+        ValidationTestCompilation::TearDown();
+    }
+};
+
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_1, AddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_2, AddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtension, AddExtensionAttribute) {
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(nullptr, kTestAttributeExtensionName,
+                                                               kAttributeCode, &kAttributeValue,
+                                                               sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, nullptr, kAttributeCode, &kAttributeValue, sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, nullptr,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    // ExtensionAttribute can only be added to Compilations created from CompilationForDevices with
+    // one device specified.
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_1, ExecutionAddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_2, ExecutionAddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtension, ExecutionAddExtensionAttribute) {
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(nullptr, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+
+    ASSERT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_NO_ERROR);
+    ANeuralNetworksExecution* execution;
+    ASSERT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, nullptr, kAttributeCode,
+                                                             &kAttributeValue, sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, nullptr,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_UNEXPECTED_NULL);
+    // ExtensionAttribute can only be added to Executions created from CompilationForDevices with
+    // one device specified.
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+    ANeuralNetworksExecution_free(execution);
+}
+
+class ValidationTestCompilationExtensionForDevices_1
+    : public ValidationTestCompilationForDevices_1 {
+   protected:
+    virtual void SetUp() {
+        ValidationTestCompilationForDevices_1::SetUp();
+        EXPECT_TRUE(::android::nn::TypeManager::get()->forTest_registerExtension({
+                .name = kTestAttributeExtensionName,
+                .operandTypes = {},
+        }));
+    }
+
+    virtual void TearDown() {
+        ::android::nn::TypeManager::get()->forTest_reset();
+        ValidationTestCompilationForDevices_1::TearDown();
+    }
+};
+
+// Also see TEST_F(ValidationTestCompilationExtension, AddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_2, AddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtensionForDevices_1, AddExtensionAttribute) {
+    if (!mCompilation) {
+        return;
+    }
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_NO_ERROR);
+    // Adding another attribute.
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode2, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_NO_ERROR);
+    // Adding the same attribute twice is illegal.
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+    // Attempt to finish
+    const int n = ANeuralNetworksCompilation_finish(mCompilation);
+    EXPECT_TRUE(n == ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_STATE);
+}
+
+// Also see TEST_F(ValidationTestCompilationExtension, ExecutionAddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_2, ExecutionAddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtensionForDevices_1, ExecutionAddExtensionAttribute) {
+    if (!mCompilation) {
+        return;
+    }
+    ASSERT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_NO_ERROR);
+    ANeuralNetworksExecution* execution;
+    ASSERT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_NO_ERROR);
+    // Adding another attribute.
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode2, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_NO_ERROR);
+    // Adding the same attribute twice is illegal.
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+
+    // start the execution
+    float in0[] = {0.0f, 0.0f}, in1[] = {1.0f, 1.0f}, out0[2];
+    int in2 = 0;
+    ASSERT_EQ(ANeuralNetworksExecution_setInput(execution, 0, nullptr, &in0, sizeof(in0)),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(ANeuralNetworksExecution_setInput(execution, 1, nullptr, &in1, sizeof(in1)),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(ANeuralNetworksExecution_setInput(execution, 2, nullptr, &in2, sizeof(in2)),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(ANeuralNetworksExecution_setOutput(execution, 0, nullptr, &out0, sizeof(out0)),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(ANeuralNetworksExecution_compute(execution), ANEURALNETWORKS_NO_ERROR);
+
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_STATE);
+
+    ANeuralNetworksExecution_free(execution);
+}
+
+class ValidationTestCompilationExtensionForDevices_2
+    : public ValidationTestCompilationForDevices_2 {
+   protected:
+    virtual void SetUp() {
+        ValidationTestCompilationForDevices_2::SetUp();
+        EXPECT_TRUE(::android::nn::TypeManager::get()->forTest_registerExtension({
+                .name = kTestAttributeExtensionName,
+                .operandTypes = {},
+        }));
+    }
+
+    virtual void TearDown() {
+        ::android::nn::TypeManager::get()->forTest_reset();
+        ValidationTestCompilationForDevices_2::TearDown();
+    }
+};
+
+// Also see TEST_F(ValidationTestCompilationExtension, AddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_1, AddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtensionForDevices_2, AddExtensionAttribute) {
+    if (!mCompilation) {
+        return;
+    }
+    // ExtensionAttribute can only be added to Compilations created from CompilationForDevices with
+    // one device specified.
+    EXPECT_EQ(ANeuralNetworksCompilation_addExtensionAttribute(
+                      mCompilation, kTestAttributeExtensionName, kAttributeCode, &kAttributeValue,
+                      sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+}
+
+// Also see TEST_F(ValidationTestCompilationExtension, ExecutionAddExtensionAttribute)
+// Also see TEST_F(ValidationTestCompilationExtensionForDevices_1, ExecutionAddExtensionAttribute)
+TEST_F(ValidationTestCompilationExtensionForDevices_2, ExecutionAddExtensionAttribute) {
+    if (!mCompilation) {
+        return;
+    }
+    ASSERT_EQ(ANeuralNetworksCompilation_finish(mCompilation), ANEURALNETWORKS_NO_ERROR);
+    ANeuralNetworksExecution* execution;
+    ASSERT_EQ(ANeuralNetworksExecution_create(mCompilation, &execution), ANEURALNETWORKS_NO_ERROR);
+
+    // ExtensionAttribute can only be added to Executions created from CompilationForDevices with
+    // one device specified.
+    EXPECT_EQ(ANeuralNetworksExecution_addExtensionAttribute(execution, kTestAttributeExtensionName,
+                                                             kAttributeCode, &kAttributeValue,
+                                                             sizeof(uint8_t)),
+              ANEURALNETWORKS_BAD_DATA);
+    ANeuralNetworksExecution_free(execution);
+}
+#endif  // NNTEST_ONLY_PUBLIC_API
 
 }  // namespace

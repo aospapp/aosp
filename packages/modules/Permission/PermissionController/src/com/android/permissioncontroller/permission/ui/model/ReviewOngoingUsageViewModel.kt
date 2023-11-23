@@ -47,10 +47,10 @@ import com.android.permissioncontroller.permission.data.PermGroupUsageLiveData
 import com.android.permissioncontroller.permission.data.SmartAsyncMediatorLiveData
 import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.data.micMutedLiveData
-import com.android.permissioncontroller.permission.ui.handheld.dashboard.shouldShowLocationIndicators
-import com.android.permissioncontroller.permission.ui.handheld.dashboard.shouldShowPermissionsDashboard
-import com.android.permissioncontroller.permission.ui.handheld.ReviewOngoingUsageFragment.PHONE_CALL
-import com.android.permissioncontroller.permission.ui.handheld.ReviewOngoingUsageFragment.VIDEO_CALL
+import com.android.permissioncontroller.permission.ui.handheld.v31.shouldShowLocationIndicators
+import com.android.permissioncontroller.permission.ui.handheld.v31.shouldShowPermissionsDashboard
+import com.android.permissioncontroller.permission.ui.handheld.v31.ReviewOngoingUsageFragment.PHONE_CALL
+import com.android.permissioncontroller.permission.ui.handheld.v31.ReviewOngoingUsageFragment.VIDEO_CALL
 import com.android.permissioncontroller.permission.utils.KotlinUtils
 import com.android.permissioncontroller.permission.utils.Utils
 import kotlinx.coroutines.Job

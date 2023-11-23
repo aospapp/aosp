@@ -65,7 +65,8 @@ public class CarToastUI extends ToastUI {
 
     @Override
     public void showToast(int uid, String packageName, IBinder token, CharSequence text,
-            IBinder windowToken, int duration, @Nullable ITransientNotificationCallback callback) {
+            IBinder windowToken, int duration, @Nullable ITransientNotificationCallback callback,
+            int displayId) {
         if (!isAllowListed(packageName) && !isSystemPrivilegedOrPlatformKey(packageName)) {
             if (DEBUG) {
                 Log.w(TAG, packageName
@@ -80,7 +81,7 @@ public class CarToastUI extends ToastUI {
                             + " is a system privileged app or has been signed with platform key.");
         }
 
-        super.showToast(uid, packageName, token, text, windowToken, duration, callback);
+        super.showToast(uid, packageName, token, text, windowToken, duration, callback, displayId);
     }
 
     private boolean isAllowListed(String packageName) {

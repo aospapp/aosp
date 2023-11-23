@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false
+#define STATSD_DEBUG false
 #include "Log.h"
 
 #include "StatsPullerManager.h"
@@ -41,44 +41,6 @@ namespace android {
 namespace os {
 namespace statsd {
 
-// Stores the puller as a wp to avoid holding a reference in case it is unregistered and
-// pullAtomCallbackDied is never called.
-struct PullAtomCallbackDeathCookie {
-    PullAtomCallbackDeathCookie(const wp<StatsPullerManager>& pullerManager,
-                                const PullerKey& pullerKey, const wp<StatsPuller>& puller) :
-            mPullerManager(pullerManager), mPullerKey(pullerKey), mPuller(puller) {
-    }
-
-    wp<StatsPullerManager> mPullerManager;
-    PullerKey mPullerKey;
-    wp<StatsPuller> mPuller;
-};
-
-void StatsPullerManager::pullAtomCallbackDied(void* cookie) {
-    PullAtomCallbackDeathCookie* cookie_ = static_cast<PullAtomCallbackDeathCookie*>(cookie);
-    sp<StatsPullerManager> thiz = cookie_->mPullerManager.promote();
-    if (!thiz) {
-        return;
-    }
-
-    const PullerKey& pullerKey = cookie_->mPullerKey;
-    wp<StatsPuller> puller = cookie_->mPuller;
-
-    // Erase the mapping from the puller key to the puller if the mapping still exists.
-    // Note that we are removing the StatsPuller object, which internally holds the binder
-    // IPullAtomCallback. However, each new registration creates a new StatsPuller, so this works.
-    lock_guard<mutex> lock(thiz->mLock);
-    const auto& it = thiz->kAllPullAtomInfo.find(pullerKey);
-    if (it != thiz->kAllPullAtomInfo.end() && puller != nullptr && puller == it->second) {
-        StatsdStats::getInstance().notePullerCallbackRegistrationChanged(pullerKey.atomTag,
-                                                                         /*registered=*/false);
-        thiz->kAllPullAtomInfo.erase(pullerKey);
-    }
-    // The death recipient corresponding to this specific IPullAtomCallback can never
-    // be triggered again, so free up resources.
-    delete cookie_;
-}
-
 // Values smaller than this may require to update the alarm.
 const int64_t NO_ALARM_UPDATE = INT64_MAX;
 
@@ -87,8 +49,7 @@ StatsPullerManager::StatsPullerManager()
               // TrainInfo.
               {{.atomTag = util::TRAIN_INFO, .uid = AID_STATSD}, new TrainInfoPuller()},
       }),
-      mNextPullTimeNs(NO_ALARM_UPDATE),
-      mPullAtomCallbackDeathRecipient(AIBinder_DeathRecipient_new(pullAtomCallbackDied)) {
+      mNextPullTimeNs(NO_ALARM_UPDATE) {
 }
 
 bool StatsPullerManager::Pull(int tagId, const ConfigKey& configKey, const int64_t eventTimeNs,
@@ -131,12 +92,20 @@ bool StatsPullerManager::PullLocked(int tagId, const vector<int32_t>& uids,
         PullerKey key = {.atomTag = tagId, .uid = uid};
         auto pullerIt = kAllPullAtomInfo.find(key);
         if (pullerIt != kAllPullAtomInfo.end()) {
-            bool ret = pullerIt->second->Pull(eventTimeNs, data);
+            PullErrorCode status = pullerIt->second->Pull(eventTimeNs, data);
             VLOG("pulled %zu items", data->size());
-            if (!ret) {
+            if (status != PULL_SUCCESS) {
                 StatsdStats::getInstance().notePullFailed(tagId);
             }
-            return ret;
+            // If we received a dead object exception, it means the client process has died.
+            // We can remove the puller from the map.
+            if (status == PULL_DEAD_OBJECT) {
+                StatsdStats::getInstance().notePullerCallbackRegistrationChanged(
+                        tagId,
+                        /*registered=*/false);
+                kAllPullAtomInfo.erase(pullerIt);
+            }
+            return status == PULL_SUCCESS;
         }
     }
     StatsdStats::getInstance().notePullerNotFound(tagId);
@@ -344,16 +313,19 @@ void StatsPullerManager::RegisterPullAtomCallback(const int uid, const int32_t a
         return;
     }
 
-    StatsdStats::getInstance().notePullerCallbackRegistrationChanged(atomTag, /*registered=*/true);
     int64_t actualCoolDownNs = coolDownNs < kMinCoolDownNs ? kMinCoolDownNs : coolDownNs;
     int64_t actualTimeoutNs = timeoutNs > kMaxTimeoutNs ? kMaxTimeoutNs : timeoutNs;
 
     sp<StatsCallbackPuller> puller = new StatsCallbackPuller(atomTag, callback, actualCoolDownNs,
                                                              actualTimeoutNs, additiveFields);
     PullerKey key = {.atomTag = atomTag, .uid = uid};
-    AIBinder_linkToDeath(callback->asBinder().get(), mPullAtomCallbackDeathRecipient.get(),
-                         new PullAtomCallbackDeathCookie(this, key, puller));
+    auto it = kAllPullAtomInfo.find(key);
+    if (it != kAllPullAtomInfo.end()) {
+        StatsdStats::getInstance().notePullerCallbackRegistrationChanged(atomTag,
+                                                                         /*registered=*/false);
+    }
     kAllPullAtomInfo[key] = puller;
+    StatsdStats::getInstance().notePullerCallbackRegistrationChanged(atomTag, /*registered=*/true);
 }
 
 void StatsPullerManager::UnregisterPullAtomCallback(const int uid, const int32_t atomTag) {

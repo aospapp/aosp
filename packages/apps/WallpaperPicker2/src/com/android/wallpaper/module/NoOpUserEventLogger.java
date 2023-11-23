@@ -17,8 +17,6 @@ package com.android.wallpaper.module;
 
 import android.content.Intent;
 
-import com.android.wallpaper.module.WallpaperPersister.WallpaperPosition;
-
 /**
  * {@link UserEventLogger} which does not do anything.
  */
@@ -71,7 +69,8 @@ public class NoOpUserEventLogger implements UserEventLogger {
     }
 
     @Override
-    public void logWallpaperSet(String collectionId, String wallpaperId) {
+    public void logWallpaperSet(String collectionId, String wallpaperId, String effects){
+
     }
 
     @Override
@@ -146,5 +145,10 @@ public class NoOpUserEventLogger implements UserEventLogger {
 
     @Override
     public void logRestored() {
+    }
+
+    @Override
+    public void logEffectApply(String effect, int status) {
+
     }
 }

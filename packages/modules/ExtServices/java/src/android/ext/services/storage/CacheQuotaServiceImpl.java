@@ -26,6 +26,8 @@ import android.util.ArrayMap;
 
 import androidx.core.util.Preconditions;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -38,7 +40,6 @@ import java.util.stream.Collectors;
  * of {@link CacheQuotaHint}.
  */
 public class CacheQuotaServiceImpl extends CacheQuotaService {
-    private static final double CACHE_RESERVE_RATIO = 0.15;
 
     @Override
     public List<CacheQuotaHint> onComputeCacheQuotaHints(List<CacheQuotaHint> requests) {
@@ -99,6 +100,34 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
                         builder.setQuota(Math.round(share * reservedSize));
                         processed.add(builder.build());
                     }
+
+                    // Calculate the median of quotas of uids with >0 foreground time
+                    int midPoint = flattenedRequests.size() / 2;
+                    double medianValue, share;
+                    long medianQuota;
+                    if (flattenedRequests.size() % 2 == 0) {
+                        medianValue = (getFairShareForPosition(midPoint - 1)
+                                + getFairShareForPosition(midPoint)) / 2;
+                    } else {
+                        medianValue = getFairShareForPosition(midPoint);
+                    }
+                    share = medianValue / sum;
+                    medianQuota = Math.round(share * reservedSize);
+                    // Allot median quota to uids with foreground time =0
+                    List<CacheQuotaHintExtend> flattenedRequestsForegroundZero =
+                            byUid.values()
+                               .stream()
+                               .map(entryList -> entryList.get(0))
+                               .filter(entry -> entry.mTotalTimeInForeground == 0)
+                               .sorted(sCacheQuotaRequestComparator)
+                               .collect(Collectors.toList());
+                    for (int count = 0; count < flattenedRequestsForegroundZero.size(); count++) {
+                        CacheQuotaHint entry = flattenedRequestsForegroundZero.get(count)
+                                .mCacheQuotaHint;
+                        CacheQuotaHint.Builder builder = new CacheQuotaHint.Builder(entry);
+                        builder.setQuota(medianQuota);
+                        processed.add(builder.build());
+                    }
                 }
         );
 
@@ -123,23 +152,32 @@ public class CacheQuotaServiceImpl extends CacheQuotaService {
         // TODO: Revisit the cache size after running more storage tests.
         // TODO: Figure out how to ensure ExtServices has the permissions to call
         //       StorageStatsManager, because this is ignoring the cache...
-        long freeBytes = 0;
+        final long cacheReservePercent = 15;
+        final StorageManager storageManager = getSystemService(StorageManager.class);
         if (TextUtils.isEmpty(uuid)) { // regular equals because of null
-            freeBytes = Environment.getDataDirectory().getUsableSpace();
+            if (SdkLevel.isAtLeastT()) {
+                return storageManager.computeStorageCacheBytes(Environment.getDataDirectory());
+            } else {
+                return Environment.getDataDirectory().getUsableSpace()
+                        * cacheReservePercent / 100;
+            }
         } else {
-            final StorageManager storageManager = getSystemService(StorageManager.class);
             final List<StorageVolume> storageVolumes = storageManager.getStorageVolumes();
             final int volumeCount = storageVolumes.size();
             for (int i = 0; i < volumeCount; i++) {
                 final StorageVolume volume = storageVolumes.get(i);
                 if (TextUtils.equals(volume.getUuid(), uuid)) {
                     final File directory = volume.getDirectory();
-                    freeBytes = (directory != null) ? directory.getUsableSpace() : 0;
-                    break;
+                    if (SdkLevel.isAtLeastT()) {
+                        return storageManager.computeStorageCacheBytes(directory);
+                    } else {
+                        return ((directory != null) ? directory.getUsableSpace() : 0)
+                                * cacheReservePercent / 100;
+                    }
                 }
             }
         }
-        return Math.round(freeBytes * CACHE_RESERVE_RATIO);
+        return 0;
     }
 
     // Compares based upon foreground time.

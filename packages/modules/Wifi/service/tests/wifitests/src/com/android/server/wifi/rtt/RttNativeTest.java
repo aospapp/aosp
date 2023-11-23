@@ -123,7 +123,7 @@ public class RttNativeTest extends WifiBaseTest {
         // will override capabilities (just call cb again) for specific tests
         mGetCapCbCatpr.getValue().onValues(mStatusSuccess, getFullRttCapabilities());
         // This is for the castFrom() call
-        verify(mockRttController).asBinder();
+        verify(mockRttController, times(2)).asBinder();
         assertTrue(mDut.isReady());
     }
 
@@ -316,7 +316,7 @@ public class RttNativeTest extends WifiBaseTest {
         verify(mockRttServiceImpl, times(2)).enableIfPossible();
         verify(mockRttController, times(2)).getCapabilities(mGetCapCbCatpr.capture());
         // This is for the castFrom() calls
-        verify(mockRttController, times(2)).asBinder();
+        verify(mockRttController, times(4)).asBinder();
         assertTrue(mDut.isReady());
 
         verifyNoMoreInteractions(mockRttServiceImpl, mockRttController);

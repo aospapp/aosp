@@ -28,4 +28,5 @@ oneway interface IWifiAwareEventCallback
     void onConnectSuccess(int clientId);
     void onConnectFail(int reason);
     void onIdentityChanged(in byte[] mac);
+    void onAttachTerminate();
 }

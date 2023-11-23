@@ -18,11 +18,13 @@ package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_SWITCH;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 import static com.android.car.settings.qc.SettingsQCRegistry.ADAPTIVE_BRIGHTNESS_SWITCH_URI;
 
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.UserManager;
 import android.provider.Settings;
 
 import androidx.annotation.VisibleForTesting;
@@ -32,6 +34,7 @@ import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * QCItem for toggling adaptive brightness.
@@ -46,9 +49,20 @@ public class AdaptiveBrightnessSwitch extends SettingsQCItem {
         if (!supportsAdaptiveBrightness()) {
             return null;
         }
+
+        String userRestriction = UserManager.DISALLOW_CONFIG_BRIGHTNESS;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCActionItem actionItem = new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH)
                 .setChecked(isAdaptiveBrightnessEnabled())
                 .setAction(getBroadcastIntent())
+                .setEnabled(!hasUmRestrictions && !hasDpmRestrictions)
+                .setClickableWhileDisabled(hasDpmRestrictions)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        userRestriction))
                 .build();
 
         QCList.Builder listBuilder = new QCList.Builder()

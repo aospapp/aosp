@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "StatsCallbackPuller.h"
@@ -42,11 +42,11 @@ StatsCallbackPuller::StatsCallbackPuller(int tagId, const shared_ptr<IPullAtomCa
     VLOG("StatsCallbackPuller created for tag %d", tagId);
 }
 
-bool StatsCallbackPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
+PullErrorCode StatsCallbackPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
     VLOG("StatsCallbackPuller called for tag %d", mTagId);
     if(mCallback == nullptr) {
         ALOGW("No callback registered");
-        return false;
+        return PULL_FAIL;
     }
 
     // Shared variables needed in the result receiver.
@@ -87,7 +87,11 @@ bool StatsCallbackPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
     Status status = mCallback->onPullAtom(mTagId, resultReceiver);
     if (!status.isOk()) {
         StatsdStats::getInstance().notePullBinderCallFailed(mTagId);
-        return false;
+        if (status.getExceptionCode() == EX_TRANSACTION_FAILED &&
+            status.getStatus() == STATUS_DEAD_OBJECT) {
+            return PULL_DEAD_OBJECT;
+        }
+        return PULL_FAIL;
     }
 
     {
@@ -99,14 +103,14 @@ bool StatsCallbackPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
             // Note: The parent stats puller will also note that there was a timeout and that the
             // cache should be cleared. Once we migrate all pullers to this callback, we could
             // consolidate the logic.
-            return true;
+            return PULL_SUCCESS;
         } else {
             // Only copy the data if we did not timeout and the pull was successful.
             if (*pullSuccess) {
                 *data = std::move(*sharedData);
             }
             VLOG("StatsCallbackPuller::pull succeeded for %d", mTagId);
-            return *pullSuccess;
+            return *pullSuccess ? PULL_SUCCESS : PULL_FAIL;
         }
     }
 }

@@ -10,11 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Vrati zadane kategorije"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Zadane su kategorije vraćene"</string>
     <string name="default_categories" msgid="2117679794687799407">"Zadano"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">Odabrana je %d kategorija</item>
-      <item quantity="few">Odabrane su %d kategorije</item>
-      <item quantity="other">Odabrano je %d kategorija</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# odabrana}one{# odabrana}few{# odabrane}other{# odabrano}}"</string>
     <string name="applications" msgid="521776761270770549">"Prijave"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Nema aplikacija iz kojih se mogu uklanjati pogreške"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Veličina međuspremnika po procesoru"</string>
@@ -43,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Upotrijebite Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Duga praćenja"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Sprema se kontinuirano u pohranu uređaja"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Kontinuirano se sprema u pohranu uređaja (neće se automatski priložiti izvješćima o programskim pogreškama)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Maksimalna veličina dugog praćenja"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Maksimalno trajanje dugog praćenja"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

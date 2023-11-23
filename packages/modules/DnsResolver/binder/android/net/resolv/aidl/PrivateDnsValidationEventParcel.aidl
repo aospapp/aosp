@@ -35,4 +35,7 @@ parcelable PrivateDnsValidationEventParcel {
 
     /** The validation result. */
     int validation;
+
+    /** The private DNS protocol for which validation was performed. */
+    int protocol;
 }

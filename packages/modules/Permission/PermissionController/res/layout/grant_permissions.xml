@@ -14,6 +14,11 @@
      limitations under the License.
 -->
 
+<!--
+  ~ A lot of content in this file is identical to grant_permissions_material3.xml
+  ~ Be sure to update both files when making changes.
+  -->
+
 <!-- In (hopefully very rare) case dialog is too high: allow scrolling -->
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"

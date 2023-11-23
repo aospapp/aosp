@@ -78,10 +78,15 @@
     <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Арнаулы түс"</string>
     <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Арнаулы пішін"</string>
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Арнаулы стиль атауы"</string>
-    <string name="mode_title" msgid="2394873501427436055">"Қараңғы тақырып"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Қараңғы режим"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Батареяны үнемдеу режиміне байланысты уақытша өшірілген."</string>
     <string name="mode_changed" msgid="2243581369395418584">"Тақырып өзгертілді."</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Тақырыптық белгішелер"</string>
     <string name="beta_title" msgid="8703819523760746458">"Бета"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Қолданбалар торын өзгерту"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Тұсқағаз түстері"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Тұсқағаз түсі"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Негізгі түстер"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Түс өзгертілді."</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Динамикалық"</string>
 </resources>

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_TOKEN_HASHER_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_TOKEN_HASHER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TOKEN_HASHER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TOKEN_HASHER_H
 
 #include <android-base/macros.h>
 #include <openssl/sha.h>
@@ -68,4 +68,4 @@ class TokenHasher {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_TOKEN_HASHER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TOKEN_HASHER_H

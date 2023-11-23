@@ -16,6 +16,8 @@
 
 package com.android.systemui.wm;
 
+import static android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE;
+
 import android.annotation.NonNull;
 import android.os.Handler;
 import android.os.IBinder;
@@ -128,7 +130,7 @@ public class DisplaySystemBarsInsetsControllerHost implements InsetsController.H
 
     @Override
     public @WindowInsetsController.Behavior int getSystemBarsBehavior() {
-        return 0;
+        return BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE;
     }
 
     @Override

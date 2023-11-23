@@ -23,13 +23,11 @@ import static com.android.settingslib.display.BrightnessUtils.convertLinearToGam
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
 import android.content.Intent;
 import android.os.PowerManager;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
-
-import androidx.test.core.app.ApplicationProvider;
 
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
@@ -41,8 +39,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockitoAnnotations;
 
-public abstract class BrightnessSliderTestCase {
-    private Context mContext = ApplicationProvider.getApplicationContext();
+public abstract class BrightnessSliderTestCase extends BaseSettingsQCItemTestCase {
     private BrightnessSlider mBrightnessSlider;
     private int mMaximumBacklight;
     private int mMinimumBacklight;
@@ -73,6 +70,24 @@ public abstract class BrightnessSliderTestCase {
     }
 
     @Test
+    public void getQCItem_hasBaseUmRestriction_sliderDisabled() {
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_BRIGHTNESS, /* restricted= */ true);
+        QCRow row = getBrightnessRow();
+        QCSlider slider = row.getSlider();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_sliderClickableWhileDisabled() {
+        setUserRestriction(UserManager.DISALLOW_CONFIG_BRIGHTNESS, /* restricted= */ true);
+        QCRow row = getBrightnessRow();
+        QCSlider slider = row.getSlider();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
     public void onNotifyChange_updatesBrightness() {
         int oldValue = getScreenBrightness();
         int newValue = oldValue == 50 ? 51 : 50; // ensure we use a different value
@@ -87,10 +102,6 @@ public abstract class BrightnessSliderTestCase {
     }
 
     protected abstract BrightnessSlider getBrightnessSlider();
-
-    protected Context getContext() {
-        return mContext;
-    }
 
     protected QCRow getBrightnessRow() {
         QCItem item = mBrightnessSlider.getQCItem();

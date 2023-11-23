@@ -19,6 +19,7 @@ package com.android.cellbroadcastreceiver.tests;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AppOpsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 import android.provider.Telephony;
@@ -50,64 +51,63 @@ public class SendCdmaCmasMessages {
     private static final String MONTHLY_TEST_ALERT = "This is a test of the emergency alert system."
             + " This is only a test. Call (123)456-7890.";
 
-    private static void sendBroadcast(Activity activity, SmsCbMessage cbMessage) {
+    private static void sendBroadcast(Context context, SmsCbMessage cbMessage) {
         Intent intent = new Intent(Telephony.Sms.Intents.ACTION_SMS_EMERGENCY_CB_RECEIVED);
         intent.putExtra("message", cbMessage);
-        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
-                activity.getApplicationContext()));
-        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(context));
+        context.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasPresAlert(Activity activity, int serialNumber) {
+    public static void testSendCmasPresAlert(Context context, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, serialNumber, "en",
                 PRES_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_GEO,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasExtremeAlert(Activity activity, int serialNumber) {
+    public static void testSendCmasExtremeAlert(Context context, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, serialNumber, "en",
                 EXTREME_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_MET,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasSevereAlert(Activity activity, int serialNumber) {
+    public static void testSendCmasSevereAlert(Context context, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, serialNumber, "en",
                 SEVERE_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_HEALTH,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_AVOID, SmsCbCmasInfo.CMAS_SEVERITY_SEVERE,
                 SmsCbCmasInfo.CMAS_URGENCY_IMMEDIATE, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasAmberAlert(Activity activity, int serialNumber) {
+    public static void testSendCmasAmberAlert(Context context, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, serialNumber, "en",
                 AMBER_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasMonthlyTest(Activity activity, int serialNumber) {
+    public static void testSendCmasMonthlyTest(Context context, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
                 SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, serialNumber, "en",
                 MONTHLY_TEST_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     /**

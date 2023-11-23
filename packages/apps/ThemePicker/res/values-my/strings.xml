@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"အပြင်အဆင်သုံး သင်္ကေတများ"</string>
     <string name="beta_title" msgid="8703819523760746458">"စမ်းသပ်ဆော့ဖ်ဝဲ"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"အက်ပ်ဇယား ပြောင်းရန်"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"နောက်ခံအရောင်များ"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"နောက်ခံအရောင်"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"အခြေခံအရောင်များ"</string>
+    <string name="color_changed" msgid="7029571720331641235">"အရောင် ပြောင်းလိုက်ပါပြီ"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ပြောင်းနိုင်သော"</string>
 </resources>

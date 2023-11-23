@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Блокування викликів із таксофонів"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Невідомі"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Блокувати виклики від невизначених абонентів"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"З недоступних номерів"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Блокувати виклик, якщо номер недоступний"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Блокування викликів"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Блокування викликів вимкнено"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Здійснено екстрений виклик"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Блокування викликів вимкнено, щоб ви могли отримувати екстрені сповіщення."</string>
     <string name="developer_title" msgid="9146088855661672353">"Меню розробника Telecom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Під час екстрених викликів не можна приймати інші."</string>
+    <string name="cancel" msgid="6733466216239934756">"Скасувати"</string>
 </resources>

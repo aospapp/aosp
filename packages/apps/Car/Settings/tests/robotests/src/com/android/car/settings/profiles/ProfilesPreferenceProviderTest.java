@@ -122,7 +122,7 @@ public class ProfilesPreferenceProviderTest {
 
         List<Preference> userList = provider.createProfileList();
         assertThat(userList.get(userList.size() - 1).getTitle()).isEqualTo(
-                mContext.getString(R.string.user_guest));
+                mContext.getString(com.android.internal.R.string.guest_name));
     }
 
     @Test
@@ -135,7 +135,7 @@ public class ProfilesPreferenceProviderTest {
         assertThat(userList.get(0).getTitle()).isEqualTo(TEST_OTHER_USER_1_NAME);
         assertThat(userList.get(1).getTitle()).isEqualTo(TEST_OTHER_USER_2_NAME);
         assertThat(userList.get(2).getTitle()).isEqualTo(
-                mContext.getString(R.string.user_guest));
+                mContext.getString(com.android.internal.R.string.guest_name));
     }
 
     @Test

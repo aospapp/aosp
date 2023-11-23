@@ -22,7 +22,7 @@ android_test {
     name: "MtsTetheringTestLatestSdk",
 
     min_sdk_version: "30",
-    target_sdk_version: "30",
+    target_sdk_version: "33",
 
     libs: [
         "android.test.base",

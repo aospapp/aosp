@@ -17,18 +17,20 @@ package android.net
 
 import android.os.Build
 import androidx.test.filters.SmallTest
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import com.android.testutils.DevSdkIgnoreRunner
-import kotlin.test.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
-import org.junit.Test
-import org.junit.runner.RunWith
+import kotlin.test.assertTrue
 
 @SmallTest
 @RunWith(DevSdkIgnoreRunner::class)
 @IgnoreUpTo(Build.VERSION_CODES.Q)
+@ConnectivityModuleTest
 class NetworkSpecifierTest {
     private class TestNetworkSpecifier(
         val intData: Int = 123,

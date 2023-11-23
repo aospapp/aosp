@@ -23,7 +23,6 @@
     android:layout_height="wrap_content"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:gravity="center_vertical"
-    android:background="?android:attr/selectableItemBackground"
     android:clipToPadding="false"
     android:layout_marginBottom="@dimen/tp_preference_item_margin_bottom"
     android:paddingTop="@dimen/lb_preference_item_text_space_top"

@@ -16,6 +16,8 @@
 
 package android.net.wifi.aware;
 
+import android.net.wifi.aware.MacAddrMapping;
+
 /**
  * Callback for IWifiAwareManager.getMacAddressFromPeerHandle
  *
@@ -23,5 +25,5 @@ package android.net.wifi.aware;
  */
 oneway interface IWifiAwareMacAddressProvider
 {
-    void macAddress(in Map peerIdToMacMap);
+    void macAddress(in MacAddrMapping[] peerIdToMacList);
 }

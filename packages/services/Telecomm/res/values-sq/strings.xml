@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Blloko telefonatat nga telefonat me pagesë"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"E panjohur"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Blloko telefonatat nga telefonuesit e paidentifikuar"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Nuk ofrohet"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Blloko telefonatat kur nuk ofrohet numri"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Bllokimi i telefonatave"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Bllokimi i telefonatave u çaktivizua"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Telefonata e urgjencës u krye"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Bllokimi i telefonatave është çaktivizuar për të lejuar që personat që përgjigjen në rast urgjence të kontaktojnë me ty."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menyja e zhvilluesit të telekomunikimit"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Nuk mund të marrësh telefonata kur je në një telefonatë urgjence."</string>
+    <string name="cancel" msgid="6733466216239934756">"Anulo"</string>
 </resources>

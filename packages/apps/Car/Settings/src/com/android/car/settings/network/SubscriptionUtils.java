@@ -23,6 +23,7 @@ import static com.android.internal.util.CollectionUtils.emptyIfNull;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.UiccPortInfo;
 import android.telephony.UiccSlotInfo;
 import android.text.TextUtils;
 
@@ -51,24 +52,29 @@ public final class SubscriptionUtils {
         for (int i = 0; slotsInfo != null && i < slotsInfo.length; i++) {
             UiccSlotInfo slotInfo = slotsInfo[i];
             if (isInactiveInsertedPSim(slotInfo)) {
-                int index = slotInfo.getLogicalSlotIdx();
-                String cardId = slotInfo.getCardId();
+                // With MEP support each slot will have multiple ports.
+                for (UiccPortInfo portInfo : slotInfo.getPorts()) {
+                    int index = portInfo.getLogicalSlotIndex();
+                    String cardId = slotInfo.getCardId();
 
-                boolean found = subscriptions.stream().anyMatch(
-                        info -> index == info.getSimSlotIndex() && cardId.equals(
-                                info.getCardString()));
-                if (!found) {
-                    missing.add(slotInfo);
+                    boolean found = subscriptions.stream().anyMatch(
+                            info -> index == info.getSimSlotIndex() && cardId.equals(
+                                    info.getCardString()));
+                    if (!found) {
+                        missing.add(slotInfo);
+                    }
                 }
             }
         }
         if (!missing.isEmpty()) {
             for (SubscriptionInfo info : subscriptionManager.getAllSubscriptionInfoList()) {
                 for (UiccSlotInfo slotInfo : missing) {
-                    if (info.getSimSlotIndex() == slotInfo.getLogicalSlotIdx()
-                            && info.getCardString().equals(slotInfo.getCardId())) {
-                        subscriptions.add(info);
-                        break;
+                    for (UiccPortInfo portInfo : slotInfo.getPorts()) {
+                        if (info.getSimSlotIndex() == portInfo.getLogicalSlotIndex()
+                                && info.getCardString().equals(slotInfo.getCardId())) {
+                            subscriptions.add(info);
+                            break;
+                        }
                     }
                 }
             }
@@ -87,7 +93,8 @@ public final class SubscriptionUtils {
     }
 
     private static boolean isInactiveInsertedPSim(UiccSlotInfo slotInfo) {
-        return slotInfo != null && !slotInfo.getIsEuicc() && !slotInfo.getIsActive()
-                && slotInfo.getCardStateInfo() == CARD_STATE_INFO_PRESENT;
+        return slotInfo != null && !slotInfo.getIsEuicc()
+                && slotInfo.getCardStateInfo() == CARD_STATE_INFO_PRESENT
+                && slotInfo.getPorts().stream().anyMatch(portInfo -> !portInfo.isActive());
     }
 }

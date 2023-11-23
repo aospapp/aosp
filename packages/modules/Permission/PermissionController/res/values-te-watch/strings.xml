@@ -21,5 +21,5 @@
     <string name="preference_show_system_apps" msgid="1055740303992024300">"సిస్టమ్ యాప్‌లను చూపు"</string>
     <string name="permission_summary_enforced_by_policy" msgid="2352478756952948019">"మార్చడం సాధ్యపడదు"</string>
     <string name="generic_yes" msgid="2489207724988649846">"అవును"</string>
-    <string name="generic_cancel" msgid="2631708607129269698">"రద్దు చేయి"</string>
+    <string name="generic_cancel" msgid="2631708607129269698">"రద్దు చేయండి"</string>
 </resources>

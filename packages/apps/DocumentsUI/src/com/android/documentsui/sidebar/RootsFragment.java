@@ -20,11 +20,11 @@ import static com.android.documentsui.base.Shared.compareToIgnoreCaseNullable;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -273,7 +273,7 @@ public class RootsFragment extends Fragment {
                 }
 
                 List<Item> sortedItems = sortLoadResult(
-                        getResources(),
+                        getContext(),
                         state,
                         roots,
                         excludePackage,
@@ -347,7 +347,7 @@ public class RootsFragment extends Fragment {
      */
     @VisibleForTesting
     List<Item> sortLoadResult(
-            Resources resources,
+            Context context,
             State state,
             Collection<RootInfo> roots,
             @Nullable String excludePackage,
@@ -418,7 +418,8 @@ public class RootsFragment extends Fragment {
             }
         }
 
-        List<Item> presentableList = new UserItemsCombiner(resources, state)
+        List<Item> presentableList = new UserItemsCombiner(
+                context.getResources(), context.getSystemService(DevicePolicyManager.class), state)
                 .setRootListForCurrentUser(rootList)
                 .setRootListForOtherUser(rootListOtherUser)
                 .createPresentableList();

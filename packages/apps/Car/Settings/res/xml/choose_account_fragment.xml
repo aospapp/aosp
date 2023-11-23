@@ -22,9 +22,10 @@
         android:key="@string/pk_add_account"
         settings:controller="com.android.car.settings.accounts.ChooseAccountPreferenceController"/>
 
-    <com.android.settingslib.widget.FooterPreference
+    <com.android.car.settings.common.CarFooterPreference
         android:key="@string/pk_add_account_enterprise_disclosure_footer"
         android:selectable="false"
         settings:searchable="false"
+        android:icon="@drawable/ic_settings_about"
         settings:controller="com.android.car.settings.enterprise.EnterpriseDisclosurePreferenceController"/>
 </PreferenceScreen>

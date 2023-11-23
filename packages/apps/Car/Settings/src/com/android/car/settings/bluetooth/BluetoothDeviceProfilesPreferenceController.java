@@ -16,13 +16,18 @@
 
 package com.android.car.settings.bluetooth;
 
+import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.common.FragmentController;
+import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
 /**
@@ -48,6 +53,15 @@ public class BluetoothDeviceProfilesPreferenceController extends
         super(context, preferenceKey, fragmentController, uxRestrictions);
     }
 
+
+    @VisibleForTesting
+    BluetoothDeviceProfilesPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            LocalBluetoothManager localBluetoothManager, UserManager userManager) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, localBluetoothManager,
+                userManager);
+    }
+
     @Override
     protected Class<PreferenceGroup> getPreferenceType() {
         return PreferenceGroup.class;
@@ -61,6 +75,11 @@ public class BluetoothDeviceProfilesPreferenceController extends
                 profilePref = new BluetoothDeviceProfilePreference(getContext(), profile,
                         getCachedDevice());
                 profilePref.setOnPreferenceChangeListener(mProfileChangeListener);
+                if (hasDisallowConfigRestriction()) {
+                    setClickableWhileDisabled(profilePref, /* clickable= */ true, p ->
+                            BluetoothUtils.onClickWhileDisabled(getContext(),
+                                    getFragmentController()));
+                }
                 preferenceGroup.addPreference(profilePref);
             }
         }
@@ -71,5 +90,9 @@ public class BluetoothDeviceProfilesPreferenceController extends
             }
         }
         preferenceGroup.setVisible(preferenceGroup.getPreferenceCount() > 0);
+    }
+
+    private boolean hasDisallowConfigRestriction() {
+        return getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH);
     }
 }

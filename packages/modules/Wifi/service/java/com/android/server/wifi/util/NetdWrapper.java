@@ -349,14 +349,14 @@ public class NetdWrapper {
      * Register a new netd event observer.
      */
     public void registerObserver(NetdEventObserver observer) {
-        mObservers.add(observer);
+        mHandler.post(() -> mObservers.add(observer));
     }
 
     /**
      * Unregister a new netd event observer.
      */
     public void unregisterObserver(NetdEventObserver observer) {
-        mObservers.remove(observer);
+        mHandler.post(() -> mObservers.remove(observer));
     }
 
     /**

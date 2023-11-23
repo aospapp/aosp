@@ -30,7 +30,7 @@ import androidx.preference.PreferenceScreen;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 @Keep
 public class LegalFragment extends SettingsPreferenceFragment {

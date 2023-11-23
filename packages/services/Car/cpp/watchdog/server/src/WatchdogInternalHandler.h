@@ -26,6 +26,7 @@
 #include <android/automotive/watchdog/internal/ComponentType.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogMonitor.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogServiceForSystem.h>
+#include <android/automotive/watchdog/internal/ProcessIdentifier.h>
 #include <android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
 #include <android/automotive/watchdog/internal/StateType.h>
 #include <binder/Status.h>
@@ -38,17 +39,19 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
+class WatchdogBinderMediatorInterface;
 class WatchdogBinderMediator;
 
-class WatchdogInternalHandler : public android::automotive::watchdog::internal::BnCarWatchdog {
+class WatchdogInternalHandler final :
+      public android::automotive::watchdog::internal::BnCarWatchdog {
 public:
     explicit WatchdogInternalHandler(
-            const android::sp<WatchdogBinderMediator>& binderMediator,
-            const android::sp<IWatchdogServiceHelper>& watchdogServiceHelper,
-            const android::sp<WatchdogProcessService>& watchdogProcessService,
+            const android::sp<WatchdogBinderMediatorInterface>& watchdogBinderMediator,
+            const android::sp<WatchdogServiceHelperInterface>& watchdogServiceHelper,
+            const android::sp<WatchdogProcessServiceInterface>& watchdogProcessService,
             const android::sp<WatchdogPerfServiceInterface>& watchdogPerfService,
-            const android::sp<IIoOveruseMonitor>& ioOveruseMonitor) :
-          mBinderMediator(binderMediator),
+            const android::sp<IoOveruseMonitorInterface>& ioOveruseMonitor) :
+          mWatchdogBinderMediator(watchdogBinderMediator),
           mWatchdogServiceHelper(watchdogServiceHelper),
           mWatchdogProcessService(watchdogProcessService),
           mWatchdogPerfService(watchdogPerfService),
@@ -73,11 +76,14 @@ public:
     android::binder::Status tellCarWatchdogServiceAlive(
             const android::sp<
                     android::automotive::watchdog::internal::ICarWatchdogServiceForSystem>& service,
-            const std::vector<int32_t>& clientsNotResponding, int32_t sessionId) override;
+            const std::vector<android::automotive::watchdog::internal::ProcessIdentifier>&
+                    clientsNotResponding,
+            int32_t sessionId) override;
     android::binder::Status tellDumpFinished(
             const android::sp<android::automotive::watchdog::internal::ICarWatchdogMonitor>&
                     monitor,
-            int32_t pid) override;
+            const android::automotive::watchdog::internal::ProcessIdentifier& processIdentifier)
+            override;
     android::binder::Status notifySystemStateChange(
             android::automotive::watchdog::internal::StateType type, int32_t arg1,
             int32_t arg2) override;
@@ -88,11 +94,11 @@ public:
     android::binder::Status getResourceOveruseConfigurations(
             std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
                     configs) override;
-    android::binder::Status controlProcessHealthCheck(bool disable) override;
+    android::binder::Status controlProcessHealthCheck(bool enable) override;
 
 protected:
     void terminate() {
-        mBinderMediator.clear();
+        mWatchdogBinderMediator.clear();
         mWatchdogServiceHelper.clear();
         mWatchdogProcessService.clear();
         mWatchdogPerfService.clear();
@@ -108,11 +114,11 @@ private:
     android::binder::Status handleUserStateChange(
             userid_t userId, android::automotive::watchdog::internal::UserState userState);
 
-    android::sp<WatchdogBinderMediator> mBinderMediator;
-    android::sp<IWatchdogServiceHelper> mWatchdogServiceHelper;
-    android::sp<WatchdogProcessService> mWatchdogProcessService;
+    android::sp<WatchdogBinderMediatorInterface> mWatchdogBinderMediator;
+    android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper;
+    android::sp<WatchdogProcessServiceInterface> mWatchdogProcessService;
     android::sp<WatchdogPerfServiceInterface> mWatchdogPerfService;
-    android::sp<IIoOveruseMonitor> mIoOveruseMonitor;
+    android::sp<IoOveruseMonitorInterface> mIoOveruseMonitor;
 
     friend class WatchdogBinderMediator;
 

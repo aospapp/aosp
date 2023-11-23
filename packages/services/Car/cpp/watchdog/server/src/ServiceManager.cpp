@@ -29,10 +29,10 @@ using ::android::sp;
 using ::android::base::Error;
 using ::android::base::Result;
 
-sp<WatchdogProcessService> ServiceManager::sWatchdogProcessService = nullptr;
+sp<WatchdogProcessServiceInterface> ServiceManager::sWatchdogProcessService = nullptr;
 sp<WatchdogPerfServiceInterface> ServiceManager::sWatchdogPerfService = nullptr;
-sp<WatchdogBinderMediator> ServiceManager::sWatchdogBinderMediator = nullptr;
-sp<IWatchdogServiceHelper> ServiceManager::sWatchdogServiceHelper = nullptr;
+sp<WatchdogBinderMediatorInterface> ServiceManager::sWatchdogBinderMediator = nullptr;
+sp<WatchdogServiceHelperInterface> ServiceManager::sWatchdogServiceHelper = nullptr;
 
 Result<void> ServiceManager::startServices(const sp<Looper>& looper) {
     if (sWatchdogBinderMediator != nullptr || sWatchdogServiceHelper != nullptr ||
@@ -45,7 +45,7 @@ Result<void> ServiceManager::startServices(const sp<Looper>& looper) {
      * by calling the getInstance method before starting other service as they may access
      * PackageInfoResolver's instance during initialization.
      */
-    sp<IPackageInfoResolver> packageInfoResolver = PackageInfoResolver::getInstance();
+    sp<PackageInfoResolverInterface> packageInfoResolver = PackageInfoResolver::getInstance();
     if (const auto result = startProcessAnrMonitor(looper); !result.ok()) {
         return result;
     }

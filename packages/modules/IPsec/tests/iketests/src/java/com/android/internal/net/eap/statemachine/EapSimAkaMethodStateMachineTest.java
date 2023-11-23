@@ -53,15 +53,19 @@ import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EA
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_POST_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification.GENERAL_FAILURE_PRE_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_CHECKCODE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_COUNTER;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
 import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_PADDING;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_CLIENT_ERROR;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_NOTIFICATION;
 import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_START;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_IDENTITY;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.COUNTER_INT;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IDENTITY;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.IV_BYTES;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT_STRING;
 import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
@@ -74,10 +78,12 @@ import static com.android.internal.net.eap.test.statemachine.EapSimAkaMethodStat
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -103,9 +109,13 @@ import com.android.internal.net.eap.test.message.simaka.EapAkaTypeData;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAutn;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtCounter;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtEncrData;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtIdentity;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtIv;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNotification;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtPadding;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandSim;
 import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtSelectedVersion;
@@ -118,8 +128,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import javax.crypto.Mac;
@@ -143,6 +155,15 @@ public class EapSimAkaMethodStateMachineTest {
     protected static final byte[] EAP_IDENTITY_BYTES =
             hexStringToByteArray("7465737440616E64726F69642E6E6574");
 
+    protected static final byte[] REAUTH_ID_BYTES =
+            hexStringToByteArray(
+                    "344550432B4244455636754E7A54664C4A6547385162644E32426C406E6169"
+                        + "2E6570632E6D6E633030312E6D63633530352E336770706E6574776F726B2E6F7267");
+
+    // EAP-Identity = hex("test@android.net")
+    protected static final byte[] EAP_REAUTH_IDENTITY_BYTES =
+            hexStringToByteArray("7465737440616E64726F69642E6E6574");
+
     // K_encr + K_aut + MSK + EMSK
     private static final int PRF_OUTPUT_BYTES = (2 * KEY_LEN) + (2 * SESSION_KEY_LENGTH);
 
@@ -153,6 +174,19 @@ public class EapSimAkaMethodStateMachineTest {
             "3566EA8CF174FB4A94488E56B6E8DFC25F05B100BEABDA5DDBAC18968D8158FEDF1F";
     private static final String AKA_MAC_RESERVED_BYTES = "7469";
     private static final String AKA_MAC = "5198169B1AC51CA0A193FDEEE7981E16";
+    private static final byte[] ENCR_DATA_REAUTH_RESPONSE =
+            hexStringToByteArray("AF82D73A5A75AF1D3871244CA0B19338");
+    private static final byte[] DECRYPTED_DATA_REAUTH_RESPONSE =
+            hexStringToByteArray("1301000A060300000000000000000000");
+    private static final String AT_COUNTER = "1301000a";
+    private static final String AT_COUNTER_TOO_SMALL = "14010000";
+    private static final byte[] MK_REAUTH =
+            hexStringToByteArray("F21AB6D0AA1103269C0760F94B28C957745EF8D8");
+    private static final byte[] K_ENCR_REAUTH =
+            hexStringToByteArray("1C2B848ADA2B9485C52517D1A92BF4AB");
+    private static final byte[] K_AUT_REAUTH =
+            hexStringToByteArray("C9500EC59DC62C7D7F5E9E445FA1A3C4");
+
     private static final int AT_CHECKCODE_LENGTH = 4;
     private static final int AT_IV_LENGTH = 20;
     private static final int AT_ENCR_DATA_LENGTH = 36; // variable length, not IANA specified
@@ -170,6 +204,7 @@ public class EapSimAkaMethodStateMachineTest {
 
     private TelephonyManager mMockTelephonyManager;
     private EapSimAkaMethodStateMachine mStateMachine;
+    private SecureRandom mMockSecureRandom;
 
     @Before
     public void setUp() {
@@ -198,6 +233,7 @@ public class EapSimAkaMethodStateMachineTest {
                     }
                 };
         mStateMachine = spy(mStateMachine);
+        mMockSecureRandom = mock(SecureRandom.class);
     }
 
     @Test
@@ -542,6 +578,68 @@ public class EapSimAkaMethodStateMachineTest {
         byte[] extraData = new byte[0];
 
         assertTrue(mStateMachine.isValidMac("testIsValidMac", message, typeData, extraData));
+    }
+
+    @Test
+    public void testBuildReauthResponse() throws Exception {
+        doAnswer(
+                invocation -> {
+                    byte[] dst = invocation.getArgument(0);
+                    System.arraycopy(IV_BYTES, 0, dst, 0, IV_BYTES.length);
+                    return null;
+                })
+                .when(mMockSecureRandom)
+                .nextBytes(eq(new byte[IV_BYTES.length]));
+        AtIv atIv = new AtIv(mMockSecureRandom);
+        List<EapSimAkaAttribute> attributes =
+                mStateMachine.buildReauthResponse(COUNTER_INT,
+                        false /* isCounterSmall */,
+                        K_ENCR_REAUTH, atIv);
+
+        boolean foundUnwantedAttributes = false;
+        AtIv atIvResult = null;
+        AtEncrData atEncrDataResult = null;
+        for (EapSimAkaAttribute attribute : attributes) {
+            if (attribute.attributeType == EAP_AT_IV) {
+                atIvResult = (AtIv) attribute;
+            } else if (attribute.attributeType == EAP_AT_ENCR_DATA) {
+                atEncrDataResult = (AtEncrData) attribute;
+            } else {
+                foundUnwantedAttributes = true;
+            }
+        }
+
+        assertNotNull(atIvResult);
+        assertNotNull(atEncrDataResult);
+        assertFalse(foundUnwantedAttributes);
+        assertArrayEquals(ENCR_DATA_REAUTH_RESPONSE, atEncrDataResult.encrData);
+        assertArrayEquals(IV_BYTES, atIvResult.iv);
+    }
+
+    @Test
+    public void testRetrieveSecuredAttributes() throws Exception {
+        System.arraycopy(K_ENCR_REAUTH, 0, mStateMachine.mKEncr, 0, 16);
+        doAnswer(
+                invocation -> {
+                    byte[] dst = invocation.getArgument(0);
+                    System.arraycopy(IV_BYTES, 0, dst, 0, IV_BYTES.length);
+                    return null;
+                })
+                .when(mMockSecureRandom)
+                .nextBytes(eq(new byte[IV_BYTES.length]));
+        AtIv atIv = new AtIv(mMockSecureRandom);
+        AtEncrData atEncrData =
+                new AtEncrData(DECRYPTED_DATA_REAUTH_RESPONSE, K_ENCR_REAUTH, atIv.iv);
+        EapAkaTypeData typeData =
+                new EapAkaTypeData(EAP_AKA_CHALLENGE, Arrays.asList(atIv, atEncrData));
+
+        LinkedHashMap<Integer, EapSimAkaAttribute> attributesMap =
+                mStateMachine.retrieveSecuredAttributes("TEST", typeData);
+        AtCounter atCounter = (AtCounter) attributesMap.get(EAP_AT_COUNTER);
+        AtPadding atPadding = (AtPadding) attributesMap.get(EAP_AT_PADDING);
+        assertNotNull(atCounter);
+        assertNotNull(atPadding);
+        assertEquals(COUNTER_INT, atCounter.counter);
     }
 
     private EapSimAkaMethodStateMachine buildEapAkaStateMachineWithKAut(byte[] kAut) {

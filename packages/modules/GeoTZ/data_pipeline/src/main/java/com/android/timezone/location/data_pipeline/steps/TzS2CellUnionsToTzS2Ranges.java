@@ -80,25 +80,24 @@ public final class TzS2CellUnionsToTzS2Ranges {
                 description = "The input directory containing the TzS2CellUnion files",
                 required = true,
                 converter = FileConverter.class)
-        File inputDir;
+        public File inputDir;
 
         @Parameter(names = "--num-threads",
                 description = "The number of threads to use",
                 required = true)
-        int numThreads;
+        public int numThreads;
 
         @Parameter(names = "--output",
                 description = "The output directory to store the TzS2Ranges files",
                 required = true,
                 converter = FileConverter.class)
-        File outputDir;
+        public File outputDir;
 
         @Parameter(names = "--s2-level",
                 description = "The S2 level of the ranges to produce. The TzS2CellUnion must not "
                         + "contain S2 Cell IDs with a higher level than this",
                 required = true)
-        int s2Level;
-
+        public int s2Level;
     }
 
     /**

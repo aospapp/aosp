@@ -38,6 +38,11 @@ enum SdkModule {
   // S modules
   ART = 8;
   SCHEDULING = 9;
+
+  // T modules
+  AD_SERVICES = 11;
+  APPSEARCH = 12;
+  ON_DEVICE_PERSONALIZATION = 13;
 }
 
 // A single extension version.

@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 import com.android.timezone.location.validation.proto.ValidationProtos;
+
 import com.google.common.geometry.S2CellId;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
@@ -130,8 +131,8 @@ class Types {
                 return false;
             }
             TestCaseId that = (TestCaseId) o;
-            return mCityName.equals(that.mCityName) &&
-                    mCellId.equals(that.mCellId);
+            return mCityName.equals(that.mCityName)
+                    && mCellId.equals(that.mCellId);
         }
 
         @Override
@@ -141,10 +142,10 @@ class Types {
 
         @Override
         public String toString() {
-            return "TestCaseId{" +
-                    "mCityName='" + mCityName + '\'' +
-                    ", mCellId=" + mCellId +
-                    '}';
+            return "TestCaseId{"
+                    + "mCityName='" + mCityName + '\''
+                    + ", mCellId=" + mCellId
+                    + '}';
         }
     }
 

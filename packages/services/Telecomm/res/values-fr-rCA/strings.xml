@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Bloquer les appels provenant de téléphones publics"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Inconnu"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Bloquer les appels provenant d\'appelants non identifiés"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Indisponible"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Bloquer les appels dont le numéro est indisponible"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Blocage des appels"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Blocage des appels désactivé"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Appel d\'urgence effectué"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Le blocage des appels a été désactivé pour permettre aux intervenants d\'urgence de communiquer avec vous."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menu Telecom Developer"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Les appels ne peuvent pas être pris pendant un appel d\'urgence."</string>
+    <string name="cancel" msgid="6733466216239934756">"Annuler"</string>
 </resources>

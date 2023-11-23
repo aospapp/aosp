@@ -25,7 +25,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
@@ -65,7 +64,6 @@ import org.mockito.Mockito;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.List;
 
 /**
  * Unit Test for CarrierConfigLoader.
@@ -202,9 +200,8 @@ public class CarrierConfigLoaderTest extends TelephonyTestBase {
         mContext.grantPermission(STUB_PERMISSION_ENABLE_ALL);
 
         // Prepare to make sure we can save the config into the XML file which used as cache
-        List<String> carrierPackages = List.of(PLATFORM_CARRIER_CONFIG_PACKAGE);
-        doReturn(carrierPackages).when(mTelephonyManager).getCarrierPackageNamesForIntentAndPhone(
-                nullable(Intent.class), anyInt());
+        doReturn(PLATFORM_CARRIER_CONFIG_PACKAGE).when(mTelephonyManager)
+                .getCarrierServicePackageNameForLogicalSlot(anyInt());
 
         // Save the sample config into the XML file
         PersistableBundle config = getTestConfig();

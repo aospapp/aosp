@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"நிறைவடைந்த/ரத்துசெய்த பதிவிறக்கங்களைக் காட்டும் அறிவிப்புகள்"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"பதிவிறக்கத்தின் செயல்நிலை"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"ஃபைல் பதிவிறக்கங்களின் செயல்நிலையைக் காட்டும் அறிவிப்புகள்"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"பதிவிறக்கம் ரத்துசெய்யப்பட்டது"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ஃபைல் மிகவும் பெரியது, பதிவிறக்கம் ரத்துசெய்யப்பட்டது."</string>
 </resources>

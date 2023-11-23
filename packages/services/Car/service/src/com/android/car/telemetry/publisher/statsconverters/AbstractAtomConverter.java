@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.os.PersistableBundle;
 import android.util.SparseArray;
 
@@ -57,21 +59,25 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
      *
      * @return the atom fields parser config.
      */
-    abstract SparseArray<AtomFieldAccessor<T>> getAtomFieldAccessorMap();
+    @NonNull
+    abstract SparseArray<AtomFieldAccessor<T, ?>> getAtomFieldAccessorMap();
 
     /**
      * Gets atom data of type T from atom proto.
      *
      * @param atom the proto that contains the atom data.
      * @return atom data.
+     * @throws IllegalArgumentException if the atom doesn't contain data.
      */
-    abstract T getAtomData(Atom atom);
+    @NonNull
+    abstract T getAtomData(@NonNull Atom atom);
 
     /**
      * Gets the name of the atom data class as string.
      *
      * @return atom data class name string.
      */
+    @NonNull
     abstract String getAtomDataClassName();
 
     /**
@@ -91,16 +97,17 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
      * @return {@link PersistableBundle} with the converted atom fields arrays.
      * @throws StatsConversionException if atom field mismatch or can't convert dimension value.
      */
+    @NonNull
     PersistableBundle convert(
-            List<Atom> atoms,
-            List<Integer> dimensionsFieldsIds,
-            List<List<DimensionsValue>> dimensionsValuesList,
-            Map<Long, String> hashToStringMap) throws StatsConversionException {
+            @NonNull List<Atom> atoms,
+            @Nullable List<Integer> dimensionsFieldsIds,
+            @Nullable List<List<DimensionsValue>> dimensionsValuesList,
+            @Nullable Map<Long, String> hashToStringMap) throws StatsConversionException {
         PersistableBundle bundle = new PersistableBundle();
-        SparseArray<AtomFieldAccessor<T>> parserConfig = getAtomFieldAccessorMap();
+        SparseArray<AtomFieldAccessor<T, ?>> parserConfig = getAtomFieldAccessorMap();
         // For each field, if set, add the values from all atoms to list and convert
         for (int i = 0; i < parserConfig.size(); ++i) {
-            AtomFieldAccessor<T> atomFieldAccessor = parserConfig.valueAt(i);
+            AtomFieldAccessor<T, ?> atomFieldAccessor = parserConfig.valueAt(i);
             // All atoms are expected to have the same fields set
             // If the first atom does not have a field, that field is skipped
             if (atomFieldAccessor.hasField(getAtomData(atoms.get(0)))) {
@@ -147,9 +154,10 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
      * @return extracted value object.
      * @throws StatsConversionException if it's not possible to extract dimension value.
      */
+    @NonNull
     private static Object extractDimensionsValue(
-                DimensionsValue dv,
-                Map<Long, String> hashToStringMap) throws StatsConversionException {
+            @NonNull DimensionsValue dv,
+            @Nullable Map<Long, String> hashToStringMap) throws StatsConversionException {
         switch (dv.getValueCase()) {
             case VALUE_STR:
                 return dv.getValueStr();
@@ -181,9 +189,9 @@ public abstract class AbstractAtomConverter<T extends MessageLite> {
      * @param bundle the {@link PersistableBundle} to put the arrays to.
      */
     private static void setPersistableBundleArrayField(
-            String name,
-            List<Object> objList,
-            PersistableBundle bundle) {
+            @NonNull String name,
+            @NonNull List<?> objList,
+            @NonNull PersistableBundle bundle) {
         Object e = objList.get(0);  // All elements of the list are the same type.
         if (e instanceof Integer) {
             int[] intArray = new int[objList.size()];

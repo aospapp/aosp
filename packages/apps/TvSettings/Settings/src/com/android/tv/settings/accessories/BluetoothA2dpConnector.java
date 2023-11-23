@@ -57,11 +57,10 @@ public class BluetoothA2dpConnector implements BluetoothDevicePairer.BluetoothCo
                     if (mA2dpProfile == null) {
                         break;
                     }
-                    mA2dpProfile.connect(mTarget);
-                    // must set PRIORITY_AUTO_CONNECT or auto-connection will not
+                    // must set CONNECTION_POLICY_ALLOWED or auto-connection will not
                     // occur, however this setting does not appear to be sticky
                     // across a reboot
-                    mA2dpProfile.setPriority(mTarget, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                    mA2dpProfile.setConnectionPolicy(mTarget, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
                     break;
                 default:
                     break;

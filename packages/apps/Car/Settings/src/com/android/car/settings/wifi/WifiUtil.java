@@ -34,7 +34,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.net.NetworkScoreManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
@@ -389,7 +388,6 @@ public class WifiUtil {
                 lifecycle, context,
                 context.getSystemService(WifiManager.class),
                 context.getSystemService(ConnectivityManager.class),
-                context.getSystemService(NetworkScoreManager.class),
                 mainHandler, workerHandler, ELAPSED_REALTIME_CLOCK,
                 maxScanAgeMillis, scanIntervalMillis,
                 listener);
@@ -419,7 +417,6 @@ public class WifiUtil {
                 lifecycle, context,
                 context.getSystemService(WifiManager.class),
                 context.getSystemService(ConnectivityManager.class),
-                context.getSystemService(NetworkScoreManager.class),
                 mainHandler, workerHandler, ELAPSED_REALTIME_CLOCK,
                 maxScanAgeMillis, scanIntervalMillis,
                 key);

@@ -18,6 +18,7 @@ package android.net
 
 import android.os.Build
 import androidx.test.filters.SmallTest
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
 import com.android.testutils.assertParcelingIsLossless
@@ -32,6 +33,7 @@ private val TEST_IFACE_LIST = listOf("wlan0", "rmnet_data0", "eth0")
 @SmallTest
 @RunWith(DevSdkIgnoreRunner::class)
 @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+@ConnectivityModuleTest
 class UnderlyingNetworkInfoTest {
     @Test
     fun testParcelUnparcel() {

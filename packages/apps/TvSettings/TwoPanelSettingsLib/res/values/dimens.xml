@@ -28,6 +28,10 @@
     <dimen name="tp_preference_decor_subtitle_text_size">14sp</dimen>
     <dimen name="tp_preference_item_primary_text_size">14sp</dimen>
     <dimen name="tp_preference_item_secondary_text_size">12sp</dimen>
+    <dimen name="tp_preference_min_height">60dp</dimen>
+    <dimen name="tp_preference_title_min_height">20dp</dimen>
+    <dimen name="tp_preference_summary_min_height">16dp</dimen>
+    <dimen name="tp_preference_item_margin_bottom">4dp</dimen>
     <dimen name="decor_icon_width">50dp</dimen>
     <dimen name="decor_icon_height">50dp</dimen>
     <dimen name="decor_icon_margin_top">6dp</dimen>

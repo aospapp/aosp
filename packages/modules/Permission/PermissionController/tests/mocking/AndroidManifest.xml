@@ -20,6 +20,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.permissioncontroller.tests.mocking">
 
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <application android:label="PermissionController Mocking Tests"
         android:debuggable="true">
         <uses-library android:name="android.test.runner" />

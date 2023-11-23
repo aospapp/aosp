@@ -65,6 +65,7 @@ cc_library {
     name: "libadb_protos",
     defaults: ["libadb_protos_defaults"],
 
+    min_sdk_version: "30",
     apex_available: [
         "com.android.adbd",
         "test_com.android.adbd",
@@ -121,6 +122,7 @@ cc_library {
     name: "libapp_processes_protos_lite",
     defaults: ["libapp_processes_protos_defaults"],
 
+    min_sdk_version: "30",
     apex_available: ["//apex_available:platform"],
 
     proto: {

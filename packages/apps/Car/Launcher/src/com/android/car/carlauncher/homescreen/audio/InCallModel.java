@@ -26,11 +26,13 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.os.IBinder;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 import android.telecom.TelecomManager;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
 
+import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
 import com.android.car.carlauncher.R;
@@ -42,6 +44,7 @@ import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView
 import com.android.car.telephony.common.CallDetail;
 import com.android.car.telephony.common.TelecomUtils;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
@@ -60,7 +63,6 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     private TelecomManager mTelecomManager;
     private final Clock mElapsedTimeClock;
     private Call mCurrentCall;
-    private boolean mMuteCallToggle = true;
     private CompletableFuture<Void> mPhoneNumberInfoFuture;
 
     private InCallServiceImpl mInCallService;
@@ -69,6 +71,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     private CardHeader mCardHeader;
     private CardContent mCardContent;
     private CharSequence mOngoingCallSubtitle;
+    private CharSequence mDialingCallSubtitle;
     private DescriptiveTextWithControlsView.Control mMuteButton;
     private DescriptiveTextWithControlsView.Control mEndCallButton;
     private DescriptiveTextWithControlsView.Control mDialpadButton;
@@ -92,25 +95,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
         @Override
         public void onStateChanged(Call call, int state) {
             super.onStateChanged(call, state);
-            if (state == Call.STATE_ACTIVE) {
-                mCurrentCall = call;
-                mMuteCallToggle = true;
-                CallDetail callDetails = CallDetail.fromTelecomCallDetail(call.getDetails());
-                // If the home app does not have permission to read contacts, just display the
-                // phone number
-                if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.READ_CONTACTS)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    updateModelWithPhoneNumber(callDetails.getNumber());
-                    return;
-                }
-                if (mPhoneNumberInfoFuture != null) {
-                    mPhoneNumberInfoFuture.cancel(/* mayInterruptIfRunning= */ true);
-                }
-                mPhoneNumberInfoFuture = TelecomUtils.getPhoneNumberInfo(mContext,
-                        callDetails.getNumber())
-                        .thenAcceptAsync(x -> updateModelWithContact(x),
-                                mContext.getMainExecutor());
-            }
+            handleActiveCall(call);
         }
     };
 
@@ -123,6 +108,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
         mContext = context;
         mTelecomManager = context.getSystemService(TelecomManager.class);
         mOngoingCallSubtitle = context.getResources().getString(R.string.ongoing_call_text);
+        mDialingCallSubtitle = context.getResources().getString(R.string.dialing_call_text);
         initializeAudioControls();
         try {
             PackageManager pm = context.getPackageManager();
@@ -198,6 +184,7 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     @Override
     public void onCallAdded(Call call) {
         if (call != null) {
+            handleActiveCall(call);
             call.registerCallback(mCallback);
         }
     }
@@ -217,14 +204,53 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
     }
 
     /**
+     * When a {@link CallAudioState} is changed, update the model and notify the
+     * {@link HomeCardInterface.Presenter} to update the view.
+     */
+    @Override
+    public void onCallAudioStateChanged(CallAudioState audioState) {
+        // This is implemented to listen to changes to audio from other sources and update the
+        // content accordingly.
+        if (updateMuteButtonIconState(audioState)) {
+            mPresenter.onModelUpdated(this);
+        }
+    }
+
+    /**
+     * Updates the mute button according to the CallAudioState supplied.
+     * returns true if the model was updated and needs to refresh the view
+     */
+    @VisibleForTesting
+    boolean updateMuteButtonIconState(CallAudioState audioState) {
+        int[] iconState = mMuteButton.getIcon().getState();
+        boolean selectedStateExists = ArrayUtils.contains(iconState,
+                android.R.attr.state_selected);
+
+        if (selectedStateExists == audioState.isMuted()) {
+            // no need to update since the drawable was already muted
+            return false;
+        }
+
+        if (audioState.isMuted()) {
+            iconState = ArrayUtils.appendInt(iconState,
+                    android.R.attr.state_selected);
+        } else {
+            iconState = ArrayUtils.removeInt(iconState,
+                    android.R.attr.state_selected);
+        }
+        mMuteButton
+                .getIcon()
+                .setState(iconState);
+        return true;
+    }
+
+    /**
      * Updates the model's content using the given phone number.
      */
     @VisibleForTesting
-    void updateModelWithPhoneNumber(String number) {
+    void updateModelWithPhoneNumber(String number, @Call.CallState int callState) {
         String formattedNumber = TelecomUtils.getFormattedNumber(mContext, number);
-        mCardContent = new DescriptiveTextWithControlsView(null, formattedNumber,
-                mOngoingCallSubtitle, mElapsedTimeClock.millis(), mMuteButton, mEndCallButton,
-                mDialpadButton);
+        mCardContent = createPhoneCardContent(null, formattedNumber, callState);
         mPresenter.onModelUpdated(this);
     }
 
@@ -234,7 +260,8 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
      * avatar, use an icon with their first initial.
      */
     @VisibleForTesting
-    void updateModelWithContact(TelecomUtils.PhoneNumberInfo phoneNumberInfo) {
+    void updateModelWithContact(TelecomUtils.PhoneNumberInfo phoneNumberInfo,
+            @Call.CallState int callState) {
         String contactName = phoneNumberInfo.getDisplayName();
         Drawable contactImage = null;
         if (phoneNumberInfo.getAvatarUri() != null) {
@@ -256,24 +283,74 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
             contactImage = TelecomUtils.createLetterTile(mContext,
                     phoneNumberInfo.getInitials(), phoneNumberInfo.getDisplayName());
         }
-        mCardContent = new DescriptiveTextWithControlsView(contactImage, contactName,
-                mOngoingCallSubtitle, mElapsedTimeClock.millis(), mMuteButton, mEndCallButton,
-                mDialpadButton);
+
+        mCardContent = createPhoneCardContent(contactImage, contactName, callState);
         mPresenter.onModelUpdated(this);
+    }
+
+    private void handleActiveCall(@NonNull Call call) {
+        @Call.CallState int callState = call.getState();
+        if (callState != Call.STATE_ACTIVE && callState != Call.STATE_DIALING) {
+            return;
+        }
+        mCurrentCall = call;
+        CallDetail callDetails = CallDetail.fromTelecomCallDetail(call.getDetails());
+        // If the home app does not have permission to read contacts, just display the
+        // phone number
+        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            updateModelWithPhoneNumber(callDetails.getNumber(), callState);
+            return;
+        }
+        if (mPhoneNumberInfoFuture != null) {
+            mPhoneNumberInfoFuture.cancel(/* mayInterruptIfRunning= */ true);
+        }
+        mPhoneNumberInfoFuture = TelecomUtils.getPhoneNumberInfo(mContext,
+                        callDetails.getNumber())
+                .thenAcceptAsync(x -> updateModelWithContact(x, callState),
+                        mContext.getMainExecutor());
+    }
+
+    private CardContent createPhoneCardContent(Drawable image, CharSequence title,
+            @Call.CallState int callState) {
+        switch (callState) {
+            case Call.STATE_DIALING:
+                return new DescriptiveTextWithControlsView(image, title, mDialingCallSubtitle,
+                        mMuteButton, mEndCallButton, mDialpadButton);
+            case Call.STATE_ACTIVE:
+                return new DescriptiveTextWithControlsView(image, title, mOngoingCallSubtitle,
+                        mElapsedTimeClock.millis(), mMuteButton, mEndCallButton, mDialpadButton);
+            default:
+                if (DEBUG) {
+                    Log.d(TAG, "Call State " + callState
+                            + " is not currently supported by this model");
+                }
+                return null;
+        }
     }
 
     private void initializeAudioControls() {
         mMuteButton = new DescriptiveTextWithControlsView.Control(
                 mContext.getDrawable(R.drawable.ic_mute_activatable),
                 v -> {
-                    mInCallService.setMuted(mMuteCallToggle);
-                    v.setSelected(mMuteCallToggle);
-                    mMuteCallToggle = !mMuteCallToggle;
+                    boolean toggledValue = !v.isSelected();
+                    mInCallService.setMuted(toggledValue);
+                    v.setSelected(toggledValue);
                 });
         mEndCallButton = new DescriptiveTextWithControlsView.Control(
                 mContext.getDrawable(R.drawable.ic_call_end_button),
                 v -> mCurrentCall.disconnect());
         mDialpadButton = new DescriptiveTextWithControlsView.Control(
                 mContext.getDrawable(R.drawable.ic_dialpad), this::onClick);
+    }
+
+    @VisibleForTesting
+    void updateMuteButtonDrawableState(int[] state) {
+        mMuteButton.getIcon().setState(state);
+    }
+
+    @VisibleForTesting
+    int[] getMuteButtonDrawableState() {
+        return mMuteButton.getIcon().getState();
     }
 }

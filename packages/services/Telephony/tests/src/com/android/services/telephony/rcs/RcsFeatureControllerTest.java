@@ -96,7 +96,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
         controller.addFeature(mMockFeature, RcsFeatureController.Feature.class);
         verify(mMockFeature).onRcsDisconnected();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
 
         verify(mFeatureManager).updateCapabilities(TEST_SUB_ID);
         verify(mFeatureManager).registerImsRegistrationCallback(any());
@@ -114,7 +114,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
     public void testFeatureManagerConnectedAddRemoveFeature() throws Exception {
         RcsFeatureController controller = createFeatureController();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
         controller.addFeature(mMockFeature, RcsFeatureController.Feature.class);
 
         verify(mMockFeature).onRcsConnected(mFeatureManager);
@@ -131,7 +131,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
         IImsRegistrationCallback regCb = mock(IImsRegistrationCallback.class);
         IImsCapabilityCallback capCb = mock(IImsCapabilityCallback.class);
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
 
         try {
             controller.registerImsRegistrationCallback(TEST_SUB_ID, regCb);
@@ -165,7 +165,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
     public void testFeatureManagerConnectedHelper() throws Exception {
         RcsFeatureController controller = createFeatureController();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
         ArgumentCaptor<IImsRegistrationCallback> captor =
                 ArgumentCaptor.forClass(IImsRegistrationCallback.class);
         verify(mFeatureManager).registerImsRegistrationCallback(captor.capture());
@@ -257,7 +257,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
     public void testCarrierConfigChanged() throws Exception {
         RcsFeatureController controller = createFeatureController();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
         verify(mFeatureManager).updateCapabilities(TEST_SUB_ID);
         controller.addFeature(mMockFeature, RcsFeatureController.Feature.class);
 
@@ -272,7 +272,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
     public void testChangeSubId() throws Exception {
         RcsFeatureController controller = createFeatureController();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
         verify(mFeatureManager).updateCapabilities(TEST_SUB_ID);
         controller.addFeature(mMockFeature, RcsFeatureController.Feature.class);
 
@@ -286,7 +286,7 @@ public class RcsFeatureControllerTest extends TelephonyTestBase {
     public void testDestroy() throws Exception {
         RcsFeatureController controller = createFeatureController();
         // Connect the RcsFeatureManager
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
         controller.addFeature(mMockFeature, RcsFeatureController.Feature.class);
         controller.destroy();
 

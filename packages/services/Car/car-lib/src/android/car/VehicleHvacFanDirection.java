@@ -15,14 +15,19 @@
  */
 package android.car;
 
+import android.car.annotation.AddedInOrBefore;
+
 /**
  * Bit flags for fan direction.
  * This constant must be used with HVAC_FAN_DIRECTION property in {@link VehiclePropertyIds}.
  * @hide
  */
 public final class VehicleHvacFanDirection {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FACE = 0x1;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FLOOR = 0x2;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DEFROST = 0x4;
 
     private VehicleHvacFanDirection() {}

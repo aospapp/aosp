@@ -25,7 +25,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
-public final class BugReportsPreferenceControllerTest extends BasePreferenceControllerTestCase {
+public final class BugReportsPreferenceControllerTest
+        extends BaseEnterprisePrivacyPreferenceControllerTestCase {
 
     private BugReportsPreferenceController mController;
 

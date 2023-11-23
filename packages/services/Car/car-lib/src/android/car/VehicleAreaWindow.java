@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 /**
  * VehicleAreaWindow is an abstraction for a window in a car. Some car APIs may provide control per
@@ -24,15 +25,25 @@ import android.annotation.SystemApi;
  */
 @SystemApi
 public final class VehicleAreaWindow {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_FRONT_WINDSHIELD = 0x0001;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_REAR_WINDSHIELD = 0x0002;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_1_LEFT = 0x0010;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_1_RIGHT = 0x0040;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_2_LEFT = 0x0100;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_2_RIGHT = 0x0400;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_3_LEFT = 0x1000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROW_3_RIGHT = 0x4000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROOF_TOP_1 = 0x10000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WINDOW_ROOF_TOP_2 = 0x20000;
 
     private VehicleAreaWindow() {}

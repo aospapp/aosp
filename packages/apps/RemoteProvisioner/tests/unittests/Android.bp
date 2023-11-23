@@ -18,10 +18,15 @@ package {
 android_test {
     name: "RemoteProvisionerUnitTests",
     srcs: ["src/**/*.java"],
+    exclude_srcs: ["src/**/KeyRegisteredTest.java"],
     static_libs: [
+        "Nene",
         "androidx.test.core",
         "androidx.test.rules",
+        "androidx.work_work-runtime",
+        "androidx.work_work-testing",
         "android.security.remoteprovisioning-java",
+        "libnanohttpd",
         "platform-test-annotations",
         "ub-uiautomator",
         "cbor-java",
@@ -30,6 +35,23 @@ android_test {
     ],
     platform_apis: true,
     test_config: "AndroidTest.xml",
+    test_suites: ["device-tests"],
+    instrumentation_for: "RemoteProvisioner",
+}
+
+// Specifically tests to see if the key is registered for the given device under test.
+android_test {
+    name: "RemoteProvisionerRegistrationTest",
+    srcs: ["src/**/KeyRegisteredTest.java"],
+    static_libs: [
+        "androidx.test.core",
+        "androidx.test.rules",
+        "android.security.remoteprovisioning-java",
+        "platform-test-annotations",
+        "cbor-java",
+    ],
+    platform_apis: true,
+    test_config: "AndroidRegistrationTest.xml",
     test_suites: ["device-tests"],
     instrumentation_for: "RemoteProvisioner",
 }

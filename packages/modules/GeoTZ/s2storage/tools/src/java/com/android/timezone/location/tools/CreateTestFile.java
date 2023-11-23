@@ -27,7 +27,7 @@ import java.util.List;
 /** Creates a TZ S2 file with a small amount of test data. Useful for testing other tools. */
 public final class CreateTestFile {
 
-    /*
+    /**
      * Usage:
      * CreateTestFile <file name>
      */

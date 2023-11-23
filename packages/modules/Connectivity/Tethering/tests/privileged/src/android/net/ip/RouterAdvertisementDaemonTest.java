@@ -44,8 +44,6 @@ import android.net.IpPrefix;
 import android.net.MacAddress;
 import android.net.RouteInfo;
 import android.net.ip.RouterAdvertisementDaemon.RaParams;
-import android.net.shared.RouteUtils;
-import android.net.util.InterfaceParams;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -55,7 +53,9 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.net.module.util.InterfaceParams;
 import com.android.net.module.util.Ipv6Utils;
+import com.android.net.module.util.NetdUtils;
 import com.android.net.module.util.Struct;
 import com.android.net.module.util.structs.EthernetHeader;
 import com.android.net.module.util.structs.Icmpv6Header;
@@ -335,7 +335,7 @@ public final class RouterAdvertisementDaemonTest {
         final String iface = mTetheredParams.name;
         final RouteInfo linkLocalRoute =
                 new RouteInfo(new IpPrefix("fe80::/64"), null, iface, RTN_UNICAST);
-        RouteUtils.addRoutesToLocalNetwork(sNetd, iface, List.of(linkLocalRoute));
+        NetdUtils.addRoutesToLocalNetwork(sNetd, iface, List.of(linkLocalRoute));
 
         final ByteBuffer rs = createRsPacket("fe80::1122:3344:5566:7788");
         mTetheredPacketReader.sendResponse(rs);

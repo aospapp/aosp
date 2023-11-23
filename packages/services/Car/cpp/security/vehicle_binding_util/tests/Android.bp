@@ -23,7 +23,7 @@ cc_test {
     ],
     test_suites: ["general-tests"],
     srcs: [
-        "VehicleBindingUtilTests.cpp",
+        "VehicleBindingUtilTest.cpp",
     ],
     static_libs: [
         "libbase",
@@ -42,7 +42,7 @@ cc_test {
     defaults: ["vehicle_binding_util_defaults"],
     tidy: false,
     srcs: [
-        "VehicleBindingIntegrationTedt.cpp"
+        "VehicleBindingIntegrationTest.cpp"
     ],
     shared_libs: [
         "android.hardware.automotive.vehicle@2.0",

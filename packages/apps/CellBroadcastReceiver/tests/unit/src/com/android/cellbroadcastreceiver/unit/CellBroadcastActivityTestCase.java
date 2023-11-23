@@ -16,11 +16,15 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
+import static org.mockito.Mockito.spy;
+
 import android.app.Activity;
 import android.app.ResourcesManager;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.os.Handler;
 import android.test.ActivityUnitTestCase;
 import android.util.Log;
@@ -71,6 +75,15 @@ public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityU
         });
     }
 
+    protected void leaveActivity() throws Throwable {
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getInstrumentation().callActivityOnUserLeaving(mActivity);
+            }
+        });
+    }
+
     public static void waitForMs(long ms) {
         try {
             Thread.sleep(ms);
@@ -104,8 +117,11 @@ public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityU
 
         private HashMap<String, Object> mInjectedSystemServices = new HashMap<>();
 
+        private Resources mResources;
+
         public TestContext(Context base) {
             super(base);
+            mResources = spy(super.getResources());
         }
 
         public <S> void injectSystemService(Class<S> cls, S service) {
@@ -132,6 +148,16 @@ public class CellBroadcastActivityTestCase<T extends Activity> extends ActivityU
             }
             Log.d(TAG, "return real system service for " + name);
             return super.getSystemService(name);
+        }
+
+        @Override
+        public Resources getResources() {
+            return mResources;
+        }
+
+        @Override
+        public Context createConfigurationContext(Configuration overrideConfiguration) {
+            return this;
         }
     }
 }

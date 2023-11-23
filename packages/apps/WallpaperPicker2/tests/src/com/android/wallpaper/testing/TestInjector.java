@@ -19,9 +19,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.android.wallpaper.compat.WallpaperManagerCompat;
+import com.android.wallpaper.effects.EffectsController;
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.AlarmManagerWrapper;
@@ -31,7 +33,6 @@ import com.android.wallpaper.module.CustomizationSections;
 import com.android.wallpaper.module.DefaultLiveWallpaperInfoFactory;
 import com.android.wallpaper.module.DrawableLayerResolver;
 import com.android.wallpaper.module.ExploreIntentChecker;
-import com.android.wallpaper.module.FormFactorChecker;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.LiveWallpaperInfoFactory;
 import com.android.wallpaper.module.LoggingOptInStatusProvider;
@@ -70,7 +71,6 @@ public class TestInjector implements Injector {
     private UserEventLogger mUserEventLogger;
     private ExploreIntentChecker mExploreIntentChecker;
     private SystemFeatureChecker mSystemFeatureChecker;
-    private FormFactorChecker mFormFactorChecker;
     private WallpaperRotationRefresher mWallpaperRotationRefresher;
     private PerformanceMonitor mPerformanceMonitor;
     private LoggingOptInStatusProvider mLoggingOptInStatusProvider;
@@ -139,7 +139,17 @@ public class TestInjector implements Injector {
 
     @Override
     public WallpaperStatusChecker getWallpaperStatusChecker() {
-        return null;
+        return new WallpaperStatusChecker() {
+            @Override
+            public boolean isHomeStaticWallpaperSet(Context context) {
+                return true;
+            }
+
+            @Override
+            public boolean isLockWallpaperSet(Context context) {
+                return true;
+            }
+        };
     }
 
     @Override
@@ -197,14 +207,6 @@ public class TestInjector implements Injector {
             mSystemFeatureChecker = new com.android.wallpaper.testing.TestSystemFeatureChecker();
         }
         return mSystemFeatureChecker;
-    }
-
-    @Override
-    public FormFactorChecker getFormFactorChecker(Context unused) {
-        if (mFormFactorChecker == null) {
-            mFormFactorChecker = new TestFormFactorChecker();
-        }
-        return mFormFactorChecker;
     }
 
     @Override
@@ -270,6 +272,13 @@ public class TestInjector implements Injector {
 
     @Override
     public DisplayUtils getDisplayUtils(Context context) {
+        return new DisplayUtils(context);
+    }
+
+    @Nullable
+    @Override
+    public EffectsController createEffectsController(Context context,
+            EffectsController.EffectsServiceListener listener) {
         return null;
     }
 }

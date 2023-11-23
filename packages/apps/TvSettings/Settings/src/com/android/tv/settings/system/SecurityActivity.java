@@ -19,13 +19,13 @@ package com.android.tv.settings.system;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 public class SecurityActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
-            .newSettingsFragment(SecurityFragment.class.getName(), null);
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
+                .newSettingsFragment(SecurityFragment.class.getName(), null);
     }
 }

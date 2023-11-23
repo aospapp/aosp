@@ -409,7 +409,7 @@ public class EapAkaPrimeTest extends EapMethodEndToEndTest {
         // verify EAP-AKA'/Identity response
         verify(mMockContext).getSystemService(eq(Context.TELEPHONY_SERVICE));
         verify(mMockTelephonyManager).getSubscriberId();
-        verify(mMockCallback).onResponse(eq(responseMessage));
+        verify(mMockCallback).onResponse(eq(responseMessage), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(
                 mMockContext, mMockTelephonyManager, mMockSecureRandom, mMockCallback);
     }
@@ -435,7 +435,7 @@ public class EapAkaPrimeTest extends EapMethodEndToEndTest {
                         TelephonyManager.APPTYPE_USIM,
                         TelephonyManager.AUTHTYPE_EAP_AKA,
                         challengeBase64);
-        verify(mMockCallback).onResponse(eq(outgoingEapPacket));
+        verify(mMockCallback).onResponse(eq(outgoingEapPacket), eq(EAP_RESPONSE_FLAGS_NOT_SET));
     }
 
     private void verifyEapAkaPrimeChallenge(String responseBase64, byte[] outgoingPacket) {
@@ -475,7 +475,9 @@ public class EapAkaPrimeTest extends EapMethodEndToEndTest {
         // EAP-AKA'/Challenge request
         mEapAuthenticator.processEapMessage(EAP_AKA_PRIME_CHALLENGE_REQUEST);
         mTestLooper.dispatchAll();
-        verify(mMockCallback).onResponse(eq(EAP_AKA_PRIME_AUTHENTICATION_REJECT));
+        verify(mMockCallback)
+                .onResponse(
+                        eq(EAP_AKA_PRIME_AUTHENTICATION_REJECT), eq(EAP_RESPONSE_FLAGS_NOT_SET));
     }
 
     @Override

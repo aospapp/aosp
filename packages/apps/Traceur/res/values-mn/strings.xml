@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Өгөгдмөл ангиллыг сэргээх"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Өгөгдмөл ангиллыг сэргээсэн"</string>
     <string name="default_categories" msgid="2117679794687799407">"Өгөгдмөл"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d-г сонгосон</item>
-      <item quantity="one">%d-г сонгосон</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{#-г сонгосон}other{#-г сонгосон}}"</string>
     <string name="applications" msgid="521776761270770549">"Аппууд"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Дебаг хийх боломжтой аппууд алга"</string>
     <string name="buffer_size" msgid="3944311026715111454">"CPU тутмын буферын хэмжээ"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto-г ашиглах (бета)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Урт ул мөр"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Төхөөрөмжийн хадгалах санд тасралтгүй хадгалсан"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Төхөөрөмжийн хадгалах санд тогтмол хадгалсан (алдааны мэдээнд автоматаар хавсаргахгүй)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Хамгийн урт ул мөрийн хэмжээ"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Хамгийн урт ул мөрийн үргэлжлэх хугацаа"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 МБ"</string>

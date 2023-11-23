@@ -36,7 +36,7 @@
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"ဝင်းဒိုးအသစ်ဖြင့်ဖွင့်ပါ"</string>
     <string name="menu_save" msgid="5195367497138965168">"သိမ်းပါ"</string>
     <string name="menu_share" msgid="4307140947108068356">"မျှဝေပါ"</string>
-    <string name="menu_delete" msgid="1022254131543256626">"ဖျက်ပါ"</string>
+    <string name="menu_delete" msgid="1022254131543256626">"ဖျက်ရန်"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"အားလုံးကို ရွေးပါ"</string>
     <string name="menu_deselect_all" msgid="7729916068862742979">"အားလုံးကို ပြန်ဖြုတ်ရန်"</string>
     <string name="menu_select" msgid="1366061076507142387">"ရွေးရန်"</string>

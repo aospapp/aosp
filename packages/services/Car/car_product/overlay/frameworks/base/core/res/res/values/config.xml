@@ -63,7 +63,7 @@
     <integer name="config_jobSchedulerIdleWindowSlop">0</integer>
 
     <!-- Set the default number of allowed connected Bluetooth AVRCP/A2DP devices -->
-    <integer name="config_bluetooth_max_connected_audio_devices">1</integer>
+    <integer name="config_bluetooth_max_connected_audio_devices">5</integer>
 
     <!-- Automotive Bluetooth pairing option -->
     <bool name="enable_pbap_pce_profile">true</bool>
@@ -105,7 +105,7 @@
     <!-- Controls whether system buttons use all caps for text -->
     <bool name="config_buttonTextAllCaps">false</bool>
 
-    <bool name="config_automotiveHideNavBarForKeyboard">true</bool>
+    <bool name="config_hideNavBarForKeyboard">true</bool>
 
     <!-- Turn off Wallpaper service -->
     <bool name="config_enableWallpaperService">false</bool>
@@ -156,6 +156,8 @@
 
     <!-- Whether this device is supporting the microphone toggle -->
     <bool name="config_supportsMicToggle">true</bool>
+    <!-- Whether this device is supporting the camera toggle -->
+    <bool name="config_supportsCamToggle">true</bool>
 
     <!-- Whether the airplane mode should be reset when device boots in non-safemode after exiting
      from safemode.
@@ -168,4 +170,8 @@
     <string name="config_notificationAccessConfirmationActivity" translatable="false">
         com.android.car.settings/com.android.car.settings.notifications.NotificationAccessConfirmationActivity
     </string>
+
+    <!-- Determines whether SafetyCenter feature is enabled.
+         SafetyCenter is not yet supported on cars. -->
+    <bool name="config_enableSafetyCenter">false</bool>
 </resources>

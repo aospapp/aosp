@@ -23,22 +23,34 @@ namespace android {
 namespace os {
 namespace statsd {
 
-static int64_t time_base = 10;
-static int64_t ct_start_time = 200;
+namespace {
+
+constexpr int64_t time_base = 10;
+constexpr int64_t ct_start_time = 200;
+
+static void assertConditionDurationInfo(const ConditionTimer::ConditionDurationInfo& info,
+                                        ConditionTimer::ConditionDurationInfo expectedInfo) {
+    // TODO(b/195646451): improve debuggability invoking macros directly in the test
+    EXPECT_EQ(info, expectedInfo);
+}
+
+}  // namespace
 
 TEST(ConditionTimerTest, TestTimer_Inital_False) {
     ConditionTimer timer(false, time_base);
     EXPECT_EQ(false, timer.mCondition);
     EXPECT_EQ(0, timer.mTimerNs);
 
-    EXPECT_EQ(0, timer.newBucketStart(ct_start_time));
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = 0, .mCorrectionNs = 0});
     EXPECT_EQ(0, timer.mTimerNs);
 
     timer.onConditionChanged(true, ct_start_time + 5);
     EXPECT_EQ(ct_start_time + 5, timer.mLastConditionChangeTimestampNs);
     EXPECT_EQ(true, timer.mCondition);
 
-    EXPECT_EQ(95, timer.newBucketStart(ct_start_time + 100));
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 100, ct_start_time + 100),
+                                {.mDurationNs = 95, .mCorrectionNs = 0});
     EXPECT_EQ(ct_start_time + 100, timer.mLastConditionChangeTimestampNs);
     EXPECT_EQ(true, timer.mCondition);
 }
@@ -48,7 +60,8 @@ TEST(ConditionTimerTest, TestTimer_Inital_True) {
     EXPECT_EQ(true, timer.mCondition);
     EXPECT_EQ(0, timer.mTimerNs);
 
-    EXPECT_EQ(ct_start_time - time_base, timer.newBucketStart(ct_start_time));
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = ct_start_time - time_base, .mCorrectionNs = 0});
     EXPECT_EQ(true, timer.mCondition);
     EXPECT_EQ(0, timer.mTimerNs);
     EXPECT_EQ(ct_start_time, timer.mLastConditionChangeTimestampNs);
@@ -56,8 +69,77 @@ TEST(ConditionTimerTest, TestTimer_Inital_True) {
     timer.onConditionChanged(false, ct_start_time + 5);
     EXPECT_EQ(5, timer.mTimerNs);
 
-    EXPECT_EQ(5, timer.newBucketStart(ct_start_time + 100));
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 100, ct_start_time + 100),
+                                {.mDurationNs = 5, .mCorrectionNs = 0});
     EXPECT_EQ(0, timer.mTimerNs);
+}
+
+TEST(ConditionTimerTest, TestTimer_Correction_DelayedChangeToFalse) {
+    ConditionTimer timer(true, time_base);
+    EXPECT_EQ(true, timer.mCondition);
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = ct_start_time - time_base, .mCorrectionNs = 0});
+    EXPECT_EQ(true, timer.mCondition);
+    EXPECT_EQ(0, timer.mTimerNs);
+    EXPECT_EQ(ct_start_time, timer.mLastConditionChangeTimestampNs);
+
+    timer.onConditionChanged(false, ct_start_time + 7);
+    EXPECT_EQ(7, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 7, ct_start_time + 5),
+                                {.mDurationNs = 5, .mCorrectionNs = 2});
+    EXPECT_EQ(2, timer.mTimerNs);
+    EXPECT_EQ(2, timer.mCurrentBucketStartDelayNs);
+}
+
+TEST(ConditionTimerTest, TestTimer_Correction_DelayedChangeToTrue) {
+    ConditionTimer timer(false, time_base);
+    EXPECT_EQ(false, timer.mCondition);
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = 0, .mCorrectionNs = 0});
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    timer.onConditionChanged(true, ct_start_time + 7);
+    EXPECT_EQ(ct_start_time + 7, timer.mLastConditionChangeTimestampNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 7, ct_start_time + 5),
+                                {.mDurationNs = 0, .mCorrectionNs = 0});
+    EXPECT_EQ(0, timer.mTimerNs);
+    EXPECT_EQ(0, timer.mCurrentBucketStartDelayNs);
+}
+
+TEST(ConditionTimerTest, TestTimer_Correction_DelayedWithInitialFalse) {
+    ConditionTimer timer(false, time_base);
+    EXPECT_EQ(false, timer.mCondition);
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = 0, .mCorrectionNs = 0});
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 7, ct_start_time + 5),
+                                {.mDurationNs = 0, .mCorrectionNs = 0});
+    EXPECT_EQ(0, timer.mTimerNs);
+    EXPECT_EQ(0, timer.mCurrentBucketStartDelayNs);
+}
+
+TEST(ConditionTimerTest, TestTimer_Correction_DelayedWithInitialTrue) {
+    ConditionTimer timer(true, time_base);
+    EXPECT_EQ(true, timer.mCondition);
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time, ct_start_time),
+                                {.mDurationNs = ct_start_time - time_base, .mCorrectionNs = 0});
+    EXPECT_EQ(0, timer.mTimerNs);
+
+    assertConditionDurationInfo(timer.newBucketStart(ct_start_time + 7, ct_start_time + 5),
+                                {.mDurationNs = 5, .mCorrectionNs = 2});
+    EXPECT_EQ(0, timer.mTimerNs);
+    EXPECT_EQ(2, timer.mCurrentBucketStartDelayNs);
 }
 
 }  // namespace statsd

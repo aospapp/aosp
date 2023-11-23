@@ -48,7 +48,6 @@ import com.android.wallpaper.module.NetworkStatusNotifier;
 import com.android.wallpaper.module.NetworkStatusNotifier.NetworkStatus;
 import com.android.wallpaper.module.UserEventLogger;
 import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
-import com.android.wallpaper.picker.CategoryFragment.CategoryFragmentHost;
 import com.android.wallpaper.picker.CategorySelectorFragment.CategorySelectorFragmentHost;
 import com.android.wallpaper.picker.MyPhotosStarter.PermissionChangedListener;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment.IndividualPickerFragmentHost;
@@ -63,9 +62,9 @@ import com.android.wallpaper.widget.BottomActionBar.BottomActionBarHost;
  *  Fragments providing customization options.
  */
 public class CustomizationPickerActivity extends FragmentActivity implements AppbarFragmentHost,
-        WallpapersUiContainer, CategoryFragmentHost, BottomActionBarHost,
-        FragmentTransactionChecker, PermissionRequester, CategorySelectorFragmentHost,
-        IndividualPickerFragmentHost, WallpaperPreviewNavigator {
+        WallpapersUiContainer, BottomActionBarHost, FragmentTransactionChecker,
+        PermissionRequester, CategorySelectorFragmentHost, IndividualPickerFragmentHost,
+        WallpaperPreviewNavigator {
 
     private static final String TAG = "CustomizationPickerActivity";
 
@@ -218,18 +217,8 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
     }
 
     @Override
-    public boolean isReadExternalStoragePermissionGranted() {
-        return mDelegate.isReadExternalStoragePermissionGranted();
-    }
-
-    @Override
     public void showViewOnlyPreview(WallpaperInfo wallpaperInfo, boolean isViewAsHome) {
         mDelegate.showViewOnlyPreview(wallpaperInfo, isViewAsHome);
-    }
-
-    @Override
-    public void show(String collectionId) {
-        mDelegate.show(collectionId);
     }
 
     @Override
@@ -240,7 +229,7 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
     @Override
     public void show(Category category) {
         if (!(category instanceof WallpaperCategory)) {
-            show(category.getCollectionId());
+            mDelegate.show(category.getCollectionId());
             return;
         }
         switchFragmentWithBackStack(InjectorProvider.getInjector().getIndividualPickerFragment(
@@ -313,11 +302,6 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grantResults) {
         mDelegate.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    }
-
-    @Override
-    public MyPhotosStarter getMyPhotosStarter() {
-        return mDelegate;
     }
 
     @Override

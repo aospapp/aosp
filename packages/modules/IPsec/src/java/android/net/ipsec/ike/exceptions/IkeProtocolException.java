@@ -69,7 +69,7 @@ public abstract class IkeProtocolException extends IkeException {
     public static final int ERROR_TYPE_INVALID_MESSAGE_ID = 9;
     /** No SA Proposal Chosen is acceptable */
     public static final int ERROR_TYPE_NO_PROPOSAL_CHOSEN = 14;
-    /** Invalid Key Exchaneg Payload */
+    /** Invalid Key Exchange Payload */
     public static final int ERROR_TYPE_INVALID_KE_PAYLOAD = 17;
     /** IKE authentication failed */
     public static final int ERROR_TYPE_AUTHENTICATION_FAILED = 24;
@@ -185,9 +185,10 @@ public abstract class IkeProtocolException extends IkeException {
     }
 
     /**
-     * Returns the IKE standard protocol error type of this {@link IkeProtocolException} instance.
+     * Returns the IKE protocol error type of this {@link IkeProtocolException} instance.
      *
-     * @return the IKE standard protocol error type.
+     * @return the IKE standard protocol error type defined in {@link IkeProtocolException} or the
+     *     error code for an unrecognized error type.
      */
     @ErrorType
     public int getErrorType() {

@@ -36,9 +36,12 @@ import android.os.ServiceSpecificException;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.IndentingPrintWriter;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.NetworkStackConstants;
 import com.android.server.ConnectivityService;
 
+import java.io.IOException;
 import java.net.Inet6Address;
 import java.util.Objects;
 
@@ -96,6 +99,7 @@ public class Nat464Xlat {
     private String mIface;
     private Inet6Address mIPv6Address;
     private State mState = State.IDLE;
+    private ClatCoordinator mClatCoordinator;
 
     private boolean mEnableClatOnCellular;
     private boolean mPrefixDiscoveryRunning;
@@ -106,6 +110,7 @@ public class Nat464Xlat {
         mNetd = netd;
         mNetwork = nai;
         mEnableClatOnCellular = deps.getCellular464XlatEnabled();
+        mClatCoordinator = deps.getClatCoordinator(mNetd);
     }
 
     /**
@@ -132,8 +137,8 @@ public class Nat464Xlat {
         final boolean skip464xlat = (nai.netAgentConfig() != null)
                 && nai.netAgentConfig().skip464xlat;
 
-        return supported && connected && isIpv6OnlyNetwork && !skip464xlat
-            && (nai.networkCapabilities.hasTransport(TRANSPORT_CELLULAR)
+        return supported && connected && isIpv6OnlyNetwork && !skip464xlat && !nai.destroyed
+                && (nai.networkCapabilities.hasTransport(TRANSPORT_CELLULAR)
                 ? isCellular464XlatEnabled() : true);
     }
 
@@ -179,10 +184,18 @@ public class Nat464Xlat {
     private void enterStartingState(String baseIface) {
         mNat64PrefixInUse = selectNat64Prefix();
         String addrStr = null;
-        try {
-            addrStr = mNetd.clatdStart(baseIface, mNat64PrefixInUse.toString());
-        } catch (RemoteException | ServiceSpecificException e) {
-            Log.e(TAG, "Error starting clatd on " + baseIface + ": " + e);
+        if (SdkLevel.isAtLeastT()) {
+            try {
+                addrStr = mClatCoordinator.clatStart(baseIface, getNetId(), mNat64PrefixInUse);
+            } catch (IOException e) {
+                Log.e(TAG, "Error starting clatd on " + baseIface + ": " + e);
+            }
+        } else {
+            try {
+                addrStr = mNetd.clatdStart(baseIface, mNat64PrefixInUse.toString());
+            } catch (RemoteException | ServiceSpecificException e) {
+                Log.e(TAG, "Error starting clatd on " + baseIface + ": " + e);
+            }
         }
         mIface = CLAT_PREFIX + baseIface;
         mBaseIface = baseIface;
@@ -256,10 +269,18 @@ public class Nat464Xlat {
         }
 
         Log.i(TAG, "Stopping clatd on " + mBaseIface);
-        try {
-            mNetd.clatdStop(mBaseIface);
-        } catch (RemoteException | ServiceSpecificException e) {
-            Log.e(TAG, "Error stopping clatd on " + mBaseIface + ": " + e);
+        if (SdkLevel.isAtLeastT()) {
+            try {
+                mClatCoordinator.clatStop();
+            } catch (IOException e) {
+                Log.e(TAG, "Error stopping clatd on " + mBaseIface + ": " + e);
+            }
+        } else {
+            try {
+                mNetd.clatdStop(mBaseIface);
+            } catch (RemoteException | ServiceSpecificException e) {
+                Log.e(TAG, "Error stopping clatd on " + mBaseIface + ": " + e);
+            }
         }
 
         String iface = mIface;
@@ -504,6 +525,24 @@ public class Nat464Xlat {
 
     public void interfaceRemoved(String iface) {
         mNetwork.handler().post(() -> handleInterfaceRemoved(iface));
+    }
+
+    /**
+     * Dump the NAT64 xlat information.
+     *
+     * @param pw print writer.
+     */
+    public void dump(IndentingPrintWriter pw) {
+        if (SdkLevel.isAtLeastT()) {
+            if (isStarted()) {
+                pw.println("ClatCoordinator:");
+                pw.increaseIndent();
+                mClatCoordinator.dump(pw);
+                pw.decreaseIndent();
+            } else {
+                pw.println("<not start>");
+            }
+        }
     }
 
     @Override

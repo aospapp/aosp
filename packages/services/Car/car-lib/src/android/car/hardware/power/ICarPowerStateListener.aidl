@@ -22,8 +22,9 @@ package android.car.hardware.power;
  */
 oneway interface ICarPowerStateListener {
     /**
-     * Called when a power state change occurs
+     * Called when a power state change occurs. If {@code state} is not limited by the timeout,
+     * {@code expirationTimeMs} will be -1.
      */
-    void onStateChanged(int state);
+    void onStateChanged(int state, long expirationTimeMs);
 }
 

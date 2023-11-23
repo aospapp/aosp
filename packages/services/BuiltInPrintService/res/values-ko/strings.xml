@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"연결"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"기본인쇄 서비스에서 Wi-Fi Direct 프린터를 찾을 수 없습니다."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct 사용 중지"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"기본 인쇄 서비스를 사용하여 주변 기기를 찾으려면 위치 정보 액세스 권한이 필요합니다."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"기본 인쇄 서비스에서 근처의 프린터를 찾으려면 근처 기기 권한이 필요합니다."</string>
     <string name="fix" msgid="7784394272611365393">"액세스 권한 검토"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"기본인쇄 서비스를 사용하여 주변 기기를 찾으려면 위치 서비스를 사용 설정해야 합니다."</string>
-    <string name="enable_location" msgid="3627841004298863140">"위치 사용"</string>
     <string name="print" msgid="7851318072404916362">"인쇄"</string>
 </resources>

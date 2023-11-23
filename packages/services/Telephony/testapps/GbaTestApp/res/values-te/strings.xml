@@ -9,7 +9,7 @@
     <string name="button_name_running" msgid="4557363091224858010">"రన్ అవుతోంది"</string>
     <string name="button_name_exit" msgid="8025683733431538975">"నిష్క్రమించు"</string>
     <string name="label_test_result" msgid="892984695972956196">"పరీక్ష ఫలితం"</string>
-    <string name="button_name_clear" msgid="436313515327318537">"రీసెట్ చేయి"</string>
+    <string name="button_name_clear" msgid="436313515327318537">"రీసెట్ చేయండి"</string>
     <string name="button_name_done" msgid="6030406534322497491">"పూర్తయింది"</string>
     <string name="title_activity_carrier_config" msgid="7807803900475957717">"CarrierConfigActivity"</string>
     <string name="title_activity_service_config" msgid="5394662739555577279">"ServiceConfigActivity"</string>

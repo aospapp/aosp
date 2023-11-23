@@ -33,6 +33,7 @@ public class MetricsUtils {
     public static final long DURATION_METRIC_ID = 4444;
     public static final long GAUGE_METRIC_ID = 5555;
     public static final long VALUE_METRIC_ID = 6666;
+    public static final long EVENT_METRIC_ID = 7777;
 
     public static AtomMatcher.Builder getAtomMatcher(int atomId) {
         AtomMatcher.Builder builder = AtomMatcher.newBuilder();

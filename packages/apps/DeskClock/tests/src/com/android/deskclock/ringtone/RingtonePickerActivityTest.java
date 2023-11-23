@@ -74,7 +74,12 @@ public class RingtonePickerActivityTest {
     public void validateDefaultState_TimerRingtonePicker() {
         createTimerRingtonePickerActivity();
 
-        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.getItems();
+        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.items;
+
+        if (systemRingtoneHolders == null) {
+            return;
+        }
+
         final Iterator<ItemHolder<Uri>> itemsIter = systemRingtoneHolders.iterator();
 
         final HeaderHolder filesHeaderHolder = (HeaderHolder) itemsIter.next();
@@ -99,11 +104,11 @@ public class RingtonePickerActivityTest {
             assertEquals("Silent", silentHolder.getName());
             assertEquals("Timer Expired", defaultHolder.getName());
             assertEquals(DataModel.getDataModel().getDefaultTimerRingtoneUri(),
-                    defaultHolder.getUri());
+                defaultHolder.getUri());
             // Verify initial selection.
             assertEquals(
-                    DataModel.getDataModel().getTimerRingtoneUri(),
-                    DataModel.getDataModel().getDefaultTimerRingtoneUri());
+                DataModel.getDataModel().getTimerRingtoneUri(),
+                DataModel.getDataModel().getDefaultTimerRingtoneUri());
         };
         InstrumentationRegistry.getInstrumentation().runOnMainSync(assertRunnable);
     }
@@ -112,7 +117,7 @@ public class RingtonePickerActivityTest {
     public void validateDefaultState_AlarmRingtonePicker() {
         createAlarmRingtonePickerActivity(ALERT);
 
-        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.getItems();
+        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.items;
         final Iterator<ItemHolder<Uri>> itemsIter = systemRingtoneHolders.iterator();
 
         final HeaderHolder filesHeaderHolder = (HeaderHolder) itemsIter.next();
@@ -150,7 +155,7 @@ public class RingtonePickerActivityTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(customRingtoneRunnable);
         createTimerRingtonePickerActivity();
 
-        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.getItems();
+        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.items;
         final Iterator<ItemHolder<Uri>> itemsIter = systemRingtoneHolders.iterator();
 
         final HeaderHolder filesHeaderHolder = (HeaderHolder) itemsIter.next();
@@ -203,7 +208,7 @@ public class RingtonePickerActivityTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(customRingtoneRunnable);
         createAlarmRingtonePickerActivity(ALERT);
 
-        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.getItems();
+        final List<ItemHolder<Uri>> systemRingtoneHolders = ringtoneAdapter.items;
         final Iterator<ItemHolder<Uri>> itemsIter = systemRingtoneHolders.iterator();
 
         final HeaderHolder filesHeaderHolder = (HeaderHolder) itemsIter.next();

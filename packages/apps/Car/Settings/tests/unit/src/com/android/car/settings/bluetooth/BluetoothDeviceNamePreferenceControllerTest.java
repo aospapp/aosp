@@ -25,10 +25,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothClass;
-import android.bluetooth.BluetoothProfile;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Parcel;
 
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
@@ -39,7 +39,6 @@ import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.testutils.BluetoothTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
-import com.android.settingslib.bluetooth.BluetoothUtils;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 
@@ -58,6 +57,16 @@ public class BluetoothDeviceNamePreferenceControllerTest {
     private BluetoothDeviceNamePreferenceController mPreferenceController;
     private Preference mPreference;
     private CarUxRestrictions mCarUxRestrictions;
+
+    private BluetoothClass createBtClass(int deviceClass) {
+        Parcel p = Parcel.obtain();
+        p.writeInt(deviceClass);
+        p.setDataPosition(0); // reset position of parcel before passing to constructor
+
+        BluetoothClass bluetoothClass = BluetoothClass.CREATOR.createFromParcel(p);
+        p.recycle();
+        return bluetoothClass;
+    }
 
     @Mock
     private FragmentController mFragmentController;
@@ -109,19 +118,20 @@ public class BluetoothDeviceNamePreferenceControllerTest {
     }
 
     @Test
-    public void refreshUi_notConnected_setsDisconnectedAsSummary() {
+    public void refreshUi_notConnectedsetsCarConnectionSummaryAsSummary() {
+        String summary = "summary";
         when(mCachedDevice.isConnected()).thenReturn(false);
+        when(mCachedDevice.getCarConnectionSummary()).thenReturn(summary);
 
         mPreferenceController.refreshUi();
 
-        assertThat(mPreference.getSummary()).isEqualTo(mContext.getString(BluetoothUtils
-                .getConnectionStateSummary(BluetoothProfile.STATE_DISCONNECTED)));
+        assertThat(mPreference.getSummary()).isEqualTo(summary);
     }
 
     @Test
     public void refreshUi_setsIcon() {
         when(mCachedDevice.getBtClass()).thenReturn(
-                new BluetoothClass(BluetoothClass.Device.Major.PHONE));
+                createBtClass(BluetoothClass.Device.Major.PHONE));
 
         mPreferenceController.refreshUi();
 

@@ -27,6 +27,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.WorkSource;
+import android.os.test.TestLooper;
 
 import androidx.test.filters.SmallTest;
 
@@ -50,6 +51,7 @@ public class WifiMulticastLockManagerTest extends WifiBaseTest {
     private static final String WL_1_TAG = "Wakelock-1";
     private static final String WL_2_TAG = "Wakelock-2";
 
+    private TestLooper mLooper;
     @Mock ConcreteClientModeManager mClientModeManager;
     @Mock ConcreteClientModeManager mClientModeManager2;
     @Spy FakeFilterController mFilterController = new FakeFilterController();
@@ -65,6 +67,7 @@ public class WifiMulticastLockManagerTest extends WifiBaseTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+        mLooper = new TestLooper();
 
         when(mClientModeManager.getMcastLockManagerFilterController())
                 .thenReturn(mFilterController);
@@ -75,7 +78,8 @@ public class WifiMulticastLockManagerTest extends WifiBaseTest {
         when(mClientModeManager2.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
 
         when(mActiveModeWarden.getPrimaryClientModeManager()).thenReturn(mClientModeManager);
-        mManager = new WifiMulticastLockManager(mActiveModeWarden, mBatteryStats);
+        mManager = new WifiMulticastLockManager(mActiveModeWarden, mBatteryStats,
+                mLooper.getLooper());
 
         verify(mActiveModeWarden).registerPrimaryClientModeManagerChangedCallback(
                 mPrimaryChangedCallbackCaptor.capture());

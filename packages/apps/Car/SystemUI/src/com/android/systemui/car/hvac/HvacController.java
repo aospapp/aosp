@@ -194,7 +194,7 @@ public class HvacController implements HvacPropertySetter,
     }
 
     /**
-     * Registers all {@link HvacView}s in the {@code rootView} and its descendants.
+     * Registers all {@link HvacView}s in the {@code rootView} and its descendents.
      */
     @UiBackground
     public void registerHvacViews(View rootView) {
@@ -242,7 +242,7 @@ public class HvacController implements HvacPropertySetter,
     }
 
     /**
-     * Unregisters all {@link HvacView}s in the {@code rootView} and its descendants.
+     * Unregisters all {@link HvacView}s in the {@code rootView} and its descendents.
      */
     public void unregisterViews(View rootView) {
         if (rootView instanceof HvacView) {

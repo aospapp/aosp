@@ -23,6 +23,7 @@ import android.car.watchdog.CarWatchdogManager.CarWatchdogClientCallback;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import java.util.concurrent.ExecutorService;
@@ -33,6 +34,10 @@ public final class CarWatchdogClient {
     private static final String TIMEOUT_CRITICAL = "critical";
     private static final String TIMEOUT_MODERATE = "moderate";
     private static final String TIMEOUT_NORMAL = "normal";
+    private static final String PROPERTY_RO_CLIENT_HEALTHCHECK_INTERVAL =
+            "ro.carwatchdog.client_healthcheck.interval";
+    private static final int MISSING_INT_PROPERTY_VALUE = -1;
+
     private static CarWatchdogClient sCarWatchdogClient;
 
     private final CarWatchdogManager mCarWatchdogManager;
@@ -55,6 +60,7 @@ public final class CarWatchdogClient {
     private final ExecutorService mCallbackExecutor = Executors.newFixedThreadPool(1);
     private ClientConfig mClientConfig;
     private long mClientStartTime;
+    private long mOverriddenClientHealthCheckWindowMs = MISSING_INT_PROPERTY_VALUE;
 
     // This method is not intended for multi-threaded calls.
     public static void start(Car car, @NonNull String command) {
@@ -127,6 +133,15 @@ public final class CarWatchdogClient {
     private CarWatchdogClient(Car car, ClientConfig config) {
         mClientConfig = config;
         mCarWatchdogManager = (CarWatchdogManager) car.getCarManager(Car.CAR_WATCHDOG_SERVICE);
+        int clientHealthcheckIntervalSecs = SystemProperties.getInt(
+                PROPERTY_RO_CLIENT_HEALTHCHECK_INTERVAL, MISSING_INT_PROPERTY_VALUE);
+        if (clientHealthcheckIntervalSecs != MISSING_INT_PROPERTY_VALUE) {
+            // Client must be inactive for at least twice the duration of the client health check
+            // window.
+            mOverriddenClientHealthCheckWindowMs = clientHealthcheckIntervalSecs * 2005L;
+            mOverriddenClientHealthCheckWindowMs = Math.max(mOverriddenClientHealthCheckWindowMs,
+                    getTimeForInactiveMain(CarWatchdogManager.TIMEOUT_NORMAL));
+        }
     }
 
     private void registerAndGo() {
@@ -152,6 +167,9 @@ public final class CarWatchdogClient {
 
     // The waiting time = (timeout * 2) + 50 milliseconds.
     private long getTimeForInactiveMain(int timeout) {
+        if (mOverriddenClientHealthCheckWindowMs != MISSING_INT_PROPERTY_VALUE) {
+            return mOverriddenClientHealthCheckWindowMs;
+        }
         switch (timeout) {
             case CarWatchdogManager.TIMEOUT_CRITICAL:
                 return 6050L;

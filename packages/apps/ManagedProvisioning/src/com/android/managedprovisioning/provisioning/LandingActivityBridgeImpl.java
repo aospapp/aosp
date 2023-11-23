@@ -52,12 +52,12 @@ abstract class LandingActivityBridgeImpl implements LandingActivityBridge {
             headerResId = R.string.account_management_disclaimer_header;
         }
 
-        CustomizationParams customizationParams =
-                CustomizationParams.createInstance(getParams(), activity, getUtils());
         getInitializeLayoutParamsConsumer()
-                .initializeLayoutParams(R.layout.landing_screen, headerResId, customizationParams);
+                .initializeLayoutParams(R.layout.landing_screen, headerResId);
         activity.setTitle(titleResId);
 
+        CustomizationParams customizationParams =
+                CustomizationParams.createInstance(getParams(), activity, getUtils());
         setupSubtitleText(activity, getParams(), customizationParams);
 
         GlifLayout layout = activity.findViewById(R.id.setup_wizard_layout);

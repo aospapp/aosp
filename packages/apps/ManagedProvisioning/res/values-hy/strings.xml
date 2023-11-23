@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Հետևյալ հավելվածը կառավարելու է սարքը՝"</string>
     <string name="next" msgid="1004321437324424398">"Հաջորդը"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Աշխատանքային պրոֆիլի կարգավորում…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Ձեր ՏՏ ադմինիստրատորը կարող է վերահսկել և կառավարել այս պրոֆիլին առնչվող կարգավորումները, կորպորատիվ մուտքը, հավելվածները, թույլտվությունները և տվյալները, ներառյալ ձեր գործողությունները ցանցում, սարքի տեղադրության տվյալները, զանգերի պատմությունը և կոնտակտների որոնումների պատմությունը:<xliff:g id="LINE_BREAK">
-
-</xliff:g>Լրացուցիչ տեղեկություններ ստանալու և ընկերության գաղտնիության քաղաքականությանը ծանոթանալու համար դիմեք ձեր ՏՏ ադմինիստրատորին:"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Ձեր ՏՏ ադմինիստրատորը կարող է վերահսկել և կառավարել այս պրոֆիլին առնչվող կարգավորումները, կորպորատիվ մուտքը, հավելվածները, թույլտվությունները, տվյալները և ցանցում կատարած գործողությունները, ինչպես նաև զանգերի պատմությունը և կոնտակտների որոնումների պատմությունը։ Լրացուցիչ տեղեկություններ ստանալու և կազմակերպության գաղտնիության քաղաքականությանը ծանոթանալու համար դիմեք ձեր ՏՏ ադմինիստրատորին։"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Ձեր ՏՏ ադմինիստրատորը կարող է վերահսկել և կառավարել այս սարքին առնչվող կարգավորումները, կորպորատիվ մուտքը, հավելվածները, թույլտվությունները և տվյալները, ներառյալ ձեր գործողությունները ցանցում, սարքի տեղադրության տվյալները, զանգերի պատմությունը և կոնտակտների որոնումների պատմությունը:<xliff:g id="LINE_BREAK">
 
 </xliff:g>Լրացուցիչ տեղեկություններ ստանալու և կազմակերպության գաղտնիության քաղաքականությանը ծանոթանալու համար դիմեք ձեր ՏՏ ադմինիստրատորին:"</string>
@@ -75,7 +73,7 @@
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Դադարեցնե՞լ կարգավորումը և ջնջել սարքի տվյալները:"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Չեղարկել"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"Եղավ"</string>
-    <string name="reset" msgid="6467204151306265796">"Վերակայել"</string>
+    <string name="reset" msgid="6467204151306265796">"Զրոյացնել"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Հնարավոր չէ կարգավորել պրոֆիլը"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Հնարավոր չէ կարգավորել սարքը"</string>
     <string name="something_went_wrong" msgid="3593223774041784329">"Սխալ առաջացավ"</string>
@@ -98,7 +96,7 @@
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Դադարեցնե՞լ պրոֆիլի կարգավորումը:"</string>
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"Հետագայում կարող եք կարգավորել ձեր աշխատանքային պրոֆիլը ձեր կազմակերպության սարքի կառավարման հավելվածում"</string>
     <string name="continue_button" msgid="7177918589510964446">"Շարունակել"</string>
-    <string name="work_profile_setup_stop" msgid="6772128629992514750">"Դադարեցնել"</string>
+    <string name="work_profile_setup_stop" msgid="6772128629992514750">"Կանգնեցնել"</string>
     <string name="dismiss" msgid="9009534756748565880">"Փակել"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"Դուք պատրաստվում եք ստեղծել աշխատանքային պրոֆիլ, որը կկառավարվի և կվերահսկվի ձեր կազմակերպության կողմից: Կիրառվում են հատուկ պայմաններ։"</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"Դուք պատրաստվում եք ստեղծել աշխատանքային պրոֆիլ, որը կկառավարվի և կվերահսկվի ձեր կազմակերպության կողմից: Կիրառվում են <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> պայմանները։"</string>
@@ -182,7 +180,7 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Վերադարձեք նախորդ էկրան կամ վերակայեք այս սարքը և վերադարձրեք այն ձեր ՏՏ ադմինիստրատորին։"</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Չեղարկել կարգավորումը"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Վերակայել և վերադարձներ սարքը"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Աշխատանքային հավելվածները ձեր աշխատանքային պրոֆիլում են, կառավարիչ՝ ՏՏ ադմինիստրատորը"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Աշխատանքային հավելվածները ձեր աշխատանքային պրոֆիլում են, կառավարիչը՝ ՏՏ ադմինիստրատորը"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Անձնական հավելվածները թաքցված են և առանձին են աշխատանքայիններից"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ՏՏ ադմինիստրատորը կարող է վերահսկել սարքը և արգելափակել որոշ հավելվածներ"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Աշխատանքային հավելվածները պահվում են ձեր աշխատանքային պրոֆիլում և կառավարվում են ձեր ՏՏ ադմինիստրատորի կողմից։ Անձնական հավելվածները առանձին են և թաքցված են, երբ ցուցադրվում են աշխատանքայինները։ Ձեր ՏՏ ադմինիստրատորը կարող է վերահսկել այս սարքը և արգելափակել որոշակի հավելվածներ։"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"«<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>» ընկերությունը կարող է տեղադրել <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> հավելվածը, որպեսզի դուք կարողանաք վճարումներ կատարել։"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Այս սարքի օգտագործումը կարող է սահմանափակվել"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"«<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>» ընկերությունը կարող է արգելափակել այս սարքը, եթե վճարումներ չկատարեք։"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Չհաջողվեց կարգավորել սարքը։ Հայտնեք ձեր ադմինիստրատորին «Անվավեր ստուգիչ գումար» սխալի մասին։"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Փորձեք ավելի ուշ կամ օգնության համար դիմեք ձեր ՏՏ ադմինիստրատորին։"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Չհաջողվեց կարգավորել սարքը։ Հայտնեք ձեր ադմինիստրատորին «Բացակայող կամ վնասված բաղադրիչներ» սխալի մասին։"</string>
+    <string name="setting_up" msgid="1478847967385506664">"Կարգավորում…"</string>
 </resources>

@@ -18,36 +18,27 @@ package com.android.cts.net.hostside;
 
 import static android.os.Process.SYSTEM_UID;
 
+import static com.android.cts.net.hostside.NetworkPolicyTestUtils.assertIsUidRestrictedOnMeteredNetworks;
 import static com.android.cts.net.hostside.NetworkPolicyTestUtils.assertNetworkingBlockedStatusForUid;
-import static com.android.cts.net.hostside.NetworkPolicyTestUtils.canChangeActiveNetworkMeteredness;
 import static com.android.cts.net.hostside.NetworkPolicyTestUtils.isUidNetworkingBlocked;
-import static com.android.cts.net.hostside.NetworkPolicyTestUtils.isUidRestrictedOnMeteredNetworks;
 import static com.android.cts.net.hostside.NetworkPolicyTestUtils.setRestrictBackground;
 import static com.android.cts.net.hostside.Property.BATTERY_SAVER_MODE;
 import static com.android.cts.net.hostside.Property.DATA_SAVER_MODE;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 public class NetworkPolicyManagerTest extends AbstractRestrictBackgroundNetworkTestCase {
     private static final boolean METERED = true;
     private static final boolean NON_METERED = false;
 
-    @Rule
-    public final MeterednessConfigurationRule mMeterednessConfiguration =
-            new MeterednessConfigurationRule();
-
     @Before
     public void setUp() throws Exception {
         super.setUp();
-
-        assumeTrue(canChangeActiveNetworkMeteredness());
 
         registerBroadcastReceiver();
 
@@ -145,13 +136,14 @@ public class NetworkPolicyManagerTest extends AbstractRestrictBackgroundNetworkT
             removeRestrictBackgroundWhitelist(mUid);
 
             // Make TEST_APP2_PKG go to foreground and mUid will be allowed temporarily.
-            launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
+            launchActivity();
             assertForegroundState();
             assertNetworkingBlockedStatusForUid(mUid, METERED,
                     false /* expectedResult */); // Match NTWK_ALLOWED_TMP_ALLOWLIST
 
             // Back to background.
             finishActivity();
+            assertBackgroundState();
             assertNetworkingBlockedStatusForUid(mUid, METERED,
                     true /* expectedResult */); // Match NTWK_BLOCKED_BG_RESTRICT
         } finally {
@@ -222,26 +214,27 @@ public class NetworkPolicyManagerTest extends AbstractRestrictBackgroundNetworkT
             // enabled and mUid is not in the restrict background whitelist and TEST_APP2_PKG is not
             // in the foreground. For other cases, it will return false.
             setRestrictBackground(true);
-            assertTrue(isUidRestrictedOnMeteredNetworks(mUid));
+            assertIsUidRestrictedOnMeteredNetworks(mUid, true /* expectedResult */);
 
             // Make TEST_APP2_PKG go to foreground and isUidRestrictedOnMeteredNetworks() will
             // return false.
-            launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
+            launchActivity();
             assertForegroundState();
-            assertFalse(isUidRestrictedOnMeteredNetworks(mUid));
+            assertIsUidRestrictedOnMeteredNetworks(mUid, false /* expectedResult */);
             // Back to background.
             finishActivity();
+            assertBackgroundState();
 
             // Add mUid into restrict background whitelist and isUidRestrictedOnMeteredNetworks()
             // will return false.
             addRestrictBackgroundWhitelist(mUid);
-            assertFalse(isUidRestrictedOnMeteredNetworks(mUid));
+            assertIsUidRestrictedOnMeteredNetworks(mUid, false /* expectedResult */);
             removeRestrictBackgroundWhitelist(mUid);
         } finally {
             // Restrict background is disabled and isUidRestrictedOnMeteredNetworks() will return
             // false.
             setRestrictBackground(false);
-            assertFalse(isUidRestrictedOnMeteredNetworks(mUid));
+            assertIsUidRestrictedOnMeteredNetworks(mUid, false /* expectedResult */);
         }
     }
 }

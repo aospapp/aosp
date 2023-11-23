@@ -50,16 +50,38 @@ bootclasspath_fragment {
     additional_stubs: [
         "android-non-updatable",
     ],
+    hidden_api: {
+
+        // This module does not contain any split packages.
+        split_packages: [],
+
+        // The following packages and all their subpackages currently only
+        // contain classes from this bootclasspath_fragment. Listing a package
+        // here won't prevent other bootclasspath modules from adding classes in
+        // any of those packages but it will prevent them from adding those
+        // classes into an API surface, e.g. public, system, etc.. Doing so will
+        // result in a build failure due to inconsistent flags.
+        package_prefixes: [
+            "android.scheduling",
+        ],
+    },
+
+}
+
+systemserverclasspath_fragment {
+    name: "com.android.scheduling-systemserverclasspath-fragment",
+    standalone_contents: ["service-scheduling"],
+    apex_available: ["com.android.scheduling"],
 }
 
 apex {
     name: "com.android.scheduling",
-    updatable: true,
-    min_sdk_version: "current",
+    defaults: ["s-launched-apex-module"],
     bootclasspath_fragments: ["com.android.scheduling-bootclasspath-fragment"],
-    java_libs: ["service-scheduling"],
+    systemserverclasspath_fragments: ["com.android.scheduling-systemserverclasspath-fragment"],
     prebuilts: ["current_sdkinfo"],
     manifest: "manifest.json",
+    androidManifest: "AndroidManifest.xml",
     file_contexts: ":com.android.scheduling-file_contexts",
     key: "com.android.scheduling.key",
 }
@@ -67,4 +89,5 @@ apex {
 sdk {
     name: "scheduling-sdk",
     bootclasspath_fragments: ["com.android.scheduling-bootclasspath-fragment"],
+    systemserverclasspath_fragments: ["com.android.scheduling-systemserverclasspath-fragment"],
 }

@@ -18,21 +18,17 @@ package com.android.car.settings.datausage;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
-import android.net.NetworkPolicy;
-import android.net.NetworkTemplate;
 import android.os.Bundle;
-import android.util.Pair;
+import android.text.format.DateUtils;
 
 import androidx.fragment.app.FragmentManager;
-import androidx.test.core.app.ApplicationProvider;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseCarSettingsTestActivity;
-import com.android.settingslib.net.DataUsageController;
+import com.android.settingslib.net.NetworkCycleChartData;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -40,24 +36,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
 
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Unit test for {@link AppDataUsageFragment}. */
 @RunWith(AndroidJUnit4.class)
 public class AppDataUsageFragmentTest {
-    private static final String KEY_TEMPLATE = "template";
     private static final String KEY_START = "start";
     private static final String KEY_END = "end";
 
-    private Context mContext = ApplicationProvider.getApplicationContext();
     private TestAppDataUsageFragment mFragment;
-    private BaseCarSettingsTestActivity mActivity;
     private FragmentManager mFragmentManager;
-
-    private Iterator<Pair<ZonedDateTime, ZonedDateTime>> mIterator;
 
     @Rule
     public ActivityTestRule<BaseCarSettingsTestActivity> mActivityTestRule =
@@ -66,80 +55,79 @@ public class AppDataUsageFragmentTest {
     @Before
     public void setUp() throws Throwable {
         MockitoAnnotations.initMocks(this);
-        mActivity = mActivityTestRule.getActivity();
         mFragmentManager = mActivityTestRule.getActivity().getSupportFragmentManager();
     }
 
     @Test
-    public void onActivityCreated_policyIsNull_startAndEndDateShouldHaveFourWeeksDifference()
+    @UiThreadTest
+    public void onActivityCreated_noDataCycles_startAndEndDateShouldHaveFourWeeksDifference()
             throws Throwable {
-        setUpFragment();
+        setUpFragment(/* hasDataCycles= */ false);
+
         Bundle bundle = mFragment.getBundle();
-        NetworkTemplate networkTemplate = bundle.getParcelable(KEY_TEMPLATE);
         long start = bundle.getLong(KEY_START);
         long end = bundle.getLong(KEY_END);
-        DataUsageController.DataUsageInfo dataUsageInfo =
-                new DataUsageController(mContext).getDataUsageInfo(networkTemplate);
+        long timeDiff = end - start;
 
-        compareMilliseconds(start, dataUsageInfo.cycleStart);
-        compareMilliseconds(end, dataUsageInfo.cycleEnd);
+        assertThat(timeDiff).isEqualTo(DateUtils.WEEK_IN_MILLIS * 4);
     }
 
     @Test
-    public void onActivityCreated_iteratorIsEmpty_startAndEndDateShouldHaveFourWeeksDifference()
-            throws Throwable {
-        ArrayList<Pair<ZonedDateTime, ZonedDateTime>> list = new ArrayList<>();
-        mIterator = list.iterator();
-        setUpFragment();
+    @UiThreadTest
+    public void onActivityCreated_dataCyclePicked_showsDataCycle() throws Throwable {
+        long startTime = System.currentTimeMillis();
+        long endTime = System.currentTimeMillis() + DateUtils.WEEK_IN_MILLIS * 4;
+        String cycle = "cycle_key";
+        Map<CharSequence, NetworkCycleChartData> dataCycles = new HashMap<>();
+        NetworkCycleChartData.Builder builder = new NetworkCycleChartData.Builder();
+        builder.setStartTime(startTime)
+                .setEndTime(endTime);
+        dataCycles.put(cycle, builder.build());
+
+        setUpFragment(/* hasDataCycles= */ true);
+        mFragment.onDataCyclePicked(cycle, dataCycles);
 
         Bundle bundle = mFragment.getBundle();
-        NetworkTemplate networkTemplate = bundle.getParcelable(KEY_TEMPLATE);
         long start = bundle.getLong(KEY_START);
         long end = bundle.getLong(KEY_END);
-        DataUsageController.DataUsageInfo dataUsageInfo =
-                new DataUsageController(mContext).getDataUsageInfo(networkTemplate);
 
-        compareMilliseconds(start, dataUsageInfo.cycleStart);
-        compareMilliseconds(end, dataUsageInfo.cycleEnd);
+        assertThat(start).isEqualTo(startTime);
+        assertThat(end).isEqualTo(endTime);
     }
 
-    private void setUpFragment() throws Throwable {
+    private void setUpFragment(boolean hasDataCycles)
+            throws Throwable {
         String appDataUsageFragmentTag = "app_data_usage_fragment";
         mActivityTestRule.runOnUiThread(() -> {
             mFragmentManager.beginTransaction()
                     .replace(R.id.fragment_container,
-                            TestAppDataUsageFragment.newInstance(mIterator),
+                            TestAppDataUsageFragment.newInstance(hasDataCycles),
                             appDataUsageFragmentTag)
                     .commitNow();
         });
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
         mFragment = (TestAppDataUsageFragment) mFragmentManager
                 .findFragmentByTag(appDataUsageFragmentTag);
     }
 
     public static class TestAppDataUsageFragment extends AppDataUsageFragment {
 
-        private Iterator<Pair<ZonedDateTime, ZonedDateTime>> mIterator;
+        // Ensure onDataCyclePicked() isn't called on test devices with data plans
+        private boolean mHasDataCycles;
 
-        public static TestAppDataUsageFragment newInstance(
-                Iterator<Pair<ZonedDateTime, ZonedDateTime>> cycleIterator) {
+        public static TestAppDataUsageFragment newInstance(boolean hasDataCycles) {
             TestAppDataUsageFragment fragment = new TestAppDataUsageFragment();
-            fragment.mIterator = cycleIterator;
+            fragment.mHasDataCycles = hasDataCycles;
             return fragment;
         }
 
         @Override
-        Iterator<Pair<ZonedDateTime, ZonedDateTime>> getCycleIterator(NetworkPolicy policy) {
-            if (mIterator != null) {
-                return mIterator;
+        public void onDataCyclePicked(String cycle, Map<CharSequence,
+                NetworkCycleChartData> usages) {
+            if (!mHasDataCycles) {
+                return;
             }
-            return super.getCycleIterator(policy);
+            super.onDataCyclePicked(cycle, usages);
         }
-    }
-
-    /** Avoid some offset in milliseconds. */
-    private void compareMilliseconds(long milli1, long milli2) {
-        assertThat(TimeUnit.MILLISECONDS.toMinutes(milli1))
-                .isEqualTo(TimeUnit.MILLISECONDS.toMinutes(milli2));
     }
 }

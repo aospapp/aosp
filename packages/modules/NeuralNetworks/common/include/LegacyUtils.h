@@ -17,14 +17,13 @@
 // utilities. LegacyHalUtils.h is a superset of these utilities that includes
 // HAL utilities.
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_UTILS_H
 
 #include <android-base/logging.h>
 #include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
 
-#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -37,11 +36,16 @@
 namespace android {
 namespace nn {
 
-// The number of data types (OperandCode) defined in NeuralNetworks.h.
+// The number of data types (OperandCode) defined in NeuralNetworksTypes.h.
 const int kNumberOfDataTypes = 16;
 
-// The number of operation types (OperationCode) defined in NeuralNetworks.h.
-const int kNumberOfOperationTypes = 102;
+// The number of operation types (OperationCode) defined in NeuralNetworksTypes.h.
+const int kNumberOfOperationTypes = 106;
+
+#ifdef NN_EXPERIMENTAL_FEATURE
+const int kNumberOfExperimentalOperationTypes = 1;
+#endif  // NN_EXPERIMENTAL_FEATURE
+
 static_assert(kNumberOfOperationTypes == BuiltinOperationResolver::kNumberOfOperationTypes);
 
 // The number of execution preferences defined in NeuralNetworks.h.
@@ -56,31 +60,11 @@ const int kNumberOfOperationTypesOEM = 1;
 // The lowest number assigned to any OEM Code in NeuralNetworksOEM.h.
 const int kOEMCodeBase = 10000;
 
-/* IMPORTANT: if you change the following list, don't
- * forget to update the corresponding 'tags' table in
- * the initVlogMask() function implemented in Utils.cpp.
- */
-enum VLogFlags { MODEL = 0, COMPILATION, EXECUTION, CPUEXE, MANAGER, DRIVER, MEMORY };
-
-#define VLOG_IS_ON(TAG) ((vLogMask & (1 << (TAG))) != 0)
-
-#define VLOG(TAG)                 \
-    if (LIKELY(!VLOG_IS_ON(TAG))) \
-        ;                         \
-    else                          \
-        LOG(INFO)
-
-extern int vLogMask;
-void initVLogMask();
-
 #ifdef NN_DEBUGGABLE
 #define SHOW_IF_DEBUG(msg) msg
 #else
 #define SHOW_IF_DEBUG(msg) ""
 #endif
-
-// DEPRECATED(b/118737105). Use CHECK.
-#define nnAssert(v) CHECK(v)
 
 #define NN_RETURN_IF_ERROR(expr)                      \
     do {                                              \
@@ -89,6 +73,22 @@ void initVLogMask();
             return _errorCode;                        \
         }                                             \
     } while (0)
+
+enum class HalVersion : int32_t {
+    UNKNOWN,
+    V1_0,
+    V1_1,
+    V1_2,
+    V1_3,
+    AIDL_V1,
+    AIDL_V2,
+    AIDL_UNSTABLE,
+    // TODO(b/207721221): Add AIDL support to TestPartitioning so that LATEST can be set to AIDL
+    //  version.
+    LATEST = V1_3,
+};
+
+std::ostream& operator<<(std::ostream& os, const HalVersion& halVersion);
 
 // Make a Duration from a duration in nanoseconds. If the value exceeds the max duration, return the
 // maximum expressible duration.
@@ -188,9 +188,7 @@ bool nonExtensionOperandTypeIsScalar(int type);
 //
 // Undefined behavior if the operand type is a scalar type.
 bool tensorHasUnspecifiedDimensions(int type, const uint32_t* dim, uint32_t dimCount);
-bool tensorHasUnspecifiedDimensions(OperandType type, const std::vector<uint32_t>& dimensions);
 bool tensorHasUnspecifiedDimensions(OperandType type, const Dimensions& dimensions);
-bool tensorHasUnspecifiedDimensions(const Operand& operand);
 bool tensorHasUnspecifiedDimensions(const ANeuralNetworksOperandType* type);
 
 // Returns the number of padding bytes needed to align data starting at `index` with `length` number
@@ -201,26 +199,6 @@ uint32_t alignBytesNeeded(uint32_t index, size_t length);
 
 // Does a detailed LOG(INFO) of the model
 void logModelToInfo(const Model& model);
-
-inline std::string toString(uint32_t obj) {
-    return std::to_string(obj);
-}
-
-template <typename Type>
-std::string toString(const std::vector<Type>& range) {
-    std::string os = "[";
-    for (size_t i = 0; i < range.size(); ++i) {
-        os += (i == 0 ? "" : ", ") + toString(range[i]);
-    }
-    return os += "]";
-}
-
-template <typename A, typename B>
-std::string toString(const std::pair<A, B>& pair) {
-    std::ostringstream oss;
-    oss << "(" << pair.first << ", " << pair.second << ")";
-    return oss.str();
-}
 
 inline bool validCode(uint32_t codeCount, uint32_t codeCountOEM, uint32_t code) {
     return (code < codeCount) || (code >= kOEMCodeBase && (code - kOEMCodeBase) < codeCountOEM);
@@ -313,15 +291,33 @@ struct ApiVersion {
     int64_t featureLevel;
 };
 
-constexpr auto kHalVersionV1_0ToApi = ApiVersion{.canonical = Version::ANDROID_OC_MR1,
+constexpr auto kHalVersionV1_0ToApi = ApiVersion{.canonical = kVersionFeatureLevel1,
                                                  .featureLevel = ANEURALNETWORKS_FEATURE_LEVEL_1};
-constexpr auto kHalVersionV1_1ToApi = ApiVersion{.canonical = Version::ANDROID_P,
+constexpr auto kHalVersionV1_1ToApi = ApiVersion{.canonical = kVersionFeatureLevel2,
                                                  .featureLevel = ANEURALNETWORKS_FEATURE_LEVEL_2};
-constexpr auto kHalVersionV1_2ToApi = ApiVersion{.canonical = Version::ANDROID_Q,
+constexpr auto kHalVersionV1_2ToApi = ApiVersion{.canonical = kVersionFeatureLevel3,
                                                  .featureLevel = ANEURALNETWORKS_FEATURE_LEVEL_3};
-constexpr auto kHalVersionV1_3ToApi = ApiVersion{.canonical = Version::ANDROID_R,
+constexpr auto kHalVersionV1_3ToApi = ApiVersion{.canonical = kVersionFeatureLevel4,
                                                  .featureLevel = ANEURALNETWORKS_FEATURE_LEVEL_4};
+
+// Utility that measures time period, in nanoseconds, from creation
+// to destruction and stores result in the supplied memory location
+// on destruction
+struct [[nodiscard]] TimeNanoMeasurer {
+    TimePoint start;
+    uint64_t* saveAt;
+
+    explicit TimeNanoMeasurer(uint64_t* saveAt) : start(Clock::now()), saveAt(saveAt) {}
+    ~TimeNanoMeasurer() { *saveAt = currentDuration(start); }
+    DISALLOW_COPY_AND_ASSIGN(TimeNanoMeasurer);
+
+    static inline uint64_t currentDuration(const TimePoint& start) {
+        auto end = Clock::now();
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    }
+};
+
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_UTILS_H

@@ -37,7 +37,7 @@ bool IndexedShapeWrapper::nextIndexInplace(std::vector<uint32_t>* index, bool* l
     NN_CHECK(isValid(*index));
 
     bool anyIndicesLeft = false;
-    for (int i = 0; i < index->size(); ++i) {
+    for (size_t i = 0; i < index->size(); ++i) {
         if (index->at(i) < shape->dimensions[i] - 1) {
             anyIndicesLeft = true;
             break;
@@ -63,7 +63,7 @@ bool IndexedShapeWrapper::indexToFlatIndex(const std::vector<uint32_t>& index,
     NN_CHECK(isValid(index));
 
     *flatIndex = 0;
-    for (int i = 0; i < index.size(); ++i) {
+    for (size_t i = 0; i < index.size(); ++i) {
         *flatIndex += strides[i] * index[i];
     }
     return true;
@@ -74,7 +74,7 @@ bool IndexedShapeWrapper::broadcastedIndexToFlatIndex(const std::vector<uint32_t
     NN_CHECK(index.size() >= strides.size());
 
     *flatIndex = 0;
-    for (int i = 1; i <= strides.size(); ++i) {
+    for (size_t i = 1; i <= strides.size(); ++i) {
         uint32_t currentIndex = index[index.size() - i];
         uint32_t currentDimSize = shape->dimensions[shape->dimensions.size() - i];
         NN_CHECK(currentIndex < currentDimSize || currentDimSize == 1);
@@ -92,7 +92,7 @@ bool IndexedShapeWrapper::isValid(const std::vector<uint32_t>& index) const {
                    << toString(shape->dimensions);
         return false;
     }
-    for (int i = 0; i < index.size(); ++i) {
+    for (size_t i = 0; i < index.size(); ++i) {
         if (index[i] >= shape->dimensions[i]) {
             LOG(ERROR) << "Invalid index: " << toString(index)
                        << " is out of range for shape: " << toString(shape->dimensions);

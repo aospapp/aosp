@@ -18,6 +18,7 @@ package com.android.networkstack.tethering;
 
 import android.app.usage.NetworkStatsManager;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothPan;
 import android.content.Context;
 import android.net.INetd;
 import android.net.ip.IpServer;
@@ -31,6 +32,8 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 
 import com.android.internal.util.StateMachine;
+import com.android.networkstack.apishim.BluetoothPanShimImpl;
+import com.android.networkstack.apishim.common.BluetoothPanShim;
 
 import java.util.ArrayList;
 
@@ -89,13 +92,6 @@ public abstract class TetheringDependencies {
      * Get dependencies to be used by IpServer.
      */
     public abstract IpServer.Dependencies getIpServerDependencies();
-
-    /**
-     * Indicates whether tethering is supported on the device.
-     */
-    public boolean isTetheringSupported() {
-        return true;
-    }
 
     /**
      * Get a reference to the EntitlementManager to be used by tethering.
@@ -157,5 +153,14 @@ public abstract class TetheringDependencies {
     public PrivateAddressCoordinator getPrivateAddressCoordinator(Context ctx,
             TetheringConfiguration cfg) {
         return new PrivateAddressCoordinator(ctx, cfg);
+    }
+
+    /**
+     * Get BluetoothPanShim object to enable/disable bluetooth tethering.
+     *
+     * TODO: use BluetoothPan directly when mainline module is built with API 32.
+     */
+    public BluetoothPanShim getBluetoothPanShim(BluetoothPan pan) {
+        return BluetoothPanShimImpl.newInstance(pan);
     }
 }

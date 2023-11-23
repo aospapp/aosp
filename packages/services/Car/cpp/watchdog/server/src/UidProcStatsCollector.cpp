@@ -205,6 +205,20 @@ std::string UidProcStats::toString() const {
     return buffer;
 }
 
+void UidProcStatsCollector::init() {
+    // Note: Verify proc file access outside the constructor. Otherwise, the unittests of
+    // dependent classes would call the constructor before mocking and get killed due to
+    // sepolicy violation.
+    std::string pidStatPath = StringPrintf((mPath + kStatFileFormat).c_str(), PID_FOR_INIT);
+    std::string tidStatPath = StringPrintf((mPath + kTaskDirFormat + kStatFileFormat).c_str(),
+                                           PID_FOR_INIT, PID_FOR_INIT);
+    std::string pidStatusPath = StringPrintf((mPath + kStatusFileFormat).c_str(), PID_FOR_INIT);
+
+    Mutex::Autolock lock(mMutex);
+    mEnabled = access(pidStatPath.c_str(), R_OK) == 0 && access(tidStatPath.c_str(), R_OK) == 0 &&
+            access(pidStatusPath.c_str(), R_OK) == 0;
+}
+
 Result<void> UidProcStatsCollector::collect() {
     if (!mEnabled) {
         return Error() << "Can not access PID stat files under " << kProcDirPath;
@@ -318,7 +332,7 @@ Result<std::tuple<uid_t, ProcessStats>> UidProcStatsCollector::readProcessStatsL
         tgid = std::get<1>(*result);
     }
 
-    if (uid == -1 || tgid != pid) {
+    if (uid == static_cast<uid_t>(-1) || tgid != pid) {
         return Error(ERR_FILE_OPEN_READ)
                 << "Skipping PID '" << pid << "' because either Tgid != PID or invalid UID";
     }

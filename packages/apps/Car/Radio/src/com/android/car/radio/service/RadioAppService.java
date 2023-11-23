@@ -32,7 +32,9 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.service.media.MediaBrowserService;
+import android.util.IndentingPrintWriter;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.Lifecycle;
@@ -92,10 +94,13 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
     private TunerSession mMediaSession;
 
     // current observables state for newly bound IRadioAppCallbacks
+    @GuardedBy("mLock")
     private ProgramInfo mCurrentProgram = null;
+    @GuardedBy("mLock")
     private int mCurrentPlaybackState = PlaybackState.STATE_NONE;
+    @GuardedBy("mLock")
     private long mLastProgramListPush;
-
+    @GuardedBy("mLock")
     private RegionConfig mRegionConfigCache;
 
     private SkipController mSkipController;
@@ -139,14 +144,13 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
             mProgramList.addOnCompleteListener(this::pushProgramListUpdate);
         }
 
-        tuneToDefault(null);
-        mAudioStreamController.requestMuted(false);
-
         mLifecycleRegistry.markState(Lifecycle.State.CREATED);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "onStartCommand intent [%s] flags[%d] startId[%d]",
+                intent.toString(), flags, startId);
         mLifecycleRegistry.markState(Lifecycle.State.STARTED);
         if (BrowseTree.ACTION_PLAY_BROADCASTRADIO.equals(intent.getAction())) {
             Log.i(TAG, "Executing general play radio intent");
@@ -160,6 +164,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
 
     @Override
     public IBinder onBind(Intent intent) {
+        Log.i(TAG, "onBind intent[" + intent + "]");
         mLifecycleRegistry.markState(Lifecycle.State.STARTED);
         if (mRadioTuner == null) return null;
         if (ACTION_APP_SERVICE.equals(intent.getAction())) {
@@ -193,6 +198,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
     }
 
     private void onPlaybackStateChanged(int newState) {
+        Log.d(TAG, "onPlaybackStateChanged new state [%d]", newState);
         synchronized (mLock) {
             mCurrentPlaybackState = newState;
             for (IRadioAppCallback callback : mRadioAppCallbacks) {
@@ -289,10 +295,25 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
 
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        if (mSkipController != null) {
-            pw.println("SkipController:"); mSkipController.dump(pw, "  ");
-        } else {
-            pw.println("no SkipController");
+        try (IndentingPrintWriter writer = new IndentingPrintWriter(pw)) {
+            pw.println("RadioAppService:");
+            writer.increaseIndent();
+            if (mSkipController != null) {
+                writer.increaseIndent();
+                mSkipController.dump(writer);
+                writer.decreaseIndent();
+            } else {
+                pw.println("No SkipController");
+            }
+
+            if (mAudioStreamController != null) {
+                writer.increaseIndent();
+                mAudioStreamController.dump(writer);
+                writer.decreaseIndent();
+            } else {
+                pw.println("No AudioStreamController");
+            }
+            writer.decreaseIndent();
         }
     }
 
@@ -378,6 +399,21 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
             if (mAudioStreamController == null) return;
             if (muted) mRadioTuner.cancel();
             mAudioStreamController.requestMuted(muted);
+        }
+
+        @Override
+        public void tuneToDefaultIfNeeded() {
+            synchronized (mLock) {
+                if (mRadioTuner == null) {
+                    throw new IllegalStateException("Tuner session is closed");
+                }
+
+                if (mCurrentPlaybackState != PlaybackState.STATE_NONE) {
+                    return;
+                }
+            }
+
+            tuneToDefault(null);
         }
 
         @Override

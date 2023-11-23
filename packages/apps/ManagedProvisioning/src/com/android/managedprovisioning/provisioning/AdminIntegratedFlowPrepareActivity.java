@@ -82,7 +82,7 @@ public class AdminIntegratedFlowPrepareActivity extends AbstractProvisioningActi
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initializeUi(mParams);
+        initializeUi();
     }
 
     protected ProvisioningManagerInterface getProvisioningManager() {
@@ -104,12 +104,10 @@ public class AdminIntegratedFlowPrepareActivity extends AbstractProvisioningActi
         showCancelProvisioningDialog(/* resetRequired = */true);
     }
 
-    private void initializeUi(ProvisioningParams params) {
+    private void initializeUi() {
         final int headerResId = R.string.downloading_administrator_header;
         final int titleResId = R.string.setup_device_progress;
-        final CustomizationParams customizationParams =
-                CustomizationParams.createInstance(mParams, this, mUtils);
-        initializeLayoutParams(R.layout.empty_loading_layout, headerResId, customizationParams);
+        initializeLayoutParams(R.layout.empty_loading_layout, headerResId);
         setTitle(titleResId);
     }
 

@@ -19,10 +19,11 @@ package com.android.server.wifi;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_MBO;
 import static android.net.wifi.WifiManager.WIFI_FEATURE_OCE;
 
-import android.hardware.wifi.supplicant.V1_4.ISupplicantStaIfaceCallback.MboAssocDisallowedReasonCode;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+
+import com.android.server.wifi.SupplicantStaIfaceHal.MboAssocDisallowedReasonCode;
 
 /**
  * MboOceController is responsible for controlling MBO and OCE operations.

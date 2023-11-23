@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG true  // STOPSHIP if true
+#define STATSD_DEBUG true  // STOPSHIP if true
 #include "Log.h"
 
 #include "stats_util.h"
@@ -81,6 +81,7 @@ bool StateTracker::getStateValue(const HashableDimensionKey& queryKey, FieldValu
 
     // Set the state value to kStateUnknown if query key is not found in state map.
     output->mValue = kStateUnknown;
+    VLOG("StateTracker did not find state value for query key %s", queryKey.toString().c_str());
     return false;
 }
 
@@ -175,13 +176,13 @@ void StateTracker::notifyListeners(const int64_t eventTimeNs,
 }
 
 bool getStateFieldValueFromLogEvent(const LogEvent& event, FieldValue* output) {
-    const int exclusiveStateFieldIndex = event.getExclusiveStateFieldIndex();
-    if (-1 == exclusiveStateFieldIndex) {
+    const std::optional<size_t>& exclusiveStateFieldIndex = event.getExclusiveStateFieldIndex();
+    if (!exclusiveStateFieldIndex) {
         ALOGE("error extracting state from log event. Missing exclusive state field.");
         return false;
     }
 
-    *output = event.getValues()[exclusiveStateFieldIndex];
+    *output = event.getValues()[exclusiveStateFieldIndex.value()];
     return true;
 }
 

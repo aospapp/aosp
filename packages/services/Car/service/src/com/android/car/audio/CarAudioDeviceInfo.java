@@ -15,24 +15,20 @@
  */
 package com.android.car.audio;
 
+import static android.media.AudioFormat.ENCODING_PCM_16BIT;
+
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
+import android.car.builtin.media.AudioManagerHelper;
+import android.car.builtin.media.AudioManagerHelper.AudioGainInfo;
+import android.car.builtin.util.Slogf;
 import android.media.AudioDeviceInfo;
-import android.media.AudioDevicePort;
-import android.media.AudioFormat;
-import android.media.AudioGain;
-import android.media.AudioGainConfig;
 import android.media.AudioManager;
-import android.media.AudioPort;
-import android.util.IndentingPrintWriter;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
-import com.android.internal.util.Preconditions;
-
-import java.util.Objects;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 /**
  * A helper class wraps {@link AudioDeviceInfo}, and helps get/set the gain on a specific port
@@ -52,6 +48,7 @@ import java.util.Objects;
     private final int mMaxGain;
     private final int mMinGain;
     private final int mStepValue;
+    private final AudioManager mAudioManager;
 
     /**
      * We need to store the current gain because it is not accessible from the current
@@ -60,27 +57,23 @@ import java.util.Objects;
      */
     private int mCurrentGain;
 
-    CarAudioDeviceInfo(AudioDeviceInfo audioDeviceInfo) {
+    CarAudioDeviceInfo(AudioManager audioManager, AudioDeviceInfo audioDeviceInfo) {
+        mAudioManager = audioManager;
         mAudioDeviceInfo = audioDeviceInfo;
         mSampleRate = getMaxSampleRate(audioDeviceInfo);
-        mEncodingFormat = AudioFormat.ENCODING_PCM_16BIT;
+        mEncodingFormat = ENCODING_PCM_16BIT;
         mChannelCount = getMaxChannels(audioDeviceInfo);
-        AudioGain audioGain = Objects.requireNonNull(getAudioGain(audioDeviceInfo.getPort()),
-                "No audio gain on device port " + audioDeviceInfo);
-        mDefaultGain = audioGain.defaultValue();
-        mMaxGain = audioGain.maxValue();
-        mMinGain = audioGain.minValue();
-        mStepValue = audioGain.stepValue();
+        AudioGainInfo audioGainInfo = AudioManagerHelper.getAudioGainInfo(audioDeviceInfo);
+        mDefaultGain = audioGainInfo.getDefaultGain();
+        mMaxGain = audioGainInfo.getMaxGain();
+        mMinGain = audioGainInfo.getMinGain();
+        mStepValue = audioGainInfo.getStepValue();
 
         mCurrentGain = -1; // Not initialized till explicitly set
     }
 
     AudioDeviceInfo getAudioDeviceInfo() {
         return mAudioDeviceInfo;
-    }
-
-    AudioDevicePort getAudioDevicePort() {
-        return mAudioDeviceInfo.getPort();
     }
 
     String getAddress() {
@@ -115,14 +108,6 @@ import java.util.Objects;
         return mStepValue;
     }
 
-    /**
-     * @return {@link AudioGain} with {@link AudioGain#MODE_JOINT} on a given {@link AudioPort}.
-     * This is useful for inspecting the configuration data associated with this gain controller
-     * (min/max/step/default).
-     */
-    AudioGain getAudioGain() {
-        return getAudioGain(getAudioDevicePort());
-    }
 
     // Input is in millibels
     void setCurrentGain(int gainInMillibels) {
@@ -133,32 +118,14 @@ import java.util.Objects;
             gainInMillibels = mMaxGain;
         }
 
-        // Push the new gain value down to our underlying port which will cause it to show up
-        // at the HAL.
-        AudioGain audioGain = getAudioGain();
-        if (audioGain == null) {
-            Slog.e(CarLog.TAG_AUDIO, "getAudioGain() returned null.");
-            return;
-        }
-
-        // size of gain values is 1 in MODE_JOINT
-        AudioGainConfig audioGainConfig = audioGain.buildConfig(
-                AudioGain.MODE_JOINT,
-                audioGain.channelMask(),
-                new int[] { gainInMillibels },
-                0);
-        if (audioGainConfig == null) {
-            Slog.e(CarLog.TAG_AUDIO, "Failed to construct AudioGainConfig");
-            return;
-        }
-
-        int r = AudioManager.setAudioPortGain(getAudioDevicePort(), audioGainConfig);
-        if (r == AudioManager.SUCCESS) {
+        if (AudioManagerHelper.setAudioDeviceGain(mAudioManager,
+                getAddress(), gainInMillibels, true)) {
             // Since we can't query for the gain on a device port later,
             // we have to remember what we asked for
             mCurrentGain = gainInMillibels;
         } else {
-            Slog.e(CarLog.TAG_AUDIO, "Failed to setAudioPortGain: " + r);
+            Slogf.e(CarLog.TAG_AUDIO, "Failed to setAudioPortGain " + gainInMillibels
+                    + " for output device " + getAddress());
         }
     }
 
@@ -189,31 +156,6 @@ import java.util.Objects;
             }
         }
         return numChannels;
-    }
-
-    private static AudioGain getAudioGain(AudioDevicePort audioPort) {
-        if (audioPort != null && audioPort.gains().length > 0) {
-            for (AudioGain audioGain : audioPort.gains()) {
-                if ((audioGain.mode() & AudioGain.MODE_JOINT) != 0) {
-                    return checkAudioGainConfiguration(audioGain);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Constraints applied to gain configuration, see also audio_policy_configuration.xml
-     */
-    private static AudioGain checkAudioGainConfiguration(AudioGain audioGain) {
-        Preconditions.checkArgument(audioGain.maxValue() >= audioGain.minValue());
-        Preconditions.checkArgument((audioGain.defaultValue() >= audioGain.minValue())
-                && (audioGain.defaultValue() <= audioGain.maxValue()));
-        Preconditions.checkArgument(
-                ((audioGain.maxValue() - audioGain.minValue()) % audioGain.stepValue()) == 0);
-        Preconditions.checkArgument(
-                ((audioGain.defaultValue() - audioGain.minValue()) % audioGain.stepValue()) == 0);
-        return audioGain;
     }
 
     @Override

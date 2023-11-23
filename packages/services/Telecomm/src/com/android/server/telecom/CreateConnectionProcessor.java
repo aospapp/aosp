@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * This class creates connections to place new outgoing calls or to attach to an existing incoming
@@ -386,8 +387,13 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
             mAttemptRecords.clear();
             // Phone accounts in profile do not handle emergency call, use phone accounts in
             // current user.
+            // ONLY include phone accounts which are NOT self-managed; we will never consider a self
+            // managed phone account for placing an emergency call.
             List<PhoneAccount> allAccounts = mPhoneAccountRegistrar
-                    .getAllPhoneAccountsOfCurrentUser();
+                    .getAllPhoneAccountsOfCurrentUser()
+                    .stream()
+                    .filter(act -> !act.hasCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED))
+                    .collect(Collectors.toList());
 
             if (allAccounts.isEmpty() && mContext.getPackageManager().hasSystemFeature(
                     PackageManager.FEATURE_TELEPHONY)) {

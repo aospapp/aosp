@@ -16,10 +16,12 @@
 
 package com.android.tv.settings;
 
-import static com.android.tv.settings.overlay.FlavorUtils.ALL_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.ALL_FLAVORS_MASK;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.transition.Scene;
 import android.transition.Slide;
 import android.transition.Transition;
@@ -32,16 +34,132 @@ import android.view.ViewTreeObserver;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.compat.PreferenceControllerFragmentCompat;
+import com.android.tv.settings.library.ManagerUtil;
+import com.android.tv.settings.library.PreferenceCompat;
+import com.android.tv.settings.library.SettingsManager;
+import com.android.tv.settings.library.State;
+import com.android.tv.settings.library.UIUpdateCallback;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
-public abstract class TvSettingsActivity extends FragmentActivity {
+import java.util.List;
+
+public abstract class TvSettingsActivity extends FragmentActivity implements HasSettingsManager {
     private static final String TAG = "TvSettingsActivity";
 
     private static final String SETTINGS_FRAGMENT_TAG =
             "com.android.tv.settings.MainSettings.SETTINGS_FRAGMENT";
 
+    private static final int UI_UPDATE_DELAY_MS = 200;
     private static final int REQUEST_CODE_STARTUP_VERIFICATION = 1;
+
+    public SettingsManager mSettingsManager;
+    private Handler mHandler = new Handler(Looper.getMainLooper());
+
+    private final UIUpdateCallback mUIUpdateCallback =
+            new UIUpdateCallback() {
+                @Override
+                public void notifyUpdate(
+                        int state, PreferenceCompat preference) {
+                    // Delay the  preference updates if there is no visible fragment yet, this
+                    // could happen when a configuration change has occurred.
+                    if (getVisibleFragment() == null) {
+                        mHandler.postDelayed(() -> {
+                            notifyUpdate(state, preference);
+                        }, UI_UPDATE_DELAY_MS);
+                        return;
+                    }
+                    getVisibleFragment().getChildFragmentManager().getFragments().stream()
+                            .filter(
+                                    fragment ->
+                                            fragment instanceof PreferenceControllerFragmentCompat
+                                                    &&
+                                                    ((PreferenceControllerFragmentCompat) fragment)
+                                                            .getStateIdentifier() == state)
+
+                            .forEach(
+                                    fragment ->
+                                            ((PreferenceControllerFragmentCompat) fragment)
+                                                    .updatePref(preference));
+                }
+
+                @Override
+                public void notifyUpdateAll(
+                        int state, List<PreferenceCompat> preferences) {
+                    // Delay the  preference updates if there is no visible fragment yet, this
+                    // could happen when a configuration change has occurred.
+                    if (getVisibleFragment() == null) {
+                        mHandler.postDelayed(() -> {
+                            notifyUpdateAll(state, preferences);
+                        }, UI_UPDATE_DELAY_MS);
+                        return;
+                    }
+                    getVisibleFragment().getChildFragmentManager().getFragments().stream()
+                            .filter(
+                                    fragment ->
+                                            fragment instanceof PreferenceControllerFragmentCompat
+                                                    &&
+                                                    ((PreferenceControllerFragmentCompat) fragment)
+                                                            .getStateIdentifier() == state)
+                            .forEach(
+                                    fragment ->
+                                            ((PreferenceControllerFragmentCompat) fragment)
+                                                    .updateAllPref(preferences));
+                }
+
+                @Override
+                public void notifyUpdateScreenTitle(int state, String title) {
+                    // Delay the  preference updates if there is no visible fragment yet, this
+                    // could happen when a configuration change has occurred.
+                    if (getVisibleFragment() == null) {
+                        mHandler.postDelayed(() -> {
+                            notifyUpdateScreenTitle(state, title);
+                        }, UI_UPDATE_DELAY_MS);
+                        return;
+                    }
+                    getVisibleFragment().getChildFragmentManager().getFragments().stream()
+                            .filter(
+                                    fragment ->
+                                            fragment instanceof PreferenceControllerFragmentCompat
+                                                    &&
+                                                    ((PreferenceControllerFragmentCompat) fragment)
+                                                            .getStateIdentifier() == state)
+                            .forEach(
+                                    fragment ->
+                                            ((PreferenceControllerFragmentCompat) fragment)
+                                                    .updateScreenTitle(title));
+                }
+
+                @Override
+                public void notifyNavigateBackward(int state) {
+
+                }
+
+                @Override
+                public void notifyNavigateForward(int state) {
+
+                }
+            };
+
+    public Fragment getVisibleFragment() {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        List<Fragment> fragments = fragmentManager.getFragments();
+        if (fragments != null) {
+            for (Fragment fragment : fragments) {
+                if (fragment != null && fragment.isVisible()) {
+                    return fragment;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public SettingsManager getSettingsManager() {
+        return mSettingsManager;
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -51,7 +169,6 @@ public abstract class TvSettingsActivity extends FragmentActivity {
             finish();
         }
         if (savedInstanceState == null) {
-
             final Fragment fragment = createSettingsFragment();
             if (fragment == null) {
                 return;
@@ -107,7 +224,8 @@ public abstract class TvSettingsActivity extends FragmentActivity {
 
     @Override
     public void finish() {
-        final Fragment fragment = getSupportFragmentManager().findFragmentByTag(SETTINGS_FRAGMENT_TAG);
+        final Fragment fragment = getSupportFragmentManager().findFragmentByTag(
+                SETTINGS_FRAGMENT_TAG);
         if (FlavorUtils.isTwoPanel(this)) {
             super.finish();
             return;
@@ -174,7 +292,20 @@ public abstract class TvSettingsActivity extends FragmentActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CODE_STARTUP_VERIFICATION) {
+        if (mSettingsManager != null && ManagerUtil.getStateIdentifier(requestCode) != -1) {
+            int stateIdentifier = ManagerUtil.getStateIdentifier(requestCode);
+            getVisibleFragment().getChildFragmentManager().getFragments().stream().filter(
+                    fragment ->
+                            fragment instanceof PreferenceControllerFragmentCompat
+                                    && ((PreferenceControllerFragmentCompat) fragment)
+                                        .getStateIdentifier() == stateIdentifier)
+                    .findAny().ifPresent(fragment -> {
+                        State state = ((PreferenceControllerFragmentCompat) fragment).getState();
+                        if (state != null) {
+                            mSettingsManager.onActivityResult(state, requestCode, resultCode, data);
+                        }
+                    });
+        } else if (requestCode == REQUEST_CODE_STARTUP_VERIFICATION) {
             if (resultCode == RESULT_OK) {
                 Log.v(TAG, "Startup verification succeeded.");
                 if (FlavorUtils.getFlavor(this) == FlavorUtils.FLAVOR_X
@@ -198,5 +329,11 @@ public abstract class TvSettingsActivity extends FragmentActivity {
                 finish();
             }
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mHandler.removeCallbacksAndMessages(null);
     }
 }

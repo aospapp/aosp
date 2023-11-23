@@ -20,16 +20,19 @@ import static android.content.Intent.ACTION_SCREEN_OFF;
 import static android.content.Intent.ACTION_SCREEN_ON;
 
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_PRIMARY;
+import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SCAN_ONLY;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SECONDARY_LONG_LIVED;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SECONDARY_TRANSIENT;
 import static com.android.server.wifi.ClientModeImpl.WIFI_WORK_SOURCE;
 import static com.android.server.wifi.WifiConfigurationTestUtil.generateWifiConfig;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyInt;
@@ -41,10 +44,12 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -53,6 +58,7 @@ import static org.mockito.Mockito.validateMockitoUsage;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import android.app.AlarmManager;
 import android.app.test.MockAnswerUtil.AnswerWithArguments;
@@ -61,10 +67,12 @@ import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.MacAddress;
+import android.net.wifi.IPnoScanResultsCallback;
 import android.net.wifi.ScanResult;
 import android.net.wifi.ScanResult.InformationElement;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSuggestion;
@@ -76,23 +84,29 @@ import android.net.wifi.WifiScanner.ScanListener;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.net.wifi.WifiSsid;
 import android.net.wifi.hotspot2.PasspointConfiguration;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.IPowerManager;
 import android.os.IThermalService;
+import android.os.Looper;
+import android.os.Message;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.WorkSource;
 import android.os.test.TestLooper;
+import android.util.ArraySet;
 import android.util.LocalLog;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.ActiveModeWarden.ExternalClientModeManagerRequestListener;
 import com.android.server.wifi.hotspot2.PasspointManager;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
 import com.android.server.wifi.util.LruConnectionTracker;
-import com.android.server.wifi.util.ScanResultUtil;
 import com.android.wifi.resources.R;
 
 import org.junit.After;
@@ -104,6 +118,8 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -111,6 +127,7 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -143,8 +160,10 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mWifiScanner = mockWifiScanner();
         mWifiConnectivityHelper = mockWifiConnectivityHelper();
         mWifiNS = mockWifiNetworkSelector();
+        mLooper = new TestLooper(mClock::getElapsedSinceBootMillis);
+        mTestHandler = new TestHandler(mLooper.getLooper());
         when(mContext.getSystemService(WifiScanner.class)).thenReturn(mWifiScanner);
-        when(mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList())
+        when(mWifiNetworkSuggestionsManager.retrieveHiddenNetworkList(anyBoolean()))
                 .thenReturn(new ArrayList<>());
         when(mWifiNetworkSuggestionsManager.getAllApprovedNetworkSuggestions())
                 .thenReturn(new HashSet<>());
@@ -178,12 +197,23 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mWifiConnectivityManager.setTrustedConnectionAllowed(true);
         mWifiConnectivityManager.enableVerboseLogging(true);
         setWifiEnabled(true);
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(SystemClock.elapsedRealtime());
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(CURRENT_SYSTEM_TIME_MS);
         when(mWifiLastResortWatchdog.shouldIgnoreBssidUpdate(anyString())).thenReturn(false);
         mLruConnectionTracker = new LruConnectionTracker(100, mContext);
         Comparator<WifiConfiguration> comparator =
                 Comparator.comparingInt(mLruConnectionTracker::getAgeIndexOfNetwork);
         when(mWifiConfigManager.getScanListComparator()).thenReturn(comparator);
+
+        // Need to mock WifiInjector since some code used in WifiConnectivityManager calls
+        // WifiInjector.getInstance().
+        mSession = ExtendedMockito.mockitoSession()
+                .strictness(Strictness.LENIENT)
+                .mockStatic(WifiInjector.class, withSettings().lenient())
+                .startMocking();
+        WifiInjector wifiInjector = mock(WifiInjector.class);
+        when(wifiInjector.getActiveModeWarden()).thenReturn(mActiveModeWarden);
+        when(wifiInjector.getWifiGlobals()).thenReturn(mWifiGlobals);
+        lenient().when(WifiInjector.getInstance()).thenReturn(wifiInjector);
     }
 
     private void setUpResources(MockResources resources) {
@@ -199,6 +229,10 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         resources.setIntArray(
                 R.array.config_wifiDisconnectedScanIntervalScheduleSec,
                 VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC);
+        resources.setIntArray(R.array.config_wifiConnectedScanType,
+                VALID_CONNECTED_SINGLE_SCAN_TYPE);
+        resources.setIntArray(R.array.config_wifiDisconnectedScanType,
+                VALID_DISCONNECTED_SINGLE_SCAN_TYPE);
         resources.setIntArray(
                 R.array.config_wifiSingleSavedNetworkConnectedScanIntervalScheduleSec,
                 SCHEDULE_EMPTY_SEC);
@@ -219,6 +253,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         resources.setInteger(R.integer.config_wifiPnoScanLowRssiNetworkRetryMaxDelaySec,
                 LOW_RSSI_NETWORK_RETRY_MAX_DELAY_SEC);
         resources.setBoolean(R.bool.config_wifiEnable6ghzPscScanning, true);
+        resources.setBoolean(R.bool.config_wifiUseHalApiToDisableFwRoaming, true);
     }
 
     /**
@@ -229,11 +264,15 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         verify(mScoringParams, atLeast(0)).getEntryRssi(anyInt());
         verifyNoMoreInteractions(mScoringParams);
         validateMockitoUsage();
+        if (mSession != null) {
+            mSession.finishMocking();
+        }
     }
 
     private WifiContext mContext;
     private TestAlarmManager mAlarmManager;
-    private TestLooper mLooper = new TestLooper();
+    private TestLooper mLooper;
+    private TestHandler mTestHandler;
     private WifiConnectivityManager mWifiConnectivityManager;
     private WifiNetworkSelector mWifiNS;
     private WifiScanner mWifiScanner;
@@ -253,6 +292,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     @Mock private ScoringParams mScoringParams;
     @Mock private WifiScoreCard mWifiScoreCard;
     @Mock private PasspointManager mPasspointManager;
+    @Mock private FrameworkFacade mFacade;
+    @Mock private MultiInternetManager mMultiInternetManager;
     @Mock private WifiScoreCard.PerNetwork mPerNetwork;
     @Mock private WifiScoreCard.PerNetwork mPerNetwork1;
     @Mock private PasspointConfiguration mPasspointConfiguration;
@@ -264,6 +305,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     @Mock private ConcreteClientModeManager mPrimaryClientModeManager;
     @Mock private ConcreteClientModeManager mSecondaryClientModeManager;
     @Mock private WifiGlobals mWifiGlobals;
+    @Mock private ExternalPnoScanRequestManager mExternalPnoScanRequestManager;
     @Mock WifiCandidates.Candidate mCandidate1;
     @Mock WifiCandidates.Candidate mCandidate2;
     private WifiConfiguration mCandidateWifiConfig1;
@@ -276,6 +318,9 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
             mSuggestionUpdateListenerCaptor;
     @Captor ArgumentCaptor<ActiveModeWarden.ModeChangeCallback> mModeChangeCallbackCaptor;
     @Captor ArgumentCaptor<BroadcastReceiver> mBroadcastReceiverCaptor;
+    @Captor ArgumentCaptor<MultiInternetManager.ConnectionStatusListener>
+            mMultiInternetConnectionStatusListenerCaptor;
+    private MockitoSession mSession;
     private MockResources mResources;
 
     private static final int CANDIDATE_NETWORK_ID = 0;
@@ -287,14 +332,23 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     private static final int TEST_FREQUENCY = 2420;
     private static final long CURRENT_SYSTEM_TIME_MS = 1000;
     private static final int MAX_BSSID_BLOCKLIST_SIZE = 16;
+
+    // Scan schedule and corresponding scan types
     private static final int[] VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC = {10, 30, 50};
     private static final int[] VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC = {15, 35, 55};
     private static final int[] VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC = {25, 40, 60};
+    private static final int[] VALID_CONNECTED_SINGLE_SCAN_TYPE = {1, 0, 0};
+    private static final int[] VALID_CONNECTED_SINGLE_SAVED_NETWORK_TYPE = {2, 0, 1};
+    private static final int[] VALID_DISCONNECTED_SINGLE_SCAN_TYPE = {2, 1, 1};
+    private static final int[] VALID_EXTERNAL_SINGLE_SCAN_SCHEDULE_SEC = {40, 80};
+    private static final int[] VALID_EXTERNAL_SINGLE_SCAN_TYPE = {1, 0};
+
     private static final int[] SCHEDULE_EMPTY_SEC = {};
     private static final int[] INVALID_SCHEDULE_NEGATIVE_VALUES_SEC = {10, -10, 20};
     private static final int[] INVALID_SCHEDULE_ZERO_VALUES_SEC = {10, 0, 20};
     private static final int MAX_SCAN_INTERVAL_IN_SCHEDULE_SEC = 60;
     private static final int[] DEFAULT_SINGLE_SCAN_SCHEDULE_SEC = {20, 40, 80, 160};
+    private static final int[] DEFAULT_SINGLE_SCAN_TYPE = {2, 2, 2, 2};
     private static final int MAX_SCAN_INTERVAL_IN_DEFAULT_SCHEDULE_SEC = 160;
     private static final int TEST_FREQUENCY_1 = 2412;
     private static final int TEST_FREQUENCY_2 = 5180;
@@ -313,6 +367,58 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     private static final int POWER_SAVE_SCAN_INTERVAL_MULTIPLIER = 2;
     private static final int LOW_RSSI_NETWORK_RETRY_START_DELAY_SEC = 20;
     private static final int LOW_RSSI_NETWORK_RETRY_MAX_DELAY_SEC = 80;
+    private static final int SCAN_TRIGGER_TIMES = 7;
+    private static final long NETWORK_CHANGE_TRIGGER_PNO_THROTTLE_MS = 3000; // 3 seconds
+    private static final int TEST_FREQUENCY_2G = 2412;
+    private static final int TEST_FREQUENCY_5G = 5262;
+
+    /**
+    * A test Handler that stores one single incoming Message with delayed time internally, to be
+    * able to manually triggered by calling {@link #timeAdvance}. Only one delayed message can be
+    * scheduled at a time. The scheduled delayed message intervals are recorded and returned by
+    * {@link #getIntervals}. The intervals are cleared by calling {@link #reset}.
+    */
+    private class TestHandler extends Handler {
+        private ArrayList<Long> mIntervals = new ArrayList<>();
+        private Message mMessage;
+
+        TestHandler(Looper looper) {
+            super(looper);
+        }
+
+        public List<Long> getIntervals() {
+            return mIntervals;
+        }
+
+        public void reset() {
+            mIntervals.clear();
+        }
+
+        public void timeAdvance() {
+            if (mMessage != null) {
+                // Dispatch the message without waiting.
+                super.dispatchMessage(mMessage);
+            }
+        }
+
+        @Override
+        public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
+            // uptimeMillis is an absolute time obtained as SystemClock.uptimeMillis() + delay
+            // in Handler and can't be replaced with customized clock.
+            // if custom clock is given, recalculate the time with regards to it
+            long delayMs = uptimeMillis - SystemClock.uptimeMillis();
+            if (delayMs > 0) {
+                mIntervals.add(delayMs);
+                mMessage = msg;
+            }
+            uptimeMillis = delayMs + mClock.getElapsedSinceBootMillis();
+            // Message is still queued to super, so it doesn't get filtered out and rely on the
+            // timeAdvance() to dispatch. timeAdvance() can force time to advance and send the
+            // message immediately. If it is not called not the message can still be dispatched
+            // at the time the message is scheduled.
+            return super.sendMessageAtTime(msg, uptimeMillis);
+        }
+    }
 
     WifiContext mockContext() {
         WifiContext context = mock(WifiContext.class);
@@ -369,7 +475,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // This unfortunately needs to be a somewhat valid scan result, otherwise
         // |ScanDetailUtil.toScanDetail| raises exceptions.
         final ScanResult[] scanResults = new ScanResult[1];
-        scanResults[0] = new ScanResult(WifiSsid.createFromAsciiEncoded(CANDIDATE_SSID),
+        scanResults[0] = new ScanResult(WifiSsid.fromUtf8Text(CANDIDATE_SSID),
                 CANDIDATE_SSID, CANDIDATE_BSSID, 1245, 0, "some caps",
                 -78, 2450, 1025, 22, 33, 20, 0, 0, true);
         scanResults[0].informationElements = new InformationElement[1];
@@ -402,6 +508,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         when(cmm.isConnected()).thenReturn(false);
         when(cmm.isDisconnected()).thenReturn(true);
         when(cmm.isSupplicantTransientState()).thenReturn(false);
+        when(cmm.enableRoaming(anyBoolean())).thenReturn(true);
     }
 
     WifiNetworkSelector mockWifiNetworkSelector() {
@@ -434,7 +541,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mCandidateList = new ArrayList<WifiCandidates.Candidate>();
         mCandidateList.add(mCandidate1);
         when(ns.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean())).thenReturn(mCandidateList);
+                anyBoolean(), any(), anyBoolean())).thenReturn(mCandidateList);
         when(ns.selectNetwork(any()))
                 .then(new AnswerWithArguments() {
                     public WifiConfiguration answer(List<WifiCandidates.Candidate> candidateList) {
@@ -460,6 +567,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     WifiConfigManager mockWifiConfigManager() {
         WifiConfigManager wifiConfigManager = mock(WifiConfigManager.class);
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        config.getNetworkSelectionStatus().setHasEverConnected(true);
         List<WifiConfiguration> networkList = new ArrayList<>();
         networkList.add(config);
         when(wifiConfigManager.getConfiguredNetwork(anyInt())).thenReturn(null);
@@ -473,9 +581,11 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 mWifiConfigManager, mWifiNetworkSuggestionsManager,
                 mWifiNS, mWifiConnectivityHelper,
                 mWifiLastResortWatchdog, mOpenNetworkNotifier,
-                mWifiMetrics, new Handler(mLooper.getLooper()), mClock,
+                mWifiMetrics, mTestHandler, mClock,
                 mLocalLog, mWifiScoreCard, mWifiBlocklistMonitor, mWifiChannelUtilization,
-                mPasspointManager, mDeviceConfigFacade, mActiveModeWarden, mWifiGlobals);
+                mPasspointManager, mMultiInternetManager, mDeviceConfigFacade, mActiveModeWarden,
+                mFacade, mWifiGlobals, mExternalPnoScanRequestManager);
+        mLooper.dispatchAll();
         verify(mActiveModeWarden, atLeastOnce()).registerModeChangeCallback(
                 mModeChangeCallbackCaptor.capture());
         verify(mContext, atLeastOnce()).registerReceiver(
@@ -484,6 +594,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 mNetworkUpdateListenerCaptor.capture());
         verify(mWifiNetworkSuggestionsManager, atLeastOnce()).addOnSuggestionUpdateListener(
                 mSuggestionUpdateListenerCaptor.capture());
+        verify(mMultiInternetManager, atLeastOnce()).setConnectionStatusListener(
+                mMultiInternetConnectionStatusListenerCaptor.capture());
         return wCm;
     }
 
@@ -503,6 +615,35 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mWifiConnectivityManager.handleConnectionStateChanged(
                 mPrimaryClientModeManager,
                 WifiConnectivityManager.WIFI_STATE_CONNECTED);
+    }
+
+    /**
+     * Verify that a primary CMM changing role to secondary transient (MBB) will not trigger cleanup
+     * that's meant to be done when wifi is disabled.
+     */
+    @Test
+    public void testPrimaryToSecondaryTransientDoesNotDisableWifi() {
+        ConcreteClientModeManager cmm = mock(ConcreteClientModeManager.class);
+        when(cmm.getPreviousRole()).thenReturn(ROLE_CLIENT_PRIMARY);
+        when(cmm.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_TRANSIENT);
+        when(mActiveModeWarden.getInternetConnectivityClientModeManagers()).thenReturn(
+                Collections.EMPTY_LIST);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(cmm);
+        verify(mWifiConfigManager, never()).removeAllEphemeralOrPasspointConfiguredNetworks();
+    }
+
+    /**
+     * Verify that the primary CMM switching to scan only mode will trigger cleanup code.
+     */
+    @Test
+    public void testPrimaryToScanOnlyWillDisableWifi() {
+        ConcreteClientModeManager cmm = mock(ConcreteClientModeManager.class);
+        when(cmm.getPreviousRole()).thenReturn(ROLE_CLIENT_PRIMARY);
+        when(cmm.getRole()).thenReturn(ROLE_CLIENT_SCAN_ONLY);
+        when(mActiveModeWarden.getInternetConnectivityClientModeManagers()).thenReturn(
+                Collections.EMPTY_LIST);
+        mModeChangeCallbackCaptor.getValue().onActiveModeManagerRoleChanged(cmm);
+        verify(mWifiConfigManager).removeAllEphemeralOrPasspointConfiguredNetworks();
     }
 
     /**
@@ -547,6 +688,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
 
         verify(mPrimaryClientModeManager).startConnectToNetwork(
                 CANDIDATE_NETWORK_ID, Process.WIFI_UID, "any");
+        verify(mPrimaryClientModeManager).enableRoaming(true);
         verify(mActiveModeWarden).stopAllClientModeManagersInRole(ROLE_CLIENT_SECONDARY_TRANSIENT);
         verify(mActiveModeWarden, never()).requestSecondaryTransientClientModeManager(
                 any(), any(), any(), any());
@@ -707,6 +849,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         verify(mbbCmm, never()).startConnectToNetwork(anyInt(), anyInt(), any());
         verify(mPrimaryClientModeManager).startConnectToNetwork(
                 eq(CANDIDATE_NETWORK_ID), anyInt(), any());
+        verify(mPrimaryClientModeManager).enableRoaming(true);
     }
 
     /**
@@ -726,7 +869,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         when(mActiveModeWarden.isStaStaConcurrencySupportedForRestrictedConnections())
                 .thenReturn(true);
         when(mActiveModeWarden.canRequestMoreClientModeManagersInRole(
-                any(), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED))).thenReturn(true);
+                any(), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED), eq(false))).thenReturn(true);
         doAnswer(new AnswerWithArguments() {
             public void answer(ExternalClientModeManagerRequestListener listener,
                     WorkSource requestorWs, String ssid, String bssid) {
@@ -826,6 +969,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // STA + STA is not supported.
         when(mActiveModeWarden.isStaStaConcurrencySupportedForRestrictedConnections())
                 .thenReturn(false);
+        when(mActiveModeWarden.isStaStaConcurrencySupportedForMultiInternet())
+                .thenReturn(false);
 
         // Set WiFi to disconnected state
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -854,31 +999,6 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                         && (candidates.get(0).isOemPaid() || candidates.get(0).isOemPrivate()))
         ))).thenReturn(null) // first for secondary returns null.
                 .thenReturn(mCandidateWifiConfig1); // second for primary returns something.
-
-        // Set WiFi to disconnected state
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
-                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
-
-        verify(mPrimaryClientModeManager).startConnectToNetwork(
-                CANDIDATE_NETWORK_ID, Process.WIFI_UID, "any");
-        verify(mActiveModeWarden, never()).requestSecondaryLongLivedClientModeManager(
-                any(), any(), any(), any());
-    }
-
-    @Test
-    public void secondaryLongLived_noSecondaryStaAvailable() {
-        setupMocksForSecondaryLongLivedTests();
-
-        // Set screen to on
-        setScreenState(true);
-
-        // OEM paid connection allowed.
-        mWifiConnectivityManager.setOemPaidConnectionAllowed(true, new WorkSource());
-
-        // STA + STA is supported, but not available.
-        when(mActiveModeWarden.canRequestMoreClientModeManagersInRole(
-                any(), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED))).thenReturn(false);
 
         // Set WiFi to disconnected state
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -932,7 +1052,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // OEM paid connection allowed.
         mWifiConnectivityManager.setOemPaidConnectionAllowed(true, new WorkSource());
 
-        // STA + STA is supported, but secondary STA request returns null
+        // STA + STA is supported, but secondary STA request returns the primary
         doAnswer(new AnswerWithArguments() {
             public void answer(ExternalClientModeManagerRequestListener listener,
                     WorkSource requestorWs, String ssid, String bssid) {
@@ -981,6 +1101,21 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 CANDIDATE_NETWORK_ID, Process.WIFI_UID, "any");
         verify(mActiveModeWarden).requestSecondaryLongLivedClientModeManager(
                 any(), any(), any(), any());
+
+        // Simulate connection failing on the secondary
+        clearInvocations(mSecondaryClientModeManager, mPrimaryClientModeManager, mWifiNS);
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mSecondaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
+        // verify connection is never restarted when a connection on the secondary STA fails.
+        verify(mWifiNS, never()).selectNetwork(any());
+        verify(mSecondaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+        verify(mPrimaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
     }
 
     @Test
@@ -1052,6 +1187,253 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 CANDIDATE_NETWORK_ID, Process.WIFI_UID, "any");
         verify(mActiveModeWarden).requestSecondaryLongLivedClientModeManager(
                 any(), any(), any(), any());
+    }
+
+    /**
+     * Verify that when the secondary is already connecting to the selected secondary network,
+     * we only connect the primary STA.
+     */
+    @Test
+    public void secondaryLongLived_secondaryStaRequestSucceedsWhenSecondaryAlreadyConnecting() {
+        setupMocksForSecondaryLongLivedTests();
+
+        // 2 candidates - 1 oem paid, other regular.
+        // Mark the first candidate oem private only
+        when(mCandidate1.isOemPaid()).thenReturn(false);
+        when(mCandidate1.isOemPrivate()).thenReturn(true);
+        mCandidateWifiConfig1.oemPaid = false;
+        mCandidateWifiConfig1.oemPrivate = true;
+
+        // mock secondary STA to already connecting to the target OEM private network
+        when(mSecondaryClientModeManager.getConnectingWifiConfiguration()).thenReturn(
+                mCandidateWifiConfig1);
+
+        // Add the second regular candidate.
+        mCandidateList.add(mCandidate2);
+
+        // Set screen to on
+        setScreenState(true);
+
+        // OEM paid connection allowed.
+        mWifiConnectivityManager.setOemPrivateConnectionAllowed(true, new WorkSource());
+
+        // Network selection setup for primary.
+        when(mWifiNS.selectNetwork(argThat(
+                candidates -> (candidates != null && candidates.size() == 1
+                        // not oem paid or oem private.
+                        && !(candidates.get(0).isOemPaid() || candidates.get(0).isOemPrivate()))
+        ))).thenReturn(mCandidateWifiConfig2);
+
+        // Set WiFi to disconnected state
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+
+        // connection triggered on only on primary to CANDIDATE_NETWORK_ID_2.
+        verify(mPrimaryClientModeManager).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID_2, Process.WIFI_UID, "any");
+        verify(mSecondaryClientModeManager, never()).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, "any");
+        verify(mActiveModeWarden).requestSecondaryLongLivedClientModeManager(
+                any(), any(), eq(CANDIDATE_SSID), any());
+    }
+
+    /**
+     * Create scan data with different bands of 2G and 5G.
+     */
+    private ScanData createScanDataWithDifferentBands() {
+        // Create 4 scan results.
+        ScanData[] scanDatas =
+                ScanTestUtil.createScanDatas(new int[][]{{5150, 5175, 2412, 2400}}, new int[]{0});
+        // WCM barfs if the scan result does not have an IE.
+        return scanDatas[0];
+    }
+
+    /**
+     * Setup all the mocks for the positive case, individual negative test cases below override
+     * specific params.
+     */
+    private void setupMocksForMultiInternetTests() {
+        mScanData = createScanDataWithDifferentBands();
+        when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
+        when(mActiveModeWarden.isStaStaConcurrencySupportedForMultiInternet()).thenReturn(true);
+        when(mActiveModeWarden.getPrimaryClientModeManagerNullable())
+                .thenReturn(mPrimaryClientModeManager);
+        when(mCandidate1.isOemPaid()).thenReturn(false);
+        when(mCandidate1.isOemPrivate()).thenReturn(false);
+        ScanResultMatchInfo matchInfo = mock(ScanResultMatchInfo.class);
+        when(matchInfo.getDefaultSecurityParams()).thenReturn(
+                mCandidateWifiConfig1.getDefaultSecurityParams());
+        WifiCandidates.Key key = new WifiCandidates.Key(matchInfo,
+                MacAddress.fromString(CANDIDATE_BSSID), 0);
+        when(mCandidate1.getKey()).thenReturn(key);
+        when(mCandidate1.getScanRssi()).thenReturn(-40);
+        when(mCandidate1.getFrequency()).thenReturn(TEST_FREQUENCY);
+        when(mCandidate1.getKey()).thenReturn(key);
+
+        mCandidateWifiConfig1.oemPaid = false;
+        mCandidateWifiConfig1.oemPrivate = false;
+        mCandidateWifiConfig1.ephemeral = true;
+        mCandidateWifiConfig1.dbsSecondaryInternet = true;
+        when(mWifiNS.selectNetwork(argThat(
+                candidates -> (candidates != null)), eq(false))).thenReturn(mCandidateWifiConfig1);
+        when(mActiveModeWarden.isStaStaConcurrencySupportedForRestrictedConnections())
+                .thenReturn(true);
+        when(mActiveModeWarden.canRequestMoreClientModeManagersInRole(
+                any(), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED), eq(false))).thenReturn(true);
+        doAnswer(new AnswerWithArguments() {
+            public void answer(ExternalClientModeManagerRequestListener listener,
+                    WorkSource requestorWs, String ssid, String bssid) {
+                listener.onAnswer(mSecondaryClientModeManager);
+            }
+        }).when(mActiveModeWarden).requestSecondaryLongLivedClientModeManager(
+                any(), any(), any(), any());
+        when(mSecondaryClientModeManager.getRole()).thenReturn(ROLE_CLIENT_SECONDARY_LONG_LIVED);
+    }
+
+    @Test
+    public void multiInternetSecondaryConnectionRequestSucceedsWithDbsApOnly() {
+        setupMocksForMultiInternetTests();
+        when(mMultiInternetManager.isStaConcurrencyForMultiInternetMultiApAllowed())
+                .thenReturn(false);
+
+        // Set screen to on
+        setScreenState(true);
+
+        when(mCandidate1.isSecondaryInternet()).thenReturn(true);
+        mCandidateWifiConfig1.ephemeral = true;
+        mCandidateWifiConfig1.dbsSecondaryInternet = true;
+
+        // Set up the scan candidates
+        MacAddress macAddress = MacAddress.fromString(CANDIDATE_BSSID);
+        ScanResult result1 = new ScanResult(WifiSsid.fromUtf8Text(CANDIDATE_SSID),
+                TEST_SSID, TEST_CONNECTED_BSSID, 1245, 0, "some caps", -78, 2450,
+                1025, 22, 33, 20, 0, 0, true);
+        ScanResultMatchInfo matchInfo1 = ScanResultMatchInfo.fromScanResult(result1);
+        WifiCandidates.Key key = new WifiCandidates.Key(matchInfo1, macAddress,
+                TEST_CONNECTED_NETWORK_ID,
+                WifiConfiguration.SECURITY_TYPE_OPEN);
+        WifiCandidates.Candidate otherCandidate = mock(WifiCandidates.Candidate.class);
+        when(otherCandidate.getKey()).thenReturn(key);
+        List<WifiCandidates.Candidate> candidateList = new ArrayList<>();
+        candidateList.add(mCandidate1);
+        candidateList.add(otherCandidate);
+        when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
+
+        // Set WiFi to disconnected state to trigger scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        mLooper.dispatchAll();
+        // Verify a connection starting
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(2)));
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
+
+        WifiInfo info1 = getWifiInfo();
+        info1.setNetworkId(TEST_CONNECTED_NETWORK_ID);
+        info1.setSSID(WifiSsid.fromUtf8Text(TEST_SSID));
+        info1.setBSSID(TEST_CONNECTED_BSSID);
+        info1.setFrequency(TEST_FREQUENCY_5G);
+        info1.setCurrentSecurityType(WifiConfiguration.SECURITY_TYPE_OPEN);
+        when(mPrimaryClientModeManager.isConnected()).thenReturn(true);
+        when(mPrimaryClientModeManager.isDisconnected()).thenReturn(false);
+        when(mPrimaryClientModeManager.syncRequestConnectionInfo()).thenReturn(info1);
+        when(mMultiInternetManager.hasPendingConnectionRequests()).thenReturn(true);
+        WorkSource testWorkSource = new WorkSource();
+        // Set the connection pending status
+        mMultiInternetConnectionStatusListenerCaptor.getValue().onStatusChange(
+                MultiInternetManager.MULTI_INTERNET_STATE_CONNECTION_REQUESTED,
+                testWorkSource);
+        mMultiInternetConnectionStatusListenerCaptor.getValue().onStartScan(testWorkSource);
+        verify(mSecondaryClientModeManager, times(2)).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
+        verify(mSecondaryClientModeManager, times(2)).enableRoaming(false);
+        verify(mActiveModeWarden, times(2)).requestSecondaryLongLivedClientModeManager(
+                any(), any(), any(), any());
+
+        // Simulate connection failing on the secondary
+        clearInvocations(mSecondaryClientModeManager, mPrimaryClientModeManager, mWifiNS);
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mSecondaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID));
+        // verify connection is never restarted when a connection on the secondary STA fails.
+        verify(mWifiNS, never()).selectNetwork(any());
+        verify(mSecondaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+        verify(mPrimaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+    }
+
+    @Test
+    public void multiInternetSecondaryConnectionRequestSucceedsWithMultiApAllowed() {
+        setupMocksForMultiInternetTests();
+        when(mMultiInternetManager.isStaConcurrencyForMultiInternetMultiApAllowed())
+                .thenReturn(true);
+
+        // Set screen to on
+        setScreenState(true);
+
+        when(mCandidate1.isSecondaryInternet()).thenReturn(true);
+        mCandidateWifiConfig1.ephemeral = true;
+        mCandidateWifiConfig1.dbsSecondaryInternet = true;
+
+        // Set up the scan candidates
+        MacAddress macAddress = MacAddress.fromString(CANDIDATE_BSSID);
+        WifiCandidates.Key key = new WifiCandidates.Key(mock(ScanResultMatchInfo.class),
+                macAddress, 0, WifiConfiguration.SECURITY_TYPE_OPEN);
+        WifiCandidates.Candidate otherCandidate = mock(WifiCandidates.Candidate.class);
+        when(otherCandidate.getKey()).thenReturn(key);
+        List<WifiCandidates.Candidate> candidateList = new ArrayList<>();
+        candidateList.add(mCandidate1);
+        candidateList.add(otherCandidate);
+        when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
+
+        // Set WiFi to disconnected state to trigger scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        mLooper.dispatchAll();
+        // Verify a connection starting
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(2)));
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
+
+        WifiInfo info1 = getWifiInfo();
+        info1.setFrequency(TEST_FREQUENCY_5G);
+        when(mPrimaryClientModeManager.isConnected()).thenReturn(true);
+        when(mPrimaryClientModeManager.isDisconnected()).thenReturn(false);
+        when(mPrimaryClientModeManager.syncRequestConnectionInfo()).thenReturn(info1);
+        when(mMultiInternetManager.hasPendingConnectionRequests()).thenReturn(true);
+        WorkSource testWorkSource = new WorkSource();
+        // Set the connection pending status
+        mMultiInternetConnectionStatusListenerCaptor.getValue().onStatusChange(
+                MultiInternetManager.MULTI_INTERNET_STATE_CONNECTION_REQUESTED,
+                testWorkSource);
+        mMultiInternetConnectionStatusListenerCaptor.getValue().onStartScan(testWorkSource);
+        verify(mSecondaryClientModeManager, times(2)).startConnectToNetwork(
+                CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
+        verify(mSecondaryClientModeManager, times(2)).enableRoaming(false);
+        verify(mActiveModeWarden, times(2)).requestSecondaryLongLivedClientModeManager(
+                any(), any(), any(), any());
+
+        // Simulate connection failing on the secondary
+        clearInvocations(mSecondaryClientModeManager, mPrimaryClientModeManager, mWifiNS);
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mSecondaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID));
+        // verify connection is never restarted when a connection on the secondary STA fails.
+        verify(mWifiNS, never()).selectNetwork(any());
+        verify(mSecondaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+        verify(mPrimaryClientModeManager, never()).startConnectToNetwork(
+                anyInt(), anyInt(), any());
     }
 
     /**
@@ -1475,6 +1857,26 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         verify(mWifiMetrics, never()).incrementNumConnectivityWatchdogPnoBad();
     }
 
+    @Test
+    public void testNetworkConnectionCancelWatchdogTimer() {
+        // Set screen to off
+        setScreenState(false);
+
+        // Set WiFi to disconnected state to trigger PNO scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+
+        // Verify the watchdog alarm has been set
+        assertTrue(mAlarmManager.isPending(WifiConnectivityManager.WATCHDOG_TIMER_TAG));
+
+        // Set WiFi to connected
+        setWifiStateConnected();
+
+        // Verify the watchdog alarm has been canceled
+        assertFalse(mAlarmManager.isPending(WifiConnectivityManager.WATCHDOG_TIMER_TAG));
+    }
+
     /**
      * Verify that 2 scans that are sufficiently far apart are required to initiate a connection
      * when the high mobility scanning optimization is enabled.
@@ -1581,7 +1983,66 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         candidateList.add(mCandidate1);
         candidateList.add(otherCandidate);
         when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean())).thenReturn(candidateList);
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
+
+        // Set WiFi to disconnected state to trigger scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        mLooper.dispatchAll();
+        // Verify a connection starting
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(2)));
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
+
+        // Simulate the connection failing
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mPrimaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
+        // Verify the failed BSSID is added to blocklist
+        verify(mWifiBlocklistMonitor).blockBssidForDurationMs(eq(CANDIDATE_BSSID),
+                eq(config), anyLong(), anyInt(), anyInt());
+        // Verify another connection starting
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(1)));
+        verify(mPrimaryClientModeManager, times(2)).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+
+        // Simulate the second connection also failing
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mPrimaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID_2,
+                config);
+        // Verify there are no more connections
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(0)));
+        verify(mPrimaryClientModeManager, times(2)).startConnectToNetwork(
+                anyInt(), anyInt(), any());
+    }
+
+    @Test
+    public void testRetryConnectionEapFailureIgnoreSameNetwork() {
+        // Setup WifiNetworkSelector to return 2 valid candidates with the same
+        // ScanResultMatchInfo so they are the same network, but different BSSID.
+        ScanResultMatchInfo matchInfo = ScanResultMatchInfo.fromWifiConfiguration(
+                mCandidateWifiConfig1);
+        WifiCandidates.Key key = new WifiCandidates.Key(matchInfo,
+                MacAddress.fromString(CANDIDATE_BSSID), 0);
+        WifiCandidates.Key key2 = new WifiCandidates.Key(matchInfo,
+                MacAddress.fromString(CANDIDATE_BSSID_2), 0);
+        WifiCandidates.Candidate candidate1 = mock(WifiCandidates.Candidate.class);
+        when(candidate1.getKey()).thenReturn(key);
+        WifiCandidates.Candidate candidate2 = mock(WifiCandidates.Candidate.class);
+        when(candidate2.getKey()).thenReturn(key2);
+        List<WifiCandidates.Candidate> candidateList = new ArrayList<>();
+        candidateList.add(candidate1);
+        candidateList.add(candidate2);
+        when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
 
         // Set WiFi to disconnected state to trigger scan
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -1596,27 +2057,12 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Simulate the connection failing
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION, CANDIDATE_BSSID,
-                CANDIDATE_SSID);
-        // Verify the failed BSSID is added to blocklist
-        verify(mWifiBlocklistMonitor).blockBssidForDurationMs(eq(CANDIDATE_BSSID),
-                eq(CANDIDATE_SSID), anyLong(), anyInt(), anyInt());
-        // Verify another connection starting
-        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
-                argThat(new WifiCandidatesListSizeMatcher(1)));
-        verify(mPrimaryClientModeManager, times(2)).startConnectToNetwork(
-                anyInt(), anyInt(), any());
-
-        // Simulate the second connection also failing
-        mWifiConnectivityManager.handleConnectionAttemptEnded(
-                mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION, CANDIDATE_BSSID_2,
-                CANDIDATE_SSID);
-        // Verify there are no more connections
-        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
-                argThat(new WifiCandidatesListSizeMatcher(0)));
-        verify(mPrimaryClientModeManager, times(2)).startConnectToNetwork(
-                anyInt(), anyInt(), any());
+                WifiMetrics.ConnectionEvent.FAILURE_AUTHENTICATION_FAILURE,
+                WifiMetricsProto.ConnectionEvent.AUTH_FAILURE_EAP_FAILURE, CANDIDATE_BSSID,
+                mCandidateWifiConfig1);
+        mLooper.dispatchAll();
+        // verify no there is no retry.
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
     }
 
     private class WifiCandidatesListSizeMatcher implements
@@ -1647,7 +2093,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         candidateList.add(mCandidate1);
         candidateList.add(otherCandidate);
         when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean())).thenReturn(candidateList);
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
 
         // Set WiFi to disconnected state to trigger scan
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -1661,11 +2107,56 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
 
         // Simulate the connection failing after the cache timeout period.
         when(mClock.getElapsedSinceBootMillis()).thenReturn(TEMP_BSSID_BLOCK_DURATION_MS + 1L);
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION, CANDIDATE_BSSID,
-                CANDIDATE_SSID);
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
         // verify there are no additional connections.
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
+    }
+
+    /**
+     * Verify that when cached candidates get cleared there will no longer be retries after a
+     * connection failure.
+     */
+    @Test
+    public void testNoRetryConnectionOnFailureAfterCacheCleared() {
+        // Setup WifiNetworkSelector to return 2 valid candidates from scan results
+        MacAddress macAddress = MacAddress.fromString(CANDIDATE_BSSID_2);
+        WifiCandidates.Key key = new WifiCandidates.Key(mock(ScanResultMatchInfo.class),
+                macAddress, 0, WifiConfiguration.SECURITY_TYPE_OPEN);
+        WifiCandidates.Candidate otherCandidate = mock(WifiCandidates.Candidate.class);
+        when(otherCandidate.getKey()).thenReturn(key);
+        List<WifiCandidates.Candidate> candidateList = new ArrayList<>();
+        candidateList.add(mCandidate1);
+        candidateList.add(otherCandidate);
+        when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
+
+        // Set WiFi to disconnected state to trigger scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        mLooper.dispatchAll();
+        // Verify a connection starting
+        verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
+                argThat(new WifiCandidatesListSizeMatcher(2)));
+        verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
+
+        // now clear the cached candidates
+        mWifiConnectivityManager.clearCachedCandidates();
+
+        // Simulate the connection failing
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
+        mWifiConnectivityManager.handleConnectionAttemptEnded(
+                mPrimaryClientModeManager,
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
+
+        // Verify there no re-attempt to connect
         verify(mPrimaryClientModeManager).startConnectToNetwork(anyInt(), anyInt(), any());
     }
 
@@ -1685,7 +2176,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         candidateList.add(mCandidate1);
         candidateList.add(otherCandidate);
         when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean())).thenReturn(candidateList);
+                anyBoolean(), any(), anyBoolean())).thenReturn(candidateList);
 
         // Set WiFi to disconnected state to trigger scan
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -1707,10 +2198,12 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 .thenReturn(candidateOtherConfig);
 
         // Simulate the connection failing
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION, CANDIDATE_BSSID,
-                CANDIDATE_SSID);
+                WifiMetrics.ConnectionEvent.FAILURE_ASSOCIATION_REJECTION,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
 
         // Verify no more connections since there are 0 valid candidates remaining.
         verify(mWifiNS).selectNetwork((List<WifiCandidates.Candidate>)
@@ -1774,9 +2267,9 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         List<ScanDetail> expectedOpenNetworks = new ArrayList<>();
         expectedOpenNetworks.add(
                 new ScanDetail(
-                        new ScanResult(WifiSsid.createFromAsciiEncoded(CANDIDATE_SSID),
+                        new ScanResult(WifiSsid.fromUtf8Text(CANDIDATE_SSID),
                                 CANDIDATE_SSID, CANDIDATE_BSSID, 1245, 0, "some caps", -78, 2450,
-                                1025, 22, 33, 20, 0, 0, true), null));
+                                1025, 22, 33, 20, 0, 0, true)));
 
         when(mWifiNS.getFilteredScanDetailsForOpenUnsavedNetworks())
                 .thenReturn(expectedOpenNetworks);
@@ -1798,14 +2291,14 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     public void wifiDisconnected_noCandidatesInScan_openNetworkNotifierScanResultsHandled() {
         // no connection candidates from scan.
         when(mWifiNS.getCandidatesFromScan(any(), any(), any(), anyBoolean(), anyBoolean(),
-                anyBoolean())).thenReturn(null);
+                anyBoolean(), any(), anyBoolean())).thenReturn(null);
 
         List<ScanDetail> expectedOpenNetworks = new ArrayList<>();
         expectedOpenNetworks.add(
                 new ScanDetail(
-                        new ScanResult(WifiSsid.createFromAsciiEncoded(CANDIDATE_SSID),
+                        new ScanResult(WifiSsid.fromUtf8Text(CANDIDATE_SSID),
                                 CANDIDATE_SSID, CANDIDATE_BSSID, 1245, 0, "some caps", -78, 2450,
-                                1025, 22, 33, 20, 0, 0, true), null));
+                                1025, 22, 33, 20, 0, 0, true)));
 
         when(mWifiNS.getFilteredScanDetailsForOpenUnsavedNetworks())
                 .thenReturn(expectedOpenNetworks);
@@ -1826,10 +2319,12 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     @Test
     public void wifiConnected_openNetworkNotifierHandlesConnection() {
         // Set WiFi to connected state
-        mWifiInfo.setSSID(WifiSsid.createFromAsciiEncoded(CANDIDATE_SSID));
+        mWifiInfo.setSSID(WifiSsid.fromUtf8Text(CANDIDATE_SSID));
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_NONE, CANDIDATE_BSSID, CANDIDATE_SSID);
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID, config);
         verify(mOpenNetworkNotifier).handleWifiConnected(CANDIDATE_SSID);
     }
 
@@ -1858,10 +2353,12 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
      */
     @Test
     public void wifiConnectionEndsWithFailure_openNetworkNotifierHandlesConnectionFailure() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_CONNECT_NETWORK_FAILED, CANDIDATE_BSSID,
-                CANDIDATE_SSID);
+                WifiMetrics.ConnectionEvent.FAILURE_CONNECT_NETWORK_FAILED,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID,
+                config);
 
         verify(mOpenNetworkNotifier).handleConnectionFailure();
     }
@@ -1875,9 +2372,11 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
      */
     @Test
     public void wifiConnectionEndsWithSuccess_openNetworkNotifierDoesNotHandleConnectionFailure() {
+        WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork(CANDIDATE_SSID);
         mWifiConnectivityManager.handleConnectionAttemptEnded(
                 mPrimaryClientModeManager,
-                WifiMetrics.ConnectionEvent.FAILURE_NONE, CANDIDATE_BSSID, CANDIDATE_SSID);
+                WifiMetrics.ConnectionEvent.FAILURE_NONE,
+                WifiMetricsProto.ConnectionEvent.FAILURE_REASON_UNKNOWN, CANDIDATE_BSSID, config);
 
         verify(mOpenNetworkNotifier, never()).handleConnectionFailure();
     }
@@ -1929,24 +2428,22 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
 
         // set screen off and wifi disconnected
         setScreenState(false);
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
+        mWifiConnectivityManager.handleConnectionStateChanged(mPrimaryClientModeManager,
                 WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
 
-        // Set screen to ON to start a fast initial scan
-        setScreenState(true);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(0 /* triggerTimes */,
+                () -> {
+                    // Set screen to ON to start a fast initial scan
+                    setScreenState(true);
+                }, currentTimeStamp);
+        verifyScanTimesAndIntervals(1 /* scanTimes */, intervals,
+                VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC,
+                VALID_DISCONNECTED_SINGLE_SCAN_TYPE);
 
         // Verify the initial scan state is awaiting for response
         assertEquals(WifiConnectivityManager.INITIAL_SCAN_STATE_AWAITING_RESPONSE,
                 mWifiConnectivityManager.getInitialScanState());
         verify(mWifiMetrics).incrementInitialPartialScanCount();
-
-        // Also verify the scan timer is set properly.
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        int expected = (int) (VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000);
-        assertEquals(expected, firstIntervalMs);
     }
 
     /**
@@ -1957,6 +2454,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     public void checkPeriodicScanIntervalWhenDisconnectedWithEmptySchedule() throws Exception {
         mResources.setIntArray(R.array.config_wifiDisconnectedScanIntervalScheduleSec,
                 SCHEDULE_EMPTY_SEC);
+        mResources.setIntArray(R.array.config_wifiDisconnectedScanType, SCHEDULE_EMPTY_SEC);
 
         checkWorkingWithDefaultSchedule();
     }
@@ -1970,6 +2468,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mResources.setIntArray(
                 R.array.config_wifiDisconnectedScanIntervalScheduleSec,
                 INVALID_SCHEDULE_ZERO_VALUES_SEC);
+        mResources.setIntArray(R.array.config_wifiDisconnectedScanType,
+                INVALID_SCHEDULE_NEGATIVE_VALUES_SEC);
 
         checkWorkingWithDefaultSchedule();
     }
@@ -1983,6 +2483,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mResources.setIntArray(
                 R.array.config_wifiDisconnectedScanIntervalScheduleSec,
                 INVALID_SCHEDULE_NEGATIVE_VALUES_SEC);
+        mResources.setIntArray(R.array.config_wifiDisconnectedScanType,
+                INVALID_SCHEDULE_NEGATIVE_VALUES_SEC);
 
         checkWorkingWithDefaultSchedule();
     }
@@ -1995,13 +2497,99 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         mResources.setIntArray(
                 R.array.config_wifiDisconnectedScanIntervalScheduleSec,
                 INVALID_SCHEDULE_ZERO_VALUES_SEC);
+        mResources.setIntArray(R.array.config_wifiDisconnectedScanType, SCHEDULE_EMPTY_SEC);
+
         when(mDeviceConfigFacade.isWifiBatterySaverEnabled()).thenReturn(true);
         when(mPowerManagerService.isPowerSaveMode()).thenReturn(true);
         checkWorkingWithDefaultScheduleWithMultiplier(POWER_SAVE_SCAN_INTERVAL_MULTIPLIER);
     }
 
     private void checkWorkingWithDefaultSchedule() {
-        checkWorkingWithDefaultScheduleWithMultiplier(1);
+        checkWorkingWithDefaultScheduleWithMultiplier(1 /* multiplier */);
+    }
+
+    /**
+     * Get the value at index, or the last value if index is out of bound.
+     * @param schedule Int array of schedule.
+     * @param index Array index.
+     */
+    private int getByIndexOrLast(int[] schedule, int index) {
+        return index < schedule.length ? schedule[index] : schedule[schedule.length - 1];
+    }
+
+    private void verifyScanTimesAndIntervals(int scanTimes, List<Long> intervals,
+            int[] intervalSchedule, int[] scheduleScanType) {
+        // Verify the scans actually happened for expected times, one scan for state change and
+        // each for scan timer triggered.
+        verify(mWifiScanner, times(scanTimes)).startScan(anyObject(), anyObject(), anyObject(),
+                anyObject());
+
+        // Verify scans are happening using the expected scan type.
+        Map<Integer, Integer> scanTypeToTimesMap = new HashMap<>();
+        for (int i = 0; i < scanTimes; i++) {
+            int expected = getByIndexOrLast(scheduleScanType, i);
+            scanTypeToTimesMap.put(expected, 1 + scanTypeToTimesMap.getOrDefault(expected, 0));
+        }
+        for (Map.Entry<Integer, Integer> entry : scanTypeToTimesMap.entrySet()) {
+            verify(mWifiScanner, times(entry.getValue())).startScan(
+                    argThat(new ArgumentMatcher<ScanSettings>() {
+                        @Override
+                        public boolean matches(ScanSettings scanSettings) {
+                            return scanSettings.type == entry.getKey();
+                        }
+                    }), any(), any(), any());
+        }
+
+        // Verify the scan intervals are same as expected interval schedule.
+        for (int i = 0; i < intervals.size(); i++) {
+            long expected = (long) (getByIndexOrLast(intervalSchedule, i) * 1000);
+            // TestHandler#sendMessageAtTime is not perfectly mocked and uses
+            // SystemClock.uptimeMillis() to generate |intervals|. This sometimes results in error
+            // margins of ~1ms and cause flaky test failures.
+            assertTrue("Interval " + i + " not in 1ms error margin",
+                    Math.abs(expected - intervals.get(i).longValue()) < 2);
+        }
+    }
+
+    private void verifyScanTimesAndFirstInterval(int scanTimes, List<Long> intervals,
+            int expectedInterval) {
+        // Verify the scans actually happened for expected times, one scan for state change and
+        // each for scan timer triggered.
+        verify(mWifiScanner, times(scanTimes)).startScan(anyObject(), anyObject(), anyObject(),
+                anyObject());
+
+        // The actual interval should be same as scheduled.
+        assertEquals(expectedInterval * 1000, intervals.get(0).longValue());
+    }
+
+    /**
+     * Trigger the Wifi periodic scan and get scan intervals, after setting the Wifi state.
+     * @param triggerTimes The times to trigger the scheduled periodic scan. If it's 0 then don't
+     *              trigger the scheduled periodic scan just return the interval.
+     * @param setStateCallback The callback function to be called to set the Wifi state.
+     * @param startTime The simulated scan start time.
+     */
+    private List<Long> triggerPeriodicScansAndGetIntervals(int triggerTimes,
+            Runnable setStateCallback, long startTime) {
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(startTime);
+        // Call the Wifi state callback to set the specified Wifi State to test the scan intervals.
+        setStateCallback.run();
+
+        for (int i = 0; i < triggerTimes; i++) {
+            // Mock the advanced time as when the scan timer supposed to fire
+            when(mClock.getElapsedSinceBootMillis()).thenReturn(startTime
+                    + mTestHandler.getIntervals().stream().mapToLong(Long::longValue).sum());
+            // Now advance the test handler and fire the periodic scan timer
+            mTestHandler.timeAdvance();
+        }
+
+        /* Verify the number of intervals recorded for periodic scans is (times + 1):
+         * One initial interval by scan scheduled in setStateCallback.
+         * One interval by each scan triggered.
+         */
+        assertEquals(triggerTimes + 1, mTestHandler.getIntervals().size());
+
+        return mTestHandler.getIntervals();
     }
 
     private void checkWorkingWithDefaultScheduleWithMultiplier(float multiplier) {
@@ -2015,57 +2603,16 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set screen to ON
         setScreenState(true);
 
-        // Wait for max periodic scan interval so that any impact triggered
-        // by screen state change can settle
-        currentTimeStamp += MAX_SCAN_INTERVAL_IN_DEFAULT_SCHEDULE_SEC * 1000;
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(SCAN_TRIGGER_TIMES,
+                () -> {
+                    mWifiConnectivityManager.handleConnectionStateChanged(
+                            mPrimaryClientModeManager,
+                            WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+                }, currentTimeStamp);
 
-        // Set WiFi to disconnected state to trigger periodic scan
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
-                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        int expected = (int) (DEFAULT_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000 * multiplier);
-        assertEquals(expected, firstIntervalMs);
-
-        currentTimeStamp += firstIntervalMs;
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-
-        // Now fire the first periodic scan alarm timer
-        mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-        mLooper.dispatchAll();
-
-        // Get the second periodic scan interval
-        long secondIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-
-        // Verify the intervals are exponential back off
-        expected = (int) (DEFAULT_SINGLE_SCAN_SCHEDULE_SEC[1] * 1000 * multiplier);
-        assertEquals(expected, secondIntervalMs);
-
-        currentTimeStamp += secondIntervalMs;
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-
-        // Make sure we eventually stay at the maximum scan interval.
-        long intervalMs = 0;
-        for (int i = 0; i < 5; i++) {
-            mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-            mLooper.dispatchAll();
-            intervalMs = mAlarmManager
-                    .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                    - currentTimeStamp;
-            currentTimeStamp += intervalMs;
-            when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-        }
-
-        expected = (int) (DEFAULT_SINGLE_SCAN_SCHEDULE_SEC[DEFAULT_SINGLE_SCAN_SCHEDULE_SEC.length
-                - 1] * 1000 * multiplier);
-        assertEquals(expected, intervalMs);
+        verifyScanTimesAndIntervals(SCAN_TRIGGER_TIMES + 1, intervals,
+                Arrays.stream(DEFAULT_SINGLE_SCAN_SCHEDULE_SEC).map(i -> (int) (i * multiplier))
+                .toArray(), DEFAULT_SINGLE_SCAN_TYPE);
     }
 
     /**
@@ -2088,49 +2635,71 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         currentTimeStamp += MAX_SCAN_INTERVAL_IN_SCHEDULE_SEC * 1000;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
 
-        // Set WiFi to disconnected state to trigger periodic scan
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
-                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(SCAN_TRIGGER_TIMES,
+                () -> {
+                    mWifiConnectivityManager.handleConnectionStateChanged(
+                            mPrimaryClientModeManager,
+                            WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+                }, currentTimeStamp);
 
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        verifyScanTimesAndIntervals(SCAN_TRIGGER_TIMES + 1, intervals,
+                VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC, VALID_DISCONNECTED_SINGLE_SCAN_TYPE);
+    }
 
-        currentTimeStamp += firstIntervalMs;
+    @Test
+    public void checkSetExternalPeriodicScanInterval() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        long currentTimeStamp = CURRENT_SYSTEM_TIME_MS;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
 
-        // Now fire the first periodic scan alarm timer
-        mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-        mLooper.dispatchAll();
+        mWifiConnectivityManager.setExternalScreenOnScanSchedule(
+                VALID_EXTERNAL_SINGLE_SCAN_SCHEDULE_SEC, VALID_EXTERNAL_SINGLE_SCAN_TYPE);
+        // Set screen to ON
+        setScreenState(true);
 
-        // Get the second periodic scan interval
-        long secondIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-
-        // Verify the intervals are exponential back off
-        assertEquals(VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[1] * 1000, secondIntervalMs);
-
-        currentTimeStamp += secondIntervalMs;
+        // Wait for max periodic scan interval so that any impact triggered
+        // by screen state change can settle
+        currentTimeStamp += MAX_SCAN_INTERVAL_IN_SCHEDULE_SEC * 1000;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
 
-        // Make sure we eventually stay at the maximum scan interval.
-        long intervalMs = 0;
-        for (int i = 0; i < 5; i++) {
-            mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-            mLooper.dispatchAll();
-            intervalMs = mAlarmManager
-                    .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                    - currentTimeStamp;
-            currentTimeStamp += intervalMs;
-            when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-        }
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(SCAN_TRIGGER_TIMES,
+                () -> {
+                    mWifiConnectivityManager.handleConnectionStateChanged(
+                            mPrimaryClientModeManager,
+                            WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+                }, currentTimeStamp);
 
-        assertEquals(VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[
-                VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC.length - 1] * 1000, intervalMs);
+        verifyScanTimesAndIntervals(SCAN_TRIGGER_TIMES + 1, intervals,
+                VALID_EXTERNAL_SINGLE_SCAN_SCHEDULE_SEC, VALID_EXTERNAL_SINGLE_SCAN_TYPE);
+    }
+
+    @Test
+    public void testSetOneShotScreenOnConnectivityScanDelayMillis() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        int scanDelayMs = 12345;
+        mWifiConnectivityManager.setOneShotScreenOnConnectivityScanDelayMillis(scanDelayMs);
+
+        // Toggle screen to ON
+        assertEquals(0, mTestHandler.getIntervals().size());
+        setScreenState(false);
+        setScreenState(true);
+        assertEquals(1, mTestHandler.getIntervals().size());
+        assertTrue("Delay is not in 1ms error margin",
+                Math.abs(scanDelayMs - mTestHandler.getIntervals().get(0).longValue()) < 2);
+
+        // Toggle again and there should be no more delayed scan
+        setScreenState(false);
+        setScreenState(true);
+        assertEquals(1, mTestHandler.getIntervals().size());
+
+        // set the scan delay and verify again
+        scanDelayMs = 23455;
+        mWifiConnectivityManager.setOneShotScreenOnConnectivityScanDelayMillis(scanDelayMs);
+        setScreenState(false);
+        setScreenState(true);
+        assertEquals(2, mTestHandler.getIntervals().size());
+        assertTrue("Delay is not in 1ms error margin",
+                Math.abs(scanDelayMs - mTestHandler.getIntervals().get(1).longValue()) < 2);
     }
 
     /**
@@ -2145,55 +2714,63 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         long currentTimeStamp = CURRENT_SYSTEM_TIME_MS;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
 
+        if (SdkLevel.isAtLeastT()) {
+            // verify that setting the external scan schedule and then setting to null again should
+            // result in no-op, and not affect the scan schedule at all.
+            mWifiConnectivityManager.setExternalScreenOnScanSchedule(
+                    VALID_EXTERNAL_SINGLE_SCAN_SCHEDULE_SEC, VALID_EXTERNAL_SINGLE_SCAN_TYPE);
+            mWifiConnectivityManager.setExternalScreenOnScanSchedule(
+                    null, null);
+        }
+
         // Set screen to ON
         setScreenState(true);
 
         // Wait for max scanning interval so that any impact triggered
         // by screen state change can settle
         currentTimeStamp += MAX_SCAN_INTERVAL_IN_SCHEDULE_SEC * 1000;
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(SCAN_TRIGGER_TIMES,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndIntervals(SCAN_TRIGGER_TIMES + 1, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC, VALID_CONNECTED_SINGLE_SCAN_TYPE);
+    }
+
+    /**
+     *  Verify that scan interval for screen on and wifi is connected to the only network known to
+     *  the device.
+     */
+    @Test
+    public void checkPeriodicScanIntervalWhenConnectedAndOnlySingleNetwork() {
+        long currentTimeStamp = CURRENT_SYSTEM_TIME_MS;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
+        mResources.setIntArray(
+                R.array.config_wifiSingleSavedNetworkConnectedScanIntervalScheduleSec,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC);
+        mResources.setIntArray(
+                R.array.config_wifiSingleSavedNetworkConnectedScanType,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_TYPE);
+        WifiConfiguration wifiConfiguration = new WifiConfiguration();
+        wifiConfiguration.networkId = TEST_CONNECTED_NETWORK_ID;
+        List<WifiConfiguration> wifiConfigurationList = new ArrayList<WifiConfiguration>();
+        wifiConfigurationList.add(wifiConfiguration);
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(wifiConfigurationList);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
-
-        currentTimeStamp += firstIntervalMs;
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-
-        // Now fire the first periodic scan alarm timer
-        mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-        mLooper.dispatchAll();
-
-        // Get the second periodic scan interval
-        long secondIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-
-        // Verify the intervals are exponential back off
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[1] * 1000, secondIntervalMs);
-
-        currentTimeStamp += secondIntervalMs;
-        when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-
-        // Make sure we eventually stay at the maximum scan interval.
-        long intervalMs = 0;
-        for (int i = 0; i < 5; i++) {
-            mAlarmManager.dispatch(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-            mLooper.dispatchAll();
-            intervalMs = mAlarmManager
-                    .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                    - currentTimeStamp;
-            currentTimeStamp += intervalMs;
-            when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
-        }
-
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[
-                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC.length - 1] * 1000, intervalMs);
+        // Set screen to ON
+        setScreenState(true);
+        // Wait for max scanning interval so that any impact triggered
+        // by screen state change can settle
+        currentTimeStamp += MAX_SCAN_INTERVAL_IN_SCHEDULE_SEC * 1000;
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(SCAN_TRIGGER_TIMES,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndIntervals(SCAN_TRIGGER_TIMES + 1, intervals,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_TYPE);
     }
 
     /**
@@ -2228,16 +2805,15 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set firmware roaming to enabled
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        // Set WiFi to connected state to trigger periodic scan
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
-                WifiConnectivityManager.WIFI_STATE_CONNECTED);
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(0 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    mWifiConnectivityManager.handleConnectionStateChanged(
+                            mPrimaryClientModeManager,
+                            WifiConnectivityManager.WIFI_STATE_CONNECTED);
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(1 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2272,14 +2848,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set firmware roaming to enabled
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2316,14 +2891,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         wifiConfigurationList.add(wifiConfiguration);
         when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(wifiConfigurationList);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2366,14 +2940,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set firmware roaming to enabled
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2417,14 +2990,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set firmware roaming to enabled
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SAVED_NETWORK_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2475,14 +3047,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set firmware roaming to enabled
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        // Set WiFi to connected state to trigger periodic scan
-        setWifiStateConnected();
-
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2516,17 +3087,19 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         wifiConfigurationList.add(wifiConfiguration);
         when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(wifiConfigurationList);
 
-        // Set WiFi to connected state.
+        // Set WiFi to connected state to trigger periodic scan
         setWifiStateConnected();
-        // Simulate remove network, disconnect not finished.
-        when(mPrimaryClientModeManager.getConnectedWifiConfiguration()).thenReturn(null);
-        mNetworkUpdateListenerCaptor.getValue().onNetworkRemoved(null);
+        mTestHandler.reset();
 
-        // Get the first periodic scan interval
-        long firstIntervalMs = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG)
-                - currentTimeStamp;
-        assertEquals(VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000, firstIntervalMs);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Simulate remove network, disconnect not finished.
+                    when(mPrimaryClientModeManager.getConnectedWifiConfiguration())
+                            .thenReturn(null);
+                    mNetworkUpdateListenerCaptor.getValue().onNetworkRemoved(null);
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2560,19 +3133,16 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Set up time stamp for when entering CONNECTED state
         currentTimeStamp += 2000;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
+        mTestHandler.reset();
 
-        // Set WiFi to connected state to trigger its periodic scan
-        setWifiStateConnected();
-
-        // The very first scan triggered for connected state is actually via the alarm timer
-        // and it obeys the minimum scan interval
-        long firstScanForConnectedTimeStamp = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-
-        // Verify that the first scan for connected state is scheduled after the scan for
-        // disconnected state by first interval in connected scanning schedule.
-        assertEquals(scanForDisconnectedTimeStamp + VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]
-                * 1000, firstScanForConnectedTimeStamp);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(1 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to connected state to trigger periodic scan
+                    setWifiStateConnected();
+                }, currentTimeStamp);
+        intervals.set(0, intervals.get(0) + 2000);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_CONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -2608,23 +3178,17 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         currentTimeStamp += 2000;
         long enteringDisconnectedStateTimeStamp = currentTimeStamp;
         when(mClock.getElapsedSinceBootMillis()).thenReturn(currentTimeStamp);
+        mTestHandler.reset();
 
-        // Set WiFi to disconnected state to trigger its periodic scan
-        mWifiConnectivityManager.handleConnectionStateChanged(
-                mPrimaryClientModeManager,
-                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
-
-        // Verify the very first scan for DISCONNECTED state is fired immediately
-        verify(mWifiScanner, times(2)).startScan(
-                anyObject(), anyObject(), anyObject(), anyObject());
-        long secondScanForDisconnectedTimeStamp = mAlarmManager
-                .getTriggerTimeMillis(WifiConnectivityManager.PERIODIC_SCAN_TIMER_TAG);
-
-        // Verify that the second scan is scheduled after entering DISCONNECTED state by first
-        // interval in disconnected scanning schedule.
-        assertEquals(enteringDisconnectedStateTimeStamp
-                + VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0] * 1000,
-                secondScanForDisconnectedTimeStamp);
+        List<Long> intervals = triggerPeriodicScansAndGetIntervals(0 /* triggerTimes */,
+                () -> {
+                    // Set WiFi to disconnected state to trigger its periodic scan
+                    mWifiConnectivityManager.handleConnectionStateChanged(
+                            mPrimaryClientModeManager,
+                            WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+                }, currentTimeStamp);
+        verifyScanTimesAndFirstInterval(2 /* scanTimes */, intervals,
+                VALID_DISCONNECTED_SINGLE_SCAN_SCHEDULE_SEC[0]);
     }
 
     /**
@@ -3069,7 +3633,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         int i = 0;
         for (ScanResult scanResult : mScanData.getResults()) {
             scanResult.SSID = TEST_SSID + i;
-            updateNetworks.add(ScanResultUtil.createQuotedSSID(scanResult.SSID));
+            updateNetworks.add(ScanResultUtil.createQuotedSsid(scanResult.SSID));
             i++;
         }
         updateNetworks.add(TEST_FQDN);
@@ -3102,15 +3666,24 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
      */
     @Test
     public void verifyBlocklistRefreshedAfterScanResults() {
+        WifiConfiguration disabledConfig = WifiConfigurationTestUtil.createPskNetwork();
+        List<ScanDetail> mockScanDetails = new ArrayList<>();
+        mockScanDetails.add(mock(ScanDetail.class));
+        when(mWifiBlocklistMonitor.tryEnablingBlockedBssids(any())).thenReturn(mockScanDetails);
+        when(mWifiConfigManager.getSavedNetworkForScanDetail(any())).thenReturn(
+                disabledConfig);
+
         when(mWifiConnectivityHelper.isFirmwareRoamingSupported()).thenReturn(true);
 
-        InOrder inOrder = inOrder(mWifiBlocklistMonitor);
+        InOrder inOrder = inOrder(mWifiBlocklistMonitor, mWifiConfigManager);
         // Force a connectivity scan
         inOrder.verify(mWifiBlocklistMonitor, never())
                 .updateAndGetBssidBlocklistForSsids(anySet());
         mWifiConnectivityManager.forceConnectivityScan(WIFI_WORK_SOURCE);
 
         inOrder.verify(mWifiBlocklistMonitor).tryEnablingBlockedBssids(any());
+        inOrder.verify(mWifiConfigManager).updateNetworkSelectionStatus(disabledConfig.networkId,
+                WifiConfiguration.NetworkSelectionStatus.DISABLED_NONE);
         inOrder.verify(mWifiBlocklistMonitor).updateAndGetBssidBlocklistForSsids(anySet());
     }
 
@@ -3259,6 +3832,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
 
         verify(mPrimaryClientModeManager).startConnectToNetwork(
                 CANDIDATE_NETWORK_ID, Process.WIFI_UID, CANDIDATE_BSSID);
+        verify(mPrimaryClientModeManager).enableRoaming(false);
 
         verify(mWifiMetrics).noteFirstNetworkSelectionAfterBoot(true);
     }
@@ -3502,7 +4076,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
      * on a DBS supported device.
      *
      * Expected behavior: WifiConnectivityManager invokes
-     * {@link WifiNetworkSelector#getCandidatesFromScan(List, Set, List, boolean, boolean, boolean)}
+     * {@link WifiNetworkSelector#getCandidatesFromScan(List, Set, List, boolean, boolean, Set, boolean)}
      * boolean, boolean, boolean)} after filtering out the scan results obtained via DBS scan.
      */
     @Test
@@ -3522,12 +4096,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                     List<ScanDetail> scanDetails, Set<String> bssidBlocklist,
                     List<WifiNetworkSelector.ClientModeManagerState> cmmStates,
                     boolean untrustedNetworkAllowed,
-                    boolean oemPaidNetworkAllowed, boolean oemPrivateNetworkAllowed)
+                    boolean oemPaidNetworkAllowed, boolean oemPrivateNetworkAllowed,
+                    Set<Integer> restrictedNetworkAllowedUids, boolean multiInternetNetworkAllowed)
                     throws Exception {
                 capturedScanDetails.addAll(scanDetails);
                 return null;
             }}).when(mWifiNS).getCandidatesFromScan(
-                    any(), any(), any(), anyBoolean(), eq(true), eq(false));
+                    any(), any(), any(), anyBoolean(), eq(true), eq(false), any(), eq(false));
 
         mWifiConnectivityManager.setTrustedConnectionAllowed(true);
         mWifiConnectivityManager.setOemPaidConnectionAllowed(true, new WorkSource());
@@ -3581,12 +4156,13 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                     List<ScanDetail> scanDetails, Set<String> bssidBlocklist,
                     List<WifiNetworkSelector.ClientModeManagerState> cmmStates,
                     boolean untrustedNetworkAllowed,
-                    boolean oemPaidNetworkAllowed, boolean oemPrivateNetworkAllowed)
+                    boolean oemPaidNetworkAllowed, boolean oemPrivateNetworkAllowed,
+                    Set<Integer> restrictedNetworkAllowedUids, boolean multiInternetNetworkAllowed)
                     throws Exception {
                 capturedScanDetails.addAll(scanDetails);
                 return null;
             }}).when(mWifiNS).getCandidatesFromScan(
-                any(), any(), any(), anyBoolean(), eq(false), eq(true));
+                any(), any(), any(), anyBoolean(), eq(false), eq(true), any(), eq(false));
 
         mWifiConnectivityManager.setTrustedConnectionAllowed(true);
         mWifiConnectivityManager.setOemPrivateConnectionAllowed(true, new WorkSource());
@@ -3963,6 +4539,120 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         verify(mWifiScanner, times(1)).startScan(any(), any(), any(), any());
     }
 
+    @Test
+    public void testSetAndClearExternalPnoScanRequest() {
+        int testUid = 123;
+        String testPackage = "TestPackage";
+        IBinder binder = mock(IBinder.class);
+        IPnoScanResultsCallback callback = mock(IPnoScanResultsCallback.class);
+        List<WifiSsid> requestedSsids = Arrays.asList(
+                WifiSsid.fromString("\"TEST_SSID_1\""),
+                WifiSsid.fromString("\"TEST_SSID_2\""));
+        int[] frequencies = new int[] {TEST_FREQUENCY};
+        mWifiConnectivityManager.setExternalPnoScanRequest(testUid, testPackage, binder, callback,
+                requestedSsids, frequencies);
+        verify(mExternalPnoScanRequestManager).setRequest(testUid, testPackage, binder, callback,
+                requestedSsids, frequencies);
+        mWifiConnectivityManager.clearExternalPnoScanRequest(testUid);
+        verify(mExternalPnoScanRequestManager).removeRequest(testUid);
+    }
+
+    /**
+     * When location is disabled external PNO SSIDs should not get scanned.
+     */
+    @Test
+    public void testExternalPnoScanRequest_gatedBylocationMode() {
+        when(mWifiScoreCard.lookupNetwork(any())).thenReturn(mock(WifiScoreCard.PerNetwork.class));
+        mResources.setBoolean(R.bool.config_wifiPnoFrequencyCullingEnabled, true);
+        mWifiConnectivityManager.setLocationModeEnabled(false);
+        // mock saved networks list to be empty
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(Collections.EMPTY_LIST);
+
+
+        // Mock a couple external requested PNO SSIDs
+        Set<String> requestedSsids = new ArraySet<>();
+        requestedSsids.add("\"Test_SSID_1\"");
+        requestedSsids.add("\"Test_SSID_2\"");
+        when(mExternalPnoScanRequestManager.getExternalPnoScanSsids()).thenReturn(requestedSsids);
+        Set<Integer> frequencies = new ArraySet<>();
+        frequencies.add(TEST_FREQUENCY);
+        when(mExternalPnoScanRequestManager.getExternalPnoScanFrequencies())
+                .thenReturn(frequencies);
+
+        assertEquals(Collections.EMPTY_LIST, mWifiConnectivityManager.retrievePnoNetworkList());
+
+        // turn location mode on and now PNO scan should include the requested SSIDs
+        mWifiConnectivityManager.setLocationModeEnabled(true);
+        List<WifiScanner.PnoSettings.PnoNetwork> pnoNetworks =
+                mWifiConnectivityManager.retrievePnoNetworkList();
+        assertEquals(2, pnoNetworks.size());
+        assertEquals("\"Test_SSID_1\"", pnoNetworks.get(0).ssid);
+        assertEquals("\"Test_SSID_2\"", pnoNetworks.get(1).ssid);
+        assertArrayEquals(new int[] {TEST_FREQUENCY}, pnoNetworks.get(0).frequencies);
+        assertArrayEquals(new int[] {TEST_FREQUENCY}, pnoNetworks.get(1).frequencies);
+    }
+
+    /**
+     * Test external requested PNO SSIDs get handled properly when there are existing saved networks
+     * with same SSID.
+     */
+    @Test
+    public void testExternalPnoScanRequest_withSavedNetworks() {
+        mWifiConnectivityManager.setLocationModeEnabled(true);
+        // Create and add 3 networks.
+        WifiConfiguration network1 = WifiConfigurationTestUtil.createPasspointNetwork();
+        network1.ephemeral = true;
+        network1.getNetworkSelectionStatus().setHasEverConnected(false);
+        WifiConfiguration network2 = WifiConfigurationTestUtil.createPskNetwork();
+        network2.getNetworkSelectionStatus().setHasEverConnected(true);
+        WifiConfiguration network3 = WifiConfigurationTestUtil.createPskNetwork();
+        List<WifiConfiguration> networkList = new ArrayList<>();
+        networkList.add(network1);
+        networkList.add(network2);
+        networkList.add(network3);
+        mLruConnectionTracker.addNetwork(network3);
+        mLruConnectionTracker.addNetwork(network2);
+        mLruConnectionTracker.addNetwork(network1);
+        when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(networkList);
+
+        // Mock a couple external requested PNO SSIDs. network3.SSID is in both saved networks
+        // and external requested networks.
+        Set<String> requestedSsids = new ArraySet<>();
+        requestedSsids.add("\"Test_SSID_1\"");
+        requestedSsids.add(network2.SSID);
+        when(mExternalPnoScanRequestManager.getExternalPnoScanSsids()).thenReturn(requestedSsids);
+
+        List<WifiScanner.PnoSettings.PnoNetwork> pnoNetworks =
+                mWifiConnectivityManager.retrievePnoNetworkList();
+        // There should be 3 SSIDs in total: network1, network2, and Test_SSID_1.
+        // network1 should be included in PNO even if it's never connected because it's ephemeral.
+        // network3 should not get included because it's saved and never connected before.
+        assertEquals(3, pnoNetworks.size());
+        // Verify the order. Test_SSID_1 and network2 should be in the front because they are
+        // requested by an external app. Verify network2.SSID only appears once.
+        assertEquals("\"Test_SSID_1\"", pnoNetworks.get(0).ssid);
+        assertEquals(network2.SSID, pnoNetworks.get(1).ssid);
+        assertEquals(network1.SSID, pnoNetworks.get(2).ssid);
+    }
+
+    @Test
+    public void testExternalPnoScanRequest_reportResults() {
+        setWifiEnabled(true);
+        mWifiConnectivityManager.setLocationModeEnabled(true);
+
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(0L);
+        // starts a PNO scan
+        mWifiConnectivityManager.handleConnectionStateChanged(
+                mPrimaryClientModeManager,
+                WifiConnectivityManager.WIFI_STATE_DISCONNECTED);
+        mWifiConnectivityManager.setTrustedConnectionAllowed(true);
+
+        InOrder inOrder = inOrder(mWifiScanner, mExternalPnoScanRequestManager);
+
+        inOrder.verify(mWifiScanner).startDisconnectedPnoScan(any(), any(), any(), any());
+        inOrder.verify(mExternalPnoScanRequestManager).onPnoNetworkFound(any());
+    }
+
     /**
      * Verify no network is network selection disabled, auto-join disabled using.
      * {@link WifiConnectivityManager#retrievePnoNetworkList()}.
@@ -3973,6 +4663,10 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         WifiConfiguration network1 = WifiConfigurationTestUtil.createEapNetwork();
         WifiConfiguration network2 = WifiConfigurationTestUtil.createPskNetwork();
         WifiConfiguration network3 = WifiConfigurationTestUtil.createOpenHiddenNetwork();
+        network1.getNetworkSelectionStatus().setHasEverConnected(true);
+        network2.getNetworkSelectionStatus().setHasEverConnected(true);
+        network3.getNetworkSelectionStatus().setHasEverConnected(true);
+
         List<WifiConfiguration> networkList = new ArrayList<>();
         networkList.add(network1);
         networkList.add(network2);
@@ -4006,6 +4700,12 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         pnoNetworks = mWifiConnectivityManager.retrievePnoNetworkList();
         assertEquals(1, pnoNetworks.size());
         assertEquals(network2.SSID, pnoNetworks.get(0).ssid);
+
+        // Now set network2 to be temporarily disabled by the user. This should remove network 2
+        // from the list.
+        when(mWifiConfigManager.isNetworkTemporarilyDisabledByUser(network2.SSID)).thenReturn(true);
+        pnoNetworks = mWifiConnectivityManager.retrievePnoNetworkList();
+        assertEquals(0, pnoNetworks.size());
     }
 
     /**
@@ -4017,6 +4717,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Create 2 networks.
         WifiConfiguration network1 = WifiConfigurationTestUtil.createEapNetwork();
         WifiConfiguration network2 = WifiConfigurationTestUtil.createPskNetwork();
+        network1.getNetworkSelectionStatus().setHasEverConnected(true);
+        network2.getNetworkSelectionStatus().setHasEverConnected(true);
         List<WifiConfiguration> networkList = new ArrayList<>();
         networkList.add(network1);
         networkList.add(network2);
@@ -4071,13 +4773,21 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
      */
     @Test
     public void testRetrievePnoListOrder() {
-        //Create 3 networks.
+        //Create 4 networks.
         WifiConfiguration network1 = WifiConfigurationTestUtil.createEapNetwork();
         WifiConfiguration network2 = WifiConfigurationTestUtil.createPskNetwork();
         WifiConfiguration network3 = WifiConfigurationTestUtil.createOpenHiddenNetwork();
+        WifiConfiguration network4 = WifiConfigurationTestUtil.createPskNetwork();
+
+        // mark all networks except network4 as connected before
+        network1.getNetworkSelectionStatus().setHasEverConnected(true);
+        network2.getNetworkSelectionStatus().setHasEverConnected(true);
+        network3.getNetworkSelectionStatus().setHasEverConnected(true);
+
         mLruConnectionTracker.addNetwork(network1);
         mLruConnectionTracker.addNetwork(network2);
         mLruConnectionTracker.addNetwork(network3);
+        mLruConnectionTracker.addNetwork(network4);
         List<WifiConfiguration> networkList = new ArrayList<>();
         networkList.add(network1);
         networkList.add(network2);
@@ -4085,6 +4795,9 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         when(mWifiConfigManager.getSavedNetworks(anyInt())).thenReturn(networkList);
         List<WifiScanner.PnoSettings.PnoNetwork> pnoNetworks =
                 mWifiConnectivityManager.retrievePnoNetworkList();
+
+        // Verify correct order of networks. Note that network4 should not appear for PNO scan
+        // since it had not been connected before.
         assertEquals(3, pnoNetworks.size());
         assertEquals(network3.SSID, pnoNetworks.get(0).ssid);
         assertEquals(network2.SSID, pnoNetworks.get(1).ssid);
@@ -4113,6 +4826,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     public void testFetchChannelSetForPartialScanMaxCount() {
         WifiConfiguration configuration1 = WifiConfigurationTestUtil.createOpenNetwork();
         WifiConfiguration configuration2 = WifiConfigurationTestUtil.createOpenNetwork();
+        configuration1.getNetworkSelectionStatus().setHasEverConnected(true);
+        configuration2.getNetworkSelectionStatus().setHasEverConnected(true);
         when(mWifiConfigManager.getSavedNetworks(anyInt()))
                 .thenReturn(Arrays.asList(configuration1, configuration2));
 
@@ -4194,6 +4909,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
     public void restartPnoScanForNetworkChanges() {
         setWifiEnabled(true);
 
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(0L);
         // starts a PNO scan
         mWifiConnectivityManager.handleConnectionStateChanged(
                 mPrimaryClientModeManager,
@@ -4207,12 +4923,20 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
         // Add or update suggestions.
         mSuggestionUpdateListenerCaptor.getValue().onSuggestionsAddedOrUpdated(
                 Arrays.asList(mWifiNetworkSuggestion));
-        // Ensure that we restarted PNO.
-        inOrder.verify(mWifiScanner).stopPnoScan(any());
-        inOrder.verify(mWifiScanner).startDisconnectedPnoScan(any(), any(), any(), any());
-
         // Add saved network
         mNetworkUpdateListenerCaptor.getValue().onNetworkAdded(new WifiConfiguration());
+        // Ensure that we don't immediately restarted PNO.
+        inOrder.verify(mWifiScanner, never()).stopPnoScan(any());
+        inOrder.verify(mWifiScanner, never()).startDisconnectedPnoScan(any(), any(), any(), any());
+
+        // Verify there is only 1 delayed scan scheduled
+        assertEquals(1, mTestHandler.getIntervals().size());
+        assertEquals(NETWORK_CHANGE_TRIGGER_PNO_THROTTLE_MS,
+                (long) mTestHandler.getIntervals().get(0));
+        when(mClock.getElapsedSinceBootMillis()).thenReturn(mTestHandler.getIntervals().get(0));
+        // Now advance the test handler and fire the periodic scan timer
+        mTestHandler.timeAdvance();
+
         // Ensure that we restarted PNO.
         inOrder.verify(mWifiScanner).stopPnoScan(any());
         inOrder.verify(mWifiScanner).startDisconnectedPnoScan(any(), any(), any(), any());
@@ -4253,7 +4977,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                         new WifiNetworkSelector.ClientModeManagerState(
                                 "wlan1", false, true, wifiInfo2));
         verify(mWifiNS).getCandidatesFromScan(any(), any(),
-                eq(expectedCmmStates), anyBoolean(), anyBoolean(), anyBoolean());
+                eq(expectedCmmStates), anyBoolean(), anyBoolean(), anyBoolean(), any(),
+                anyBoolean());
     }
 
     @Test
@@ -4276,7 +5001,7 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 .thenReturn(Arrays.asList(primaryCmm));
         // Second STA creation is allowed.
         when(mActiveModeWarden.canRequestMoreClientModeManagersInRole(
-                eq(oemPaidWs), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED))).thenReturn(true);
+                eq(oemPaidWs), eq(ROLE_CLIENT_SECONDARY_LONG_LIVED), eq(false))).thenReturn(true);
 
         // Set WiFi to disconnected state to trigger scan
         mWifiConnectivityManager.handleConnectionStateChanged(
@@ -4289,7 +5014,8 @@ public class WifiConnectivityManagerTest extends WifiBaseTest {
                 new WifiNetworkSelector.ClientModeManagerState(
                         "unknown", false, true, new WifiInfo()));
         verify(mWifiNS).getCandidatesFromScan(any(), any(),
-                eq(expectedCmmStates), anyBoolean(), anyBoolean(), anyBoolean());
+                eq(expectedCmmStates), anyBoolean(), anyBoolean(), anyBoolean(), any(),
+                anyBoolean());
     }
 
     private void setWifiEnabled(boolean enable) {

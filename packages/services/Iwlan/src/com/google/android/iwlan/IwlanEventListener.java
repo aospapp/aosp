@@ -16,6 +16,7 @@
 
 package com.google.android.iwlan;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
@@ -28,7 +29,9 @@ import android.os.Looper;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.telephony.CarrierConfigManager;
+import android.telephony.CellInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsMmTelManager;
@@ -79,6 +82,9 @@ public class IwlanEventListener {
      */
     public static final int CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT = 10;
 
+    /** On Cellinfo changed */
+    public static final int CELLINFO_CHANGED_EVENT = 11;
+
     @IntDef({
         CARRIER_CONFIG_CHANGED_EVENT,
         WIFI_DISABLE_EVENT,
@@ -89,7 +95,8 @@ public class IwlanEventListener {
         WIFI_CALLING_DISABLE_EVENT,
         CROSS_SIM_CALLING_ENABLE_EVENT,
         CROSS_SIM_CALLING_DISABLE_EVENT,
-        CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT
+        CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT,
+        CELLINFO_CHANGED_EVENT
     })
     @interface IwlanEventType {};
 
@@ -105,10 +112,12 @@ public class IwlanEventListener {
 
     private Context mContext;
     private int mSlotId;
+    private int mSubId;
     private Uri mCrossSimCallingUri;
     private Uri mWfcEnabledUri;
     private UserSettingContentObserver mUserSettingContentObserver;
     private HandlerThread mUserSettingHandlerThread;
+    private RadioInfoTelephonyCallback mTelephonyCallback;
 
     SparseArray<Set<Handler>> eventHandlers = new SparseArray<>();
 
@@ -120,9 +129,25 @@ public class IwlanEventListener {
         @Override
         public void onChange(boolean selfChange, Uri uri) {
             if (mCrossSimCallingUri.equals(uri)) {
-                getCurrentUriSetting(uri);
+                notifyCurrentSetting(uri);
             } else if (mWfcEnabledUri.equals(uri)) {
-                getCurrentUriSetting(uri);
+                notifyCurrentSetting(uri);
+            }
+        }
+    }
+
+    private class RadioInfoTelephonyCallback extends TelephonyCallback
+            implements TelephonyCallback.CellInfoListener {
+        @Override
+        public void onCellInfoChanged(List<CellInfo> arrayCi) {
+            Log.d(LOG_TAG, "Cellinfo changed");
+
+            int event = CELLINFO_CHANGED_EVENT;
+            for (Map.Entry<Integer, IwlanEventListener> entry : mInstances.entrySet()) {
+                IwlanEventListener instance = entry.getValue();
+                if (instance != null) {
+                    instance.updateHandlers(event, arrayCi);
+                }
             }
         }
     }
@@ -208,16 +233,9 @@ public class IwlanEventListener {
                         intent.getIntExtra(
                                 TelephonyManager.EXTRA_CARRIER_ID,
                                 TelephonyManager.UNKNOWN_CARRIER_ID);
-
                 Context context = IwlanDataService.getContext();
                 if (slotId != SubscriptionManager.INVALID_SIM_SLOT_INDEX && context != null) {
-                    if (carrierId != TelephonyManager.UNKNOWN_CARRIER_ID) {
-                        event = CARRIER_CONFIG_CHANGED_EVENT;
-                        getInstance(context, slotId).registerContentObserver();
-                    } else {
-                        event = CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT;
-                    }
-                    getInstance(context, slotId).updateHandlers(event);
+                    getInstance(context, slotId).onCarrierConfigChanged(slotId, carrierId);
                 }
                 break;
             case Intent.ACTION_AIRPLANE_MODE_CHANGED:
@@ -324,6 +342,9 @@ public class IwlanEventListener {
             case "CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT":
                 ret = CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT;
                 break;
+            case "CELLINFO_CHANGED_EVENT":
+                ret = CELLINFO_CHANGED_EVENT;
+                break;
         }
         return ret;
     }
@@ -331,46 +352,75 @@ public class IwlanEventListener {
     private IwlanEventListener(Context context, int slotId) {
         mContext = context;
         mSlotId = slotId;
+        mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         SUB_TAG = IwlanEventListener.class.getSimpleName() + "[" + slotId + "]";
         sIsAirplaneModeOn = null;
     }
 
+    private void onCarrierConfigChanged(int slotId, int carrierId) {
+        Log.d(SUB_TAG, "onCarrierConfigChanged");
+        int subId = IwlanHelper.getSubId(mContext, mSlotId);
+        if (subId != mSubId) {
+            unregisterContentObserver();
+            mSubId = subId;
+            registerContentObserver();
+        }
+        notifyCurrentSetting(mCrossSimCallingUri);
+        notifyCurrentSetting(mWfcEnabledUri);
+
+        int event;
+        if (carrierId != TelephonyManager.UNKNOWN_CARRIER_ID) {
+            event = CARRIER_CONFIG_CHANGED_EVENT;
+            registerTelephonyCallback();
+        } else {
+            event = CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT;
+        }
+        updateHandlers(event);
+    }
+
+    /** Unregister ContentObserver. */
+    private void unregisterContentObserver() {
+        if (mUserSettingContentObserver != null) {
+            mContext.getContentResolver().unregisterContentObserver(mUserSettingContentObserver);
+        }
+        mCrossSimCallingUri = null;
+        mWfcEnabledUri = null;
+    }
+
+    /** Initiate ContentObserver if it is not created. And, register it with the current sub id. */
     private void registerContentObserver() {
-        // Register for content observer
         if (mUserSettingContentObserver == null) {
             mUserSettingHandlerThread =
                     new HandlerThread(IwlanNetworkService.class.getSimpleName());
             mUserSettingHandlerThread.start();
-            Looper mlooper = mUserSettingHandlerThread.getLooper();
-            Handler mhandler = new Handler(mlooper);
-            mUserSettingContentObserver = new UserSettingContentObserver(mhandler);
-
-            // Register for CrossSimCalling setting uri
-            mCrossSimCallingUri =
-                    Uri.withAppendedPath(
-                            SubscriptionManager.CROSS_SIM_ENABLED_CONTENT_URI,
-                            String.valueOf(IwlanHelper.getSubId(mContext, mSlotId)));
-            mContext.getContentResolver()
-                    .registerContentObserver(
-                            mCrossSimCallingUri, true, mUserSettingContentObserver);
-
-            // Register for WifiCalling setting uri
-            mWfcEnabledUri =
-                    Uri.withAppendedPath(
-                            SubscriptionManager.WFC_ENABLED_CONTENT_URI,
-                            String.valueOf(IwlanHelper.getSubId(mContext, mSlotId)));
-            mContext.getContentResolver()
-                    .registerContentObserver(mWfcEnabledUri, true, mUserSettingContentObserver);
+            Looper looper = mUserSettingHandlerThread.getLooper();
+            Handler handler = new Handler(looper);
+            mUserSettingContentObserver = new UserSettingContentObserver(handler);
         }
-        // Update current Cross Sim Calling setting
-        getCurrentUriSetting(mCrossSimCallingUri);
 
-        // Update current Wifi Calling setting
-        getCurrentUriSetting(mWfcEnabledUri);
+        if (mSubId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            return;
+        }
+
+        ContentResolver resolver = mContext.getContentResolver();
+        // Register for CrossSimCalling setting uri
+        mCrossSimCallingUri =
+                Uri.withAppendedPath(
+                        SubscriptionManager.CROSS_SIM_ENABLED_CONTENT_URI, String.valueOf(mSubId));
+        resolver.registerContentObserver(mCrossSimCallingUri, true, mUserSettingContentObserver);
+
+        // Register for WifiCalling setting uri
+        mWfcEnabledUri =
+                Uri.withAppendedPath(
+                        SubscriptionManager.WFC_ENABLED_CONTENT_URI, String.valueOf(mSubId));
+        resolver.registerContentObserver(mWfcEnabledUri, true, mUserSettingContentObserver);
     }
 
     @VisibleForTesting
-    void getCurrentUriSetting(Uri uri) {
+    void notifyCurrentSetting(Uri uri) {
+        if (uri == null) {
+            return;
+        }
         String uriString = uri.getPath();
         int subIndex = Integer.parseInt(uriString.substring(uriString.lastIndexOf('/') + 1));
         int slotIndex = SubscriptionManager.getSlotIndex(subIndex);
@@ -407,6 +457,16 @@ public class IwlanEventListener {
     }
 
     @VisibleForTesting
+    void registerTelephonyCallback() {
+        Log.d(SUB_TAG, "registerTelephonyCallback");
+        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
+        telephonyManager =
+                telephonyManager.createForSubscriptionId(IwlanHelper.getSubId(mContext, mSlotId));
+        mTelephonyCallback = new RadioInfoTelephonyCallback();
+        telephonyManager.registerTelephonyCallback(r -> r.run(), mTelephonyCallback);
+    }
+
+    @VisibleForTesting
     void setCrossSimCallingUri(Uri uri) {
         mCrossSimCallingUri = uri;
     }
@@ -416,11 +476,25 @@ public class IwlanEventListener {
         mWfcEnabledUri = uri;
     }
 
+    @VisibleForTesting
+    RadioInfoTelephonyCallback getTelephonyCallback() {
+        return mTelephonyCallback;
+    }
+
     private synchronized void updateHandlers(int event) {
         if (eventHandlers.contains(event)) {
             Log.d(SUB_TAG, "Updating handlers for the event: " + event);
             for (Handler handler : eventHandlers.get(event)) {
                 handler.obtainMessage(event).sendToTarget();
+            }
+        }
+    }
+
+    private synchronized void updateHandlers(int event, List<CellInfo> arrayCi) {
+        if (eventHandlers.contains(event)) {
+            Log.d(SUB_TAG, "Updating handlers for the event: " + event);
+            for (Handler handler : eventHandlers.get(event)) {
+                handler.obtainMessage(event, arrayCi).sendToTarget();
             }
         }
     }

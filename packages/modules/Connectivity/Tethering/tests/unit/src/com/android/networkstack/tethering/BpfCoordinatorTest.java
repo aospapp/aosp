@@ -24,13 +24,6 @@ import static android.net.NetworkStats.TAG_NONE;
 import static android.net.NetworkStats.UID_ALL;
 import static android.net.NetworkStats.UID_TETHERING;
 import static android.net.ip.ConntrackMonitor.ConntrackEvent;
-import static android.net.netlink.ConntrackMessage.DYING_MASK;
-import static android.net.netlink.ConntrackMessage.ESTABLISHED_MASK;
-import static android.net.netlink.ConntrackMessage.Tuple;
-import static android.net.netlink.ConntrackMessage.TupleIpv4;
-import static android.net.netlink.ConntrackMessage.TupleProto;
-import static android.net.netlink.NetlinkConstants.IPCTNL_MSG_CT_DELETE;
-import static android.net.netlink.NetlinkConstants.IPCTNL_MSG_CT_NEW;
 import static android.net.netstats.provider.NetworkStatsProvider.QUOTA_UNLIMITED;
 import static android.system.OsConstants.ETH_P_IP;
 import static android.system.OsConstants.ETH_P_IPV6;
@@ -40,17 +33,27 @@ import static android.system.OsConstants.NETLINK_NETFILTER;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.staticMockMarker;
+import static com.android.net.module.util.netlink.ConntrackMessage.DYING_MASK;
+import static com.android.net.module.util.netlink.ConntrackMessage.ESTABLISHED_MASK;
+import static com.android.net.module.util.netlink.ConntrackMessage.Tuple;
+import static com.android.net.module.util.netlink.ConntrackMessage.TupleIpv4;
+import static com.android.net.module.util.netlink.ConntrackMessage.TupleProto;
+import static com.android.net.module.util.netlink.NetlinkConstants.IPCTNL_MSG_CT_DELETE;
+import static com.android.net.module.util.netlink.NetlinkConstants.IPCTNL_MSG_CT_NEW;
+import static com.android.networkstack.tethering.BpfCoordinator.CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS;
 import static com.android.networkstack.tethering.BpfCoordinator.NF_CONNTRACK_TCP_TIMEOUT_ESTABLISHED;
 import static com.android.networkstack.tethering.BpfCoordinator.NF_CONNTRACK_UDP_TIMEOUT_STREAM;
-import static com.android.networkstack.tethering.BpfCoordinator.POLLING_CONNTRACK_TIMEOUT_MS;
+import static com.android.networkstack.tethering.BpfCoordinator.NON_OFFLOADED_UPSTREAM_IPV4_TCP_PORTS;
 import static com.android.networkstack.tethering.BpfCoordinator.StatsType;
 import static com.android.networkstack.tethering.BpfCoordinator.StatsType.STATS_PER_IFACE;
 import static com.android.networkstack.tethering.BpfCoordinator.StatsType.STATS_PER_UID;
+import static com.android.networkstack.tethering.BpfCoordinator.toIpv4MappedAddressBytes;
 import static com.android.networkstack.tethering.BpfUtils.DOWNSTREAM;
 import static com.android.networkstack.tethering.BpfUtils.UPSTREAM;
 import static com.android.networkstack.tethering.TetheringConfiguration.DEFAULT_TETHER_OFFLOAD_POLL_INTERVAL_MS;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -82,15 +85,10 @@ import android.net.TetherStatsParcel;
 import android.net.ip.ConntrackMonitor;
 import android.net.ip.ConntrackMonitor.ConntrackEventConsumer;
 import android.net.ip.IpServer;
-import android.net.netlink.ConntrackMessage;
-import android.net.netlink.NetlinkConstants;
-import android.net.netlink.NetlinkSocket;
-import android.net.util.InterfaceParams;
 import android.net.util.SharedLog;
 import android.os.Build;
 import android.os.Handler;
 import android.os.test.TestLooper;
-import android.system.ErrnoException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -98,14 +96,24 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.net.module.util.BpfMap;
+import com.android.net.module.util.CollectionUtils;
+import com.android.net.module.util.InterfaceParams;
 import com.android.net.module.util.NetworkStackConstants;
-import com.android.net.module.util.Struct;
+import com.android.net.module.util.bpf.Tether4Key;
+import com.android.net.module.util.bpf.Tether4Value;
+import com.android.net.module.util.bpf.TetherStatsKey;
+import com.android.net.module.util.bpf.TetherStatsValue;
+import com.android.net.module.util.netlink.ConntrackMessage;
+import com.android.net.module.util.netlink.NetlinkConstants;
+import com.android.net.module.util.netlink.NetlinkSocket;
 import com.android.networkstack.tethering.BpfCoordinator.BpfConntrackEventConsumer;
 import com.android.networkstack.tethering.BpfCoordinator.ClientInfo;
 import com.android.networkstack.tethering.BpfCoordinator.Ipv6ForwardingRule;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
+import com.android.testutils.TestBpfMap;
 import com.android.testutils.TestableNetworkStatsProviderCbBinder;
 
 import org.junit.Before;
@@ -126,8 +134,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.function.BiConsumer;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -136,76 +142,215 @@ public class BpfCoordinatorTest {
     public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
 
     private static final int TEST_NET_ID = 24;
+    private static final int TEST_NET_ID2 = 25;
 
+    private static final int INVALID_IFINDEX = 0;
     private static final int UPSTREAM_IFINDEX = 1001;
-    private static final int DOWNSTREAM_IFINDEX = 1002;
+    private static final int UPSTREAM_IFINDEX2 = 1002;
+    private static final int DOWNSTREAM_IFINDEX = 1003;
+    private static final int DOWNSTREAM_IFINDEX2 = 1004;
 
     private static final String UPSTREAM_IFACE = "rmnet0";
+    private static final String UPSTREAM_IFACE2 = "wlan0";
 
     private static final MacAddress DOWNSTREAM_MAC = MacAddress.fromString("12:34:56:78:90:ab");
+    private static final MacAddress DOWNSTREAM_MAC2 = MacAddress.fromString("ab:90:78:56:34:12");
+
     private static final MacAddress MAC_A = MacAddress.fromString("00:00:00:00:00:0a");
     private static final MacAddress MAC_B = MacAddress.fromString("11:22:33:00:00:0b");
 
     private static final InetAddress NEIGH_A = InetAddresses.parseNumericAddress("2001:db8::1");
     private static final InetAddress NEIGH_B = InetAddresses.parseNumericAddress("2001:db8::2");
 
+    private static final Inet4Address REMOTE_ADDR =
+            (Inet4Address) InetAddresses.parseNumericAddress("140.112.8.116");
+    private static final Inet4Address PUBLIC_ADDR =
+            (Inet4Address) InetAddresses.parseNumericAddress("1.0.0.1");
+    private static final Inet4Address PUBLIC_ADDR2 =
+            (Inet4Address) InetAddresses.parseNumericAddress("1.0.0.2");
+    private static final Inet4Address PRIVATE_ADDR =
+            (Inet4Address) InetAddresses.parseNumericAddress("192.168.80.12");
+    private static final Inet4Address PRIVATE_ADDR2 =
+            (Inet4Address) InetAddresses.parseNumericAddress("192.168.90.12");
+
+    // Generally, public port and private port are the same in the NAT conntrack message.
+    // TODO: consider using different private port and public port for testing.
+    private static final short REMOTE_PORT = (short) 443;
+    private static final short PUBLIC_PORT = (short) 62449;
+    private static final short PUBLIC_PORT2 = (short) 62450;
+    private static final short PRIVATE_PORT = (short) 62449;
+    private static final short PRIVATE_PORT2 = (short) 62450;
+
     private static final InterfaceParams UPSTREAM_IFACE_PARAMS = new InterfaceParams(
             UPSTREAM_IFACE, UPSTREAM_IFINDEX, null /* macAddr, rawip */,
             NetworkStackConstants.ETHER_MTU);
+    private static final InterfaceParams UPSTREAM_IFACE_PARAMS2 = new InterfaceParams(
+            UPSTREAM_IFACE2, UPSTREAM_IFINDEX2, MacAddress.fromString("44:55:66:00:00:0c"),
+            NetworkStackConstants.ETHER_MTU);
 
-    // The test fake BPF map class is needed because the test has no privilege to access the BPF
-    // map. All member functions which eventually call JNI to access the real native BPF map need
-    // to be overridden.
-    // TODO: consider moving to an individual file.
-    private class TestBpfMap<K extends Struct, V extends Struct> extends BpfMap<K, V> {
-        private final HashMap<K, V> mMap = new HashMap<K, V>();
+    private static final HashMap<Integer, UpstreamInformation> UPSTREAM_INFORMATIONS =
+            new HashMap<Integer, UpstreamInformation>() {{
+                    put(UPSTREAM_IFINDEX, new UpstreamInformation(UPSTREAM_IFACE_PARAMS,
+                            PUBLIC_ADDR, NetworkCapabilities.TRANSPORT_CELLULAR, TEST_NET_ID));
+                    put(UPSTREAM_IFINDEX2, new UpstreamInformation(UPSTREAM_IFACE_PARAMS2,
+                            PUBLIC_ADDR2, NetworkCapabilities.TRANSPORT_WIFI, TEST_NET_ID2));
+            }};
 
-        TestBpfMap(final Class<K> key, final Class<V> value) {
-            super(key, value);
+    private static final ClientInfo CLIENT_INFO_A = new ClientInfo(DOWNSTREAM_IFINDEX,
+            DOWNSTREAM_MAC, PRIVATE_ADDR, MAC_A);
+    private static final ClientInfo CLIENT_INFO_B = new ClientInfo(DOWNSTREAM_IFINDEX2,
+            DOWNSTREAM_MAC2, PRIVATE_ADDR2, MAC_B);
+
+    private static class UpstreamInformation {
+        public final InterfaceParams interfaceParams;
+        public final Inet4Address address;
+        public final int transportType;
+        public final int netId;
+
+        UpstreamInformation(final InterfaceParams interfaceParams,
+                final Inet4Address address, int transportType, int netId) {
+            this.interfaceParams = interfaceParams;
+            this.address = address;
+            this.transportType = transportType;
+            this.netId = netId;
         }
+    }
 
-        @Override
-        public void forEach(BiConsumer<K, V> action) throws ErrnoException {
-            // TODO: consider using mocked #getFirstKey and #getNextKey to iterate. It helps to
-            // implement the entry deletion in the iteration if required.
-            for (Map.Entry<K, V> entry : mMap.entrySet()) {
-                action.accept(entry.getKey(), entry.getValue());
+    private static class TestUpstream4Key {
+        public static class Builder {
+            private long mIif = DOWNSTREAM_IFINDEX;
+            private MacAddress mDstMac = DOWNSTREAM_MAC;
+            private short mL4proto = (short) IPPROTO_TCP;
+            private byte[] mSrc4 = PRIVATE_ADDR.getAddress();
+            private byte[] mDst4 = REMOTE_ADDR.getAddress();
+            private int mSrcPort = PRIVATE_PORT;
+            private int mDstPort = REMOTE_PORT;
+
+            public Builder setProto(int proto) {
+                if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
+                    fail("Not support protocol " + proto);
+                }
+                mL4proto = (short) proto;
+                return this;
+            }
+
+            public Tether4Key build() {
+                return new Tether4Key(mIif, mDstMac, mL4proto, mSrc4, mDst4, mSrcPort, mDstPort);
             }
         }
+    }
 
-        @Override
-        public void updateEntry(K key, V value) throws ErrnoException {
-            mMap.put(key, value);
-        }
+    private static class TestDownstream4Key {
+        public static class Builder {
+            private long mIif = UPSTREAM_IFINDEX;
+            private MacAddress mDstMac = MacAddress.ALL_ZEROS_ADDRESS /* dstMac (rawip) */;
+            private short mL4proto = (short) IPPROTO_TCP;
+            private byte[] mSrc4 = REMOTE_ADDR.getAddress();
+            private byte[] mDst4 = PUBLIC_ADDR.getAddress();
+            private int mSrcPort = REMOTE_PORT;
+            private int mDstPort = PUBLIC_PORT;
 
-        @Override
-        public void insertEntry(K key, V value) throws ErrnoException,
-                IllegalArgumentException {
-            // The entry is created if and only if it doesn't exist. See BpfMap#insertEntry.
-            if (mMap.get(key) != null) {
-                throw new IllegalArgumentException(key + " already exist");
+            public Builder setProto(int proto) {
+                if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
+                    fail("Not support protocol " + proto);
+                }
+                mL4proto = (short) proto;
+                return this;
             }
-            mMap.put(key, value);
-        }
 
-        @Override
-        public boolean deleteEntry(Struct key) throws ErrnoException {
-            return mMap.remove(key) != null;
+            public Tether4Key build() {
+                return new Tether4Key(mIif, mDstMac, mL4proto, mSrc4, mDst4, mSrcPort, mDstPort);
+            }
         }
+    }
 
-        @Override
-        public V getValue(@NonNull K key) throws ErrnoException {
-            // Return value for a given key. Otherwise, return null without an error ENOENT.
-            // BpfMap#getValue treats that the entry is not found as no error.
-            return mMap.get(key);
-        }
+    private static class TestUpstream4Value {
+        public static class Builder {
+            private long mOif = UPSTREAM_IFINDEX;
+            private MacAddress mEthDstMac = MacAddress.ALL_ZEROS_ADDRESS /* dstMac (rawip) */;
+            private MacAddress mEthSrcMac = MacAddress.ALL_ZEROS_ADDRESS /* dstMac (rawip) */;
+            private int mEthProto = ETH_P_IP;
+            private short mPmtu = NetworkStackConstants.ETHER_MTU;
+            private byte[] mSrc46 = toIpv4MappedAddressBytes(PUBLIC_ADDR);
+            private byte[] mDst46 = toIpv4MappedAddressBytes(REMOTE_ADDR);
+            private int mSrcPort = PUBLIC_PORT;
+            private int mDstPort = REMOTE_PORT;
+            private long mLastUsed = 0;
 
-        @Override
-        public void clear() throws ErrnoException {
-            // TODO: consider using mocked #getFirstKey and #deleteEntry to implement.
-            mMap.clear();
+            public Tether4Value build() {
+                return new Tether4Value(mOif, mEthDstMac, mEthSrcMac, mEthProto, mPmtu,
+                        mSrc46, mDst46, mSrcPort, mDstPort, mLastUsed);
+            }
         }
-    };
+    }
+
+    private static class TestDownstream4Value {
+        public static class Builder {
+            private long mOif = DOWNSTREAM_IFINDEX;
+            private MacAddress mEthDstMac = MAC_A /* client mac */;
+            private MacAddress mEthSrcMac = DOWNSTREAM_MAC;
+            private int mEthProto = ETH_P_IP;
+            private short mPmtu = NetworkStackConstants.ETHER_MTU;
+            private byte[] mSrc46 = toIpv4MappedAddressBytes(REMOTE_ADDR);
+            private byte[] mDst46 = toIpv4MappedAddressBytes(PRIVATE_ADDR);
+            private int mSrcPort = REMOTE_PORT;
+            private int mDstPort = PRIVATE_PORT;
+            private long mLastUsed = 0;
+
+            public Tether4Value build() {
+                return new Tether4Value(mOif, mEthDstMac, mEthSrcMac, mEthProto, mPmtu,
+                        mSrc46, mDst46, mSrcPort, mDstPort, mLastUsed);
+            }
+        }
+    }
+
+    private static class TestConntrackEvent {
+        public static class Builder {
+            private short mMsgType = IPCTNL_MSG_CT_NEW;
+            private short mProto = (short) IPPROTO_TCP;
+            private Inet4Address mPrivateAddr = PRIVATE_ADDR;
+            private Inet4Address mPublicAddr = PUBLIC_ADDR;
+            private Inet4Address mRemoteAddr = REMOTE_ADDR;
+            private short mPrivatePort = PRIVATE_PORT;
+            private short mPublicPort = PUBLIC_PORT;
+            private short mRemotePort = REMOTE_PORT;
+
+            public Builder setMsgType(short msgType) {
+                if (msgType != IPCTNL_MSG_CT_NEW && msgType != IPCTNL_MSG_CT_DELETE) {
+                    fail("Not support message type " + msgType);
+                }
+                mMsgType = (short) msgType;
+                return this;
+            }
+
+            public Builder setProto(int proto) {
+                if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
+                    fail("Not support protocol " + proto);
+                }
+                mProto = (short) proto;
+                return this;
+            }
+
+            public Builder setRemotePort(int remotePort) {
+                mRemotePort = (short) remotePort;
+                return this;
+            }
+
+            public ConntrackEvent build() {
+                final int status = (mMsgType == IPCTNL_MSG_CT_NEW) ? ESTABLISHED_MASK : DYING_MASK;
+                final int timeoutSec = (mMsgType == IPCTNL_MSG_CT_NEW) ? 100 /* nonzero, new */
+                        : 0 /* unused, delete */;
+                return new ConntrackEvent(
+                        (short) (NetlinkConstants.NFNL_SUBSYS_CTNETLINK << 8 | mMsgType),
+                        new Tuple(new TupleIpv4(mPrivateAddr, mRemoteAddr),
+                                new TupleProto((byte) mProto, mPrivatePort, mRemotePort)),
+                        new Tuple(new TupleIpv4(mRemoteAddr, mPublicAddr),
+                                new TupleProto((byte) mProto, mRemotePort, mPublicPort)),
+                        status,
+                        timeoutSec);
+            }
+        }
+    }
 
     @Mock private NetworkStatsManager mStatsManager;
     @Mock private INetd mNetd;
@@ -213,8 +358,6 @@ public class BpfCoordinatorTest {
     @Mock private IpServer mIpServer2;
     @Mock private TetheringConfiguration mTetherConfig;
     @Mock private ConntrackMonitor mConntrackMonitor;
-    @Mock private BpfMap<Tether4Key, Tether4Value> mBpfDownstream4Map;
-    @Mock private BpfMap<Tether4Key, Tether4Value> mBpfUpstream4Map;
     @Mock private BpfMap<TetherDownstream6Key, Tether6Value> mBpfDownstream6Map;
     @Mock private BpfMap<TetherUpstream6Key, Tether6Value> mBpfUpstream6Map;
     @Mock private BpfMap<TetherDevKey, TetherDevValue> mBpfDevMap;
@@ -226,11 +369,16 @@ public class BpfCoordinatorTest {
     // Late init since the object must be initialized by the BPF coordinator instance because
     // it has to access the non-static function of BPF coordinator.
     private BpfConntrackEventConsumer mConsumer;
+    private HashMap<IpServer, HashMap<Inet4Address, ClientInfo>> mTetherClients;
 
     private long mElapsedRealtimeNanos = 0;
     private final ArgumentCaptor<ArrayList> mStringArrayCaptor =
             ArgumentCaptor.forClass(ArrayList.class);
     private final TestLooper mTestLooper = new TestLooper();
+    private final BpfMap<Tether4Key, Tether4Value> mBpfDownstream4Map =
+            spy(new TestBpfMap<>(Tether4Key.class, Tether4Value.class));
+    private final BpfMap<Tether4Key, Tether4Value> mBpfUpstream4Map =
+            spy(new TestBpfMap<>(Tether4Key.class, Tether4Value.class));
     private final TestBpfMap<TetherStatsKey, TetherStatsValue> mBpfStatsMap =
             spy(new TestBpfMap<>(TetherStatsKey.class, TetherStatsValue.class));
     private final TestBpfMap<TetherLimitKey, TetherLimitValue> mBpfLimitMap =
@@ -327,6 +475,8 @@ public class BpfCoordinatorTest {
         final BpfCoordinator coordinator = new BpfCoordinator(mDeps);
 
         mConsumer = coordinator.getBpfConntrackEventConsumerForTesting();
+        mTetherClients = coordinator.getTetherClientsForTesting();
+
         final ArgumentCaptor<BpfCoordinator.BpfTetherStatsProvider>
                 tetherStatsProviderCaptor =
                 ArgumentCaptor.forClass(BpfCoordinator.BpfTetherStatsProvider.class);
@@ -1296,135 +1446,67 @@ public class BpfCoordinatorTest {
     // |   Sever    +---------+  Upstream  | Downstream +---------+   Client   |
     // +------------+         +------------+------------+         +------------+
     // remote ip              public ip                           private ip
-    // 140.112.8.116:443      100.81.179.1:62449                  192.168.80.12:62449
+    // 140.112.8.116:443      1.0.0.1:62449                       192.168.80.12:62449
     //
-    private static final Inet4Address REMOTE_ADDR =
-            (Inet4Address) InetAddresses.parseNumericAddress("140.112.8.116");
-    private static final Inet4Address PUBLIC_ADDR =
-            (Inet4Address) InetAddresses.parseNumericAddress("100.81.179.1");
-    private static final Inet4Address PRIVATE_ADDR =
-            (Inet4Address) InetAddresses.parseNumericAddress("192.168.80.12");
 
-    // IPv4-mapped IPv6 addresses
-    // Remote addrress ::ffff:140.112.8.116
-    // Public addrress ::ffff:100.81.179.1
-    // Private addrress ::ffff:192.168.80.12
-    private static final byte[] REMOTE_ADDR_V4MAPPED_BYTES = new byte[] {
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xff, (byte) 0xff,
-            (byte) 0x8c, (byte) 0x70, (byte) 0x08, (byte) 0x74 };
-    private static final byte[] PUBLIC_ADDR_V4MAPPED_BYTES = new byte[] {
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xff, (byte) 0xff,
-            (byte) 0x64, (byte) 0x51, (byte) 0xb3, (byte) 0x01 };
-    private static final byte[] PRIVATE_ADDR_V4MAPPED_BYTES = new byte[] {
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xff, (byte) 0xff,
-            (byte) 0xc0, (byte) 0xa8, (byte) 0x50, (byte) 0x0c };
-
-    // Generally, public port and private port are the same in the NAT conntrack message.
-    // TODO: consider using different private port and public port for testing.
-    private static final short REMOTE_PORT = (short) 443;
-    private static final short PUBLIC_PORT = (short) 62449;
-    private static final short PRIVATE_PORT = (short) 62449;
-
-    @NonNull
-    private Tether4Key makeUpstream4Key(int proto) {
-        if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
-            fail("Not support protocol " + proto);
-        }
-        return new Tether4Key(DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC, (short) proto,
-            PRIVATE_ADDR.getAddress(), REMOTE_ADDR.getAddress(), PRIVATE_PORT, REMOTE_PORT);
-    }
-
-    @NonNull
-    private Tether4Key makeDownstream4Key(int proto) {
-        if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
-            fail("Not support protocol " + proto);
-        }
-        return new Tether4Key(UPSTREAM_IFINDEX,
-                MacAddress.ALL_ZEROS_ADDRESS /* dstMac (rawip) */, (short) proto,
-                REMOTE_ADDR.getAddress(), PUBLIC_ADDR.getAddress(), REMOTE_PORT, PUBLIC_PORT);
-    }
-
-    @NonNull
-    private Tether4Value makeUpstream4Value() {
-        return new Tether4Value(UPSTREAM_IFINDEX,
-                MacAddress.ALL_ZEROS_ADDRESS /* ethDstMac (rawip) */,
-                MacAddress.ALL_ZEROS_ADDRESS /* ethSrcMac (rawip) */, ETH_P_IP,
-                NetworkStackConstants.ETHER_MTU, PUBLIC_ADDR_V4MAPPED_BYTES,
-                REMOTE_ADDR_V4MAPPED_BYTES, PUBLIC_PORT, REMOTE_PORT, 0 /* lastUsed */);
-    }
-
-    @NonNull
-    private Tether4Value makeDownstream4Value() {
-        return new Tether4Value(DOWNSTREAM_IFINDEX, MAC_A /* client mac */, DOWNSTREAM_MAC,
-                ETH_P_IP, NetworkStackConstants.ETHER_MTU, REMOTE_ADDR_V4MAPPED_BYTES,
-                PRIVATE_ADDR_V4MAPPED_BYTES, REMOTE_PORT, PRIVATE_PORT, 0 /* lastUsed */);
-    }
-
-    @NonNull
-    private Tether4Key makeDownstream4Key() {
-        return makeDownstream4Key(IPPROTO_TCP);
-    }
-
-    @NonNull
-    private ConntrackEvent makeTestConntrackEvent(short msgType, int proto) {
-        if (msgType != IPCTNL_MSG_CT_NEW && msgType != IPCTNL_MSG_CT_DELETE) {
-            fail("Not support message type " + msgType);
-        }
-        if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
-            fail("Not support protocol " + proto);
+    // Setup upstream interface to BpfCoordinator.
+    //
+    // @param coordinator BpfCoordinator instance.
+    // @param upstreamIfindex upstream interface index. can be the following values.
+    //        INVALID_IFINDEX: no upstream interface
+    //        UPSTREAM_IFINDEX: CELLULAR (raw ip interface)
+    //        UPSTREAM_IFINDEX2: WIFI (ethernet interface)
+    private void setUpstreamInformationTo(final BpfCoordinator coordinator,
+            @Nullable Integer upstreamIfindex) {
+        if (upstreamIfindex == INVALID_IFINDEX) {
+            coordinator.updateUpstreamNetworkState(null);
+            return;
         }
 
-        final int status = (msgType == IPCTNL_MSG_CT_NEW) ? ESTABLISHED_MASK : DYING_MASK;
-        final int timeoutSec = (msgType == IPCTNL_MSG_CT_NEW) ? 100 /* nonzero, new */
-                : 0 /* unused, delete */;
-        return new ConntrackEvent(
-                (short) (NetlinkConstants.NFNL_SUBSYS_CTNETLINK << 8 | msgType),
-                new Tuple(new TupleIpv4(PRIVATE_ADDR, REMOTE_ADDR),
-                        new TupleProto((byte) proto, PRIVATE_PORT, REMOTE_PORT)),
-                new Tuple(new TupleIpv4(REMOTE_ADDR, PUBLIC_ADDR),
-                        new TupleProto((byte) proto, REMOTE_PORT, PUBLIC_PORT)),
-                status,
-                timeoutSec);
-    }
-
-    private void setUpstreamInformationTo(final BpfCoordinator coordinator) {
-        final LinkProperties lp = new LinkProperties();
-        lp.setInterfaceName(UPSTREAM_IFACE);
-        lp.addLinkAddress(new LinkAddress(PUBLIC_ADDR, 32 /* prefix length */));
-        final NetworkCapabilities capabilities = new NetworkCapabilities()
-                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
-        coordinator.updateUpstreamNetworkState(new UpstreamNetworkState(lp, capabilities,
-                new Network(TEST_NET_ID)));
-    }
-
-    private void setDownstreamAndClientInformationTo(final BpfCoordinator coordinator) {
-        final ClientInfo clientInfo = new ClientInfo(DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC,
-                PRIVATE_ADDR, MAC_A /* client mac */);
-        coordinator.tetherOffloadClientAdd(mIpServer, clientInfo);
-    }
-
-    private void initBpfCoordinatorForRule4(final BpfCoordinator coordinator) throws Exception {
-        // Needed because addUpstreamIfindexToMap only updates upstream information when polling
-        // was started.
-        coordinator.startPolling();
-
-        // Needed because two reasons: (1) BpfConntrackEventConsumer#accept only performs cleanup
-        // when both upstream and downstream rules are removed. (2) tetherOffloadRuleRemove of
-        // api31.BpfCoordinatorShimImpl only decreases the count while the entry is deleted.
-        // In the other words, deleteEntry returns true.
-        doReturn(true).when(mBpfUpstream4Map).deleteEntry(any());
-        doReturn(true).when(mBpfDownstream4Map).deleteEntry(any());
+        final UpstreamInformation upstreamInfo = UPSTREAM_INFORMATIONS.get(upstreamIfindex);
+        if (upstreamInfo == null) {
+            fail("Not support upstream interface index " + upstreamIfindex);
+        }
 
         // Needed because BpfCoordinator#addUpstreamIfindexToMap queries interface parameter for
         // interface index.
-        doReturn(UPSTREAM_IFACE_PARAMS).when(mDeps).getInterfaceParams(UPSTREAM_IFACE);
+        doReturn(upstreamInfo.interfaceParams).when(mDeps).getInterfaceParams(
+                upstreamInfo.interfaceParams.name);
+        coordinator.addUpstreamNameToLookupTable(upstreamInfo.interfaceParams.index,
+                upstreamInfo.interfaceParams.name);
 
-        coordinator.addUpstreamNameToLookupTable(UPSTREAM_IFINDEX, UPSTREAM_IFACE);
-        setUpstreamInformationTo(coordinator);
-        setDownstreamAndClientInformationTo(coordinator);
+        final LinkProperties lp = new LinkProperties();
+        lp.setInterfaceName(upstreamInfo.interfaceParams.name);
+        lp.addLinkAddress(new LinkAddress(upstreamInfo.address, 32 /* prefix length */));
+        final NetworkCapabilities capabilities = new NetworkCapabilities()
+                .addTransportType(upstreamInfo.transportType);
+        coordinator.updateUpstreamNetworkState(new UpstreamNetworkState(lp, capabilities,
+                new Network(upstreamInfo.netId)));
+    }
+
+    // Setup downstream interface and its client information to BpfCoordinator.
+    //
+    // @param coordinator BpfCoordinator instance.
+    // @param downstreamIfindex downstream interface index. can be the following values.
+    //        DOWNSTREAM_IFINDEX: a client information which uses MAC_A is added.
+    //        DOWNSTREAM_IFINDEX2: a client information which uses MAC_B is added.
+    // TODO: refactor this function once the client switches between each downstream interface.
+    private void addDownstreamAndClientInformationTo(final BpfCoordinator coordinator,
+            int downstreamIfindex) {
+        if (downstreamIfindex != DOWNSTREAM_IFINDEX && downstreamIfindex != DOWNSTREAM_IFINDEX2) {
+            fail("Not support downstream interface index " + downstreamIfindex);
+        }
+
+        if (downstreamIfindex == DOWNSTREAM_IFINDEX) {
+            coordinator.tetherOffloadClientAdd(mIpServer, CLIENT_INFO_A);
+        } else {
+            coordinator.tetherOffloadClientAdd(mIpServer2, CLIENT_INFO_B);
+        }
+    }
+
+    private void initBpfCoordinatorForRule4(final BpfCoordinator coordinator) throws Exception {
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX);
+        addDownstreamAndClientInformationTo(coordinator, DOWNSTREAM_IFINDEX);
     }
 
     // TODO: Test the IPv4 and IPv6 exist concurrently.
@@ -1448,18 +1530,25 @@ public class BpfCoordinatorTest {
         // because the protocol is not an element of the value. Consider using different address
         // or port to make them different for better testing.
         // TODO: Make the values of {TCP, UDP} rules different.
-        final Tether4Key expectedUpstream4KeyTcp = makeUpstream4Key(IPPROTO_TCP);
-        final Tether4Key expectedDownstream4KeyTcp = makeDownstream4Key(IPPROTO_TCP);
-        final Tether4Value expectedUpstream4ValueTcp = makeUpstream4Value();
-        final Tether4Value expectedDownstream4ValueTcp = makeDownstream4Value();
+        final Tether4Key expectedUpstream4KeyTcp = new TestUpstream4Key.Builder()
+                .setProto(IPPROTO_TCP).build();
+        final Tether4Key expectedDownstream4KeyTcp = new TestDownstream4Key.Builder()
+                .setProto(IPPROTO_TCP).build();
+        final Tether4Value expectedUpstream4ValueTcp = new TestUpstream4Value.Builder().build();
+        final Tether4Value expectedDownstream4ValueTcp = new TestDownstream4Value.Builder().build();
 
-        final Tether4Key expectedUpstream4KeyUdp = makeUpstream4Key(IPPROTO_UDP);
-        final Tether4Key expectedDownstream4KeyUdp = makeDownstream4Key(IPPROTO_UDP);
-        final Tether4Value expectedUpstream4ValueUdp = makeUpstream4Value();
-        final Tether4Value expectedDownstream4ValueUdp = makeDownstream4Value();
+        final Tether4Key expectedUpstream4KeyUdp = new TestUpstream4Key.Builder()
+                .setProto(IPPROTO_UDP).build();
+        final Tether4Key expectedDownstream4KeyUdp = new TestDownstream4Key.Builder()
+                .setProto(IPPROTO_UDP).build();
+        final Tether4Value expectedUpstream4ValueUdp = new TestUpstream4Value.Builder().build();
+        final Tether4Value expectedDownstream4ValueUdp = new TestDownstream4Value.Builder().build();
 
         // [1] Adding the first rule on current upstream immediately sends the quota.
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_NEW, IPPROTO_TCP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_NEW)
+                .setProto(IPPROTO_TCP)
+                .build());
         verifyTetherOffloadSetInterfaceQuota(inOrder, UPSTREAM_IFINDEX, limit, true /* isInit */);
         inOrder.verify(mBpfUpstream4Map)
                 .insertEntry(eq(expectedUpstream4KeyTcp), eq(expectedUpstream4ValueTcp));
@@ -1468,7 +1557,10 @@ public class BpfCoordinatorTest {
         inOrder.verifyNoMoreInteractions();
 
         // [2] Adding the second rule on current upstream does not send the quota.
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_NEW, IPPROTO_UDP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_NEW)
+                .setProto(IPPROTO_UDP)
+                .build());
         verifyNeverTetherOffloadSetInterfaceQuota(inOrder);
         inOrder.verify(mBpfUpstream4Map)
                 .insertEntry(eq(expectedUpstream4KeyUdp), eq(expectedUpstream4ValueUdp));
@@ -1477,7 +1569,10 @@ public class BpfCoordinatorTest {
         inOrder.verifyNoMoreInteractions();
 
         // [3] Removing the second rule on current upstream does not send the quota.
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_DELETE, IPPROTO_UDP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_DELETE)
+                .setProto(IPPROTO_UDP)
+                .build());
         verifyNeverTetherOffloadSetInterfaceQuota(inOrder);
         inOrder.verify(mBpfUpstream4Map).deleteEntry(eq(expectedUpstream4KeyUdp));
         inOrder.verify(mBpfDownstream4Map).deleteEntry(eq(expectedDownstream4KeyUdp));
@@ -1486,7 +1581,10 @@ public class BpfCoordinatorTest {
         // [4] Removing the last rule on current upstream immediately sends the cleanup stuff.
         updateStatsEntryForTetherOffloadGetAndClearStats(
                 buildTestTetherStatsParcel(UPSTREAM_IFINDEX, 0, 0, 0, 0));
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_DELETE, IPPROTO_TCP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_DELETE)
+                .setProto(IPPROTO_TCP)
+                .build());
         inOrder.verify(mBpfUpstream4Map).deleteEntry(eq(expectedUpstream4KeyTcp));
         inOrder.verify(mBpfDownstream4Map).deleteEntry(eq(expectedDownstream4KeyTcp));
         verifyTetherOffloadGetAndClearStats(inOrder, UPSTREAM_IFINDEX);
@@ -1519,14 +1617,20 @@ public class BpfCoordinatorTest {
         final BpfCoordinator coordinator = makeBpfCoordinator();
         initBpfCoordinatorForRule4(coordinator);
 
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_NEW, IPPROTO_TCP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_NEW)
+                .setProto(IPPROTO_TCP)
+                .build());
         verify(mBpfDevMap).updateEntry(eq(new TetherDevKey(UPSTREAM_IFINDEX)),
                 eq(new TetherDevValue(UPSTREAM_IFINDEX)));
         verify(mBpfDevMap).updateEntry(eq(new TetherDevKey(DOWNSTREAM_IFINDEX)),
                 eq(new TetherDevValue(DOWNSTREAM_IFINDEX)));
         clearInvocations(mBpfDevMap);
 
-        mConsumer.accept(makeTestConntrackEvent(IPCTNL_MSG_CT_NEW, IPPROTO_UDP));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_NEW)
+                .setProto(IPPROTO_UDP)
+                .build());
         verify(mBpfDevMap, never()).updateEntry(any(), any());
     }
 
@@ -1544,14 +1648,14 @@ public class BpfCoordinatorTest {
         // Timeline:
         // 0                                       60 (seconds)
         // +---+---+---+---+--...--+---+---+---+---+---+- ..
-        // |      POLLING_CONNTRACK_TIMEOUT_MS     |
+        // | CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS  |
         // +---+---+---+---+--...--+---+---+---+---+---+- ..
         // |<-          valid diff           ->|
         // |<-          expired diff                 ->|
         // ^                                   ^       ^
         // last used time      elapsed time (valid)    elapsed time (expired)
-        final long validTime = (POLLING_CONNTRACK_TIMEOUT_MS - 1) * 1_000_000L;
-        final long expiredTime = (POLLING_CONNTRACK_TIMEOUT_MS + 1) * 1_000_000L;
+        final long validTime = (CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS - 1) * 1_000_000L;
+        final long expiredTime = (CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS + 1) * 1_000_000L;
 
         // Static mocking for NetlinkSocket.
         MockitoSession mockSession = ExtendedMockito.mockitoSession()
@@ -1563,16 +1667,16 @@ public class BpfCoordinatorTest {
             bpfMap.insertEntry(tcpKey, tcpValue);
             bpfMap.insertEntry(udpKey, udpValue);
 
-            // [1] Don't refresh contrack timeout.
+            // [1] Don't refresh conntrack timeout.
             setElapsedRealtimeNanos(expiredTime);
-            mTestLooper.moveTimeForward(POLLING_CONNTRACK_TIMEOUT_MS);
+            mTestLooper.moveTimeForward(CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS);
             waitForIdle();
             ExtendedMockito.verifyNoMoreInteractions(staticMockMarker(NetlinkSocket.class));
             ExtendedMockito.clearInvocations(staticMockMarker(NetlinkSocket.class));
 
-            // [2] Refresh contrack timeout.
+            // [2] Refresh conntrack timeout.
             setElapsedRealtimeNanos(validTime);
-            mTestLooper.moveTimeForward(POLLING_CONNTRACK_TIMEOUT_MS);
+            mTestLooper.moveTimeForward(CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS);
             waitForIdle();
             final byte[] expectedNetlinkTcp = ConntrackMessage.newIPv4TimeoutUpdateRequest(
                     IPPROTO_TCP, PRIVATE_ADDR, (int) PRIVATE_PORT, REMOTE_ADDR,
@@ -1587,9 +1691,9 @@ public class BpfCoordinatorTest {
             ExtendedMockito.verifyNoMoreInteractions(staticMockMarker(NetlinkSocket.class));
             ExtendedMockito.clearInvocations(staticMockMarker(NetlinkSocket.class));
 
-            // [3] Don't refresh contrack timeout if polling stopped.
+            // [3] Don't refresh conntrack timeout if polling stopped.
             coordinator.stopPolling();
-            mTestLooper.moveTimeForward(POLLING_CONNTRACK_TIMEOUT_MS);
+            mTestLooper.moveTimeForward(CONNTRACK_TIMEOUT_UPDATE_INTERVAL_MS);
             waitForIdle();
             ExtendedMockito.verifyNoMoreInteractions(staticMockMarker(NetlinkSocket.class));
             ExtendedMockito.clearInvocations(staticMockMarker(NetlinkSocket.class));
@@ -1606,10 +1710,10 @@ public class BpfCoordinatorTest {
                 new TestBpfMap<>(Tether4Key.class, Tether4Value.class);
         doReturn(bpfUpstream4Map).when(mDeps).getBpfUpstream4Map();
 
-        final Tether4Key tcpKey = makeUpstream4Key(IPPROTO_TCP);
-        final Tether4Key udpKey = makeUpstream4Key(IPPROTO_UDP);
-        final Tether4Value tcpValue = makeUpstream4Value();
-        final Tether4Value udpValue = makeUpstream4Value();
+        final Tether4Key tcpKey = new TestUpstream4Key.Builder().setProto(IPPROTO_TCP).build();
+        final Tether4Key udpKey = new TestUpstream4Key.Builder().setProto(IPPROTO_UDP).build();
+        final Tether4Value tcpValue = new TestUpstream4Value.Builder().build();
+        final Tether4Value udpValue = new TestUpstream4Value.Builder().build();
 
         checkRefreshConntrackTimeout(bpfUpstream4Map, tcpKey, tcpValue, udpKey, udpValue);
     }
@@ -1622,11 +1726,342 @@ public class BpfCoordinatorTest {
                 new TestBpfMap<>(Tether4Key.class, Tether4Value.class);
         doReturn(bpfDownstream4Map).when(mDeps).getBpfDownstream4Map();
 
-        final Tether4Key tcpKey = makeDownstream4Key(IPPROTO_TCP);
-        final Tether4Key udpKey = makeDownstream4Key(IPPROTO_UDP);
-        final Tether4Value tcpValue = makeDownstream4Value();
-        final Tether4Value udpValue = makeDownstream4Value();
+        final Tether4Key tcpKey = new TestDownstream4Key.Builder().setProto(IPPROTO_TCP).build();
+        final Tether4Key udpKey = new TestDownstream4Key.Builder().setProto(IPPROTO_UDP).build();
+        final Tether4Value tcpValue = new TestDownstream4Value.Builder().build();
+        final Tether4Value udpValue = new TestDownstream4Value.Builder().build();
 
         checkRefreshConntrackTimeout(bpfDownstream4Map, tcpKey, tcpValue, udpKey, udpValue);
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testNotAllowOffloadByConntrackMessageDestinationPort() throws Exception {
+        final BpfCoordinator coordinator = makeBpfCoordinator();
+        initBpfCoordinatorForRule4(coordinator);
+
+        final short offloadedPort = 42;
+        assertFalse(CollectionUtils.contains(NON_OFFLOADED_UPSTREAM_IPV4_TCP_PORTS,
+                offloadedPort));
+        mConsumer.accept(new TestConntrackEvent.Builder()
+                .setMsgType(IPCTNL_MSG_CT_NEW)
+                .setProto(IPPROTO_TCP)
+                .setRemotePort(offloadedPort)
+                .build());
+        verify(mBpfUpstream4Map).insertEntry(any(), any());
+        verify(mBpfDownstream4Map).insertEntry(any(), any());
+        clearInvocations(mBpfUpstream4Map, mBpfDownstream4Map);
+
+        for (final short port : NON_OFFLOADED_UPSTREAM_IPV4_TCP_PORTS) {
+            mConsumer.accept(new TestConntrackEvent.Builder()
+                    .setMsgType(IPCTNL_MSG_CT_NEW)
+                    .setProto(IPPROTO_TCP)
+                    .setRemotePort(port)
+                    .build());
+            verify(mBpfUpstream4Map, never()).insertEntry(any(), any());
+            verify(mBpfDownstream4Map, never()).insertEntry(any(), any());
+
+            mConsumer.accept(new TestConntrackEvent.Builder()
+                    .setMsgType(IPCTNL_MSG_CT_DELETE)
+                    .setProto(IPPROTO_TCP)
+                    .setRemotePort(port)
+                    .build());
+            verify(mBpfUpstream4Map, never()).deleteEntry(any());
+            verify(mBpfDownstream4Map, never()).deleteEntry(any());
+
+            mConsumer.accept(new TestConntrackEvent.Builder()
+                    .setMsgType(IPCTNL_MSG_CT_NEW)
+                    .setProto(IPPROTO_UDP)
+                    .setRemotePort(port)
+                    .build());
+            verify(mBpfUpstream4Map).insertEntry(any(), any());
+            verify(mBpfDownstream4Map).insertEntry(any(), any());
+            clearInvocations(mBpfUpstream4Map, mBpfDownstream4Map);
+
+            mConsumer.accept(new TestConntrackEvent.Builder()
+                    .setMsgType(IPCTNL_MSG_CT_DELETE)
+                    .setProto(IPPROTO_UDP)
+                    .setRemotePort(port)
+                    .build());
+            verify(mBpfUpstream4Map).deleteEntry(any());
+            verify(mBpfDownstream4Map).deleteEntry(any());
+            clearInvocations(mBpfUpstream4Map, mBpfDownstream4Map);
+        }
+    }
+
+    // Test network topology:
+    //
+    //            public network                UE                private network
+    //                  |                     /     \                    |
+    // +------------+   V  +-------------+             +--------------+  V  +------------+
+    // |   Sever    +------+  Upstream   |+------+-----+ Downstream 1 +-----+  Client A  |
+    // +------------+      +-------------+|      |     +--------------+     +------------+
+    // remote ip            +-------------+      |                          private ip
+    // 140.112.8.116:443   public ip             |                          192.168.80.12:62449
+    //                     (upstream 1, rawip)   |
+    //                     1.0.0.1:62449         |
+    //                     1.0.0.1:62450         |     +--------------+     +------------+
+    //                            - or -         +-----+ Downstream 2 +-----+  Client B  |
+    //                     (upstream 2, ether)         +--------------+     +------------+
+    //                                                                      private ip
+    //                                                                      192.168.90.12:62450
+    //
+    // Build two test rule sets which include BPF upstream and downstream rules.
+    //
+    // Rule set A: a socket connection from client A to remote server via the first upstream
+    //             (UPSTREAM_IFINDEX).
+    //             192.168.80.12:62449 -> 1.0.0.1:62449 -> 140.112.8.116:443
+    // Rule set B: a socket connection from client B to remote server via the first upstream
+    //             (UPSTREAM_IFINDEX).
+    //             192.168.80.12:62450 -> 1.0.0.1:62450 -> 140.112.8.116:443
+    //
+    // The second upstream (UPSTREAM_IFINDEX2) is an ethernet interface which is not supported by
+    // BPF. Used for testing the rule adding and removing on an unsupported upstream interface.
+    //
+    private static final Tether4Key UPSTREAM4_RULE_KEY_A = makeUpstream4Key(
+            DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC, PRIVATE_ADDR, PRIVATE_PORT);
+    private static final Tether4Value UPSTREAM4_RULE_VALUE_A = makeUpstream4Value(PUBLIC_PORT);
+    private static final Tether4Key DOWNSTREAM4_RULE_KEY_A = makeDownstream4Key(PUBLIC_PORT);
+    private static final Tether4Value DOWNSTREAM4_RULE_VALUE_A = makeDownstream4Value(
+            DOWNSTREAM_IFINDEX, MAC_A, DOWNSTREAM_MAC, PRIVATE_ADDR, PRIVATE_PORT);
+
+    private static final Tether4Key UPSTREAM4_RULE_KEY_B = makeUpstream4Key(
+            DOWNSTREAM_IFINDEX2, DOWNSTREAM_MAC2, PRIVATE_ADDR2, PRIVATE_PORT2);
+    private static final Tether4Value UPSTREAM4_RULE_VALUE_B = makeUpstream4Value(PUBLIC_PORT2);
+    private static final Tether4Key DOWNSTREAM4_RULE_KEY_B = makeDownstream4Key(PUBLIC_PORT2);
+    private static final Tether4Value DOWNSTREAM4_RULE_VALUE_B = makeDownstream4Value(
+            DOWNSTREAM_IFINDEX2, MAC_B, DOWNSTREAM_MAC2, PRIVATE_ADDR2, PRIVATE_PORT2);
+
+    private static final ConntrackEvent CONNTRACK_EVENT_A = makeTestConntrackEvent(
+            PUBLIC_PORT, PRIVATE_ADDR, PRIVATE_PORT);
+
+    private static final ConntrackEvent CONNTRACK_EVENT_B = makeTestConntrackEvent(
+            PUBLIC_PORT2, PRIVATE_ADDR2, PRIVATE_PORT2);
+
+    @NonNull
+    private static Tether4Key makeUpstream4Key(final int downstreamIfindex,
+            @NonNull final MacAddress downstreamMac, @NonNull final Inet4Address privateAddr,
+            final short privatePort) {
+        return new Tether4Key(downstreamIfindex, downstreamMac, (short) IPPROTO_TCP,
+            privateAddr.getAddress(), REMOTE_ADDR.getAddress(), privatePort, REMOTE_PORT);
+    }
+
+    @NonNull
+    private static Tether4Key makeDownstream4Key(final short publicPort) {
+        return new Tether4Key(UPSTREAM_IFINDEX, MacAddress.ALL_ZEROS_ADDRESS /* dstMac (rawip) */,
+                (short) IPPROTO_TCP, REMOTE_ADDR.getAddress(), PUBLIC_ADDR.getAddress(),
+                REMOTE_PORT, publicPort);
+    }
+
+    @NonNull
+    private static Tether4Value makeUpstream4Value(final short publicPort) {
+        return new Tether4Value(UPSTREAM_IFINDEX,
+                MacAddress.ALL_ZEROS_ADDRESS /* ethDstMac (rawip) */,
+                MacAddress.ALL_ZEROS_ADDRESS /* ethSrcMac (rawip) */, ETH_P_IP,
+                NetworkStackConstants.ETHER_MTU, toIpv4MappedAddressBytes(PUBLIC_ADDR),
+                toIpv4MappedAddressBytes(REMOTE_ADDR), publicPort, REMOTE_PORT,
+                0 /* lastUsed */);
+    }
+
+    @NonNull
+    private static Tether4Value makeDownstream4Value(final int downstreamIfindex,
+            @NonNull final MacAddress clientMac, @NonNull final MacAddress downstreamMac,
+            @NonNull final Inet4Address privateAddr, final short privatePort) {
+        return new Tether4Value(downstreamIfindex, clientMac, downstreamMac,
+                ETH_P_IP, NetworkStackConstants.ETHER_MTU, toIpv4MappedAddressBytes(REMOTE_ADDR),
+                toIpv4MappedAddressBytes(privateAddr), REMOTE_PORT, privatePort, 0 /* lastUsed */);
+    }
+
+    @NonNull
+    private static ConntrackEvent makeTestConntrackEvent(final short publicPort,
+                @NonNull final Inet4Address privateAddr, final short privatePort) {
+        return new ConntrackEvent(
+                (short) (NetlinkConstants.NFNL_SUBSYS_CTNETLINK << 8 | IPCTNL_MSG_CT_NEW),
+                new Tuple(new TupleIpv4(privateAddr, REMOTE_ADDR),
+                        new TupleProto((byte) IPPROTO_TCP, privatePort, REMOTE_PORT)),
+                new Tuple(new TupleIpv4(REMOTE_ADDR, PUBLIC_ADDR),
+                        new TupleProto((byte) IPPROTO_TCP, REMOTE_PORT, publicPort)),
+                ESTABLISHED_MASK,
+                100 /* nonzero, CT_NEW */);
+    }
+
+    void checkRule4ExistInUpstreamDownstreamMap() throws Exception {
+        assertEquals(UPSTREAM4_RULE_VALUE_A, mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_A));
+        assertEquals(DOWNSTREAM4_RULE_VALUE_A, mBpfDownstream4Map.getValue(
+                DOWNSTREAM4_RULE_KEY_A));
+        assertEquals(UPSTREAM4_RULE_VALUE_B, mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_B));
+        assertEquals(DOWNSTREAM4_RULE_VALUE_B, mBpfDownstream4Map.getValue(
+                DOWNSTREAM4_RULE_KEY_B));
+    }
+
+    void checkRule4NotExistInUpstreamDownstreamMap() throws Exception {
+        assertNull(mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_A));
+        assertNull(mBpfDownstream4Map.getValue(DOWNSTREAM4_RULE_KEY_A));
+        assertNull(mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_B));
+        assertNull(mBpfDownstream4Map.getValue(DOWNSTREAM4_RULE_KEY_B));
+    }
+
+    // Both #addDownstreamAndClientInformationTo and #setUpstreamInformationTo need to be called
+    // before this function because upstream and downstream information are required to build
+    // the rules while conntrack event is received.
+    void addAndCheckRule4ForDownstreams() throws Exception {
+        // Add rule set A which is on the first downstream and rule set B which is on the second
+        // downstream.
+        mConsumer.accept(CONNTRACK_EVENT_A);
+        mConsumer.accept(CONNTRACK_EVENT_B);
+
+        // Check that both rule set A and B were added.
+        checkRule4ExistInUpstreamDownstreamMap();
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testTetherOffloadRule4Clear_RemoveDownstream() throws Exception {
+        final BpfCoordinator coordinator = makeBpfCoordinator();
+
+        // Initialize upstream and downstream information manually but calling the setup helper
+        // #initBpfCoordinatorForRule4 because this test needs to {update, remove} upstream and
+        // downstream manually for testing.
+        addDownstreamAndClientInformationTo(coordinator, DOWNSTREAM_IFINDEX);
+        addDownstreamAndClientInformationTo(coordinator, DOWNSTREAM_IFINDEX2);
+
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX);
+        addAndCheckRule4ForDownstreams();
+
+        // [1] Remove the first downstream. Remove only the rule set A which is on the first
+        // downstream.
+        coordinator.tetherOffloadClientClear(mIpServer);
+        assertNull(mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_A));
+        assertNull(mBpfDownstream4Map.getValue(DOWNSTREAM4_RULE_KEY_A));
+        assertEquals(UPSTREAM4_RULE_VALUE_B, mBpfUpstream4Map.getValue(
+                UPSTREAM4_RULE_KEY_B));
+        assertEquals(DOWNSTREAM4_RULE_VALUE_B, mBpfDownstream4Map.getValue(
+                DOWNSTREAM4_RULE_KEY_B));
+
+        // Clear client information for the first downstream only.
+        assertNull(mTetherClients.get(mIpServer));
+        assertNotNull(mTetherClients.get(mIpServer2));
+
+        // [2] Remove the second downstream. Remove the rule set B which is on the second
+        // downstream.
+        coordinator.tetherOffloadClientClear(mIpServer2);
+        assertNull(mBpfUpstream4Map.getValue(UPSTREAM4_RULE_KEY_B));
+        assertNull(mBpfDownstream4Map.getValue(DOWNSTREAM4_RULE_KEY_B));
+
+        // Clear client information for the second downstream.
+        assertNull(mTetherClients.get(mIpServer2));
+    }
+
+    private void asseertClientInfoExist(@NonNull IpServer ipServer,
+            @NonNull ClientInfo clientInfo) {
+        HashMap<Inet4Address, ClientInfo> clients = mTetherClients.get(ipServer);
+        assertNotNull(clients);
+        assertEquals(clientInfo, clients.get(clientInfo.clientAddress));
+    }
+
+    // Although either ClientInfo for a given downstream (IpServer) is not found or a given
+    // client address is not found on a given downstream can be treated "ClientInfo not
+    // exist", we still want to know the real reason exactly. For example, we don't the
+    // exact reason in the following:
+    //   assertNull(clients == null ? clients : clients.get(clientInfo.clientAddress));
+    // This helper only verifies the case that the downstream still has at least one client.
+    // In other words, ClientInfo for a given IpServer has not been removed yet.
+    private void asseertClientInfoNotExist(@NonNull IpServer ipServer,
+            @NonNull ClientInfo clientInfo) {
+        HashMap<Inet4Address, ClientInfo> clients = mTetherClients.get(ipServer);
+        assertNotNull(clients);
+        assertNull(clients.get(clientInfo.clientAddress));
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testTetherOffloadRule4Clear_ChangeOrRemoveUpstream() throws Exception {
+        final BpfCoordinator coordinator = makeBpfCoordinator();
+
+        // Initialize upstream and downstream information manually but calling the helper
+        // #initBpfCoordinatorForRule4 because this test needs to {update, remove} upstream and
+        // downstream.
+        addDownstreamAndClientInformationTo(coordinator, DOWNSTREAM_IFINDEX);
+        addDownstreamAndClientInformationTo(coordinator, DOWNSTREAM_IFINDEX2);
+
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX);
+        addAndCheckRule4ForDownstreams();
+
+        // [1] Update the same upstream state. Nothing happens.
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX);
+        checkRule4ExistInUpstreamDownstreamMap();
+
+        // [2] Switch upstream interface from the first upstream (rawip, bpf supported) to
+        // the second upstream (ethernet, bpf not supported). Clear all rules.
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX2);
+        checkRule4NotExistInUpstreamDownstreamMap();
+
+        // Setup the upstream interface information and the rules for next test.
+        setUpstreamInformationTo(coordinator, UPSTREAM_IFINDEX);
+        addAndCheckRule4ForDownstreams();
+
+        // [3] Switch upstream from the first upstream (rawip, bpf supported) to no upstream. Clear
+        // all rules.
+        setUpstreamInformationTo(coordinator, INVALID_IFINDEX);
+        checkRule4NotExistInUpstreamDownstreamMap();
+
+        // Client information should be not deleted.
+        asseertClientInfoExist(mIpServer, CLIENT_INFO_A);
+        asseertClientInfoExist(mIpServer2, CLIENT_INFO_B);
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.R)
+    public void testTetherOffloadClientAddRemove() throws Exception {
+        final BpfCoordinator coordinator = makeBpfCoordinator();
+
+        // [1] Add client information A and B on on the same downstream.
+        final ClientInfo clientA = new ClientInfo(DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC,
+                PRIVATE_ADDR, MAC_A);
+        final ClientInfo clientB = new ClientInfo(DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC,
+                PRIVATE_ADDR2, MAC_B);
+        coordinator.tetherOffloadClientAdd(mIpServer, clientA);
+        coordinator.tetherOffloadClientAdd(mIpServer, clientB);
+        asseertClientInfoExist(mIpServer, clientA);
+        asseertClientInfoExist(mIpServer, clientB);
+
+        // Add the rules for client A and client B.
+        final Tether4Key upstream4KeyA = makeUpstream4Key(
+                DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC, PRIVATE_ADDR, PRIVATE_PORT);
+        final Tether4Value upstream4ValueA = makeUpstream4Value(PUBLIC_PORT);
+        final Tether4Key downstream4KeyA = makeDownstream4Key(PUBLIC_PORT);
+        final Tether4Value downstream4ValueA = makeDownstream4Value(
+                DOWNSTREAM_IFINDEX, MAC_A, DOWNSTREAM_MAC, PRIVATE_ADDR, PRIVATE_PORT);
+        final Tether4Key upstream4KeyB = makeUpstream4Key(
+                DOWNSTREAM_IFINDEX, DOWNSTREAM_MAC2, PRIVATE_ADDR2, PRIVATE_PORT2);
+        final Tether4Value upstream4ValueB = makeUpstream4Value(PUBLIC_PORT2);
+        final Tether4Key downstream4KeyB = makeDownstream4Key(PUBLIC_PORT2);
+        final Tether4Value downstream4ValueB = makeDownstream4Value(
+                DOWNSTREAM_IFINDEX, MAC_B, DOWNSTREAM_MAC2, PRIVATE_ADDR2, PRIVATE_PORT2);
+
+        mBpfUpstream4Map.insertEntry(upstream4KeyA, upstream4ValueA);
+        mBpfDownstream4Map.insertEntry(downstream4KeyA, downstream4ValueA);
+        mBpfUpstream4Map.insertEntry(upstream4KeyB, upstream4ValueB);
+        mBpfDownstream4Map.insertEntry(downstream4KeyB, downstream4ValueB);
+
+        // [2] Remove client information A. Only the rules on client A should be removed and
+        // the rules on client B should exist.
+        coordinator.tetherOffloadClientRemove(mIpServer, clientA);
+        asseertClientInfoNotExist(mIpServer, clientA);
+        asseertClientInfoExist(mIpServer, clientB);
+        assertNull(mBpfUpstream4Map.getValue(upstream4KeyA));
+        assertNull(mBpfDownstream4Map.getValue(downstream4KeyA));
+        assertEquals(upstream4ValueB, mBpfUpstream4Map.getValue(upstream4KeyB));
+        assertEquals(downstream4ValueB, mBpfDownstream4Map.getValue(downstream4KeyB));
+
+        // [3] Remove client information B. The rules on client B should be removed.
+        // Exactly, ClientInfo for a given IpServer is removed because the last client B
+        // has been removed from the downstream. Can't use the helper #asseertClientInfoExist
+        // to check because the container ClientInfo for a given downstream has been removed.
+        // See #asseertClientInfoExist.
+        coordinator.tetherOffloadClientRemove(mIpServer, clientB);
+        assertNull(mTetherClients.get(mIpServer));
+        assertNull(mBpfUpstream4Map.getValue(upstream4KeyB));
+        assertNull(mBpfDownstream4Map.getValue(downstream4KeyB));
     }
 }

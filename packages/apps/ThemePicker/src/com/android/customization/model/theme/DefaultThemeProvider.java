@@ -44,10 +44,6 @@ import com.android.customization.model.theme.ThemeBundle.PreviewInfo.ShapeAppIco
 import com.android.customization.model.theme.custom.CustomTheme;
 import com.android.customization.module.CustomizationPreferences;
 import com.android.wallpaper.R;
-import com.android.wallpaper.asset.ResourceAsset;
-
-import com.bumptech.glide.request.RequestOptions;
-import com.google.android.apps.wallpaper.asset.ThemeBundleThumbAsset;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -424,19 +420,5 @@ public class DefaultThemeProvider extends ResourcesApkProvider implements ThemeB
 
     private String getOverlayPackage(String prefix, String themeName) {
         return getItemStringFromStub(prefix, themeName);
-    }
-
-    private ResourceAsset getDrawableResourceAsset(String prefix, String themeName) {
-        int drawableResId = mStubApkResources.getIdentifier(prefix + themeName,
-                "drawable", mStubPackageName);
-        return drawableResId == 0 ? null : new ResourceAsset(mStubApkResources, drawableResId,
-                RequestOptions.fitCenterTransform());
-    }
-
-    private ThemeBundleThumbAsset getThumbAsset(String prefix, String themeName) {
-        int drawableResId = mStubApkResources.getIdentifier(prefix + themeName,
-                "drawable", mStubPackageName);
-        return drawableResId == 0 ? null : new ThemeBundleThumbAsset(mStubApkResources,
-                drawableResId);
     }
 }

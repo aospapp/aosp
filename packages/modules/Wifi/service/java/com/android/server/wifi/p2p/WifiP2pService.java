@@ -17,10 +17,10 @@
 package com.android.server.wifi.p2p;
 
 import android.content.Context;
+import android.net.wifi.WifiContext;
 import android.util.Log;
 
 import com.android.server.SystemService;
-import com.android.server.wifi.WifiContext;
 import com.android.server.wifi.WifiInjector;
 
 /**
@@ -48,6 +48,8 @@ public final class WifiP2pService extends SystemService {
     public void onBootPhase(int phase) {
         if (phase == SystemService.PHASE_SYSTEM_SERVICES_READY) {
             mImpl.connectivityServiceReady();
+        } else if (phase == SystemService.PHASE_BOOT_COMPLETED) {
+            mImpl.handleBootCompleted();
         }
     }
 }

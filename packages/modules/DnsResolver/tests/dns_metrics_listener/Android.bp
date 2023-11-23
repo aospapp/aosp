@@ -20,6 +20,6 @@ cc_test_library {
     ],
     static_libs: [
         "libutils",
-        "netd_event_listener_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk",
     ],
 }

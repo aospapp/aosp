@@ -18,6 +18,8 @@ package com.android.server.wifi.util;
 
 import static org.junit.Assert.*;
 
+import android.net.wifi.WifiManager;
+
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiBaseTest;
@@ -40,7 +42,7 @@ public class LastCallerInfoManagerTest extends WifiBaseTest {
      */
     @Test
     public void testPutAndDump() throws Exception {
-        mLastCallerInfoManager.put(LastCallerInfoManager.SOFT_AP, 10, 11, 12, "Package", true);
+        mLastCallerInfoManager.put(WifiManager.API_SOFT_AP, 10, 11, 12, "Package", true);
 
         StringWriter sw = new StringWriter();
         mLastCallerInfoManager.dump(new PrintWriter(sw));
@@ -49,6 +51,19 @@ public class LastCallerInfoManagerTest extends WifiBaseTest {
                 "SoftAp: tid=10 uid=11 pid=12 packageName=Package toggleState=true");
         assertTrue("dump did not contain the expected log"
                 + ": " + serviceDump + "\n", logLineRegex.matcher(serviceDump).find());
+    }
+
+    @Test
+    public void testGet() {
+        // expect null before anything is set
+        assertNull(mLastCallerInfoManager.get(WifiManager.API_SCANNING_ENABLED));
+
+        // Test getting some LastCallerInfo
+        mLastCallerInfoManager.put(WifiManager.API_SCANNING_ENABLED, 10, 11, 12, "Package", true);
+        LastCallerInfoManager.LastCallerInfo lastCallerInfo =
+                mLastCallerInfoManager.get(WifiManager.API_SCANNING_ENABLED);
+        assertEquals("Package", lastCallerInfo.getPackageName());
+        assertTrue(lastCallerInfo.getToggleState());
     }
 
 }

@@ -16,6 +16,7 @@
 
 package com.android.timezone.location.storage.util;
 
+/** Utility functions for bit twiddling. */
 public final class BitwiseUtils {
 
     // [0]  = ...00001

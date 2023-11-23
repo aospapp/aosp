@@ -18,6 +18,7 @@ package com.android.car.settings.bluetooth;
 
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
+import android.app.ActivityManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
@@ -26,6 +27,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.IBinder;
+import android.os.RemoteException;
 
 import androidx.preference.PreferenceGroup;
 
@@ -48,6 +51,8 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
 
     protected final BluetoothAdapter mBluetoothAdapter;
     private final AlwaysDiscoverable mAlwaysDiscoverable;
+    private final String mCallingAppPackageName;
+
     private boolean mIsScanningEnabled;
 
     public BluetoothScanningDevicesGroupPreferenceController(Context context, String preferenceKey,
@@ -55,6 +60,7 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mBluetoothAdapter = getContext().getSystemService(BluetoothManager.class).getAdapter();
         mAlwaysDiscoverable = new AlwaysDiscoverable(context, mBluetoothAdapter);
+        mCallingAppPackageName = getCallingAppPackageName(getContext().getActivityToken());
     }
 
     @Override
@@ -96,6 +102,11 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
         }
     }
 
+    @Override
+    protected boolean shouldShowDisconnectedStateSubtitle() {
+        return false;
+    }
+
     protected void reenableScanning() {
         if (isStarted()) {
             mIsScanningEnabled = true;
@@ -122,7 +133,13 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
         if (!mBluetoothAdapter.isDiscovering()) {
             mBluetoothAdapter.startDiscovery();
         }
-        mAlwaysDiscoverable.start();
+
+        if (BluetoothUtils.shouldEnableBTScanning(getContext(), mCallingAppPackageName)) {
+            mAlwaysDiscoverable.start();
+        } else {
+            LOG.d("Not enabling bluetooth scanning. Calling application " + mCallingAppPackageName
+                    + " is not Settings or SystemUi");
+        }
         getPreference().setEnabled(true);
     }
 
@@ -152,6 +169,16 @@ public abstract class BluetoothScanningDevicesGroupPreferenceController extends
             mIsScanningEnabled = true;
         }
         refreshUi();
+    }
+
+    private String getCallingAppPackageName(IBinder activityToken) {
+        String pkg = null;
+        try {
+            pkg = ActivityManager.getService().getLaunchedFromPackage(activityToken);
+        } catch (RemoteException e) {
+            LOG.e("Could not talk to activity manager.", e);
+        }
+        return pkg;
     }
 
     /**

@@ -19,5 +19,4 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"ഡ്രൈവർ"</string>
     <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"ഏകദേശ ലൊക്കേഷൻ ഫോർഗ്രൗണ്ടിൽ മാത്രം ആക്‌സസ് ചെയ്യുക"</string>
-    <string name="sensor_privacy_start_use_dialog_turn_on_button" msgid="2297855099350562159">"മൈക്രോഫോൺ ഓണാക്കുക"</string>
 </resources>

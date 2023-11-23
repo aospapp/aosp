@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ነባሪ ምድቦችን እንደነበሩ መልስ"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"ነባሪ ምድቦች እንደነበሩ ተመልሰዋል"</string>
     <string name="default_categories" msgid="2117679794687799407">"ነባሪ"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%d ተመርጠዋል</item>
-      <item quantity="other">%d ተመርጠዋል</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# ተመርጧል}one{# ተመርጧል}other{# ተመርጠዋል}}"</string>
     <string name="applications" msgid="521776761270770549">"መተግበሪያዎች"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"ምንም ሊታረሙ የሚችሉ መተግበሪያዎች አይገኙም"</string>
     <string name="buffer_size" msgid="3944311026715111454">"በ-CPU ቋት መጠን"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto ይጠቀሙ (ቅድመ ይሁንታ ሙከራ)"</string>
     <string name="long_traces" msgid="5110949471775966329">"ረጅን ዱካዎች"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ወደ መሣሪያ ማከማቻ በቀጣይነት ተቀምጧል"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"በመሣሪያ ማከማቻ ላይ ያለማቋረጥ ይቀመጣል (በራስ-ሰር ከሳንካ ሪፖርቶች ጋር አይያያዝም)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"ከፍተኛው ረጅም የዱካ መጠን"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"ከፍተኛው ረጅም የዱካ ጊዜ ቆይታ"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 ሜባ"</string>

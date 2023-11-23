@@ -34,11 +34,10 @@ import android.car.user.UserCreationResult;
 import android.car.user.UserRemovalResult;
 import android.car.user.UserStartResult;
 import android.car.user.UserStopResult;
+import android.car.util.concurrent.AndroidFuture;
 import android.content.pm.UserInfo;
 import android.os.RemoteException;
 import android.os.UserHandle;
-
-import com.android.internal.infra.AndroidFuture;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -53,6 +52,10 @@ public final class CarDevicePolicyManagerUnitTest extends AbstractExtendedMockit
     private ICarDevicePolicyService mService;
 
     private CarDevicePolicyManager mMgr;
+
+    public CarDevicePolicyManagerUnitTest() {
+        super(CarDevicePolicyManager.TAG);
+    }
 
     @Before
     public void setFixtures() {
@@ -196,7 +199,7 @@ public final class CarDevicePolicyManagerUnitTest extends AbstractExtendedMockit
             @SuppressWarnings("unchecked")
             AndroidFuture<UserCreationResult> future =
                     (AndroidFuture<UserCreationResult>) invocation.getArguments()[2];
-            future.complete(new UserCreationResult(status, user, /* errorMessage= */ null));
+            future.complete(new UserCreationResult(status, user.getUserHandle()));
             return null;
         }).when(mService).createUser(eq(name), eq(user.id), notNull());
     }

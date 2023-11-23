@@ -22,7 +22,24 @@ java_sdk_library {
     defaults: ["framework-module-defaults"],
     impl_library_visibility: [
         "//packages/modules/Connectivity/Tethering:__subpackages__",
+
+        // Using for test only
+        "//cts/tests/netlegacy22.api",
+        "//external/sl4a:__subpackages__",
+        "//frameworks/base/core/tests/bandwidthtests",
+        "//frameworks/base/core/tests/benchmarks",
+        "//frameworks/base/core/tests/utillib",
+        "//frameworks/base/packages/Connectivity/tests:__subpackages__",
+        "//frameworks/base/tests/vcn",
+        "//frameworks/libs/net/common/testutils",
+        "//frameworks/libs/net/common/tests:__subpackages__",
+        "//frameworks/opt/telephony/tests/telephonytests",
+        "//packages/modules/CaptivePortalLogin/tests",
+        "//packages/modules/Connectivity/Tethering/tests:__subpackages__",
         "//packages/modules/Connectivity/tests:__subpackages__",
+        "//packages/modules/IPsec/tests/iketests",
+        "//packages/modules/NetworkStack/tests:__subpackages__",
+        "//packages/modules/Wifi/service/tests/wifitests",
     ],
 
     srcs: [":framework-tethering-srcs"],
@@ -41,6 +58,7 @@ java_sdk_library {
     apex_available: ["com.android.tethering"],
     permitted_packages: ["android.net"],
     min_sdk_version: "30",
+    lint: { strict_updatability_linting: true },
 }
 
 filegroup {

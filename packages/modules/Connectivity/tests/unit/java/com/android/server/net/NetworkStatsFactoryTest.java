@@ -28,11 +28,12 @@ import static android.net.NetworkStats.SET_FOREGROUND;
 import static android.net.NetworkStats.TAG_NONE;
 import static android.net.NetworkStats.UID_ALL;
 
-import static com.android.server.NetworkManagementSocketTagger.kernelToTag;
+import static com.android.server.net.NetworkStatsFactory.kernelToTag;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.net.NetworkStats;
 import android.net.TrafficStats;
@@ -54,6 +55,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -70,16 +73,18 @@ public class NetworkStatsFactoryTest extends NetworkStatsBaseTest {
 
     private File mTestProc;
     private NetworkStatsFactory mFactory;
+    @Mock private Context mContext;
 
     @Before
     public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
         mTestProc = TestIoUtils.createTemporaryDirectory("proc");
 
         // The libandroid_servers which have the native method is not available to
         // applications. So in order to have a test support native library, the native code
         // related to networkStatsFactory is compiled to a minimal native library and loaded here.
         System.loadLibrary("networkstatsfactorytestjni");
-        mFactory = new NetworkStatsFactory(mTestProc, false);
+        mFactory = new NetworkStatsFactory(mContext, mTestProc, false);
         mFactory.updateUnderlyingNetworkInfos(new UnderlyingNetworkInfo[0]);
     }
 

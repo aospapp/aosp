@@ -76,6 +76,27 @@
         android:key="cast_settings"
         android:title="@string/cast_settings_title"
         custom:uri="@string/cast_settings_slice_uri"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        android:icon="@drawable/ic_assistant_broadcast"
+        android:key="assistant_broadcast"
+        custom:isPreferenceVisible="false"
+        android:title="@string/assistant_broadcast_title"
+        custom:uri="@string/assistant_broadcast_slice_uri"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_internal_settings"
+        android:key="overlay_internal"
+        android:title="@string/overlay_internal_slice_title"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/overlay_internal_slice_uri"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_devices_other"
+        android:key="fastpair_slice"
+        android:title="@string/device_fastpair"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/fastpair_slice_uri"/>
     <com.android.tv.settings.widget.SwitchWithSoundPreference
         android:key="sound_effects_switch"
         android:icon="@drawable/ic_system_sound"

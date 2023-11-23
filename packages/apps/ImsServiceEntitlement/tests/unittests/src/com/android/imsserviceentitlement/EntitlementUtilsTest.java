@@ -44,10 +44,8 @@ public class EntitlementUtilsTest {
     @Mock private EntitlementResult mEntitlementResult;
 
     @Before
-    public void setup() throws Exception {
-        Field field = Executors.class.getDeclaredField("sUseDirectExecutorForTest");
-        field.setAccessible(true);
-        field.set(null, true);
+    public void setUp() throws Exception {
+        useDirectExecutor(true);
     }
 
     @Test
@@ -66,5 +64,22 @@ public class EntitlementUtilsTest {
         EntitlementUtils.entitlementCheck(mMockImsEntitlementApi, mEntitlementResultCallback);
 
         verify(mEntitlementResultCallback, never()).onEntitlementResult(mEntitlementResult);
+    }
+
+    @Test
+    public void entitlementCheck_cancelEntitlementCheck_onFailure() throws Exception {
+        useDirectExecutor(false);
+        when(mMockImsEntitlementApi.checkEntitlementStatus()).thenReturn(mEntitlementResult);
+
+        EntitlementUtils.entitlementCheck(mMockImsEntitlementApi, mEntitlementResultCallback);
+        EntitlementUtils.cancelEntitlementCheck();
+
+        verify(mEntitlementResultCallback, never()).onEntitlementResult(mEntitlementResult);
+    }
+
+    private void useDirectExecutor(boolean enable) throws Exception {
+        Field field = Executors.class.getDeclaredField("sUseDirectExecutorForTest");
+        field.setAccessible(true);
+        field.set(null, enable);
     }
 }

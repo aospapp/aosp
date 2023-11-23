@@ -16,19 +16,22 @@
 
 package com.android.networkstack.apishim.api31;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastS;
+
 import android.content.Context;
 import android.os.Build;
 import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.SettingsShim;
-import com.android.networkstack.apishim.common.ShimUtils;
 
 /**
  * Implementation of {@link SettingsShim} for API 31.
  */
+@RequiresApi(Build.VERSION_CODES.S)
 public class SettingsShimImpl
         extends com.android.networkstack.apishim.api30.SettingsShimImpl {
     protected SettingsShimImpl() { }
@@ -36,10 +39,10 @@ public class SettingsShimImpl
     /**
      * Get a new instance of {@link SettingsShim}.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     public static SettingsShim newInstance() {
-        if (!ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.R)) {
-            return com.android.networkstack.apishim.api30.SettingsShimImpl
-                    .newInstance();
+        if (!isAtLeastS()) {
+            return com.android.networkstack.apishim.api30.SettingsShimImpl.newInstance();
         }
         return new SettingsShimImpl();
     }

@@ -23,7 +23,7 @@ import static org.junit.Assert.fail;
 import android.car.Car;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.hvac.CarHvacManager;
-import android.hardware.automotive.vehicle.V2_0.VehicleHvacFanDirection;
+import android.hardware.automotive.vehicle.VehicleHvacFanDirection;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 

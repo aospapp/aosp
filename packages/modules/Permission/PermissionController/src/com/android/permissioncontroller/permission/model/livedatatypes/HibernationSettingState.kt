@@ -16,18 +16,34 @@
 
 package com.android.permissioncontroller.permission.model.livedatatypes
 
+import android.permission.PermissionControllerManager.HIBERNATION_ELIGIBILITY_ELIGIBLE
+import android.permission.PermissionControllerManager.HIBERNATION_ELIGIBILITY_EXEMPT_BY_SYSTEM
+
 /**
  * Tracks the setting state of hibernation and auto revoke for a package
  *
- * @param isEnabledGlobal Whether or not the hibernation/auto-revoke job runs
- * @param isEnabledForApp Whether or not the OPSTR_AUTO_REVOKE_PERMISSIONS_IF_UNUSED is set to
- * MODE_ALLOWED for this package
+ * @param hibernationEligibility state saying whether the package is eligible for hibernation. See
+ * [HIBERNATION_ELIGIBILITY_ELIGIBLE].
  * @param revocableGroupNames A list of which permission groups of this package are eligible for
  * auto-revoke. A permission group is auto-revocable if it does not contain a default granted
  * permission.
  */
 data class HibernationSettingState(
-    val isEnabledGlobal: Boolean,
-    val isEnabledForApp: Boolean,
+    val hibernationEligibility: Int,
     val revocableGroupNames: List<String>
-)
+) {
+    /**
+     * Whether package will hibernate if it is unused.
+     */
+    fun isEligibleForHibernation(): Boolean {
+        return hibernationEligibility == HIBERNATION_ELIGIBILITY_ELIGIBLE
+    }
+
+    /**
+     * Whether the package is exempt from hibernation by the system. This means the app can never
+     * be hibernated, and the user setting to exempt it is disabled.
+     */
+    fun isExemptBySystem(): Boolean {
+        return hibernationEligibility == HIBERNATION_ELIGIBILITY_EXEMPT_BY_SYSTEM
+    }
+}

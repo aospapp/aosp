@@ -141,7 +141,8 @@ public class UsbHostManagementActivity extends Activity {
             processDevice();
         } else {
             mReceiverRegistered = true;
-            registerReceiver(mResolveBroadcastReceiver, new IntentFilter(ACTION_USER_UNLOCKED));
+            registerReceiver(mResolveBroadcastReceiver, new IntentFilter(ACTION_USER_UNLOCKED),
+                    Context.RECEIVER_NOT_EXPORTED);
             // in case the car was unlocked while the receiver was being registered
             if (userManager.isUserUnlocked()) {
                 mResolveBroadcastReceiver.onReceive(this, new Intent(ACTION_USER_UNLOCKED));

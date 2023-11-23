@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"مندرجہ ذیل ایپ آپ کے آلہ کا نظم کرے گی:"</string>
     <string name="next" msgid="1004321437324424398">"اگلا"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"دفتری پروفائل ترتیب دیا جا رہا ہے…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"‏آپ کا IT منتظم آپ کے نیٹ ورک کی سرگرمی اور اسی کے ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس دفتری پروفائل کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">
-
-</xliff:g>اپنی تنظیم کی رازداری پالیسیوں سمیت مزید معلومات کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"‏آپ کا IT منتظم اس پروفائل سے وابستہ ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں، ڈیٹا اور نیٹ ورک کی سرگرمی کے ساتھ آپ کی کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت کی نگرانی اور نظم کر سکتا ہے۔ مزید معلومات کے لیے اور اپنی تنظیم کی رازداری کی پالیسیوں کے بارے میں مزید جاننے کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"‏آپ کا IT منتظم آپ کے نیٹ ورک کی سرگرمی اور اسی کے ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس آلہ کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">
 
 </xliff:g>اپنی تنظیم کی رازداری پالیسیوں سمیت مزید معلومات کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ایپ کو انسٹال کر سکتا ہے تاکہ آپ اس آلہ کے لیے ادائیگیاں کر سکیں۔"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"اس آلے کو محدود کیا جا سکتا ہے"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"اگر آپ ادائیگیاں نہیں کرتے ہیں تو <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> اس آلے تک رسائی پر پابندی لگا سکتا ہے۔"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"‏آلہ سیٹ اپ نہیں ہو سکتا۔ اپنے IT منتظم سے رابطہ کریں اور \"غلط checksum\" کا حوالہ دیں۔"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"‏بعد میں دوبارہ کوشش کریں یا اپنے IT منتظم سے مدد طلب کریں"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"‏آلہ سیٹ اپ نہیں ہو سکتا۔ اپنے IT منتظم سے رابطہ کریں اور \"غائب یا خراب اجزاء\" کا حوالہ دیں۔"</string>
+    <string name="setting_up" msgid="1478847967385506664">"سیٹ اپ کیا جا رہا ہے…"</string>
 </resources>

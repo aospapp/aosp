@@ -91,6 +91,7 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
     @Mock private DeferredMetricsReader mDeferredMetricsReader;
     @Mock private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
     @Mock private UserManager mUserManager;
+    @Mock private DevicePolicyManager mDevicePolicyManager;
     @Mock private SharedPreferences mSharedPreferences;
 
     private PreFinalizationController mPreFinalizationController;
@@ -103,6 +104,10 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         // this is necessary for mockito to work
         System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
         MockitoAnnotations.initMocks(this);
+        when(mActivity.getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .thenReturn(mDevicePolicyManager);
+        when(mActivity.getSystemServiceName(DevicePolicyManager.class))
+                .thenReturn(Context.DEVICE_POLICY_SERVICE);
         when(mUtils.canResolveIntentAsUser(any(Context.class), any(Intent.class), anyInt()))
                 .thenReturn(true);
         when(mActivity.getFilesDir()).thenReturn(getContext().getFilesDir());
@@ -117,7 +122,9 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         when(mUserManager.isUserUnlocked(anyInt())).thenReturn(true);
         when(mUserManager.isUserUnlocked(any(UserHandle.class))).thenReturn(true);
 
-        final ProvisioningParamsUtils provisioningParamsUtils = new ProvisioningParamsUtils();
+        final ProvisioningParamsUtils provisioningParamsUtils =
+                new ProvisioningParamsUtils(
+                        ProvisioningParamsUtils.DEFAULT_PROVISIONING_PARAMS_FILE_PROVIDER);
         mPreFinalizationController = new PreFinalizationController(
                 mActivity, mUtils, mSettingsFacade, mHelper,
                 provisioningParamsUtils, new SendDpcBroadcastServiceUtils());
@@ -362,13 +369,9 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         when(mUtils.getManagedProfile(mActivity))
                 .thenReturn(MANAGED_PROFILE_USER_HANDLE);
 
-        // Mock DPM for testing access to device IDs is granted.
-        final DevicePolicyManager mockDpm = mock(DevicePolicyManager.class);
-        when(mActivity.getSystemServiceName(DevicePolicyManager.class))
-                .thenReturn(Context.DEVICE_POLICY_SERVICE);
-        when(mActivity.getSystemService(DevicePolicyManager.class)).thenReturn(mockDpm);
         final int managedProfileUserId = MANAGED_PROFILE_USER_HANDLE.getIdentifier();
-        when(mockDpm.getProfileOwnerAsUser(managedProfileUserId)).thenReturn(TEST_MDM_ADMIN);
+        when(mDevicePolicyManager.getProfileOwnerAsUser(managedProfileUserId))
+                .thenReturn(TEST_MDM_ADMIN);
 
         // Actual Device IDs access is  granted to the DPM of the managed profile, in the context
         // of the managed profile.

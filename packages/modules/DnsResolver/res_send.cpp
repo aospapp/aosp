@@ -95,6 +95,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <span>
 
 #include <android-base/logging.h>
 #include <android-base/result.h>
@@ -109,6 +110,7 @@
 #include "netd_resolv/resolv.h"
 #include "private/android_filesystem_config.h"
 
+#include "doh.h"
 #include "res_comp.h"
 #include "res_debug.h"
 #include "resolv_cache.h"
@@ -120,16 +122,20 @@ using namespace std::chrono_literals;
 // TODO: use the namespace something like android::netd_resolv for libnetd_resolv
 using android::base::ErrnoError;
 using android::base::Result;
+using android::base::unique_fd;
 using android::net::CacheStatus;
 using android::net::DnsQueryEvent;
 using android::net::DnsTlsDispatcher;
+using android::net::DnsTlsServer;
 using android::net::DnsTlsTransport;
+using android::net::Experiments;
 using android::net::IpVersion;
 using android::net::IV_IPV4;
 using android::net::IV_IPV6;
 using android::net::IV_UNKNOWN;
 using android::net::LinuxErrno;
 using android::net::NetworkDnsEventReported;
+using android::net::NS_T_AAAA;
 using android::net::NS_T_INVALID;
 using android::net::NsRcode;
 using android::net::NsType;
@@ -137,32 +143,42 @@ using android::net::PrivateDnsConfiguration;
 using android::net::PrivateDnsMode;
 using android::net::PrivateDnsModes;
 using android::net::PrivateDnsStatus;
+using android::net::PROTO_DOH;
+using android::net::PROTO_MDNS;
 using android::net::PROTO_TCP;
 using android::net::PROTO_UDP;
 using android::netdutils::IPSockAddr;
 using android::netdutils::Slice;
 using android::netdutils::Stopwatch;
+using std::span;
 
-static int send_vc(res_state statp, res_params* params, const uint8_t* buf, int buflen,
-                   uint8_t* ans, int anssiz, int* terrno, size_t ns, time_t* at, int* rcode,
-                   int* delay);
-static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int buflen,
-                   uint8_t* ans, int anssiz, int* terrno, size_t* ns, int* v_circuit,
-                   int* gotsomewhere, time_t* at, int* rcode, int* delay);
+const std::vector<IPSockAddr> mdns_addrs = {IPSockAddr::toIPSockAddr("ff02::fb", 5353),
+                                            IPSockAddr::toIPSockAddr("224.0.0.251", 5353)};
 
-static void dump_error(const char*, const struct sockaddr*, int);
+static int setupUdpSocket(ResState* statp, const sockaddr* sockap, unique_fd* fd_out, int* terrno);
+static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
+                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, time_t* at,
+                   int* rcode, int* delay);
+static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
+                   int* terrno, size_t ns, time_t* at, int* rcode, int* delay);
+static int send_mdns(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* terrno,
+                     int* rcode);
+static void dump_error(const char*, const struct sockaddr*);
 
 static int sock_eq(struct sockaddr*, struct sockaddr*);
 static int connect_with_timeout(int sock, const struct sockaddr* nsap, socklen_t salen,
                                 const struct timespec timeout);
 static int retrying_poll(const int sock, short events, const struct timespec* finish);
-static int res_tls_send(res_state, const Slice query, const Slice answer, int* rcode,
-                        bool* fallback);
+static int res_private_dns_send(ResState*, const Slice query, const Slice answer, int* rcode,
+                                bool* fallback);
+static int res_tls_send(const std::list<DnsTlsServer>& tlsServers, ResState*, const Slice query,
+                        const Slice answer, int* rcode, PrivateDnsMode mode);
+static ssize_t res_doh_send(ResState*, const Slice query, const Slice answer, int* rcode);
 
-NsType getQueryType(const uint8_t* msg, size_t msgLen) {
+NsType getQueryType(span<const uint8_t> msg) {
     ns_msg handle;
     ns_rr rr;
-    if (ns_initparse((const uint8_t*)msg, msgLen, &handle) < 0 ||
+    if (ns_initparse(msg.data(), msg.size(), &handle) < 0 ||
         ns_parserr(&handle, ns_s_qd, 0, &rr) < 0) {
         return NS_T_INVALID;
     }
@@ -263,6 +279,10 @@ static int random_bind(int s, int family) {
     for (j = 0; j < 10; j++) {
         /* find a random port between 1025 .. 65534 */
         int port = 1025 + (arc4random_uniform(65535 - 1025));
+        // RFC 6762 section 5.1: Don't use 5353 source port on one-shot Multicast DNS queries. DNS
+        // resolver does not fully compliant mDNS.
+        if (port == 5353) continue;
+
         if (family == AF_INET)
             u.sin.sin_port = htons(port);
         else
@@ -292,7 +312,7 @@ static void res_set_usable_server(int selectedServer, int nscount, bool usable_s
 }
 
 // Looks up the nameserver address in res.nsaddrs[], returns the ns number if found, otherwise -1.
-static int res_ourserver_p(res_state statp, const sockaddr* sa) {
+static int res_ourserver_p(ResState* statp, const sockaddr* sa) {
     const sockaddr_in *inp, *srv;
     const sockaddr_in6 *in6p, *srv6;
     int ns = 0;
@@ -332,10 +352,10 @@ static int res_ourserver_p(res_state statp, const sockaddr* sa) {
 }
 
 /* int
- * res_nameinquery(name, type, cl, buf, eom)
- *	look for (name, type, cl) in the query section of packet (buf, eom)
+ * res_nameinquery(name, type, cl, msg, eom)
+ *	look for (name, type, cl) in the query section of packet (msg, eom)
  * requires:
- *	buf + HFIXEDSZ <= eom
+ *	msg + HFIXEDSZ <= eom
  * returns:
  *	-1 : format error
  *	0  : not found
@@ -343,13 +363,13 @@ static int res_ourserver_p(res_state statp, const sockaddr* sa) {
  * author:
  *	paul vixie, 29may94
  */
-int res_nameinquery(const char* name, int type, int cl, const uint8_t* buf, const uint8_t* eom) {
-    const uint8_t* cp = buf + HFIXEDSZ;
-    int qdcount = ntohs(((const HEADER*) (const void*) buf)->qdcount);
+int res_nameinquery(const char* name, int type, int cl, const uint8_t* msg, const uint8_t* eom) {
+    const uint8_t* cp = msg + HFIXEDSZ;
+    int qdcount = ntohs(((const HEADER*)(const void*)msg)->qdcount);
 
     while (qdcount-- > 0) {
         char tname[MAXDNAME + 1];
-        int n = dn_expand(buf, eom, cp, tname, sizeof tname);
+        int n = dn_expand(msg, eom, cp, tname, sizeof tname);
         if (n < 0) return (-1);
         cp += n;
         if (cp + 2 * INT16SZ > eom) return (-1);
@@ -417,69 +437,103 @@ static bool isNetworkRestricted(int terrno) {
     return (terrno == EPERM);
 }
 
-int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int anssiz, int* rcode,
+int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* rcode,
               uint32_t flags, std::chrono::milliseconds sleepTimeMs) {
     LOG(DEBUG) << __func__;
 
     // Should not happen
-    if (anssiz < HFIXEDSZ) {
+    if (ans.size() < HFIXEDSZ) {
         // TODO: Remove errno once callers stop using it
         errno = EINVAL;
         return -EINVAL;
     }
-    res_pquery(buf, buflen);
+    res_pquery(msg);
 
     int anslen = 0;
     Stopwatch cacheStopwatch;
-    ResolvCacheStatus cache_status =
-            resolv_cache_lookup(statp->netid, buf, buflen, ans, anssiz, &anslen, flags);
+    ResolvCacheStatus cache_status = resolv_cache_lookup(statp->netid, msg, ans, &anslen, flags);
     const int32_t cacheLatencyUs = saturate_cast<int32_t>(cacheStopwatch.timeTakenUs());
     if (cache_status == RESOLV_CACHE_FOUND) {
-        HEADER* hp = (HEADER*)(void*)ans;
+        HEADER* hp = (HEADER*)(void*)ans.data();
         *rcode = hp->rcode;
         DnsQueryEvent* dnsQueryEvent = addDnsQueryEvent(statp->event);
         dnsQueryEvent->set_latency_micros(cacheLatencyUs);
         dnsQueryEvent->set_cache_hit(static_cast<CacheStatus>(cache_status));
-        dnsQueryEvent->set_type(getQueryType(buf, buflen));
+        dnsQueryEvent->set_type(getQueryType(msg));
         return anslen;
     } else if (cache_status != RESOLV_CACHE_UNSUPPORTED) {
         // had a cache miss for a known network, so populate the thread private
         // data so the normal resolve path can do its thing
         resolv_populate_res_for_net(statp);
     }
+
+    // MDNS
+    if (isMdnsResolution(statp->flags)) {
+        // Use an impossible error code as default value.
+        int terrno = ETIME;
+        int resplen = 0;
+        *rcode = RCODE_INTERNAL_ERROR;
+        Stopwatch queryStopwatch;
+        resplen = send_mdns(statp, msg, ans, &terrno, rcode);
+        const IPSockAddr& receivedMdnsAddr =
+                (getQueryType(msg) == NS_T_AAAA) ? mdns_addrs[0] : mdns_addrs[1];
+        DnsQueryEvent* mDnsQueryEvent = addDnsQueryEvent(statp->event);
+        mDnsQueryEvent->set_cache_hit(static_cast<CacheStatus>(cache_status));
+        mDnsQueryEvent->set_latency_micros(saturate_cast<int32_t>(queryStopwatch.timeTakenUs()));
+        mDnsQueryEvent->set_ip_version(ipFamilyToIPVersion(receivedMdnsAddr.family()));
+        mDnsQueryEvent->set_rcode(static_cast<NsRcode>(*rcode));
+        mDnsQueryEvent->set_protocol(PROTO_MDNS);
+        mDnsQueryEvent->set_type(getQueryType(msg));
+        mDnsQueryEvent->set_linux_errno(static_cast<LinuxErrno>(terrno));
+        resolv_stats_add(statp->netid, receivedMdnsAddr, mDnsQueryEvent);
+
+        if (resplen > 0) {
+            LOG(DEBUG) << __func__ << ": got answer from mDNS:";
+            res_pquery(ans.first(resplen));
+
+            if (cache_status == RESOLV_CACHE_NOTFOUND) {
+                resolv_cache_add(statp->netid, msg, {ans.data(), resplen});
+            }
+            return resplen;
+        }
+    }
+
     if (statp->nameserverCount() == 0) {
-        // We have no nameservers configured, so there's no point trying.
-        // Tell the cache the query failed, or any retries and anyone else asking the same
-        // question will block for PENDING_REQUEST_TIMEOUT seconds instead of failing fast.
-        _resolv_cache_query_failed(statp->netid, buf, buflen, flags);
+        // We have no nameservers configured and it's not a MDNS resolution, so there's no
+        // point trying. Tell the cache the query failed, or any retries and anyone else
+        // asking the same question will block for PENDING_REQUEST_TIMEOUT seconds instead
+        // of failing fast.
+        _resolv_cache_query_failed(statp->netid, msg, flags);
 
         // TODO: Remove errno once callers stop using it
         errno = ESRCH;
         return -ESRCH;
     }
 
-    // If parallel_lookup is enabled, it might be required to wait some time to avoid
-    // gateways drop packets if queries are sent too close together
-    if (sleepTimeMs != 0ms) {
-        std::this_thread::sleep_for(sleepTimeMs);
-    }
-    // DoT
+    // Private DNS
     if (!(statp->netcontext_flags & NET_CONTEXT_FLAG_USE_LOCAL_NAMESERVERS)) {
         bool fallback = false;
-        int resplen = res_tls_send(statp, Slice(const_cast<uint8_t*>(buf), buflen),
-                                   Slice(ans, anssiz), rcode, &fallback);
+        int resplen =
+                res_private_dns_send(statp, Slice(const_cast<uint8_t*>(msg.data()), msg.size()),
+                                     Slice(ans.data(), ans.size()), rcode, &fallback);
         if (resplen > 0) {
-            LOG(DEBUG) << __func__ << ": got answer from DoT";
-            res_pquery(ans, resplen);
+            LOG(DEBUG) << __func__ << ": got answer from Private DNS";
+            res_pquery(ans.first(resplen));
             if (cache_status == RESOLV_CACHE_NOTFOUND) {
-                resolv_cache_add(statp->netid, buf, buflen, ans, resplen);
+                resolv_cache_add(statp->netid, msg, ans.first(resplen));
             }
             return resplen;
         }
         if (!fallback) {
-            _resolv_cache_query_failed(statp->netid, buf, buflen, flags);
+            _resolv_cache_query_failed(statp->netid, msg, flags);
             return -ETIMEDOUT;
         }
+    }
+
+    // If parallel_lookup is enabled, it might be required to wait some time to avoid
+    // gateways from dropping packets if queries are sent too close together.
+    if (sleepTimeMs != 0ms) {
+        std::this_thread::sleep_for(sleepTimeMs);
     }
 
     res_stats stats[MAXNS]{};
@@ -490,6 +544,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
         errno = ESRCH;
         return -ESRCH;
     }
+
     bool usable_servers[MAXNS];
     int usableServersCount = android_net_res_stats_get_usable_servers(
             &params, stats, statp->nameserverCount(), usable_servers);
@@ -504,7 +559,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
 
     // TODO: Let it always choose the first nameserver when sort_nameservers is enabled.
     if ((flags & ANDROID_RESOLV_NO_RETRY) && usableServersCount > 1) {
-        auto hp = reinterpret_cast<const HEADER*>(buf);
+        auto hp = reinterpret_cast<const HEADER*>(msg.data());
 
         // Select a random server based on the query id
         int selectedServer = (hp->id % usableServersCount) + 1;
@@ -513,11 +568,12 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
 
     // Send request, RETRY times, or until successful.
     int retryTimes = (flags & ANDROID_RESOLV_NO_RETRY) ? 1 : params.retry_count;
-    int useTcp = buflen > PACKETSZ;
+    int useTcp = msg.size() > PACKETSZ;
     int gotsomewhere = 0;
+
     // Use an impossible error code as default value
     int terrno = ETIME;
-
+    // plaintext DNS
     for (int attempt = 0; attempt < retryTimes; ++attempt) {
         for (size_t ns = 0; ns < statp->nsaddrs.size(); ++ns) {
             if (!usable_servers[ns]) continue;
@@ -543,10 +599,10 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
             if (useTcp) {
                 // TCP; at most one attempt per server.
                 attempt = retryTimes;
-                resplen = send_vc(statp, &params, buf, buflen, ans, anssiz, &terrno, ns,
-                                  &query_time, rcode, &delay);
+                resplen =
+                        send_vc(statp, &params, msg, ans, &terrno, ns, &query_time, rcode, &delay);
 
-                if (buflen <= PACKETSZ && resplen <= 0 &&
+                if (msg.size() <= PACKETSZ && resplen <= 0 &&
                     statp->tc_mode == aidl::android::net::IDnsResolver::TC_MODE_UDP_TCP) {
                     // reset to UDP for next query on next DNS server if resolver is currently doing
                     // TCP fallback retry and current server does not support TCP connectin
@@ -555,8 +611,8 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                 LOG(INFO) << __func__ << ": used send_vc " << resplen << " terrno: " << terrno;
             } else {
                 // UDP
-                resplen = send_dg(statp, &params, buf, buflen, ans, anssiz, &terrno, &actualNs,
-                                  &useTcp, &gotsomewhere, &query_time, rcode, &delay);
+                resplen = send_dg(statp, &params, msg, ans, &terrno, &actualNs, &useTcp,
+                                  &gotsomewhere, &query_time, rcode, &delay);
                 fallbackTCP = useTcp ? true : false;
                 retry_count_for_event = attempt;
                 LOG(INFO) << __func__ << ": used send_dg " << resplen << " terrno: " << terrno;
@@ -576,7 +632,7 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
             dnsQueryEvent->set_retry_times(retry_count_for_event);
             dnsQueryEvent->set_rcode(static_cast<NsRcode>(*rcode));
             dnsQueryEvent->set_protocol(query_proto);
-            dnsQueryEvent->set_type(getQueryType(buf, buflen));
+            dnsQueryEvent->set_type(getQueryType(msg));
             dnsQueryEvent->set_linux_errno(static_cast<LinuxErrno>(terrno));
 
             // Only record stats the first time we try a query. This ensures that
@@ -605,16 +661,16 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                 continue;
             }
             if (resplen < 0) {
-                _resolv_cache_query_failed(statp->netid, buf, buflen, flags);
+                _resolv_cache_query_failed(statp->netid, msg, flags);
                 statp->closeSockets();
                 return -terrno;
-            };
+            }
 
             LOG(DEBUG) << __func__ << ": got answer:";
-            res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
+            res_pquery(ans.first(resplen));
 
             if (cache_status == RESOLV_CACHE_NOTFOUND) {
-                resolv_cache_add(statp->netid, buf, buflen, ans, resplen);
+                resolv_cache_add(statp->netid, msg, {ans.data(), resplen});
             }
             statp->closeSockets();
             return (resplen);
@@ -627,17 +683,17 @@ int res_nsend(res_state statp, const uint8_t* buf, int buflen, uint8_t* ans, int
                    : gotsomewhere ? ETIMEDOUT /* no answer obtained */
                                   : ECONNREFUSED /* no nameservers found */;
 
-    _resolv_cache_query_failed(statp->netid, buf, buflen, flags);
+    _resolv_cache_query_failed(statp->netid, msg, flags);
     return -terrno;
 }
 
-static struct timespec get_timeout(res_state statp, const res_params* params, const int ns) {
+static struct timespec get_timeout(ResState* statp, const res_params* params, const int addrIndex) {
     int msec;
+    msec = params->base_timeout_msec << addrIndex;
     // Legacy algorithm which scales the timeout by nameserver number.
     // For instance, with 4 nameservers: 5s, 2.5s, 5s, 10s
     // This has no effect with 1 or 2 nameservers
-    msec = params->base_timeout_msec << ns;
-    if (ns > 0) {
+    if (addrIndex > 0) {
         msec /= statp->nameserverCount();
     }
     // For safety, don't allow OEMs and experiments to configure a timeout shorter than 1s.
@@ -652,13 +708,12 @@ static struct timespec get_timeout(res_state statp, const res_params* params, co
     return result;
 }
 
-static int send_vc(res_state statp, res_params* params, const uint8_t* buf, int buflen,
-                   uint8_t* ans, int anssiz, int* terrno, size_t ns, time_t* at, int* rcode,
-                   int* delay) {
+static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
+                   int* terrno, size_t ns, time_t* at, int* rcode, int* delay) {
     *at = time(NULL);
     *delay = 0;
-    const HEADER* hp = (const HEADER*) (const void*) buf;
-    HEADER* anhp = (HEADER*) (void*) ans;
+    const HEADER* hp = (const HEADER*)(const void*)msg.data();
+    HEADER* anhp = (HEADER*)(void*)ans.data();
     struct sockaddr* nsap;
     int nsaplen;
     int truncating, connreset, n;
@@ -684,7 +739,7 @@ same_ns:
     struct timespec start_time = evNowTime();
 
     /* Are we still talking to whom we want to talk to? */
-    if (statp->tcp_nssock >= 0 && (statp->_flags & RES_F_VC) != 0) {
+    if (statp->tcp_nssock >= 0 && (statp->flags & RES_F_VC) != 0) {
         struct sockaddr_storage peer;
         socklen_t size = sizeof peer;
         unsigned old_mark;
@@ -692,12 +747,12 @@ same_ns:
         if (getpeername(statp->tcp_nssock, (struct sockaddr*)(void*)&peer, &size) < 0 ||
             !sock_eq((struct sockaddr*)(void*)&peer, nsap) ||
             getsockopt(statp->tcp_nssock, SOL_SOCKET, SO_MARK, &old_mark, &mark_size) < 0 ||
-            old_mark != statp->_mark) {
+            old_mark != statp->mark) {
             statp->closeSockets();
         }
     }
 
-    if (statp->tcp_nssock < 0 || (statp->_flags & RES_F_VC) == 0) {
+    if (statp->tcp_nssock < 0 || (statp->flags & RES_F_VC) == 0) {
         if (statp->tcp_nssock >= 0) statp->closeSockets();
 
         statp->tcp_nssock.reset(socket(nsap->sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0));
@@ -715,9 +770,9 @@ same_ns:
         }
         const uid_t uid = statp->enforce_dns_uid ? AID_DNS : statp->uid;
         resolv_tag_socket(statp->tcp_nssock, uid, statp->pid);
-        if (statp->_mark != MARK_UNSET) {
-            if (setsockopt(statp->tcp_nssock, SOL_SOCKET, SO_MARK, &statp->_mark,
-                           sizeof(statp->_mark)) < 0) {
+        if (statp->mark != MARK_UNSET) {
+            if (setsockopt(statp->tcp_nssock, SOL_SOCKET, SO_MARK, &statp->mark,
+                           sizeof(statp->mark)) < 0) {
                 *terrno = errno;
                 PLOG(DEBUG) << __func__ << ": setsockopt: ";
                 return -1;
@@ -726,14 +781,14 @@ same_ns:
         errno = 0;
         if (random_bind(statp->tcp_nssock, nsap->sa_family) < 0) {
             *terrno = errno;
-            dump_error("bind/vc", nsap, nsaplen);
+            dump_error("bind/vc", nsap);
             statp->closeSockets();
             return (0);
         }
         if (connect_with_timeout(statp->tcp_nssock, nsap, (socklen_t)nsaplen,
                                  get_timeout(statp, params, ns)) < 0) {
             *terrno = errno;
-            dump_error("connect/vc", nsap, nsaplen);
+            dump_error("connect/vc", nsap);
             statp->closeSockets();
             /*
              * The way connect_with_timeout() is implemented prevents us from reliably
@@ -746,18 +801,19 @@ same_ns:
             *rcode = RCODE_TIMEOUT;
             return (0);
         }
-        statp->_flags |= RES_F_VC;
+        statp->flags |= RES_F_VC;
     }
 
     /*
      * Send length & message
      */
-    uint16_t len = htons(static_cast<uint16_t>(buflen));
+    uint16_t len = htons(static_cast<uint16_t>(msg.size()));
     const iovec iov[] = {
             {.iov_base = &len, .iov_len = INT16SZ},
-            {.iov_base = const_cast<uint8_t*>(buf), .iov_len = static_cast<size_t>(buflen)},
+            {.iov_base = const_cast<uint8_t*>(msg.data()),
+             .iov_len = static_cast<size_t>(msg.size())},
     };
-    if (writev(statp->tcp_nssock, iov, 2) != (INT16SZ + buflen)) {
+    if (writev(statp->tcp_nssock, iov, 2) != (INT16SZ + msg.size())) {
         *terrno = errno;
         PLOG(DEBUG) << __func__ << ": write failed: ";
         statp->closeSockets();
@@ -767,7 +823,7 @@ same_ns:
      * Receive length & response
      */
 read_len:
-    cp = ans;
+    cp = ans.data();
     len = INT16SZ;
     while ((n = read(statp->tcp_nssock, (char*)cp, (size_t)len)) > 0) {
         cp += n;
@@ -792,11 +848,11 @@ read_len:
         }
         return (0);
     }
-    uint16_t resplen = ntohs(*reinterpret_cast<const uint16_t*>(ans));
-    if (resplen > anssiz) {
+    uint16_t resplen = ntohs(*reinterpret_cast<const uint16_t*>(ans.data()));
+    if (resplen > ans.size()) {
         LOG(DEBUG) << __func__ << ": response truncated";
         truncating = 1;
-        len = anssiz;
+        len = ans.size();
     } else
         len = resplen;
     if (len < HFIXEDSZ) {
@@ -808,7 +864,7 @@ read_len:
         statp->closeSockets();
         return (0);
     }
-    cp = ans;
+    cp = ans.data();
     while (len != 0 && (n = read(statp->tcp_nssock, (char*)cp, (size_t)len)) > 0) {
         cp += n;
         len -= n;
@@ -825,7 +881,7 @@ read_len:
          * Flush rest of answer so connection stays in synch.
          */
         anhp->tc = 1;
-        len = resplen - anssiz;
+        len = resplen - ans.size();
         while (len != 0) {
             char junk[PACKETSZ];
 
@@ -835,9 +891,9 @@ read_len:
             else
                 break;
         }
-        LOG(WARNING) << __func__ << ": resplen " << resplen << " exceeds buf size " << anssiz;
+        LOG(WARNING) << __func__ << ": resplen " << resplen << " exceeds buf size " << ans.size();
         // return size should never exceed container size
-        resplen = anssiz;
+        resplen = ans.size();
     }
     /*
      * If the calling application has bailed out of
@@ -848,7 +904,7 @@ read_len:
      */
     if (hp->id != anhp->id) {
         LOG(DEBUG) << __func__ << ": ld answer (unexpected):";
-        res_pquery(ans, resplen);
+        res_pquery({ans.data(), resplen});
         goto read_len;
     }
 
@@ -929,15 +985,15 @@ retry:
     return n;
 }
 
-static std::vector<pollfd> extractUdpFdset(res_state statp, const short events = POLLIN) {
+static std::vector<pollfd> extractUdpFdset(ResState* statp, const short events = POLLIN) {
     std::vector<pollfd> fdset(statp->nsaddrs.size());
     for (size_t i = 0; i < statp->nsaddrs.size(); ++i) {
-        fdset[i] = {.fd = statp->nssocks[i], .events = events};
+        fdset[i] = {.fd = statp->udpsocks[i], .events = events};
     }
     return fdset;
 }
 
-static Result<std::vector<int>> udpRetryingPoll(res_state statp, const timespec* finish) {
+static Result<std::vector<int>> udpRetryingPoll(ResState* statp, const timespec* finish) {
     for (;;) {
         LOG(DEBUG) << __func__ << ": poll";
         timespec start_time = evNowTime();
@@ -963,22 +1019,22 @@ static Result<std::vector<int>> udpRetryingPoll(res_state statp, const timespec*
     }
 }
 
-static Result<std::vector<int>> udpRetryingPollWrapper(res_state statp, int ns,
+static Result<std::vector<int>> udpRetryingPollWrapper(ResState* statp, int addrInfo,
                                                        const timespec* finish) {
     const bool keepListeningUdp =
             android::net::Experiments::getInstance()->getFlag("keep_listening_udp", 0);
     if (keepListeningUdp) return udpRetryingPoll(statp, finish);
 
-    if (int n = retrying_poll(statp->nssocks[ns], POLLIN, finish); n <= 0) {
+    if (int n = retrying_poll(statp->udpsocks[addrInfo], POLLIN, finish); n <= 0) {
         return ErrnoError();
     }
-    return std::vector<int>{statp->nssocks[ns]};
+    return std::vector<int>{statp->udpsocks[addrInfo]};
 }
 
-bool ignoreInvalidAnswer(res_state statp, const sockaddr_storage& from, const uint8_t* buf,
-                         int buflen, uint8_t* ans, int anssiz, int* receivedFromNs) {
-    const HEADER* hp = (const HEADER*)(const void*)buf;
-    HEADER* anhp = (HEADER*)(void*)ans;
+bool ignoreInvalidAnswer(ResState* statp, const sockaddr_storage& from, span<const uint8_t> msg,
+                         span<uint8_t> ans, int* receivedFromNs) {
+    const HEADER* hp = (const HEADER*)(const void*)msg.data();
+    HEADER* anhp = (HEADER*)(void*)ans.data();
     if (hp->id != anhp->id) {
         // response from old query, ignore it.
         LOG(DEBUG) << __func__ << ": old answer:";
@@ -989,7 +1045,8 @@ bool ignoreInvalidAnswer(res_state statp, const sockaddr_storage& from, const ui
         LOG(DEBUG) << __func__ << ": not our server:";
         return true;
     }
-    if (!res_queriesmatch(buf, buf + buflen, ans, ans + anssiz)) {
+    if (!res_queriesmatch(msg.data(), msg.data() + msg.size(), ans.data(),
+                          ans.data() + ans.size())) {
         // response contains wrong query? ignore it.
         LOG(DEBUG) << __func__ << ": wrong query name:";
         return true;
@@ -997,9 +1054,45 @@ bool ignoreInvalidAnswer(res_state statp, const sockaddr_storage& from, const ui
     return false;
 }
 
-static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int buflen,
-                   uint8_t* ans, int anssiz, int* terrno, size_t* ns, int* v_circuit,
-                   int* gotsomewhere, time_t* at, int* rcode, int* delay) {
+// return  1 - setup udp socket success.
+// return  0 - bind error, protocol error.
+// return -1 - create socket fail, except |EPROTONOSUPPORT| EPFNOSUPPORT |EAFNOSUPPORT|.
+//             set socket option fail.
+static int setupUdpSocket(ResState* statp, const sockaddr* sockap, unique_fd* fd_out, int* terrno) {
+    fd_out->reset(socket(sockap->sa_family, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+
+    if (*fd_out < 0) {
+        *terrno = errno;
+        PLOG(ERROR) << __func__ << ": socket: ";
+        switch (errno) {
+            case EPROTONOSUPPORT:
+            case EPFNOSUPPORT:
+            case EAFNOSUPPORT:
+                return 0;
+            default:
+                return -1;
+        }
+    }
+    const uid_t uid = statp->enforce_dns_uid ? AID_DNS : statp->uid;
+    resolv_tag_socket(*fd_out, uid, statp->pid);
+    if (statp->mark != MARK_UNSET) {
+        if (setsockopt(*fd_out, SOL_SOCKET, SO_MARK, &(statp->mark), sizeof(statp->mark)) < 0) {
+            *terrno = errno;
+            return -1;
+        }
+    }
+
+    if (random_bind(*fd_out, sockap->sa_family) < 0) {
+        *terrno = errno;
+        dump_error("bind", sockap);
+        return 0;
+    }
+    return 1;
+}
+
+static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
+                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, time_t* at,
+                   int* rcode, int* delay) {
     // It should never happen, but just in case.
     if (*ns >= statp->nsaddrs.size()) {
         LOG(ERROR) << __func__ << ": Out-of-bound indexing: " << ns;
@@ -1011,52 +1104,24 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
     *delay = 0;
     const sockaddr_storage ss = statp->nsaddrs[*ns];
     const sockaddr* nsap = reinterpret_cast<const sockaddr*>(&ss);
-    const int nsaplen = sockaddrSize(nsap);
 
-    if (statp->nssocks[*ns] == -1) {
-        statp->nssocks[*ns].reset(socket(nsap->sa_family, SOCK_DGRAM | SOCK_CLOEXEC, 0));
-        if (statp->nssocks[*ns] < 0) {
-            *terrno = errno;
-            PLOG(DEBUG) << __func__ << ": socket(dg): ";
-            switch (errno) {
-                case EPROTONOSUPPORT:
-                case EPFNOSUPPORT:
-                case EAFNOSUPPORT:
-                    return (0);
-                default:
-                    return (-1);
-            }
-        }
+    if (statp->udpsocks[*ns] == -1) {
+        int result = setupUdpSocket(statp, nsap, &statp->udpsocks[*ns], terrno);
+        if (result <= 0) return result;
 
-        const uid_t uid = statp->enforce_dns_uid ? AID_DNS : statp->uid;
-        resolv_tag_socket(statp->nssocks[*ns], uid, statp->pid);
-        if (statp->_mark != MARK_UNSET) {
-            if (setsockopt(statp->nssocks[*ns], SOL_SOCKET, SO_MARK, &(statp->_mark),
-                           sizeof(statp->_mark)) < 0) {
-                *terrno = errno;
-                statp->closeSockets();
-                return -1;
-            }
-        }
         // Use a "connected" datagram socket to receive an ECONNREFUSED error
         // on the next socket operation when the server responds with an
         // ICMP port-unreachable error. This way we can detect the absence of
         // a nameserver without timing out.
-        if (random_bind(statp->nssocks[*ns], nsap->sa_family) < 0) {
+        if (connect(statp->udpsocks[*ns], nsap, sockaddrSize(nsap)) < 0) {
             *terrno = errno;
-            dump_error("bind(dg)", nsap, nsaplen);
+            dump_error("connect(dg)", nsap);
             statp->closeSockets();
-            return (0);
-        }
-        if (connect(statp->nssocks[*ns], nsap, (socklen_t)nsaplen) < 0) {
-            *terrno = errno;
-            dump_error("connect(dg)", nsap, nsaplen);
-            statp->closeSockets();
-            return (0);
+            return 0;
         }
         LOG(DEBUG) << __func__ << ": new DG socket";
     }
-    if (send(statp->nssocks[*ns], (const char*)buf, (size_t)buflen, 0) != buflen) {
+    if (send(statp->udpsocks[*ns], msg.data(), msg.size(), 0) != msg.size()) {
         *terrno = errno;
         PLOG(DEBUG) << __func__ << ": send: ";
         statp->closeSockets();
@@ -1078,7 +1143,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             // Leave the UDP sockets open on timeout so we can keep listening for
             // a late response from this server while retrying on the next server.
             if (!isTimeout) statp->closeSockets();
-            LOG(DEBUG) << __func__ << ": " << (isTimeout) ? "timeout" : "poll";
+            LOG(DEBUG) << __func__ << ": " << (isTimeout ? "timeout" : "poll");
             return 0;
         }
         bool needRetry = false;
@@ -1087,7 +1152,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             sockaddr_storage from;
             socklen_t fromlen = sizeof(from);
             int resplen =
-                    recvfrom(fd, (char*)ans, (size_t)anssiz, 0, (sockaddr*)(void*)&from, &fromlen);
+                    recvfrom(fd, ans.data(), ans.size(), 0, (sockaddr*)(void*)&from, &fromlen);
             if (resplen <= 0) {
                 *terrno = errno;
                 PLOG(DEBUG) << __func__ << ": recvfrom: ";
@@ -1102,22 +1167,21 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             }
 
             int receivedFromNs = *ns;
-            if (needRetry =
-                        ignoreInvalidAnswer(statp, from, buf, buflen, ans, anssiz, &receivedFromNs);
+            if (needRetry = ignoreInvalidAnswer(statp, from, msg, ans, &receivedFromNs);
                 needRetry) {
-                res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
+                res_pquery({ans.data(), (resplen > ans.size()) ? ans.size() : resplen});
                 continue;
             }
 
-            HEADER* anhp = (HEADER*)(void*)ans;
+            HEADER* anhp = (HEADER*)(void*)ans.data();
             if (anhp->rcode == FORMERR && (statp->netcontext_flags & NET_CONTEXT_FLAG_USE_EDNS)) {
                 //  Do not retry if the server do not understand EDNS0.
                 //  The case has to be captured here, as FORMERR packet do not
                 //  carry query section, hence res_queriesmatch() returns 0.
                 LOG(DEBUG) << __func__ << ": server rejected query with EDNS0:";
-                res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
+                res_pquery({ans.data(), (resplen > ans.size()) ? ans.size() : resplen});
                 // record the error
-                statp->_flags |= RES_F_EDNS0ERR;
+                statp->flags |= RES_F_EDNS0ERR;
                 *terrno = EREMOTEIO;
                 continue;
             }
@@ -1126,7 +1190,7 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
             *delay = res_stats_calculate_rtt(&done, &start_time);
             if (anhp->rcode == SERVFAIL || anhp->rcode == NOTIMP || anhp->rcode == REFUSED) {
                 LOG(DEBUG) << __func__ << ": server rejected query:";
-                res_pquery(ans, (resplen > anssiz) ? anssiz : resplen);
+                res_pquery({ans.data(), (resplen > ans.size()) ? ans.size() : resplen});
                 *rcode = anhp->rcode;
                 continue;
             }
@@ -1150,7 +1214,60 @@ static int send_dg(res_state statp, res_params* params, const uint8_t* buf, int 
     }
 }
 
-static void dump_error(const char* str, const struct sockaddr* address, int alen) {
+// return length - when receiving valid packets.
+// return 0      - when mdns packets transfer error.
+static int send_mdns(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* terrno,
+                     int* rcode) {
+    const sockaddr_storage ss = (getQueryType(msg) == NS_T_AAAA) ? mdns_addrs[0] : mdns_addrs[1];
+    const sockaddr* mdnsap = reinterpret_cast<const sockaddr*>(&ss);
+    unique_fd fd;
+
+    if (setupUdpSocket(statp, mdnsap, &fd, terrno) <= 0) return 0;
+
+    if (sendto(fd, msg.data(), msg.size(), 0, mdnsap, sockaddrSize(mdnsap)) != msg.size()) {
+        *terrno = errno;
+        return 0;
+    }
+    // RFC 6762: Typically, the timeout would also be shortened to two or three seconds.
+    const struct timespec finish = evAddTime(evNowTime(), {2, 2000000});
+
+    // Wait for reply.
+    if (retrying_poll(fd, POLLIN, &finish) <= 0) {
+        *terrno = errno;
+        if (*terrno == ETIMEDOUT) *rcode = RCODE_TIMEOUT;
+        LOG(ERROR) << __func__ << ": " << ((*terrno == ETIMEDOUT) ? "timeout" : "poll failed");
+        return 0;
+    }
+
+    sockaddr_storage from;
+    socklen_t fromlen = sizeof(from);
+    int resplen = recvfrom(fd, ans.data(), ans.size(), 0, (sockaddr*)(void*)&from, &fromlen);
+
+    if (resplen <= 0) {
+        *terrno = errno;
+        return 0;
+    }
+
+    if (resplen < HFIXEDSZ) {
+        // Undersized message.
+        LOG(ERROR) << __func__ << ": undersized: " << resplen;
+        *terrno = EMSGSIZE;
+        return 0;
+    }
+
+    HEADER* anhp = (HEADER*)(void*)ans.data();
+    if (anhp->tc) {
+        LOG(DEBUG) << __func__ << ": truncated answer";
+        *terrno = E2BIG;
+        return 0;
+    }
+
+    *rcode = anhp->rcode;
+    *terrno = 0;
+    return resplen;
+}
+
+static void dump_error(const char* str, const struct sockaddr* address) {
     char hbuf[NI_MAXHOST];
     char sbuf[NI_MAXSERV];
     constexpr int niflags = NI_NUMERICHOST | NI_NUMERICSERV;
@@ -1158,7 +1275,8 @@ static void dump_error(const char* str, const struct sockaddr* address, int alen
 
     if (!WOULD_LOG(DEBUG)) return;
 
-    if (getnameinfo(address, (socklen_t)alen, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), niflags)) {
+    if (getnameinfo(address, sockaddrSize(address), hbuf, sizeof(hbuf), sbuf, sizeof(sbuf),
+                    niflags)) {
         strncpy(hbuf, "?", sizeof(hbuf) - 1);
         hbuf[sizeof(hbuf) - 1] = '\0';
         strncpy(sbuf, "?", sizeof(sbuf) - 1);
@@ -1204,60 +1322,128 @@ PrivateDnsModes convertEnumType(PrivateDnsMode privateDnsmode) {
     }
 }
 
-static int res_tls_send(res_state statp, const Slice query, const Slice answer, int* rcode,
-                        bool* fallback) {
-    int resplen = 0;
+static int res_private_dns_send(ResState* statp, const Slice query, const Slice answer, int* rcode,
+                                bool* fallback) {
     const unsigned netId = statp->netid;
 
     auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
     PrivateDnsStatus privateDnsStatus = privateDnsConfiguration.getStatus(netId);
     statp->event->set_private_dns_modes(convertEnumType(privateDnsStatus.mode));
 
-    if (privateDnsStatus.mode == PrivateDnsMode::OFF) {
-        *fallback = true;
-        return -1;
-    }
-
-    if (privateDnsStatus.validatedServers().empty()) {
-        if (privateDnsStatus.mode == PrivateDnsMode::OPPORTUNISTIC) {
+    const bool enableDoH = isDoHEnabled();
+    ssize_t result = -1;
+    switch (privateDnsStatus.mode) {
+        case PrivateDnsMode::OFF: {
             *fallback = true;
             return -1;
-        } else {
-            // Sleep and iterate some small number of times checking for the
-            // arrival of resolved and validated server IP addresses, instead
-            // of returning an immediate error.
-            // This is needed because as soon as a network becomes the default network, apps will
-            // send DNS queries on that network. If no servers have yet validated, and we do not
-            // block those queries, they would immediately fail, causing application-visible errors.
-            // Note that this can happen even before the network validates, since an unvalidated
-            // network can become the default network if no validated networks are available.
-            //
-            // TODO: see if there is a better way to address this problem, such as buffering the
-            // queries in a queue or only blocking queries for the first few seconds after a default
-            // network change.
-            for (int i = 0; i < 42; i++) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                // Calling getStatus() to merely check if there's any validated server seems
-                // wasteful. Consider adding a new method in PrivateDnsConfiguration for speed ups.
-                if (!privateDnsConfiguration.getStatus(netId).validatedServers().empty()) {
-                    privateDnsStatus = privateDnsConfiguration.getStatus(netId);
-                    break;
-                }
+        }
+        case PrivateDnsMode::OPPORTUNISTIC: {
+            *fallback = true;
+            if (enableDoH && privateDnsStatus.hasValidatedDohServers()) {
+                result = res_doh_send(statp, query, answer, rcode);
+                if (result != DOH_RESULT_CAN_NOT_SEND) return result;
+            }
+            return res_tls_send(privateDnsStatus.validatedServers(), statp, query, answer, rcode,
+                                privateDnsStatus.mode);
+        }
+        case PrivateDnsMode::STRICT: {
+            *fallback = false;
+            if (enableDoH && privateDnsStatus.hasValidatedDohServers()) {
+                result = res_doh_send(statp, query, answer, rcode);
+                if (result != DOH_RESULT_CAN_NOT_SEND) return result;
             }
             if (privateDnsStatus.validatedServers().empty()) {
-                return -1;
+                // Sleep and iterate some small number of times checking for the
+                // arrival of resolved and validated server IP addresses, instead
+                // of returning an immediate error.
+                // This is needed because as soon as a network becomes the default network, apps
+                // will send DNS queries on that network. If no servers have yet validated, and we
+                // do not block those queries, they would immediately fail, causing
+                // application-visible errors. Note that this can happen even before the network
+                // validates, since an unvalidated network can become the default network if no
+                // validated networks are available.
+                //
+                // TODO: see if there is a better way to address this problem, such as buffering the
+                // queries in a queue or only blocking queries for the first few seconds after a
+                // default network change.
+                for (int i = 0; i < 42; i++) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                    // Calling getStatus() to merely check if there's any validated server seems
+                    // wasteful. Consider adding a new method in PrivateDnsConfiguration for speed
+                    // ups.
+                    privateDnsStatus = privateDnsConfiguration.getStatus(netId);
+
+                    if (enableDoH && privateDnsStatus.hasValidatedDohServers()) {
+                        result = res_doh_send(statp, query, answer, rcode);
+                        if (result != DOH_RESULT_CAN_NOT_SEND) return result;
+                    }
+
+                    // Switch to use the DoT servers if they are validated.
+                    if (!privateDnsStatus.validatedServers().empty()) {
+                        break;
+                    }
+                }
             }
+            return res_tls_send(privateDnsStatus.validatedServers(), statp, query, answer, rcode,
+                                privateDnsStatus.mode);
         }
     }
+    LOG(ERROR) << __func__ << ": unknown private DNS mode";
+    return -1;
+}
 
+ssize_t res_doh_send(ResState* statp, const Slice query, const Slice answer, int* rcode) {
+    auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
+    const unsigned netId = statp->netid;
+    LOG(INFO) << __func__ << ": performing query over Https";
+    Stopwatch queryStopwatch;
+    int queryTimeout = Experiments::getInstance()->getFlag(
+            "doh_query_timeout_ms", PrivateDnsConfiguration::kDohQueryDefaultTimeoutMs);
+    if (queryTimeout < 1000) {
+        queryTimeout = 1000;
+    }
+    ssize_t result = privateDnsConfiguration.dohQuery(netId, query, answer, queryTimeout);
+    LOG(INFO) << __func__ << ": Https query result: " << result << ", netid=" << netId;
+
+    if (result == DOH_RESULT_CAN_NOT_SEND) return DOH_RESULT_CAN_NOT_SEND;
+
+    DnsQueryEvent* dnsQueryEvent = statp->event->mutable_dns_query_events()->add_dns_query_event();
+    dnsQueryEvent->set_latency_micros(saturate_cast<int32_t>(queryStopwatch.timeTakenUs()));
+    // TODO: Make this information available.
+    // dnsQueryEvent->set_ip_version(ipFamilyToIPVersion(?));
+    if (result > 0) {
+        *rcode = reinterpret_cast<HEADER*>(answer.base())->rcode;
+    } else {
+        *rcode = -result;
+    }
+    dnsQueryEvent->set_rcode(static_cast<NsRcode>(*rcode));
+    dnsQueryEvent->set_protocol(PROTO_DOH);
+    span<const uint8_t> msg(query.base(), query.size());
+    dnsQueryEvent->set_type(getQueryType(msg));
+
+    auto dohServerAddr = privateDnsConfiguration.getDohServer(netId);
+    if (dohServerAddr.ok()) {
+        resolv_stats_add(netId, dohServerAddr.value(), dnsQueryEvent);
+    }
+
+    return result;
+}
+
+int res_tls_send(const std::list<DnsTlsServer>& tlsServers, ResState* statp, const Slice query,
+                 const Slice answer, int* rcode, PrivateDnsMode mode) {
+    if (tlsServers.empty()) return -1;
     LOG(INFO) << __func__ << ": performing query over TLS";
-
-    const auto response = DnsTlsDispatcher::getInstance().query(privateDnsStatus.validatedServers(),
-                                                                statp, query, answer, &resplen);
+    const bool dotQuickFallback =
+            (mode == PrivateDnsMode::STRICT)
+                    ? 0
+                    : Experiments::getInstance()->getFlag("dot_quick_fallback", 1);
+    int resplen = 0;
+    const auto response = DnsTlsDispatcher::getInstance().query(tlsServers, statp, query, answer,
+                                                                &resplen, dotQuickFallback);
 
     LOG(INFO) << __func__ << ": TLS query result: " << static_cast<int>(response);
-
-    if (privateDnsStatus.mode == PrivateDnsMode::OPPORTUNISTIC) {
+    if (mode == PrivateDnsMode::OPPORTUNISTIC) {
         // In opportunistic mode, handle falling back to cleartext in some
         // cases (DNS shouldn't fail if a validated opportunistic mode server
         // becomes unreachable for some reason).
@@ -1265,12 +1451,11 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
             case DnsTlsTransport::Response::success:
                 *rcode = reinterpret_cast<HEADER*>(answer.base())->rcode;
                 return resplen;
+            // It's OPPORTUNISTIC mode,
+            // hence it's not required to do anything because it'll fallback to UDP.
             case DnsTlsTransport::Response::network_error:
-                // No need to set the error timeout here since it will fallback to UDP.
+                [[fallthrough]];
             case DnsTlsTransport::Response::internal_error:
-                // Note: this will cause cleartext queries to be emitted, with
-                // all of the EDNS0 goodness enabled. Fingers crossed.  :-/
-                *fallback = true;
                 [[fallthrough]];
             default:
                 return -1;
@@ -1293,12 +1478,12 @@ static int res_tls_send(res_state statp, const Slice query, const Slice answer, 
     }
 }
 
-int resolv_res_nsend(const android_net_context* netContext, const uint8_t* msg, int msgLen,
-                     uint8_t* ans, int ansLen, int* rcode, uint32_t flags,
+int resolv_res_nsend(const android_net_context* netContext, span<const uint8_t> msg,
+                     span<uint8_t> ans, int* rcode, uint32_t flags,
                      NetworkDnsEventReported* event) {
     assert(event != nullptr);
     ResState res(netContext, event);
     resolv_populate_res_for_net(&res);
     *rcode = NOERROR;
-    return res_nsend(&res, msg, msgLen, ans, ansLen, rcode, flags);
+    return res_nsend(&res, msg, ans, rcode, flags);
 }

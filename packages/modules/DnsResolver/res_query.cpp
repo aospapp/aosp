@@ -99,15 +99,14 @@
  *
  * Caller must parse answer and determine whether it answers the question.
  */
-int res_nquery(res_state statp, const char* name,  // domain name
+int res_nquery(ResState* statp, const char* name,  // domain name
                int cl, int type,                   // class and type of query
-               uint8_t* answer,                    // buffer to put answer
-               int anslen,                         // size of answer buffer
+               std::span<uint8_t> answer,          // buffer to put answer
                int* herrno)                        // legacy and extended h_errno
                                                    // NETD_RESOLV_H_ERRNO_EXT_*
 {
     uint8_t buf[MAXPACKET];
-    HEADER* hp = (HEADER*) (void*) answer;
+    HEADER* hp = reinterpret_cast<HEADER*>(answer.data());
     int n;
     int rcode = NOERROR;
     bool retried = false;
@@ -116,27 +115,25 @@ again:
     hp->rcode = NOERROR;  // default
 
     LOG(DEBUG) << __func__ << ": (" << cl << ", " << type << ")";
-
-    n = res_nmkquery(QUERY, name, cl, type, /*data=*/nullptr, 0, buf, sizeof(buf),
-                     statp->netcontext_flags);
+    n = res_nmkquery(QUERY, name, cl, type, {}, buf, statp->netcontext_flags);
     if (n > 0 &&
         (statp->netcontext_flags &
          (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
         !retried)
-        n = res_nopt(statp, n, buf, sizeof(buf), anslen);
+        n = res_nopt(statp, n, buf, answer.size());
     if (n <= 0) {
         LOG(DEBUG) << __func__ << ": mkquery failed";
         *herrno = NO_RECOVERY;
         return n;
     }
-    n = res_nsend(statp, buf, n, answer, anslen, &rcode, 0);
+    n = res_nsend(statp, {buf, n}, answer, &rcode, 0);
     if (n < 0) {
         // If the query choked with EDNS0, retry without EDNS0 that when the server
         // has no response, resovler won't retry and do nothing. Even fallback to UDP,
         // we also has the same symptom if EDNS is enabled.
         if ((statp->netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
-            (statp->_flags & RES_F_EDNS0ERR) && !retried) {
+            (statp->flags & RES_F_EDNS0ERR) && !retried) {
             LOG(DEBUG) << __func__ << ": retry without EDNS0";
             retried = true;
             goto again;
@@ -201,15 +198,14 @@ again:
  * If enabled, implement search rules until answer or unrecoverable failure
  * is detected.  Error code, if any, is left in *herrno.
  */
-int res_nsearch(res_state statp, const char* name, /* domain name */
+int res_nsearch(ResState* statp, const char* name, /* domain name */
                 int cl, int type,                  /* class and type of query */
-                uint8_t* answer,                   /* buffer to put answer */
-                int anslen,                        /* size of answer */
+                std::span<uint8_t> answer,         /* buffer to put answer */
                 int* herrno)                       /* legacy and extended
                                                       h_errno NETD_RESOLV_H_ERRNO_EXT_* */
 {
     const char* cp;
-    HEADER* hp = (HEADER*) (void*) answer;
+    HEADER* hp = reinterpret_cast<HEADER*>(answer.data());
     uint32_t dots;
     int ret, saved_herrno;
     int got_nodata = 0, got_servfail = 0, root_on_list = 0;
@@ -229,7 +225,7 @@ int res_nsearch(res_state statp, const char* name, /* domain name */
      */
     saved_herrno = -1;
     if (dots >= statp->ndots || trailing_dot) {
-        ret = res_nquerydomain(statp, name, NULL, cl, type, answer, anslen, herrno);
+        ret = res_nquerydomain(statp, name, NULL, cl, type, answer, herrno);
         if (ret > 0 || trailing_dot) return ret;
         saved_herrno = *herrno;
         tried_as_is++;
@@ -240,7 +236,7 @@ int res_nsearch(res_state statp, const char* name, /* domain name */
      *	- there is no dot, or
      *	- there is at least one dot and there is no trailing dot.
      */
-    if ((!dots) || (dots && !trailing_dot)) {
+    if ((!dots || (dots && !trailing_dot)) && !isMdnsResolution(statp->flags)) {
         int done = 0;
 
         /* Unfortunately we need to load network-specific info
@@ -255,7 +251,7 @@ int res_nsearch(res_state statp, const char* name, /* domain name */
         for (const auto& domain : statp->search_domains) {
             if (domain == "." || domain == "") ++root_on_list;
 
-            ret = res_nquerydomain(statp, name, domain.c_str(), cl, type, answer, anslen, herrno);
+            ret = res_nquerydomain(statp, name, domain.c_str(), cl, type, answer, herrno);
             if (ret > 0) return ret;
 
             /*
@@ -301,7 +297,7 @@ int res_nsearch(res_state statp, const char* name, /* domain name */
     // note that we do this regardless of how many dots were in the
     // name or whether it ends with a dot.
     if (!tried_as_is && !root_on_list) {
-        ret = res_nquerydomain(statp, name, NULL, cl, type, answer, anslen, herrno);
+        ret = res_nquerydomain(statp, name, NULL, cl, type, answer, herrno);
         if (ret > 0) return ret;
     }
 
@@ -325,11 +321,10 @@ int res_nsearch(res_state statp, const char* name, /* domain name */
  * Perform a call on res_query on the concatenation of name and domain,
  * removing a trailing dot from name if domain is NULL.
  */
-int res_nquerydomain(res_state statp, const char* name, const char* domain, int cl,
-                     int type,        /* class and type of query */
-                     uint8_t* answer, /* buffer to put answer */
-                     int anslen,      /* size of answer */
-                     int* herrno)     /* legacy and extended h_errno NETD_RESOLV_H_ERRNO_EXT_* */
+int res_nquerydomain(ResState* statp, const char* name, const char* domain, int cl,
+                     int type,                  /* class and type of query */
+                     std::span<uint8_t> answer, /* buffer to put answer */
+                     int* herrno) /* legacy and extended h_errno NETD_RESOLV_H_ERRNO_EXT_* */
 {
     char nbuf[MAXDNAME];
     const char* longname = nbuf;
@@ -362,5 +357,5 @@ int res_nquerydomain(res_state statp, const char* name, const char* domain, int 
         }
         snprintf(nbuf, sizeof(nbuf), "%s.%s", name, domain);
     }
-    return res_nquery(statp, longname, cl, type, answer, anslen, herrno);
+    return res_nquery(statp, longname, cl, type, answer, herrno);
 }

@@ -20,6 +20,7 @@
     <color name="car_user_switcher_name_text_color">@*android:color/car_body1_light</color>
     <color name="car_user_switcher_add_user_background_color">#131313</color>
     <color name="car_user_switcher_add_user_add_sign_color">@*android:color/car_body1_light</color>
+    <color name="car_managed_device_icon_color">@android:color/white</color>
     <color name="car_nav_icon_fill_color">#8F8F8F</color>
     <color name="car_nav_icon_fill_color_selected">#ffffff</color>
     <!-- colors for seekbar -->
@@ -33,9 +34,9 @@
 
     <!-- colors for status bar -->
     <color name="system_bar_background_pill_color">#282A2D</color>
-    <color name="mic_privacy_chip_indicator_color">#66BB6A</color>
-    <color name="mic_privacy_chip_light_icon_color">#FFFFFF</color>
-    <color name="mic_privacy_chip_dark_icon_color">#000000</color>
+    <color name="privacy_chip_indicator_color">#66BB6A</color>
+    <color name="privacy_chip_dark_icon_color">#000000</color>
+    <color name="privacy_chip_indicator_outside_stroke_color">#000000</color>
     <color name="system_bar_icon_color">#FFFFFF</color>
     <color name="system_bar_icon_selected_color">#000000</color>
     <color name="system_bar_text_color">#FFFFFF</color>
@@ -75,8 +76,6 @@
 
     <color name="car_user_switching_dialog_background_color">@android:color/black</color>
     <color name="car_user_switching_dialog_loading_text_color">@*android:color/car_body1</color>
-
-    <color name="rear_view_camera_button_background">@*android:color/car_card_dark</color>
 
     <!-- colors for the HVAC application. -->
 

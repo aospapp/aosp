@@ -16,16 +16,20 @@
 -->
 
 <resources>
-    <string-array name="wifi_security_method">
-        <item>@string/wifi_security_none</item>
-        <item>@string/wifi_security_wep</item>
-        <item>@string/wifi_security_wpa_wpa2</item>
-    </string-array>
-
     <!-- Security types for wireless tether -->
     <string-array name="wifi_tether_security">
+        <item>@string/wifi_hotspot_wpa3_sae</item>
+        <item>@string/wifi_security_psk_sae</item>
         <item>@string/wifi_hotspot_wpa2_personal</item>
         <item>@string/wifi_hotspot_security_none</item>
+    </string-array>
+
+    <!-- Values for security type for wireless tether -->
+    <string-array name="wifi_tether_security_values" translatable="false">
+        <item>3</item>
+        <item>2</item>
+        <item>1</item>
+        <item>0</item>
     </string-array>
 
     <!-- Wi-Fi AP band settings.  Either Auto, 2.4GHz or 5GHz. -->

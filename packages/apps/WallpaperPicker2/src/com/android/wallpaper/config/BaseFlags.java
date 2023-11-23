@@ -21,4 +21,5 @@ abstract class BaseFlags {
     public static boolean dynamicStartRotationTileEnabled = true;
     public static boolean stagingBackdropContentEnabled = false;
     public static boolean performanceMonitoringEnabled = true;
+    public static boolean enableWallpaperEffect = false;
 }

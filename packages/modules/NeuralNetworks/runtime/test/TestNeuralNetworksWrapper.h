@@ -17,8 +17,8 @@
 // Provides C++ classes to more easily use the Neural Networks API.
 // TODO(b/117845862): this should be auto generated from NeuralNetworksWrapper.h.
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H
 
 #include <math.h>
 
@@ -62,10 +62,12 @@ class Memory {
                  ANEURALNETWORKS_NO_ERROR;
     }
 
+#ifdef __ANDROID__
     Memory(AHardwareBuffer* buffer) {
         mValid = ANeuralNetworksMemory_createFromAHardwareBuffer(buffer, &mMemory) ==
                  ANEURALNETWORKS_NO_ERROR;
     }
+#endif  // __ANDROID__
 
     virtual ~Memory() { ANeuralNetworksMemory_free(mMemory); }
 
@@ -560,4 +562,4 @@ class Execution {
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_NEURAL_NETWORKS_WRAPPER_H

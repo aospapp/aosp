@@ -19,7 +19,7 @@
     android:layout_height="wrap_content">
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
@@ -34,13 +34,10 @@
                 style="@style/wifi_item">
                 <TextView
                     android:text="@string/wifi_p2p_enter_pin_message"
-                    style="@style/wifi_item_label" />
+                    style="@style/wifi_p2p_dialog_enter_pin_message" />
 
                 <EditText android:id="@+id/wifi_p2p_wps_pin"
-                        android:singleLine="true"
-                        android:maxLines="8"
-                        android:inputType="number"
-                        style="@style/wifi_item_content" />
+                        style="@style/wifi_p2p_dialog_pin_input" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

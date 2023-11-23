@@ -17,9 +17,9 @@
 package com.android.experimentalcar;
 
 import android.car.experimental.ITestDemoExperimental;
-import android.util.IndentingPrintWriter;
 
 import com.android.car.CarServiceBase;
+import com.android.car.internal.util.IndentingPrintWriter;
 
 /**
  * Demo service for testing experimental feature.

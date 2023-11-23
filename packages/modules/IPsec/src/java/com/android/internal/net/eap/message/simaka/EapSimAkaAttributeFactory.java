@@ -20,9 +20,12 @@ import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_CLIENT_ERROR_CODE;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_COUNTER;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_COUNTER_TOO_SMALL;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_FULLAUTH_ID_REQ;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_IDENTITY;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NEXT_REAUTH_ID;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NONCE_S;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_NOTIFICATION;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_PADDING;
@@ -37,9 +40,12 @@ import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAnyIdReq
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtCounter;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtCounterTooSmall;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtEncrData;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtFullauthIdReq;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtIdentity;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtIv;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNextReauthId;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNonceS;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNotification;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtPadding;
@@ -101,6 +107,13 @@ public abstract class EapSimAkaAttributeFactory {
             case EAP_AT_CLIENT_ERROR_CODE:
                 int errorCode = Short.toUnsignedInt(byteBuffer.getShort());
                 return new AtClientErrorCode(lengthInBytes, errorCode);
+            case EAP_AT_IV:
+                return new AtIv(lengthInBytes, byteBuffer);
+            case EAP_AT_ENCR_DATA:
+                return new AtEncrData(lengthInBytes, byteBuffer);
+            case EAP_AT_NEXT_REAUTH_ID:
+                return new AtNextReauthId(lengthInBytes, byteBuffer);
+
             default:
                 if (attributeType >= SKIPPABLE_ATTRIBUTE_RANGE_START) {
                     return new EapSimAkaUnsupportedAttribute(

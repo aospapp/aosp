@@ -22,6 +22,11 @@
     android:layoutDirection="ltr">
 
     <com.android.car.ui.FocusArea
+        android:id="@+id/top_card"
+        android:layout_width="1dp"
+        android:layout_height="1dp"/>
+
+    <com.android.car.ui.FocusArea
         android:id="@+id/bottom_card"
         android:layout_width="0dp"
         android:layout_height="match_parent"

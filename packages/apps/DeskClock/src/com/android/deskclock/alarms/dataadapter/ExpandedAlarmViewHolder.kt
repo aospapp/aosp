@@ -254,7 +254,7 @@ class ExpandedAlarmViewHolder private constructor(itemView: View, private val mH
                 ObjectAnimator.ofFloat(delete, TRANSLATION_Y, 0f),
                 ObjectAnimator.ofFloat(arrow, TRANSLATION_Y, 0f))
         animatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 setTranslationY(0f, 0f)
                 repeatDays.alpha = 1f
                 repeatDays.visibility = if (isExpansion) View.VISIBLE else View.GONE
@@ -298,7 +298,7 @@ class ExpandedAlarmViewHolder private constructor(itemView: View, private val mH
             createCollapsingAnimator(newHolder, duration)
         }
         changeAnimatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 AnimatorUtils.setBackgroundAlpha(itemView, 255)
                 clock.visibility = View.VISIBLE
                 onOff.visibility = View.VISIBLE
@@ -453,7 +453,7 @@ class ExpandedAlarmViewHolder private constructor(itemView: View, private val mH
                 repeatDaysAnimation, vibrateAnimation, ringtoneAnimation, editLabelAnimation,
                 deleteAnimation, hairLineAnimation, dismissAnimation, arrowAnimation)
         animatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationStart(animator: Animator?) {
+            override fun onAnimationStart(animator: Animator) {
                 AnimatorUtils.startDrawableAnimation(arrow)
             }
         })

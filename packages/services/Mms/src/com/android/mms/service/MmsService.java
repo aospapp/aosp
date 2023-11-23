@@ -185,18 +185,36 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         }
     }
 
+    private Bundle loadMmsConfig(int subId) {
+        final Bundle config = MmsConfigManager.getInstance().getMmsConfigBySubId(subId);
+        if (config != null) {
+            // TODO: Make MmsConfigManager authoritative for user agent and don't consult
+            // TelephonyManager.
+            final TelephonyManager telephonyManager = getTelephonyManager(subId);
+            final String userAgent = telephonyManager.getMmsUserAgent();
+            if (!TextUtils.isEmpty(userAgent)) {
+                config.putString(SmsManager.MMS_CONFIG_USER_AGENT, userAgent);
+            }
+            final String userAgentProfileUrl = telephonyManager.getMmsUAProfUrl();
+            if (!TextUtils.isEmpty(userAgentProfileUrl)) {
+                config.putString(SmsManager.MMS_CONFIG_UA_PROF_URL, userAgentProfileUrl);
+            }
+        }
+        return config;
+    }
+
     private IMms.Stub mStub = new IMms.Stub() {
         @Override
         public void sendMessage(int subId, String callingPkg, Uri contentUri,
                 String locationUrl, Bundle configOverrides, PendingIntent sentIntent,
-                long messageId) {
+                long messageId, String attributionTag) {
             LogUtil.d("sendMessage " + formatCrossStackMessageId(messageId));
             enforceSystemUid();
 
             // Make sure the subId is correct
             if (!SubscriptionManager.isValidSubscriptionId(subId)) {
                 LogUtil.e("Invalid subId " + subId);
-                sendErrorInPendingIntent(sentIntent);
+                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID);
                 return;
             }
             if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
@@ -205,13 +223,32 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
             // Make sure the subId is active
             if (!isActiveSubId(subId)) {
-                sendErrorInPendingIntent(sentIntent);
+                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION);
+                return;
+            }
+
+            // Load MMS config
+            Bundle mmsConfig = loadMmsConfig(subId);
+            if (mmsConfig == null) {
+                LogUtil.e("MMS config is not loaded yet for subId " + subId);
+                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                return;
+            }
+
+            // Apply overrides
+            if (configOverrides != null) {
+                mmsConfig.putAll(configOverrides);
+            }
+
+            // Make sure MMS is enabled
+            if (!mmsConfig.getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED)) {
+                LogUtil.e("MMS is not enabled for subId " + subId);
+                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
                 return;
             }
 
             final SendRequest request = new SendRequest(MmsService.this, subId, contentUri,
-                    locationUrl, sentIntent, callingPkg, configOverrides, MmsService.this,
-                    messageId);
+                    locationUrl, sentIntent, callingPkg, mmsConfig, MmsService.this, messageId);
 
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists(subId);
@@ -232,7 +269,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 // AcknowledgeInd and NotifyRespInd are parts of downloading sequence.
                 // TODO: Should consider ReadRecInd(Read Report)?
                 sendSettingsIntentForFailedMms(!isRawPduSendReq(contentUri), subId);
-                sendErrorInPendingIntent(sentIntent);
+                sendErrorInPendingIntent(sentIntent, SmsManager.MMS_ERROR_NO_DATA_NETWORK);
                 return;
             }
 
@@ -241,8 +278,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
         @Override
         public void downloadMessage(int subId, String callingPkg, String locationUrl,
-                Uri contentUri, Bundle configOverrides,
-                PendingIntent downloadedIntent, long messageId) {
+                Uri contentUri, Bundle configOverrides, PendingIntent downloadedIntent,
+                long messageId, String attributionTag) {
             // If the subId is no longer active it could be caused by an MVNO using multiple
             // subIds, so we should try to download anyway.
             // TODO: Fail fast when downloading will fail (i.e. SIM swapped)
@@ -254,7 +291,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // Make sure the subId is correct
             if (!SubscriptionManager.isValidSubscriptionId(subId)) {
                 LogUtil.e("Invalid subId " + subId);
-                sendErrorInPendingIntent(downloadedIntent);
+                sendErrorInPendingIntent(downloadedIntent,
+                        SmsManager.MMS_ERROR_INVALID_SUBSCRIPTION_ID);
                 return;
             }
             if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
@@ -264,7 +302,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             if (!isActiveSubId(subId)) {
                 List<SubscriptionInfo> activeSubList = getActiveSubscriptionsInGroup(subId);
                 if (activeSubList.isEmpty()) {
-                    sendErrorInPendingIntent(downloadedIntent);
+                    sendErrorInPendingIntent(downloadedIntent,
+                            SmsManager.MMS_ERROR_INACTIVE_SUBSCRIPTION);
                     return;
                 }
 
@@ -279,8 +318,30 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 }
             }
 
+            // Load MMS config
+            Bundle mmsConfig = loadMmsConfig(subId);
+            if (mmsConfig == null) {
+                LogUtil.e("MMS config is not loaded yet for subId " + subId);
+                sendErrorInPendingIntent(
+                        downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                return;
+            }
+
+            // Apply overrides
+            if (configOverrides != null) {
+                mmsConfig.putAll(configOverrides);
+            }
+
+            // Make sure MMS is enabled
+            if (!mmsConfig.getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED)) {
+                LogUtil.e("MMS is not enabled for subId " + subId);
+                sendErrorInPendingIntent(
+                        downloadedIntent, SmsManager.MMS_ERROR_CONFIGURATION_ERROR);
+                return;
+            }
+
             final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
-                    contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this,
+                    contentUri, downloadedIntent, callingPkg, mmsConfig, MmsService.this,
                     messageId);
 
             final String carrierMessagingServicePackage =
@@ -296,7 +357,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // Make sure subId has MMS data
             if (!getTelephonyManager(subId).isDataEnabledForApn(ApnSetting.TYPE_MMS)) {
                 sendSettingsIntentForFailedMms(/*isIncoming=*/ true, subId);
-                sendErrorInPendingIntent(downloadedIntent);
+                sendErrorInPendingIntent(downloadedIntent, SmsManager.MMS_ERROR_DATA_DISABLED);
                 return;
             }
 
@@ -486,14 +547,16 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 .isActiveSubscriptionId(subId);
         }
 
-        /*
-         * Calls the pending intent with <code>MMS_ERROR_NO_DATA_NETWORK</code>.
+        /**
+         * Calls the pending intent with one of these result codes:
+         * <code>MMS_ERROR_CONFIGURATION_ERROR</code>
+         * <code>MMS_ERROR_NO_DATA_NETWORK</code>.
          */
-        private void sendErrorInPendingIntent(@Nullable PendingIntent intent) {
+        private void sendErrorInPendingIntent(@Nullable PendingIntent intent, int resultCode) {
             LogUtil.d("sendErrorInPendingIntent - no data network");
             if (intent != null) {
                 try {
-                    intent.send(SmsManager.MMS_ERROR_NO_DATA_NETWORK);
+                    intent.send(resultCode);
                 } catch (PendingIntent.CanceledException ex) {
                 }
             }

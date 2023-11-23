@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Şu uygulama, cihazınızı yönetecek:"</string>
     <string name="next" msgid="1004321437324424398">"İleri"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"İş profili oluşturuluyor…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT yöneticiniz cihazınızın konumu, çağrı geçmişi ve kişi arama geçmişinin yanı sıra ağ etkinliğinizi de içerecek şekilde bu profille ilişkilendirilen ayarları, şirket erişimini, uygulamaları, izinleri ve verileri izleyebilir ve yönetebilir.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Kuruluşunuzun gizlilik politikalarını da içeren daha fazla bilgi için IT yöneticinizle iletişime geçin."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"BT yöneticiniz çağrı geçmişi ve kişi arama geçmişinin yanı sıra bu profille ilişkilendirilen ayarları, şirket erişimini, uygulamaları, izinleri, verileri ve ağı izleyip yönetebilir. Ayrıntıları öğrenmek ve kuruluşunuzun gizlilik politikaları hakkında daha fazla bilgi edinmek için BT yöneticinizle iletişime geçin."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT yöneticiniz cihazınızın konumu, çağrı geçmişi ve kişi arama geçmişinin yanı sıra ağ etkinliğinizi de içerecek şekilde bu cihazla ilişkilendirilen ayarları, şirket erişimini, uygulamaları, izinleri ve verileri izleyebilir ve yönetebilir.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Kuruluşunuzun gizlilik politikalarını da içeren daha fazla bilgi için IT yöneticinizle iletişime geçin."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>, bu cihazın ödemelerini yapabilmeniz için <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> uygulamasını yükleyebilir."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Bu cihaz kısıtlanabilir"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Ödemeleri yapmazsanız <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, bu cihaza erişimi kısıtlayabilir."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Cihaz ayarları yapılamıyor. BT yöneticinizle iletişime geçip hata nedenini \"Geçersiz sağlama toplamı\" olarak belirtin."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Daha sonra tekrar deneyin veya BT yöneticinizden yardım isteyin"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Cihaz ayarları yapılamıyor. BT yöneticinizle iletişime geçip hata nedenini \"Eksik veya bozuk bileşenler\" olarak belirtin."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Ayarlanıyor…"</string>
 </resources>

@@ -34,11 +34,7 @@ namespace {
 
 }
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+namespace android::automotive::evs::V1_1::implementation {
 
 using android::base::Error;
 using android::base::EqualsIgnoreCase;
@@ -74,7 +70,8 @@ void StatsCollector::handleMessage(const Message& message) {
             AutoMutex lock(mMutex);
             if (mCurrentCollectionEvent != CollectionEvent::CUSTOM_START) {
                 LOG(WARNING) << "Ignoring a message to end custom collection "
-                             << "as current collection is " << toString(mCurrentCollectionEvent);
+                             << "as current collection is "
+                             << collectionEventToString(mCurrentCollectionEvent);
                 return;
             }
 
@@ -108,8 +105,9 @@ Result<void> StatsCollector::handleCollectionEvent(CollectionEvent event,
     AutoMutex lock(mMutex);
     if (mCurrentCollectionEvent != event) {
         if (mCurrentCollectionEvent != CollectionEvent::TERMINATED) {
-            LOG(WARNING) << "Skipping " << toString(event) << " collection event "
-                         << "on collection event " << toString(mCurrentCollectionEvent);
+            LOG(WARNING) << "Skipping " << collectionEventToString(event) << " collection event "
+                         << "on collection event "
+                         << collectionEventToString(mCurrentCollectionEvent);
 
             return {};
         } else {
@@ -125,19 +123,16 @@ Result<void> StatsCollector::handleCollectionEvent(CollectionEvent event,
     using std::chrono::duration_cast;
     using std::chrono::seconds;
     if (info->interval < kMinCollectionInterval) {
-        LOG(WARNING) << "Collection interval of "
-                     << duration_cast<seconds>(info->interval).count()
-                     << " seconds for " << toString(event)
+        LOG(WARNING) << "Collection interval of " << duration_cast<seconds>(info->interval).count()
+                     << " seconds for " << collectionEventToString(event)
                      << " collection cannot be shorter than "
-                     << duration_cast<seconds>(kMinCollectionInterval).count()
-                     << " seconds.";
+                     << duration_cast<seconds>(kMinCollectionInterval).count() << " seconds.";
         info->interval = kMinCollectionInterval;
     }
 
     auto ret = collectLocked(info);
     if (!ret.ok()) {
-        return Error() << toString(event) << " collection failed: "
-                       << ret.error();
+        return Error() << collectionEventToString(event) << " collection failed: " << ret.error();
     }
 
     // Arms a message for next periodic collection
@@ -173,8 +168,7 @@ Result<void> StatsCollector::collectLocked(CollectionInfo* info) REQUIRES(mMutex
     return {};
 }
 
-
-Result<void> StatsCollector::startCollection() {
+android::base::Result<void> StatsCollector::startCollection() {
     {
         AutoMutex lock(mMutex);
         if (mCurrentCollectionEvent != CollectionEvent::INIT ||
@@ -189,7 +183,6 @@ Result<void> StatsCollector::startCollection() {
             .maxCacheSize = kPeriodicCollectionCacheSize,
             .lastCollectionTime = 0,
         };
-
     }
 
     // Starts a background worker thread
@@ -199,7 +192,7 @@ Result<void> StatsCollector::startCollection() {
             if (mCurrentCollectionEvent != CollectionEvent::INIT) {
                 LOG(ERROR) << "Skipping the statistics collection because "
                            << "the current collection event is "
-                           << toString(mCurrentCollectionEvent);
+                           << collectionEventToString(mCurrentCollectionEvent);
                 return;
             }
 
@@ -236,13 +229,11 @@ Result<void> StatsCollector::startCollection() {
     return {};
 }
 
-
-Result<void> StatsCollector::stopCollection() {
+StatsCollector::~StatsCollector() {
     {
         AutoMutex lock(mMutex);
         if (mCurrentCollectionEvent == CollectionEvent::TERMINATED) {
             LOG(WARNING) << "Camera usage data collection was stopped already.";
-            return {};
         }
 
         LOG(INFO) << "Stopping a camera usage data collection";
@@ -255,10 +246,7 @@ Result<void> StatsCollector::stopCollection() {
         mLooper->wake();
         mCollectionThread.join();
     }
-
-    return {};
 }
-
 
 Result<void> StatsCollector::startCustomCollection(
         std::chrono::nanoseconds interval,
@@ -284,8 +272,10 @@ Result<void> StatsCollector::startCustomCollection(
         if (mCurrentCollectionEvent != CollectionEvent::PERIODIC) {
             return Error(INVALID_OPERATION)
                     << "Cannot start a custom collection when "
-                    << "the current collection event " << toString(mCurrentCollectionEvent)
-                    << " != " << toString(CollectionEvent::PERIODIC) << " collection event";
+                    << "the current collection event "
+                    << collectionEventToString(mCurrentCollectionEvent)
+                    << " != " << collectionEventToString(CollectionEvent::PERIODIC)
+                    << " collection event";
         }
 
         // Notifies the user if a preview custom collection result is
@@ -318,18 +308,18 @@ Result<void> StatsCollector::startCustomCollection(
 Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
     Mutex::Autolock lock(mMutex);
     if (mCurrentCollectionEvent == CollectionEvent::CUSTOM_START) {
-        // Stops a running custom collection
+        // Stops a running custom collection.
         mLooper->removeMessages(this);
         mLooper->sendMessage(this, CollectionEvent::CUSTOM_END);
     }
 
     auto ret = collectLocked(&mCustomCollectionInfo);
     if (!ret.ok()) {
-        return Error() << toString(mCurrentCollectionEvent) << " collection failed: "
-                       << ret.error();
+        return Error() << collectionEventToString(mCurrentCollectionEvent)
+                       << " collection failed: " << ret.error();
     }
 
-    // Prints out the all collected statistics
+    // Prints out the all collected statistics.
     std::string buffer;
     using std::chrono::duration_cast;
     using std::chrono::seconds;
@@ -337,7 +327,6 @@ Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
         duration_cast<seconds>(mCustomCollectionInfo.interval).count();
     if (EqualsIgnoreCase(targetId, kDumpAllDevices)) {
         for (auto& [id, records] : mCustomCollectionInfo.records) {
-
             StringAppendF(&buffer, "%s\n"
                                    "%sNumber of collections: %zu\n"
                                    "%sCollection interval: %" PRIdMAX " secs\n",
@@ -378,8 +367,7 @@ Result<std::string> StatsCollector::stopCustomCollection(std::string targetId) {
     return buffer;
 }
 
-
-Result<void> StatsCollector::registerClientToMonitor(android::sp<HalCamera>& camera) {
+Result<void> StatsCollector::registerClientToMonitor(const android::sp<HalCamera>& camera) {
     if (!camera) {
         return Error(BAD_VALUE) << "Given camera client is invalid";
     }
@@ -395,7 +383,6 @@ Result<void> StatsCollector::registerClientToMonitor(android::sp<HalCamera>& cam
     return {};
 }
 
-
 Result<void> StatsCollector::unregisterClientToMonitor(const std::string& id) {
     AutoMutex lock(mMutex);
     auto entry = mClientsToMonitor.find(id);
@@ -408,9 +395,8 @@ Result<void> StatsCollector::unregisterClientToMonitor(const std::string& id) {
     return {};
 }
 
-
-std::string StatsCollector::toString(const CollectionEvent& event) const {
-    switch(event) {
+std::string StatsCollector::collectionEventToString(const CollectionEvent& event) const {
+    switch (event) {
         case CollectionEvent::INIT:
             return "CollectionEvent::INIT";
         case CollectionEvent::PERIODIC:
@@ -427,48 +413,38 @@ std::string StatsCollector::toString(const CollectionEvent& event) const {
     }
 }
 
-
-Result<void> StatsCollector::toString(std::unordered_map<std::string, std::string>* usages,
-                                      const char* indent) EXCLUDES(mMutex) {
+std::unordered_map<std::string, std::string> StatsCollector::toString(const char* indent)
+        EXCLUDES(mMutex) {
+    std::unordered_map<std::string, std::string> ret_val{};
     std::string double_indent(indent);
     double_indent += indent;
 
-    {
-        AutoMutex lock(mMutex);
-        using std::chrono::duration_cast;
-        using std::chrono::seconds;
-        const intmax_t interval =
-            duration_cast<seconds>(mPeriodicCollectionInfo.interval).count();
+    AutoMutex lock(mMutex);
+    using std::chrono::duration_cast;
+    using std::chrono::seconds;
+    const intmax_t interval = duration_cast<seconds>(mPeriodicCollectionInfo.interval).count();
 
-        for (auto&& [id, records] : mPeriodicCollectionInfo.records) {
-            std::string buffer;
-            StringAppendF(&buffer, "%s\n"
-                                   "%sNumber of collections: %zu\n"
-                                   "%sCollection interval: %" PRIdMAX "secs\n",
-                                   id.c_str(),
-                                   indent, records.history.size(),
-                                   indent, interval);
+    for (auto&& [id, records] : mPeriodicCollectionInfo.records) {
+        std::string buffer;
+        StringAppendF(&buffer,
+                      "%s\n"
+                      "%sNumber of collections: %zu\n"
+                      "%sCollection interval: %" PRIdMAX "secs\n",
+                      id.c_str(), indent, records.history.size(), indent, interval);
 
-            // Adding up to kMaxDumpHistory records
-            auto it = records.history.rbegin();
-            auto count = 0;
-            while (it != records.history.rend() && count < kMaxDumpHistory) {
-                buffer += it->toString(double_indent.c_str());
-                ++it;
-                ++count;
-            }
-
-            usages->insert_or_assign(id, std::move(buffer));
+        // Adding up to kMaxDumpHistory records
+        auto it = records.history.rbegin();
+        auto count = 0;
+        while (it != records.history.rend() && count < kMaxDumpHistory) {
+            buffer += it->toString(double_indent.c_str());
+            ++it;
+            ++count;
         }
+
+        ret_val.insert_or_assign(id, std::move(buffer));
     }
 
-    return {};
+    return ret_val;
 }
 
-
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
-
+}  // namespace android::automotive::evs::V1_1::implementation

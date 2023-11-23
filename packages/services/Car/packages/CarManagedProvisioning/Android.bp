@@ -36,7 +36,7 @@ android_app {
     ],
 
     libs: [
-        "android.car",
+        "android.car-system-stubs",
         "auto_value_annotations",
     ],
 
@@ -46,7 +46,6 @@ android_app {
         "car-setup-wizard-lib",
         "setupcompat",
         "setupdesign",
-        "devicepolicyprotosnano",
         "ManagedProvisioningLib",
         "Slogf",
         "lottie"

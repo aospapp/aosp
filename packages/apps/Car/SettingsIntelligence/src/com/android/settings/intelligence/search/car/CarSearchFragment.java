@@ -90,7 +90,6 @@ public class CarSearchFragment extends PreferenceFragment implements
                 @Override
                 public void onScrollStateChanged(@NonNull CarUiRecyclerView recyclerView,
                                                           int newState) {}
-
             };
 
     @Override

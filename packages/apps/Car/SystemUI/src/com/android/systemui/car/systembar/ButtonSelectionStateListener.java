@@ -29,7 +29,7 @@ import javax.inject.Inject;
  * task stack and notifies the navigation bar.
  */
 @SysUISingleton
-class ButtonSelectionStateListener extends TaskStackChangeListener {
+class ButtonSelectionStateListener implements TaskStackChangeListener {
     private static final String TAG = ButtonSelectionStateListener.class.getSimpleName();
 
     private final ButtonSelectionStateController mButtonSelectionStateController;

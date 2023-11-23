@@ -577,6 +577,67 @@ public class UpstreamNetworkMonitorTest {
         verify(mEntitleMgr, times(1)).maybeRunProvisioning();
     }
 
+    @Test
+    public void testLinkAddressChanged() {
+        final String ipv4Addr = "100.112.103.18/24";
+        final String ipv6Addr1 = "2001:db8:4:fd00:827a:bfff:fe6f:374d/64";
+        final String ipv6Addr2 = "2003:aa8:3::123/64";
+        mUNM.startTrackDefaultNetwork(mEntitleMgr);
+        mUNM.startObserveAllNetworks();
+        mUNM.setUpstreamConfig(true /* autoUpstream */, false /* dunRequired */);
+        mUNM.setTryCell(true);
+
+        final TestNetworkAgent cellAgent = new TestNetworkAgent(mCM, CELL_CAPABILITIES);
+        final LinkProperties cellLp = cellAgent.linkProperties;
+        cellLp.setInterfaceName("rmnet0");
+        addLinkAddresses(cellLp, ipv4Addr);
+        cellAgent.fakeConnect();
+        mCM.makeDefaultNetwork(cellAgent);
+        mLooper.dispatchAll();
+        verifyCurrentLinkProperties(cellAgent);
+        int messageIndex = mSM.messages.size() - 1;
+
+        addLinkAddresses(cellLp, ipv6Addr1);
+        mCM.sendLinkProperties(cellAgent, false /* updateDefaultFirst */);
+        mLooper.dispatchAll();
+        verifyCurrentLinkProperties(cellAgent);
+        verifyNotifyLinkPropertiesChange(messageIndex);
+        messageIndex = mSM.messages.size() - 1;
+
+        removeLinkAddresses(cellLp, ipv6Addr1);
+        addLinkAddresses(cellLp, ipv6Addr2);
+        mCM.sendLinkProperties(cellAgent, true /* updateDefaultFirst */);
+        mLooper.dispatchAll();
+        assertEquals(cellAgent.linkProperties, mUNM.getCurrentPreferredUpstream().linkProperties);
+        verifyCurrentLinkProperties(cellAgent);
+        verifyNotifyLinkPropertiesChange(messageIndex);
+    }
+
+    private void verifyCurrentLinkProperties(TestNetworkAgent agent) {
+        assertEquals(agent.networkId, mUNM.getCurrentPreferredUpstream().network);
+        assertEquals(agent.linkProperties, mUNM.getCurrentPreferredUpstream().linkProperties);
+    }
+
+    private void verifyNotifyLinkPropertiesChange(int lastMessageIndex) {
+        assertEquals(UpstreamNetworkMonitor.EVENT_ON_LINKPROPERTIES,
+                mSM.messages.get(++lastMessageIndex).arg1);
+        assertEquals(UpstreamNetworkMonitor.NOTIFY_LOCAL_PREFIXES,
+                mSM.messages.get(++lastMessageIndex).arg1);
+        assertEquals(lastMessageIndex + 1, mSM.messages.size());
+    }
+
+    private void addLinkAddresses(LinkProperties lp, String... addrs) {
+        for (String addrStr : addrs) {
+            lp.addLinkAddress(new LinkAddress(addrStr));
+        }
+    }
+
+    private void removeLinkAddresses(LinkProperties lp, String... addrs) {
+        for (String addrStr : addrs) {
+            lp.removeLinkAddress(new LinkAddress(addrStr));
+        }
+    }
+
     private void assertSatisfiesLegacyType(int legacyType, UpstreamNetworkState ns) {
         if (legacyType == TYPE_NONE) {
             assertTrue(ns == null);

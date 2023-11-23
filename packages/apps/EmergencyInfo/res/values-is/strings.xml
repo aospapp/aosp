@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Neyðarupplýsingar"</string>
-    <string name="medical_info_title" msgid="3000192781136934887">"Læknisfræðilegar upplýsingar"</string>
+    <string name="medical_info_title" msgid="3000192781136934887">"Heilsufarsupplýsingar"</string>
     <string name="add_medical_info" msgid="483921612415907139">"Bæta við upplýsingum"</string>
     <string name="edit_info" msgid="5973929805855224805">"Breyta neyðarupplýsingum"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Upplýsingar"</string>
@@ -99,11 +99,11 @@
     <string name="ok" msgid="163967937451981024">"Í lagi"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Engar upplýsingar um eiganda símans"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Ef þetta er síminn þinn skaltu ýta á blýantstáknið til að bæta við upplýsingum sem birtast hér í neyðartilviki"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Hafðu símann ólæstan og ýttu á blýantstáknið til að bæta við upplýsingum sem birtast hér í neyðartilviki"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hreinsa allt"</string>
     <string name="clear" msgid="3648880442502887163">"Hreinsa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Viltu hreinsa allar upplýsingar og tengiliði?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Ef læknisfræðilegum upplýsingum og neyðartengiliðum er bætt við getur það aðstoðað fólk sem kemur fyrst á vettvang í neyðartilfellum.\n\nHver sem er getur lesið þessar upplýsingar af lásskjánum og hringt í tengiliðina þína með því að ýta á nöfn þeirra án þess að taka símann úr lás."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Ef heilsufarsupplýsingum og neyðartengiliðum er bætt við getur það aðstoðað fólk sem kemur fyrst á vettvang í neyðartilfellum.\n\nHver sem er getur lesið þessar upplýsingar af lásskjánum og hringt í tengiliðina þína með því að ýta á nöfn þeirra án þess að taka símann úr lás."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Bættu við upplýsingum fyrir neyðartilvik"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Leyfa neyðarviðbragðsaðilum að sjá upplýsingarnar þínar"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"Taka mynd"</string>

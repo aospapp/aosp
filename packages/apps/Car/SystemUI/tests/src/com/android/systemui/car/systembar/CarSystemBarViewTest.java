@@ -39,6 +39,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.Collections;
+
 @CarSystemUiTest
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
@@ -74,7 +76,8 @@ public class CarSystemBarViewTest extends SysuiTestCase {
         mNavBarView = (CarSystemBarView) LayoutInflater.from(getContext()).inflate(
                 R.layout.car_system_bar_view_test, /* root= */ null);
         mNavBarView.setNotificationsPanelController(mNotificationsShadeController);
-        mNavBarView.setStatusBarWindowTouchListener(mNavBarTouchListener);
+        mNavBarView.setStatusBarWindowTouchListeners(
+                Collections.singleton(mNavBarTouchListener));
 
         boolean consume = mNavBarView.onInterceptTouchEvent(
                 MotionEvent.obtain(/* downTime= */ 200, /* eventTime= */ 300,
@@ -95,7 +98,8 @@ public class CarSystemBarViewTest extends SysuiTestCase {
         mNavBarView = (CarSystemBarView) LayoutInflater.from(getContext()).inflate(
                 R.layout.car_system_bar_view_test, /* root= */ null);
         mNavBarView.setNotificationsPanelController(mNotificationsShadeController);
-        mNavBarView.setStatusBarWindowTouchListener(mNavBarTouchListener);
+        mNavBarView.setStatusBarWindowTouchListeners(
+                Collections.singleton(mNavBarTouchListener));
 
         boolean consume = mNavBarView.onInterceptTouchEvent(
                 MotionEvent.obtain(/* downTime= */ 200, /* eventTime= */ 300,

@@ -25,12 +25,10 @@
     <string name="tap_to_launch_text" msgid="6910695705119260847">"ലോഞ്ച് ചെയ്യാൻ കാർഡ് ടാപ്പ് ചെയ്യുക"</string>
     <string name="ongoing_call_duration_text_separator" msgid="6019453854809413561">" • "</string>
     <string name="ongoing_call_text" msgid="2394626676478708070">"സജീവമായ കോൾ"</string>
+    <string name="dialing_call_text" msgid="415326503409745490">"ഡയൽ ചെയ്യുന്നു…"</string>
     <string name="projected_launch_text" msgid="5809132353957907500">"Android Auto ലോഞ്ച് ചെയ്യുക"</string>
     <string name="projected_onclick_launch_error_toast_text" msgid="7462478007773137082">"Android Auto ലോഞ്ച് ചെയ്യാനാകുന്നില്ല. ആക്റ്റിവിറ്റിയൊന്നും കണ്ടെത്തിയില്ല."</string>
-    <plurals name="projection_devices" formatted="false" msgid="4740612230451956299">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ഉപകരണങ്ങൾ</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ഉപകരണം</item>
-    </plurals>
+    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{# ഉപകരണം}other{# ഉപകരണങ്ങൾ}}"</string>
     <string name="weather_app_name" msgid="8048146303519139993">"കാലാവസ്ഥ"</string>
     <string name="fake_weather_main_text" msgid="8117240999340284429">"--° കൂടുതലും തെളിഞ്ഞ ആകാശം"</string>
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"Mountain View • കൂടിയത്: --° കുറഞ്ഞത്: --°"</string>

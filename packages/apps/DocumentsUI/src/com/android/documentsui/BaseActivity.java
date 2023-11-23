@@ -167,11 +167,6 @@ public abstract class BaseActivity
 
         mNavigator = new NavigationViewManager(this, mDrawer, mState, this, breadcrumb,
                 profileTabsContainer, DocumentsApplication.getUserIdManager(this));
-        AppBarLayout appBarLayout = findViewById(R.id.app_bar);
-        if (appBarLayout != null) {
-            appBarLayout.addOnOffsetChangedListener(mNavigator);
-        }
-
         SearchManagerListener searchListener = new SearchManagerListener() {
             /**
              * Called when search results changed. Refreshes the content of the directory. It

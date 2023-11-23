@@ -47,7 +47,7 @@ enum MetricType {
 };
 
 // Defines the per-UID I/O stats.
-class UidIoStats {
+class UidIoStats final {
 public:
     UidIoStats() : metrics{{0}} {};
     UidIoStats(int64_t fgRdBytes, int64_t bgRdBytes, int64_t fgWrBytes, int64_t bgWrBytes,
@@ -85,6 +85,8 @@ public:
 // Collector/Parser for `/proc/uid_io/stats`.
 class UidIoStatsCollectorInterface : public RefBase {
 public:
+    // Initializes the collector.
+    virtual void init() = 0;
     // Collects the per-UID I/O stats.
     virtual android::base::Result<void> collect() = 0;
     // Returns the latest per-uid I/O stats.
@@ -99,10 +101,17 @@ public:
 
 class UidIoStatsCollector final : public UidIoStatsCollectorInterface {
 public:
-    explicit UidIoStatsCollector(const std::string& path = kUidIoStatsPath) :
-          kEnabled(!access(path.c_str(), R_OK)), kPath(path) {}
+    explicit UidIoStatsCollector(const std::string& path = kUidIoStatsPath) : kPath(path) {}
 
     ~UidIoStatsCollector() {}
+
+    void init() override {
+        Mutex::Autolock lock(mMutex);
+        // Note: Verify proc file access outside the constructor. Otherwise, the unittests of
+        // dependent classes would call the constructor before mocking and get killed due to
+        // sepolicy violation.
+        mEnabled = access(kPath.c_str(), R_OK) == 0;
+    }
 
     android::base::Result<void> collect() override;
 
@@ -116,7 +125,10 @@ public:
         return mDeltaStats;
     }
 
-    bool enabled() const override { return kEnabled; }
+    bool enabled() const override {
+        Mutex::Autolock lock(mMutex);
+        return mEnabled;
+    }
 
     const std::string filePath() const override { return kPath; }
 
@@ -124,20 +136,20 @@ private:
     // Reads the contents of |kPath|.
     android::base::Result<std::unordered_map<uid_t, UidIoStats>> readUidIoStatsLocked() const;
 
+    // Path to uid_io stats file. Default path is |kUidIoStatsPath|.
+    const std::string kPath;
+
     // Makes sure only one collection is running at any given time.
     mutable Mutex mMutex;
+
+    // True if |kPath| is accessible.
+    bool mEnabled GUARDED_BY(mMutex);
 
     // Latest dump from the file at |kPath|.
     std::unordered_map<uid_t, UidIoStats> mLatestStats GUARDED_BY(mMutex);
 
     // Delta of per-UID I/O stats since last before collection.
     std::unordered_map<uid_t, UidIoStats> mDeltaStats GUARDED_BY(mMutex);
-
-    // True if kPath is accessible.
-    const bool kEnabled;
-
-    // Path to uid_io stats file. Default path is |kUidIoStatsPath|.
-    const std::string kPath;
 };
 
 }  // namespace watchdog

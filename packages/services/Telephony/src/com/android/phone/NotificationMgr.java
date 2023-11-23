@@ -567,8 +567,6 @@ public class NotificationMgr {
 
             Intent intent = new Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.setPackage(mContext.getResources().getString(
-                    R.string.call_settings_package_name));
             SubscriptionInfoHelper.addExtrasToIntent(
                     intent, mSubscriptionManager.getActiveSubscriptionInfo(subId));
             builder.setContentIntent(PendingIntent.getActivity(mContext, subId /* requestCode */,

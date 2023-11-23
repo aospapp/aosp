@@ -16,21 +16,20 @@
 
 package com.android.systemui.car.voicerecognition;
 
-import android.bluetooth.BluetoothHeadsetClient;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Handler;
 import android.os.UserHandle;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.systemui.CoreStartable;
 import com.android.systemui.R;
 import com.android.systemui.SysUIToast;
-import com.android.systemui.SystemUI;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.util.concurrency.DelayableExecutor;
 
 import javax.inject.Inject;
 
@@ -38,7 +37,7 @@ import javax.inject.Inject;
  * Controller responsible for showing toast message when voice recognition over bluetooth device
  * getting activated.
  */
-public class ConnectedDeviceVoiceRecognitionNotifier extends SystemUI {
+public class ConnectedDeviceVoiceRecognitionNotifier extends CoreStartable {
 
     private static final String TAG = "CarVoiceRecognition";
     @VisibleForTesting
@@ -46,7 +45,14 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends SystemUI {
     @VisibleForTesting
     static final int VOICE_RECOGNITION_STARTED = 1;
 
-    private Handler mHandler;
+    // TODO(b/218911666): {@link BluetoothHeadsetClient.ACTION_AG_EVENT} is a hidden API.
+    private static final String HEADSET_CLIENT_ACTION_AG_EVENT =
+            "android.bluetooth.headsetclient.profile.action.AG_EVENT";
+    // TODO(b/218911666): {@link BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION} is a hidden API.
+    private static final String HEADSET_CLIENT_EXTRA_VOICE_RECOGNITION =
+            "android.bluetooth.headsetclient.extra.VOICE_RECOGNITION";
+
+    private final DelayableExecutor mExecutor;
 
     private final BroadcastReceiver mVoiceRecognitionReceiver = new BroadcastReceiver() {
         @Override
@@ -56,13 +62,13 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends SystemUI {
             }
             if (intent == null
                     || intent.getAction() == null
-                    || !BluetoothHeadsetClient.ACTION_AG_EVENT.equals(intent.getAction())
-                    || !intent.hasExtra(BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION)) {
+                    || !HEADSET_CLIENT_ACTION_AG_EVENT.equals(intent.getAction())
+                    || !intent.hasExtra(HEADSET_CLIENT_EXTRA_VOICE_RECOGNITION)) {
                 return;
             }
 
             int voiceRecognitionState = intent.getIntExtra(
-                    BluetoothHeadsetClient.EXTRA_VOICE_RECOGNITION, INVALID_VALUE);
+                    HEADSET_CLIENT_EXTRA_VOICE_RECOGNITION, INVALID_VALUE);
 
             if (voiceRecognitionState == VOICE_RECOGNITION_STARTED) {
                 showToastMessage();
@@ -71,14 +77,17 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends SystemUI {
     };
 
     private void showToastMessage() {
-        mHandler.post(() -> SysUIToast.makeText(mContext, R.string.voice_recognition_toast,
+        mExecutor.execute(() -> SysUIToast.makeText(mContext, R.string.voice_recognition_toast,
                 Toast.LENGTH_LONG).show());
     }
 
     @Inject
-    public ConnectedDeviceVoiceRecognitionNotifier(Context context, @Main Handler handler) {
+    public ConnectedDeviceVoiceRecognitionNotifier(
+            Context context,
+            @Main DelayableExecutor mainExecutor
+    ) {
         super(context);
-        mHandler = handler;
+        mExecutor = mainExecutor;
     }
 
     @Override
@@ -88,7 +97,7 @@ public class ConnectedDeviceVoiceRecognitionNotifier extends SystemUI {
     @Override
     protected void onBootCompleted() {
         IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothHeadsetClient.ACTION_AG_EVENT);
+        filter.addAction(HEADSET_CLIENT_ACTION_AG_EVENT);
         mContext.registerReceiverAsUser(mVoiceRecognitionReceiver, UserHandle.ALL, filter,
                 /* broadcastPermission= */ null, /* scheduler= */ null);
     }

@@ -61,6 +61,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class TtsPlaybackPreferenceControllerTest {
@@ -455,7 +457,8 @@ public class TtsPlaybackPreferenceControllerTest {
     }
 
     @Test
-    public void refreshUi_initialized_defaultLocaleSupported_enablesPreference() {
+    public void refreshUi_initialized_defaultLocaleSupported_enablesPreference()
+            throws InterruptedException {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.mOnInitListener.onInit(TextToSpeech.SUCCESS);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -473,6 +476,11 @@ public class TtsPlaybackPreferenceControllerTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         mPreferenceController.refreshUi();
+        // Some fields are posted to the background handler.
+        // Wait to make sure all states have been finalized.
+        CountDownLatch latch = new CountDownLatch(1);
+        latch.await(5, TimeUnit.SECONDS);
+        mPreferenceController.mBackgroundHandler.post(latch::countDown);
 
         assertThat(mPreferenceGroup.isEnabled()).isTrue();
         assertThat(mDefaultLanguagePreference.isEnabled()).isTrue();

@@ -23,35 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"IŠJUNGTA"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"IŠJUNGTA"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Balso atpažinimą dabar tvarko susietas „Bluetooth“ įrenginys"</string>
-    <string name="car_guest" msgid="768913000117469596">"Svečias"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"Svečias"</string>
     <string name="car_add_user" msgid="6182764665687382136">"Pridėti profilį"</string>
     <string name="car_new_user" msgid="6766334721724989964">"Naujas profilis"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"Pridėti naują profilį?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"Kai sukursite naują profilį, šis asmuo turėtų jį tinkinti pagal save."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"Programas galima atnaujinti iš bet kurio profilio, kad galėtų naudoti visi kiti profiliai."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"Pasiektas profilių apribojimas"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="one">Galite pridėti iki <xliff:g id="COUNT">%d</xliff:g> profilio.</item>
-      <item quantity="few">Galite pridėti iki <xliff:g id="COUNT">%d</xliff:g> profilių.</item>
-      <item quantity="many">Galite pridėti iki <xliff:g id="COUNT">%d</xliff:g> profilio.</item>
-      <item quantity="other">Galite pridėti iki <xliff:g id="COUNT">%d</xliff:g> profilių.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{Galima sukurti tik vieną profilį.}one{Galite pridėti iki # profilio.}few{Galite pridėti iki # profilių.}many{Galite pridėti iki # profilio.}other{Galite pridėti iki # profilių.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"Įkeliama"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Įkeliamas naudotojo profilis (<xliff:g id="FROM_USER">%1$d</xliff:g> – <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofonas išjungtas."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Naudoti mikrofoną"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Programoms, turinčioms leidimą"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> – išjungta."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"Naudoti: <xliff:g id="SENSOR">%1$s</xliff:g>"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"Programoms, turinčioms leidimą"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Mikrofono nustatymai"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"Naudoja mikrofoną: <xliff:g id="APP">%s</xliff:g>"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"Programa „<xliff:g id="APP">%1$s</xliff:g>“ naudoja: <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"Naudoja mikrofoną: <xliff:g id="APP_LIST">%s</xliff:g>"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"Neseniai naudojo mikrofoną: <xliff:g id="APP">%s</xliff:g>"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"„<xliff:g id="APP_0">%1$s</xliff:g>“ ir dar <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> progr. neseniai naudojo mikrofoną"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"Programa „<xliff:g id="APP">%1$s</xliff:g>“ neseniai naudojo: <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"Programa „<xliff:g id="APP_0">%1$s</xliff:g>“ ir dar <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> progr. neseniai naudojo: <xliff:g id="SENSOR">%3$s</xliff:g>"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofonas įjungtas"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofonas išjungtas"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"Gerai"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Įjungti transporto priemonės mikrofoną?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Norėdami tęsti, įjunkite informacinės pramoginės sistemos mikrofoną. Tai atlikus, mikrofonas bus įjungtas visoms leidimą turinčioms programoms."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"Fotoaparato nustatymai"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"Programa „<xliff:g id="APP">%s</xliff:g>“ naudoja fotoaparatą"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"Programos (<xliff:g id="APP_LIST">%s</xliff:g>) naudoja fotoaparatą"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"Programa „<xliff:g id="APP">%s</xliff:g>“ neseniai naudojo fotoaparatą"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"Programa „<xliff:g id="APP_0">%1$s</xliff:g>“ ir dar <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> progr. neseniai naudojo fotoaparatą"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"Fotoaparatas įjungtas"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"Fotoaparatas išjungtas"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"Gerai"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"Įjungti transporto priemonės fotoaparatą?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"Norėdami tęsti, įjunkite informacinės pramoginės sistemos fotoaparatą. Tai atlikus, fotoaparatas bus įjungtas visoms leidimą turinčioms programoms."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"Negalite naudoti šios funkcijos vairuodami"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"Uždaryti programą"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"Atgal"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"Nustatymai"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"„Bluetooth“ nustatymai"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Tinklo ir interneto nustatymai"</string>

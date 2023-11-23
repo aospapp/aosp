@@ -32,6 +32,7 @@ import android.hardware.secure_element.V1_0.ISecureElement;
 import android.hardware.secure_element.V1_0.ISecureElementHalCallback;
 import android.hardware.secure_element.V1_0.LogicalChannelResponse;
 import android.hardware.secure_element.V1_0.SecureElementStatus;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HwBinder;
@@ -432,9 +433,11 @@ public class Terminal {
 
     /**
      * Opens a Basic Channel with the given AID and P2 paramters
+     * with the given device app reference package name or uuid
      */
     public Channel openBasicChannel(SecureElementSession session, byte[] aid, byte p2,
-            ISecureElementListener listener, String packageName, int pid) throws IOException,
+            ISecureElementListener listener, String packageName, byte[] uuid,
+            int pid) throws IOException,
             NoSuchElementException {
         if (aid != null && aid.length == 0) {
             aid = null;
@@ -446,19 +449,31 @@ public class Terminal {
 
         ChannelAccess channelAccess = null;
         if (packageName != null) {
-            Log.w(mTag, "Enable access control on basic channel for " + packageName);
+            Log.w(mTag, "Enable access control on basic channel for package name: "
+                    + packageName);
             SecureElementStatsLog.write(
                     SecureElementStatsLog.SE_OMAPI_REPORTED,
                     SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
                     mName,
                     packageName);
-            try {
-                // For application without privilege permission or carrier privilege,
-                // openBasicChannel with UICC terminals should be rejected.
-                channelAccess = setUpChannelAccess(aid, packageName, pid, true);
-            } catch (MissingResourceException e) {
-                return null;
+        } else if (uuid != null) {
+            Log.w(mTag, "Enable access control on basic channel for uid: "
+                    + Binder.getCallingUid()
+                    + " UUID: " + Arrays.toString(uuid));
+            SecureElementStatsLog.write(
+                    SecureElementStatsLog.SE_OMAPI_REPORTED,
+                    SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
+                    mName,
+                    Arrays.toString(uuid));
+        }
+        try {
+            // For application without privilege permission or carrier privilege,
+            // openBasicChannel with UICC terminals should be rejected.
+            if (packageName != null || uuid != null) {
+                channelAccess = setUpChannelAccess(aid, packageName, uuid, pid, true);
             }
+        } catch (MissingResourceException e) {
+            return null;
         }
 
         synchronized (mLock) {
@@ -516,14 +531,15 @@ public class Terminal {
      */
     public Channel openLogicalChannelWithoutChannelAccess(byte[] aid) throws IOException,
             NoSuchElementException {
-        return openLogicalChannel(null, aid, (byte) 0x00, null, null, 0);
+        return openLogicalChannel(null, aid, (byte) 0x00, null, null, null, 0);
     }
 
     /**
-     * Opens a logical Channel with AID.
+     * Opens a logical Channel with AID for the given package name or uuid
      */
     public Channel openLogicalChannel(SecureElementSession session, byte[] aid, byte p2,
-            ISecureElementListener listener, String packageName, int pid) throws IOException,
+            ISecureElementListener listener, String packageName,
+            byte[] uuid, int pid) throws IOException,
             NoSuchElementException {
         if (aid != null && aid.length == 0) {
             aid = null;
@@ -541,11 +557,22 @@ public class Terminal {
                     SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
                     mName,
                     packageName);
-            try {
-                channelAccess = setUpChannelAccess(aid, packageName, pid, false);
-            } catch (MissingResourceException | UnsupportedOperationException e) {
-                return null;
+        } else if (uuid != null) {
+            Log.w(mTag, "Enable access control on logical channel for uid: "
+                    + Binder.getCallingUid()
+                    + " UUID: " + Arrays.toString(uuid));
+            SecureElementStatsLog.write(
+                    SecureElementStatsLog.SE_OMAPI_REPORTED,
+                    SecureElementStatsLog.SE_OMAPI_REPORTED__OPERATION__OPEN_CHANNEL,
+                    mName,
+                    Arrays.toString(uuid));
+        }
+        try {
+            if (packageName != null || uuid != null) {
+                channelAccess = setUpChannelAccess(aid, packageName, uuid, pid, false);
             }
+        } catch (MissingResourceException | UnsupportedOperationException e) {
+            return null;
         }
 
         synchronized (mLock) {
@@ -745,10 +772,10 @@ public class Terminal {
     /**
      * Initialize the Access Control and set up the channel access.
      */
-    private ChannelAccess setUpChannelAccess(byte[] aid, String packageName, int pid,
+    private ChannelAccess setUpChannelAccess(byte[] aid, String packageName, byte[] uuid, int pid,
             boolean isBasicChannel) throws IOException, MissingResourceException {
         boolean checkRefreshTag = true;
-        if (isPrivilegedApplication(packageName)) {
+        if (packageName != null && isPrivilegedApplication(packageName)) {
             return ChannelAccess.getPrivilegeAccess(packageName, pid);
         }
         // Attempt to initialize the access control enforcer if it failed
@@ -764,7 +791,7 @@ public class Terminal {
         mAccessControlEnforcer.setPackageManager(mContext.getPackageManager());
 
         // Check carrier privilege when AID is not ISD-R
-        if (getName().startsWith(SecureElementService.UICC_TERMINAL)
+        if (packageName != null && getName().startsWith(SecureElementService.UICC_TERMINAL)
                 && !Arrays.equals(aid, ISD_R_AID)) {
             try {
                 PackageManager pm = mContext.getPackageManager();
@@ -794,7 +821,7 @@ public class Terminal {
         synchronized (mLock) {
             try {
                 ChannelAccess channelAccess =
-                        mAccessControlEnforcer.setUpChannelAccess(aid, packageName,
+                        mAccessControlEnforcer.setUpChannelAccess(aid, packageName, uuid,
                                 checkRefreshTag);
                 channelAccess.setCallingPid(pid);
                 return channelAccess;
@@ -967,6 +994,16 @@ public class Terminal {
         @Override
         public boolean reset() {
             return Terminal.this.reset();
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ISecureElementReader.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ISecureElementReader.VERSION;
         }
     }
 }

@@ -15,11 +15,16 @@
  */
 package android.car.navigation;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -32,8 +37,10 @@ import java.lang.annotation.RetentionPolicy;
 public final class CarNavigationInstrumentCluster implements Parcelable {
 
     /** Navigation Next Turn messages contain an image, as well as an enum. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED = 1;
     /** Navigation Next Turn messages contain only an enum. */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CLUSTER_TYPE_IMAGE_CODES_ONLY = 2;
 
     /** @hide */
@@ -57,6 +64,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
 
     private final Bundle mExtra;
 
+    @AddedInOrBefore(majorVersion = 33)
     public static final Parcelable.Creator<CarNavigationInstrumentCluster> CREATOR =
                 new Parcelable.Creator<CarNavigationInstrumentCluster>() {
             public CarNavigationInstrumentCluster createFromParcel(Parcel in) {
@@ -71,6 +79,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     /**
      * Creates a new {@link CarNavigationInstrumentCluster}.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static CarNavigationInstrumentCluster createCluster(int minIntervalMillis) {
         return new CarNavigationInstrumentCluster(minIntervalMillis, CLUSTER_TYPE_IMAGE_CODES_ONLY,
                 0, 0, 0);
@@ -79,6 +88,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     /**
      * Creates a new {@link CarNavigationInstrumentCluster}.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static CarNavigationInstrumentCluster createCustomImageCluster(int minIntervalMillis,
             int imageWidth, int imageHeight, int imageColorDepthBits) {
         return new CarNavigationInstrumentCluster(minIntervalMillis,
@@ -87,6 +97,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     }
 
     /** Minimum time between instrument cluster updates in milliseconds.*/
+    @AddedInOrBefore(majorVersion = 33)
     public int getMinIntervalMillis() {
         return mMinIntervalMillis;
     }
@@ -96,16 +107,19 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
      * {@link #CLUSTER_TYPE_IMAGE_CODES_ONLY}.
      */
     @ClusterType
+    @AddedInOrBefore(majorVersion = 33)
     public int getType() {
         return mType;
     }
 
     /** If instrument cluster is image, width of instrument cluster in pixels. */
+    @AddedInOrBefore(majorVersion = 33)
     public int getImageWidth() {
         return mImageWidth;
     }
 
     /** If instrument cluster is image, height of instrument cluster in pixels. */
+    @AddedInOrBefore(majorVersion = 33)
     public int getImageHeight() {
         return mImageHeight;
     }
@@ -114,6 +128,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
      * Contains extra information about instrument cluster.
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public Bundle getExtra() {
         return mExtra;
     }
@@ -121,6 +136,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     /**
      * If instrument cluster is image, number of bits of colour depth it supports (8, 16, or 32).
      */
+    @AddedInOrBefore(majorVersion = 33)
     public int getImageColorDepthBits() {
         return mImageColorDepthBits;
     }
@@ -136,6 +152,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     /**
      * Whether cluster support custom image or not.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public boolean supportsCustomImages() {
         return mType == CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED;
     }
@@ -155,11 +172,14 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
     }
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() {
         return 0;
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mMinIntervalMillis);
         dest.writeInt(mType);
@@ -180,6 +200,7 @@ public final class CarNavigationInstrumentCluster implements Parcelable {
 
     /** Converts to string for debug purpose */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return CarNavigationInstrumentCluster.class.getSimpleName() + "{ "
                 + "minIntervalMillis: " + mMinIntervalMillis + ", "

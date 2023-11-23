@@ -88,11 +88,45 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
         Self { file, merkle_tree: Arc::new(RwLock::new(MerkleLeaves::new())) }
     }
 
+    /// Returns the fs-verity digest size in bytes.
+    pub fn get_fsverity_digest_size(&self) -> usize {
+        Sha256Hasher::HASH_SIZE
+    }
+
     /// Calculates the fs-verity digest of the current file.
-    #[allow(dead_code)]
     pub fn calculate_fsverity_digest(&self) -> io::Result<Sha256Hash> {
         let merkle_tree = self.merkle_tree.read().unwrap();
         merkle_tree.calculate_fsverity_digest().map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+    }
+
+    fn read_backing_chunk_unverified(
+        &self,
+        chunk_index: u64,
+        buf: &mut ChunkBuffer,
+    ) -> io::Result<usize> {
+        self.file.read_chunk(chunk_index, buf)
+    }
+
+    fn read_backing_chunk_verified(
+        &self,
+        chunk_index: u64,
+        buf: &mut ChunkBuffer,
+        merkle_tree_locked: &MerkleLeaves,
+    ) -> io::Result<usize> {
+        debug_assert_usize_is_u64();
+
+        if merkle_tree_locked.is_index_valid(chunk_index as usize) {
+            let size = self.read_backing_chunk_unverified(chunk_index, buf)?;
+
+            // Ensure the returned buffer matches the known hash.
+            let hash = Sha256Hasher::new()?.update(buf)?.finalize()?;
+            if !merkle_tree_locked.is_consistent(chunk_index as usize, &hash) {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "Inconsistent hash"));
+            }
+            Ok(size)
+        } else {
+            Ok(0)
+        }
     }
 
     fn new_hash_for_incomplete_write(
@@ -110,7 +144,7 @@ impl<F: ReadByChunk + RandomWrite> VerifiedFileEditor<F> {
         // If previous data exists, read back and verify against the known hash (since the
         // storage / remote server is not trusted).
         if merkle_tree.is_index_valid(output_chunk_index) {
-            self.read_chunk(output_chunk_index as u64, &mut orig_data)?;
+            self.read_backing_chunk_unverified(output_chunk_index as u64, &mut orig_data)?;
 
             // Verify original content
             let hash = Sha256Hasher::new()?.update(&orig_data)?.finalize()?;
@@ -206,7 +240,7 @@ impl<F: ReadByChunk + RandomWrite> RandomWrite for VerifiedFileEditor<F> {
             // (original) integrity for the file. To matches what write(2) describes for an error
             // case (though it's about direct I/O), "Partial data may be written ... should be
             // considered inconsistent", an error below is propagated.
-            self.file.write_all_at(&source, output_offset)?;
+            self.file.write_all_at(source, output_offset)?;
 
             // Update the hash only after the write succeeds. Note that this only attempts to keep
             // the tree consistent to what has been written regardless the actual state beyond the
@@ -235,7 +269,7 @@ impl<F: ReadByChunk + RandomWrite> RandomWrite for VerifiedFileEditor<F> {
             let chunk_index = size / CHUNK_SIZE;
             if new_tail_size > 0 {
                 let mut buf: ChunkBuffer = [0; CHUNK_SIZE as usize];
-                let s = self.read_chunk(chunk_index, &mut buf)?;
+                let s = self.read_backing_chunk_verified(chunk_index, &mut buf, &merkle_tree)?;
                 debug_assert!(new_tail_size <= s);
 
                 let zeros = vec![0; CHUNK_SIZE as usize - new_tail_size];
@@ -256,7 +290,8 @@ impl<F: ReadByChunk + RandomWrite> RandomWrite for VerifiedFileEditor<F> {
 
 impl<F: ReadByChunk + RandomWrite> ReadByChunk for VerifiedFileEditor<F> {
     fn read_chunk(&self, chunk_index: u64, buf: &mut ChunkBuffer) -> io::Result<usize> {
-        self.file.read_chunk(chunk_index, buf)
+        let merkle_tree = self.merkle_tree.read().unwrap();
+        self.read_backing_chunk_verified(chunk_index, buf, &merkle_tree)
     }
 }
 
@@ -290,7 +325,7 @@ mod tests {
             if end > self.data.borrow().len() {
                 self.data.borrow_mut().resize(end, 0);
             }
-            self.data.borrow_mut().as_mut_slice()[begin..end].copy_from_slice(&buf);
+            self.data.borrow_mut().as_mut_slice()[begin..end].copy_from_slice(buf);
             Ok(buf.len())
         }
 
@@ -318,7 +353,7 @@ mod tests {
                         format!("read_chunk out of bound: index {}", chunk_index),
                     )
                 })?;
-            buf[..chunk.len()].copy_from_slice(&chunk);
+            buf[..chunk.len()].copy_from_slice(chunk);
             Ok(chunk.len())
         }
     }

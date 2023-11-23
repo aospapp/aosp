@@ -95,7 +95,7 @@ public final class UsbHostController
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
-        context.registerReceiver(mUsbBroadcastReceiver, filter);
+        context.registerReceiver(mUsbBroadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     private synchronized void setActiveDeviceIfMatch(UsbDevice device) {

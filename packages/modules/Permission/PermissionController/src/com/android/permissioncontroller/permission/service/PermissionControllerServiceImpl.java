@@ -28,6 +28,7 @@ import static com.android.permissioncontroller.PermissionControllerStatsLog.PERM
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -77,6 +78,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -652,13 +654,18 @@ public final class PermissionControllerServiceImpl extends PermissionControllerL
         for (String permission : permissions) {
             AppPermissionGroup group = AppPermissionGroup.create(this, packageInfo, permission,
                     true);
-            if (group != null && group.isOneTime()) {
-                groups.add(group);
+            if (group != null) {
+                AppPermissionGroup bgGroup = group.getBackgroundPermissions();
+                boolean isBgGroupOneTime = bgGroup != null && bgGroup.isOneTime();
+                if (group.isOneTime() || isBgGroupOneTime) {
+                    groups.add(group);
+                }
             }
         }
         long requestId = Utils.getValidSessionId();
         for (AppPermissionGroup group : groups) {
-            if (group.areRuntimePermissionsGranted()) {
+            AppPermissionGroup bgGroup = group.getBackgroundPermissions();
+            if (group.areRuntimePermissionsGranted(null, true, false)) {
                 logOneTimeSessionRevoke(packageName, uid, group, requestId);
                 // Revoke only one time granted permissions if not all
                 List<String> oneTimeGrantedPermissions = group.getPermissions().stream()
@@ -670,9 +677,36 @@ public final class PermissionControllerServiceImpl extends PermissionControllerL
                     group.revokeRuntimePermissions(false,
                             oneTimeGrantedPermissions.toArray(new String[0]));
                 }
+                for (String permissionName : oneTimeGrantedPermissions) {
+                    // We only reset the USER_SET flag if the permission was granted.
+                    Permission permission = group.getPermission(permissionName);
+                    if (permission != null) {
+                        permission.setUserSet(false);
+                    }
+                }
+                if (bgGroup != null) {
+                    // We also revoke background permissions if all foreground permissions are
+                    // getting revoked.
+                    if (group.getPermissions().size() == oneTimeGrantedPermissions.size()) {
+                        bgGroup.revokeRuntimePermissions(false);
+                    } else {
+                        bgGroup.revokeRuntimePermissions(false,
+                                bgGroup.getPermissions().stream()
+                                        .filter(Permission::isOneTime).filter(Permission::isGranted)
+                                        .map(Permission::getName).toArray(String[]::new));
+                    }
+                }
             }
-            group.setUserSet(false);
+            if (!group.supportsOneTimeGrant()) {
+                group.setOneTime(false);
+            }
             group.persistChanges(false, ONE_TIME_PERMISSION_REVOKED_REASON);
+            if (bgGroup != null) {
+                if (!bgGroup.supportsOneTimeGrant()) {
+                    bgGroup.setOneTime(false);
+                }
+                bgGroup.persistChanges(false, ONE_TIME_PERMISSION_REVOKED_REASON);
+            }
         }
     }
 
@@ -715,5 +749,71 @@ public final class PermissionControllerServiceImpl extends PermissionControllerL
     public void onGetGroupOfPlatformPermission(@NonNull String permissionName,
             @NonNull Consumer<String> callback) {
         callback.accept(Utils.getGroupOfPlatformPermission(permissionName));
+    }
+
+    @Override
+    public void onGetUnusedAppCount(@NonNull IntConsumer callback) {
+        mServiceModel.onCountUnusedApps(callback);
+    }
+
+    @Override
+    public void onGetHibernationEligibility(@NonNull String packageName,
+            @NonNull IntConsumer callback) {
+        mServiceModel.onGetHibernationEligibility(packageName, callback);
+    }
+
+    @Override
+    public void onRevokeSelfPermissionsOnKill(@NonNull String packageName,
+            @NonNull List<String> permissions, @NonNull Runnable callback) {
+        PackageInfo pkgInfo = getPkgInfo(packageName);
+        if (pkgInfo == null) {
+            throw new SecurityException("Cannot revoke permission " + String.join(",", permissions)
+                    + " for package " + packageName);
+        }
+        Set<AppPermissionGroup> groups = new HashSet<>();
+        AppPermissions app = new AppPermissions(this, pkgInfo, false, true, null);
+        for (String permName : permissions) {
+            AppPermissionGroup group = app.getGroupForPermission(permName);
+            if (group == null) {
+                throw new IllegalArgumentException("Cannot revoke permission " + permName
+                        + " for package " + packageName + " since " + permName
+                        + " does not belong to a permission group");
+            }
+            if (!group.doesSupportRuntimePermissions()) {
+                throw new IllegalArgumentException("Cannot revoke permission " + permName
+                        + " for package " + packageName + " since it is not a runtime permission");
+            }
+            Permission perm = group.getPermission(permName);
+            if (!perm.isGranted()) {
+                continue;
+            }
+            perm.setOneTime(true);
+            groups.add(group);
+
+            if (permName.equals(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                group.getPermission(Manifest.permission.ACCESS_FINE_LOCATION).setOneTime(true);
+            } else if (permName.equals(Manifest.permission.ACCESS_FINE_LOCATION)) {
+                // Set coarse as the selected location accuracy
+                perm.setSelectedLocationAccuracy(false);
+                group.getPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        .setSelectedLocationAccuracy(true);
+            }
+
+            if (group.isStrictlyOneTime()) {
+                // All remaining permissions in the group are one-time, we should also revoke
+                // the background permissions if there are any
+                Permission bgPerm = perm.getBackgroundPermission();
+                if (bgPerm != null && bgPerm.isGranted()) {
+                    bgPerm.setOneTime(true);
+                    AppPermissionGroup bgGroup = group.getBackgroundPermissions();
+                    groups.add(bgGroup);
+                }
+            }
+        }
+        for (AppPermissionGroup group : groups) {
+            group.setSelfRevoked();
+            group.persistChanges(false);
+        }
+        getMainExecutor().execute(callback);
     }
 }

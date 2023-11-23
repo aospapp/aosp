@@ -78,6 +78,12 @@
     <!-- Use legacy wifi p2p dedicated address instead of randomize address. -->
     <bool translatable="false" name="config_tether_enable_legacy_wifi_p2p_dedicated_ip">false</bool>
 
+    <!-- Use lease subnet prefix length to reserve the range outside of subnet prefix length.
+         This configuration only valid if its value larger than dhcp server address prefix length
+         and config_tether_enable_legacy_wifi_p2p_dedicated_ip is true.
+    -->
+    <integer translatable="false" name="config_p2p_leases_subnet_prefix_length">0</integer>
+
     <!-- Dhcp range (min, max) to use for tethering purposes -->
     <string-array translatable="false" name="config_tether_dhcp_range">
     </string-array>

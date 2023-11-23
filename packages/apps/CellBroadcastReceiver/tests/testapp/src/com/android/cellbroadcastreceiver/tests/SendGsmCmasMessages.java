@@ -19,6 +19,7 @@ package com.android.cellbroadcastreceiver.tests;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AppOpsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 import android.provider.Telephony;
@@ -55,18 +56,17 @@ public class SendGsmCmasMessages {
 
     private static final String STATE_LOCAL_ALERT = "This is a state/local test message.";
 
-    private static void sendBroadcast(Activity activity, SmsCbMessage cbMessage) {
+    private static void sendBroadcast(Context context, SmsCbMessage cbMessage) {
         Intent intent = new Intent(Telephony.Sms.Intents.ACTION_SMS_EMERGENCY_CB_RECEIVED);
         intent.putExtra("message", cbMessage);
-        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(
-                activity.getApplicationContext()));
-        activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
+        intent.setPackage(CellBroadcastUtils.getDefaultCellBroadcastReceiverPackageName(context));
+        context.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendCmasPresAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -80,11 +80,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendCmasExtremeAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -99,11 +99,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendCmasSevereAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -118,11 +118,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendCmasAmberAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -137,11 +137,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendCmasMonthlyTest(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -156,11 +156,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendCmasExerciseTest(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -175,11 +175,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                         SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendPublicSafetyMessagesAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -193,11 +193,11 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                         SmsCbMessage.MESSAGE_PRIORITY_NORMAL);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     public static void testSendStateLocalTestAlert(
-            Activity activity, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -211,7 +211,7 @@ public class SendGsmCmasMessages {
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                         SmsCbMessage.MESSAGE_PRIORITY_NORMAL);
 
-        sendBroadcast(activity, cbMessage);
+        sendBroadcast(context, cbMessage);
     }
 
     /**

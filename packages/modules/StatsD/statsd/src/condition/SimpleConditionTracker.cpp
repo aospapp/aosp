@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "SimpleConditionTracker.h"
@@ -45,13 +45,10 @@ SimpleConditionTracker::SimpleConditionTracker(
         }
         mContainANYPositionInInternalDimensions = HasPositionANY(simplePredicate.dimensions());
     }
-
-    if (simplePredicate.initial_value() == SimplePredicate_InitialValue_FALSE) {
-        mInitialValue = ConditionState::kFalse;
-    } else {
-        mInitialValue = ConditionState::kUnknown;
-    }
-
+    // If an initial value isn't specified, default to false if sliced and unknown if not sliced.
+    mInitialValue = simplePredicate.has_initial_value()
+                            ? convertInitialValue(simplePredicate.initial_value())
+                            : mSliced ? ConditionState::kFalse : ConditionState::kUnknown;
     mInitialized = true;
 }
 
@@ -252,7 +249,7 @@ void SimpleConditionTracker::handleConditionEvent(const HashableDimensionKey& ou
     }
 
     // dump all dimensions for debugging
-    if (DEBUG) {
+    if (STATSD_DEBUG) {
         dumpState();
     }
 

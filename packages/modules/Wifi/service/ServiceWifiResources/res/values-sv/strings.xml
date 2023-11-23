@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Inställningen har uppdaterats. Försök ansluta igen."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Det gick inte att ändra integritetsinställningen"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"Nätverket hittades inte"</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32756"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32760"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Du kan inte ansluta till Verizon Wi-Fi Access om du befinner dig utanför Verizons täckningsområde. (Fel = 32760)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32761"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Du prenumererar inte på Verizon Wi-Fi Access. Ring oss på 800 922 0204. (Fel = 32761)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32762"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ett fel har uppstått i Verizon Wi-Fi Access-kontot. Ring oss på 800 922 0204. (Fel = 32762)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32763"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Du är redan ansluten till Verizon Wi-Fi Access. (Fel = 32763)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32764"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Det gick inte att ansluta till Verizon Wi-Fi Access. Ring oss på 800 922 0204. (Fel = 32764)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32765"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Ett fel har uppstått i Verizon Wi-Fi Access-kontot. Ring oss på 800 922 0204. (Fel = 32765)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32766"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access är inte tillgängligt där du befinner dig. Försök igen senare eller anslut från en annan plats. (Fel = 32766)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Det gick inte att ansluta till Verizon Wi-Fi Access. Försök igen senare eller anslut från en annan plats."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Det gick inte att ansluta till Verizon Wi-Fi Access på grund av felet 16384."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Det gick inte att ansluta till Verizon Wi-Fi Access på grund av felet 16385."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel. Okänd felkod"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Det gick inte att ansluta till Verizon Wi-Fi Access."</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"Surfzonen har inaktiverats"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"Inga enheter har anslutits. Tryck för att ändra."</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"Ingen wifi-anslutning"</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"Sätt i ett SIM-kort från <xliff:g id="CARRIER_NAME">%2$s</xliff:g> om du vill ansluta till <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"<xliff:g id="APP">%1$s</xliff:g> vill använda en nätverksresurs"</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"Detta kan leda till problem med <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"Detta kan orsaka problem med dessa appar: <xliff:g id="APPS">%3$s</xliff:g>."</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"Tillåt"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"Tillåt inte"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"Är det här ett betrott nätverk?"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"Ja, anslut"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"Nej, anslut inte"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"Tillåt bara att nätverket ansluter om uppgifterna nedan verkar stämma.\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"Servernamn:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"Utgivarens namn:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"Organisation:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"Kontakt:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"Signatur:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"Nätverket måste verifieras"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"Granska nätverksinformationen för <xliff:g id="SSID">%1$s</xliff:g> innan du ansluter. Tryck för att fortsätta."</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"Installationen av certifikatet misslyckades."</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"Det gick inte att verifiera nätverket"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"Anslut ändå"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"Anslut inte"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"Det saknas ett certifikat för nätverket <xliff:g id="SSID">%1$s</xliff:g>."</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"Läs mer om hur du lägger till certifikat"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"Det gick inte att verifiera nätverket"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"Det saknas ett certifikat för nätverket <xliff:g id="SSID">%1$s</xliff:g>. Tryck här för att ta reda på hur du lägger till certifikat."</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"Anslut ändå"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"Anslut inte"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"Vill du tillåta att <xliff:g id="APP_NAME">%1$s</xliff:g> aktiverar wifi?"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"Du kan stänga av wifi i snabbinställningarna"</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"Tillåt"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"Tillåt inte"</string>
 </resources>

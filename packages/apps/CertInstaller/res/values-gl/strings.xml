@@ -72,7 +72,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"Instalar"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"Instalando"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"Cancelar"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Ignorar"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Pechar"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"Ningunha"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"Nome: %1$s\nFQDN: %2$s\nConsorcios de itinerancia: %3$s\nDominio: %4$s\nMétodo de autenticación: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Nome de usuario: %s\n"</string>

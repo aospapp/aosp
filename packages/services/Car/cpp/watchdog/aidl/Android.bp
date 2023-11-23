@@ -25,7 +25,12 @@ aidl_interface {
     stability: "vintf",
     backend: {
         java: {
-            platform_apis: true,
+            sdk_version: "module_current",
+            min_sdk_version: "31",
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.car.framework",
+            ],
             enabled: true,
         },
     },
@@ -37,18 +42,29 @@ aidl_interface {
 
 aidl_interface {
     name: "android.automotive.watchdog.internal",
-    unstable: true,
     vendor_available: false,
     srcs: [
         "android/automotive/watchdog/internal/*.aidl",
     ],
     backend: {
         java: {
-            platform_apis: true,
+            sdk_version: "module_current",
+            min_sdk_version: "31",
+            apex_available: [
+                "//apex_available:platform",
+                "com.android.car.framework",
+            ],
             enabled: true,
         },
     },
     imports: [
         "android.automotive.watchdog-V3",
     ],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: ["android.automotive.watchdog-V3"],
+        },
+    ],
+
 }

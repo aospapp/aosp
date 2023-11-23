@@ -21,10 +21,13 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.UiScrollable;
@@ -38,13 +41,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.List;
 import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
 public class TraceurAppTests {
 
     private static final String TRACEUR_PACKAGE = "com.android.traceur";
-    private static final int TIMEOUT = 20000;   // milliseconds
+    private static final int LAUNCH_TIMEOUT_MS = 10000;
+    private static final int UI_TIMEOUT_MS = 7500;
+    private static final int SHORT_PAUSE_MS = 1000;
 
     private UiDevice mDevice;
 
@@ -74,8 +80,12 @@ public class TraceurAppTests {
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
         context.startActivity(intent);
 
-       // Wait for the app to appear
-        mDevice.wait(Until.hasObject(By.pkg(TRACEUR_PACKAGE).depth(0)), TIMEOUT);
+        // Wait for the app to appear.
+        assertTrue(mDevice.wait(Until.hasObject(By.pkg(TRACEUR_PACKAGE).depth(0)),
+                  LAUNCH_TIMEOUT_MS));
+        // Default trace categories are restored in case a previous test modified them and
+        // terminated early.
+        restoreDefaultCategories();
     }
 
     @After
@@ -86,6 +96,11 @@ public class TraceurAppTests {
         mDevice.pressHome();
     }
 
+    /**
+     * Verifies that the main page contains the correct UI elements.
+     * If the main page is scrollable, the test checks that all expected elements are found while
+     * scrolling. Otherwise, it checks that the expected elements are already on the page.
+     */
     @Presubmit
     @Test
     public void testElementsOnMainScreen() throws Exception {
@@ -129,65 +144,236 @@ public class TraceurAppTests {
         } else {
             assertNotNull("Record trace switch not found.",
                     mDevice.wait(Until.findObject(By.text("Record trace")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Applications element not found.",
                     mDevice.wait(Until.findObject(By.text("Trace debuggable applications")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Categories element not found.",
                     mDevice.wait(Until.findObject(By.text("Categories")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Restore default categories element not found.",
                     mDevice.wait(Until.findObject(By.text("Restore default categories")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Per-CPU buffer size element not found.",
                     mDevice.wait(Until.findObject(By.text("Per-CPU buffer size")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Clear saved traces element not found.",
                     mDevice.wait(Until.findObject(By.text("Clear saved traces")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Long traces element not found.",
                     mDevice.wait(Until.findObject(By.text("Long traces")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Maximum long trace size element not found.",
                     mDevice.wait(Until.findObject(By.text("Maximum long trace size")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Maximum long trace duration element not found.",
                     mDevice.wait(Until.findObject(By.text("Maximum long trace duration")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
             assertNotNull("Show Quick Settings tile switch not found.",
                     mDevice.wait(Until.findObject(By.text("Show Quick Settings tile")),
-                    TIMEOUT));
+                    UI_TIMEOUT_MS));
         }
     }
 
-    /*
-     * In this test:
-     * Take a trace by toggling 'Record trace' in the UI
-     * Tap the notification once the trace is saved, and verify the share dialog appears.
+    /**
+     * Checks that a trace can be recorded and shared.
+     * This test records a trace by toggling 'Record trace' in the UI, taps on the share
+     * notification once the trace is saved, then (on non-AOSP) verifies that a share dialog
+     * appears.
      */
     @Presubmit
     @Test
     public void testSuccessfulTracing() throws Exception {
-        mDevice.wait(Until.findObject(By.text("Record trace")), TIMEOUT);
+        UiObject2 recordTraceSwitch = mDevice.wait(Until.findObject(By.text("Record trace")),
+                UI_TIMEOUT_MS);
+        assertNotNull("Record trace switch not found.", recordTraceSwitch);
+        recordTraceSwitch.click();
 
-        mDevice.findObject(By.text("Record trace")).click();
-        mDevice.wait(Until.hasObject(By.text("Trace is being recorded")), TIMEOUT);
-        mDevice.wait(Until.gone(By.text("Trace is being recorded")), TIMEOUT);
-        mDevice.findObject(By.text("Record trace")).click();
+        mDevice.waitForIdle();
+
+        mDevice.wait(Until.hasObject(By.text("Trace is being recorded")), UI_TIMEOUT_MS);
+        mDevice.wait(Until.gone(By.text("Trace is being recorded")), UI_TIMEOUT_MS);
+
+        recordTraceSwitch = mDevice.wait(Until.findObject(By.text("Record trace")), UI_TIMEOUT_MS);
+        assertNotNull("Record trace switch not found.", recordTraceSwitch);
+        recordTraceSwitch.click();
+
+        mDevice.waitForIdle();
 
         // Wait for the popover notification to appear and then disappear,
         // so we can reliably click the notification in the notification shade.
-        mDevice.wait(Until.hasObject(By.text("Tap to share your trace")), TIMEOUT);
-        mDevice.wait(Until.gone(By.text("Tap to share your trace")), TIMEOUT);
+        mDevice.wait(Until.hasObject(By.text("Tap to share your trace")), UI_TIMEOUT_MS);
+        mDevice.wait(Until.gone(By.text("Tap to share your trace")), UI_TIMEOUT_MS);
 
         mDevice.openNotification();
-        mDevice.wait(Until.hasObject(By.text("Tap to share your trace")), TIMEOUT);
-        mDevice.findObject(By.text("Tap to share your trace")).click();
+        UiObject2 shareNotification = mDevice.wait(Until.findObject(
+                By.text("Tap to share your trace")),
+                UI_TIMEOUT_MS);
+        assertNotNull("Share notification not found.", shareNotification);
+        shareNotification.click();
 
-        mDevice.wait(Until.hasObject(By.text("Only share system traces with people and apps you trust.")), TIMEOUT);
+        mDevice.waitForIdle();
+
+        UiObject2 shareDialog = mDevice.wait(Until.findObject(
+                By.textContains("Only share system traces with people and apps you trust.")),
+                UI_TIMEOUT_MS);
+        assertNotNull("Share dialog not found.", shareDialog);
+
         // The buttons on dialogs sometimes have their capitalization manipulated by themes.
-        mDevice.findObject(By.text(Pattern.compile("share", Pattern.CASE_INSENSITIVE))).click();
+        UiObject2 shareButton = mDevice.wait(Until.findObject(
+                By.text(Pattern.compile("share", Pattern.CASE_INSENSITIVE))), UI_TIMEOUT_MS);
+        assertNotNull("Share button not found.", shareButton);
+        shareButton.click();
 
-        mDevice.wait(Until.hasObject(By.text("Just once")), TIMEOUT);
+        // The share sheet will not appear on AOSP builds, as there are no apps available to share
+        // traces with. This checks if Gmail is installed (i.e. if the build is non-AOSP) before
+        // verifying that the share sheet exists.
+        try {
+            Context context = InstrumentationRegistry.getContext();
+            context.getPackageManager().getApplicationInfo("com.google.android.gm", 0);
+            UiObject2 shareSheet = mDevice.wait(Until.findObject(
+                    By.res("android:id/profile_tabhost")), UI_TIMEOUT_MS);
+            assertNotNull("Share sheet not found.", shareSheet);
+        } catch (PackageManager.NameNotFoundException e) {
+            // Gmail is not installed, so the device is on an AOSP build.
+        }
     }
+
+    /**
+     * Checks that trace categories are displayed after tapping on the 'Categories' button.
+     */
+    @Presubmit
+    @Test
+    public void testTraceCategoriesExist() {
+        openTraceCategories();
+        List<UiObject2> categories = getTraceCategories();
+        assertNotNull("List of categories not found.", categories);
+        assertTrue("No available trace categories.", categories.size() > 0);
+    }
+
+    /**
+     * Checks that the 'Categories' summary updates when trace categories are selected.
+     * This test checks that the summary for the 'Categories' button changes from 'Default' to 'N
+     * selected' when a trace category is clicked, then back to 'Default' when the same category is
+     * clicked again.
+     */
+    @Presubmit
+    @Test
+    public void testCorrectCategoriesSummary() {
+        UiObject2 summary = getCategoriesSummary();
+        assertTrue("Expected 'Default' summary not found on startup.",
+                summary.getText().contains("Default"));
+
+        openTraceCategories();
+        toggleFirstTraceCategory();
+
+        // The summary must be reset after each toggle because the reference will be stale.
+        summary = getCategoriesSummary();
+        assertTrue("Expected 'N selected' summary not found.",
+                summary.getText().contains("selected"));
+
+        openTraceCategories();
+        toggleFirstTraceCategory();
+
+        summary = getCategoriesSummary();
+        assertTrue("Expected 'Default' summary not found after changing categories.",
+                summary.getText().contains("Default"));
+    }
+
+    /**
+     * Checks that the 'Restore default categories' button resets the trace categories summary.
+     * This test changes the set of selected trace categories from the default, then checks that the
+     * 'Categories' summary resets to 'Default' when the restore button is clicked.
+     */
+    @Presubmit
+    @Test
+    public void testRestoreDefaultCategories() {
+        openTraceCategories();
+        toggleFirstTraceCategory();
+
+        UiObject2 summary = getCategoriesSummary();
+        assertTrue("Expected 'N selected' summary not found.",
+                summary.getText().contains("selected"));
+
+        restoreDefaultCategories();
+
+        // The summary must be reset after the toggle because the reference will be stale.
+        summary = getCategoriesSummary();
+        assertTrue("Expected 'Default' summary not found after restoring categories.",
+                summary.getText().contains("Default"));
+    }
+
+    /**
+     * Taps on the 'Categories' button.
+     */
+    private void openTraceCategories() {
+        UiObject2 categoriesButton = mDevice.wait(Until.findObject(
+                By.text("Categories")), UI_TIMEOUT_MS);
+        assertNotNull("Categories button not found.", categoriesButton);
+        categoriesButton.click();
+
+        mDevice.waitForIdle();
+    }
+
+    /**
+     * Taps on the 'Restore default categories' button.
+     */
+    private void restoreDefaultCategories() {
+        UiObject2 restoreButton = mDevice.wait(Until.findObject(
+                By.text("Restore default categories")), UI_TIMEOUT_MS);
+        assertNotNull("'Restore default categories' button not found.", restoreButton);
+        restoreButton.click();
+
+        mDevice.waitForIdle();
+        // This pause is necessary because the trace category restoration takes time to propagate to
+        // the main page.
+        SystemClock.sleep(SHORT_PAUSE_MS);
+    }
+
+    /**
+     * Returns the UiObject2 of the summary for 'Categories'.
+     * This must only be used on Traceur's main page.
+     */
+    private UiObject2 getCategoriesSummary() {
+        UiObject2 categoriesButton = mDevice.wait(Until.findObject(
+                By.text("Categories")), UI_TIMEOUT_MS);
+        assertNotNull("Categories button not found.", categoriesButton);
+        // The summary text is a sibling view of 'Categories' and can be found through their parent.
+        UiObject2 categoriesSummary = categoriesButton.getParent().wait(Until.findObject(
+                By.res("android:id/summary")), UI_TIMEOUT_MS);
+        assertNotNull("Categories summary not found.", categoriesSummary);
+        return categoriesSummary;
+    }
+
+    /**
+     * Returns the list of available trace categories.
+     * This must only be used after openTraceCategories() has been called.
+     */
+    private List<UiObject2> getTraceCategories() {
+        UiObject2 categoriesListView = mDevice.wait(Until.findObject(
+                By.res("android:id/select_dialog_listview")), UI_TIMEOUT_MS);
+        assertNotNull("List of categories not found.", categoriesListView);
+        return categoriesListView.getChildren();
+    }
+
+    /**
+     * Toggles the first checkbox in the list of trace categories.
+     * This must only be used after openTraceCategories() has been called.
+     */
+    private void toggleFirstTraceCategory() {
+        getTraceCategories().get(0).click();
+
+        mDevice.waitForIdle();
+
+        UiObject2 confirmButton = mDevice.wait(Until.findObject(
+                By.res("android:id/button1")), UI_TIMEOUT_MS);
+        assertNotNull("'OK' button not found under trace categories list.", confirmButton);
+        confirmButton.click();
+
+        mDevice.waitForIdle();
+        // This pause is necessary because the trace category selection takes time to propagate to
+        // the main page.
+        SystemClock.sleep(SHORT_PAUSE_MS);
+    }
+
 }

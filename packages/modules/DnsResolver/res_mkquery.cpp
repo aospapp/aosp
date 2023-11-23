@@ -84,7 +84,7 @@
 
 #include "res_comp.h"
 #include "res_debug.h"
-#include "resolv_private.h"  // res_state
+#include "resolv_private.h"  // ResState*
 
 // Queries will be padded to a multiple of this length when EDNS0 is active.
 constexpr uint16_t kEdns0Padding = 128;
@@ -97,13 +97,11 @@ extern const char* const _res_opcodes[] = {
 };
 
 // Form all types of queries. Returns the size of the result or -1.
-int res_nmkquery(int op,               // opcode of query
-                 const char* dname,    // domain name
-                 int cl, int type,     // class and type of query
-                 const uint8_t* data,  // resource record data
-                 int datalen,          // length of data
-                 uint8_t* buf,         // buffer to put query
-                 int buflen,           // size of buffer
+int res_nmkquery(int op,                         // opcode of query
+                 const char* dname,              // domain name
+                 int cl, int type,               // class and type of query
+                 std::span<const uint8_t> data,  // resource record data
+                 std::span<uint8_t> buf,         // buffer to put query
                  int netcontext_flags) {
     HEADER* hp;
     uint8_t *cp, *ep;
@@ -116,18 +114,18 @@ int res_nmkquery(int op,               // opcode of query
     /*
      * Initialize header fields.
      */
-    if ((buf == NULL) || (buflen < HFIXEDSZ)) return (-1);
-    memset(buf, 0, HFIXEDSZ);
-    hp = (HEADER*) (void*) buf;
+    if (buf.empty() || (buf.size() < HFIXEDSZ)) return (-1);
+    memset(buf.data(), 0, HFIXEDSZ);
+    hp = (HEADER*)(void*)buf.data();
     hp->id = htons(arc4random_uniform(65536));
     hp->opcode = op;
     hp->rd = true;
     hp->ad = (netcontext_flags & NET_CONTEXT_FLAG_USE_DNS_OVER_TLS) != 0U;
     hp->rcode = NOERROR;
-    cp = buf + HFIXEDSZ;
-    ep = buf + buflen;
+    cp = buf.data() + HFIXEDSZ;
+    ep = buf.data() + buf.size();
     dpp = dnptrs;
-    *dpp++ = buf;
+    *dpp++ = buf.data();
     *dpp++ = NULL;
     lastdnptr = dnptrs + sizeof dnptrs / sizeof dnptrs[0];
     /*
@@ -145,12 +143,12 @@ int res_nmkquery(int op,               // opcode of query
             *reinterpret_cast<uint16_t*>(cp) = htons(cl);
             cp += INT16SZ;
             hp->qdcount = htons(1);
-            if (op == QUERY || data == NULL) break;
+            if (op == QUERY || data.empty()) break;
             /*
              * Make an additional record for completion domain.
              */
             if ((ep - cp) < RRFIXEDSZ) return (-1);
-            n = dn_comp((const char*) data, cp, ep - cp - RRFIXEDSZ, dnptrs, lastdnptr);
+            n = dn_comp((const char*)data.data(), cp, ep - cp - RRFIXEDSZ, dnptrs, lastdnptr);
             if (n < 0) return (-1);
             cp += n;
             *reinterpret_cast<uint16_t*>(cp) = htons(ns_t_null);
@@ -168,7 +166,7 @@ int res_nmkquery(int op,               // opcode of query
             /*
              * Initialize answer section
              */
-            if (ep - cp < 1 + RRFIXEDSZ + datalen) return (-1);
+            if (ep - cp < 1 + RRFIXEDSZ + data.size()) return (-1);
             *cp++ = '\0'; /* no domain name */
             *reinterpret_cast<uint16_t*>(cp) = htons(type);
             cp += INT16SZ;
@@ -176,11 +174,11 @@ int res_nmkquery(int op,               // opcode of query
             cp += INT16SZ;
             *reinterpret_cast<uint32_t*>(cp) = htonl(0);
             cp += INT32SZ;
-            *reinterpret_cast<uint16_t*>(cp) = htons(datalen);
+            *reinterpret_cast<uint16_t*>(cp) = htons(data.size());
             cp += INT16SZ;
-            if (datalen) {
-                memcpy(cp, data, (size_t) datalen);
-                cp += datalen;
+            if (data.size()) {
+                memcpy(cp, data.data(), data.size());
+                cp += data.size();
             }
             hp->ancount = htons(1);
             break;
@@ -188,23 +186,21 @@ int res_nmkquery(int op,               // opcode of query
         default:
             return (-1);
     }
-    return (cp - buf);
+    return (cp - buf.data());
 }
 
-int res_nopt(res_state statp, int n0, /* current offset in buffer */
-             uint8_t* buf,            /* buffer to put query */
-             int buflen,              /* size of buffer */
+int res_nopt(ResState* statp, int n0, /* current offset in buffer */
+             std::span<uint8_t> buf,  /* buffer to put query */
              int anslen)              /* UDP answer buffer size */
 {
-    HEADER* hp;
+    HEADER* hp = reinterpret_cast<HEADER*>(buf.data());
     uint8_t *cp, *ep;
     uint16_t flags = 0;
 
     LOG(DEBUG) << __func__;
 
-    hp = (HEADER*) (void*) buf;
-    cp = buf + n0;
-    ep = buf + buflen;
+    cp = buf.data() + n0;
+    ep = buf.data() + buf.size();
 
     if ((ep - cp) < 1 + RRFIXEDSZ) return (-1);
 
@@ -226,13 +222,13 @@ int res_nopt(res_state statp, int n0, /* current offset in buffer */
     cp += INT16SZ;
 
     // EDNS0 padding
-    const uint16_t minlen = static_cast<uint16_t>(cp - buf) + 3 * INT16SZ;
+    const uint16_t minlen = static_cast<uint16_t>(cp - buf.data()) + 3 * INT16SZ;
     const uint16_t extra = minlen % kEdns0Padding;
     uint16_t padlen = (kEdns0Padding - extra) % kEdns0Padding;
-    if (minlen > buflen) {
+    if (minlen > buf.size()) {
         return -1;
     }
-    padlen = std::min(padlen, static_cast<uint16_t>(buflen - minlen));
+    padlen = std::min(padlen, static_cast<uint16_t>(buf.size() - minlen));
     *reinterpret_cast<uint16_t*>(cp) = htons(padlen + 2 * INT16SZ); /* RDLEN */
     cp += INT16SZ;
     *reinterpret_cast<uint16_t*>(cp) = htons(NS_OPT_PADDING); /* OPTION-CODE */
@@ -243,5 +239,5 @@ int res_nopt(res_state statp, int n0, /* current offset in buffer */
     cp += padlen;
 
     hp->arcount = htons(ntohs(hp->arcount) + 1);
-    return (cp - buf);
+    return (cp - buf.data());
 }

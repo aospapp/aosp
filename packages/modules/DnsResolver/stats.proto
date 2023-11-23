@@ -160,6 +160,7 @@ enum Protocol {
     PROTO_TCP = 2;
     PROTO_DOT = 3;
     PROTO_DOH = 4;
+    PROTO_MDNS = 5;
 }
 
 enum PrivateDnsModes {

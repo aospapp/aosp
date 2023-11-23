@@ -13,7 +13,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="3211812107922643307">"Alertă de urgență"</string>
-    <string name="pws_other_message_identifiers" msgid="7325727748670134223">"Alertă de atenționare"</string>
-    <string name="cmas_exercise_alert" msgid="8865117243431902282">"Simulare de alertă"</string>
+    <string name="cmas_presidential_level_alert" msgid="6613961558395121121">"Alertă de urgență"</string>
+    <string name="pws_other_message_identifiers" msgid="482796856521435227">"Alertă de atenționare"</string>
+    <string name="cmas_exercise_alert" msgid="4408794918342482664">"Alertă de exercițiu"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="6262235749991861558">"Alerte de exercițiu"</string>
 </resources>

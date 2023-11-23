@@ -15,25 +15,30 @@
  */
 package com.android.car.settings.enterprise;
 
-import android.Manifest;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
-import androidx.preference.Preference;
-
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settingslib.applications.ApplicationFeatureProvider;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
 * Controller to show apps that were granted location permissions by the device owner.
 */
 public final class AdminGrantedLocationPermissionsPreferenceController
-        extends BaseAdminGrantedPermissionsPreferenceController<Preference> {
+        extends BaseAdminGrantedPermissionsPreferenceController {
 
     public AdminGrantedLocationPermissionsPreferenceController(Context context,
             String preferenceKey, FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION);
+        this(context, preferenceKey, fragmentController, uxRestrictions, /* provider= */ null);
+    }
+
+    @VisibleForTesting
+    AdminGrantedLocationPermissionsPreferenceController(Context context,
+            String preferenceKey, FragmentController fragmentController,
+            CarUxRestrictions uxRestrictions, ApplicationFeatureProvider provider) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, provider,
+                EnterpriseUtils.LOCATION_PERMISSIONS);
     }
 }

@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"الاتصالات"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"‏يتعذّر على \"خدمة الطباعة التلقائية\" العثور على الطابعات التي تعمل بتقنية اتصال Wi-Fi المباشر\"."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"‏إيقاف اتصال Wi-Fi المباشر"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"تحتاج \"خدمة الطباعة التلقائية\" إلى إذن تحديد الموقع الجغرافي للعثور على الأجهزة المجاورة."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"تحتاج خدمة الطباعة التلقائية إلى الحصول على إذن من الأجهزة المجاورة للعثور على الطابعات المجاورة."</string>
     <string name="fix" msgid="7784394272611365393">"مراجعة الإذن"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"يجب تفعيل خدمات الموقع الحغرافي لتتمكن \"خدمة الطباعة التلقائية\" من العثور على الأجهزة القريبة."</string>
-    <string name="enable_location" msgid="3627841004298863140">"تفعيل الموقع الجرافي"</string>
     <string name="print" msgid="7851318072404916362">"طباعة"</string>
 </resources>

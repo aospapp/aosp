@@ -35,7 +35,7 @@ import com.android.internal.widget.SubtitleView;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.R;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.util.Locale;
 
@@ -168,6 +168,7 @@ public class CaptionSettingsFragment extends BaseSettingsFragment {
             boolean enabled = mCaptioningManager.isEnabled();
             if (enabled) {
                 mPreviewText.setVisibility(View.VISIBLE);
+                mPreviewWindow.setVisibility(View.VISIBLE);
                 Activity activity = getActivity();
                 mPreviewText.setStyle(mStyleId);
                 mPreviewText.setTextSize(mFontScale * mDefaultFontSize);
@@ -192,6 +193,7 @@ public class CaptionSettingsFragment extends BaseSettingsFragment {
                 mPreviewText.invalidate();
             } else {
                 mPreviewText.setVisibility(View.INVISIBLE);
+                mPreviewWindow.setVisibility(View.INVISIBLE);
             }
         }
     }

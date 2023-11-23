@@ -22,7 +22,6 @@ import android.app.Service;
 import android.car.Car;
 import android.car.user.CarUserManager;
 import android.car.user.CarUserManager.UserLifecycleEvent;
-import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
@@ -58,19 +57,17 @@ public final class UserSwitchMonitorService extends Service {
         }
     };
 
-    private Context mContext;
     private Car mCar;
     private CarUserManager mCarUserManager;
     private NotificationManager mNotificationManager;
 
     @Override
     public void onCreate() {
-        mContext = getApplicationContext();
-        mCar = Car.createCar(mContext);
+        mCar = Car.createCar(this);
         mCarUserManager = (CarUserManager) mCar.getCarManager(Car.CAR_USER_SERVICE);
         registerListener();
 
-        mNotificationManager = mContext.getSystemService(NotificationManager.class);
+        mNotificationManager = getSystemService(NotificationManager.class);
     }
 
     private void registerListener() {
@@ -89,9 +86,9 @@ public final class UserSwitchMonitorService extends Service {
         mNotificationManager.createNotificationChannel(channel);
 
         // Cannot use R.drawable because package name is different on app2
-        int iconResId = mContext.getApplicationInfo().icon;
+        int iconResId = getApplicationInfo().icon;
         startForeground(startId,
-                new Notification.Builder(mContext, channelId)
+                new Notification.Builder(this, channelId)
                         .setContentText(name)
                         .setContentTitle(name)
                         .setSmallIcon(iconResId)
@@ -126,6 +123,7 @@ public final class UserSwitchMonitorService extends Service {
             executeCommand(pw, args);
             return;
         }
+        super.dump(fd, pw, args);
 
         pw.printf("User id: %d\n", mUserId);
         synchronized (mLock) {
@@ -172,7 +170,6 @@ public final class UserSwitchMonitorService extends Service {
         pw.printf("  register: register the service to receive events\n");
         pw.printf("  unregister: unregister the service from receiving events\n");
     }
-
 
     private void cmdRegister(PrintWriter pw) {
         pw.printf("registering listener %s\n", mListener);

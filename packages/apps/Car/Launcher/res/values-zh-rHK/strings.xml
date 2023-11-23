@@ -25,12 +25,10 @@
     <string name="tap_to_launch_text" msgid="6910695705119260847">"輕按資訊卡以啟動"</string>
     <string name="ongoing_call_duration_text_separator" msgid="6019453854809413561">" • "</string>
     <string name="ongoing_call_text" msgid="2394626676478708070">"通話中"</string>
+    <string name="dialing_call_text" msgid="415326503409745490">"正在撥號…"</string>
     <string name="projected_launch_text" msgid="5809132353957907500">"啟動 Android Auto"</string>
     <string name="projected_onclick_launch_error_toast_text" msgid="7462478007773137082">"無法啟動 Android Auto。找不到活動。"</string>
-    <plurals name="projection_devices" formatted="false" msgid="4740612230451956299">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 部裝置</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 部裝置</item>
-    </plurals>
+    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{# 部裝置}other{# 部裝置}}"</string>
     <string name="weather_app_name" msgid="8048146303519139993">"天氣"</string>
     <string name="fake_weather_main_text" msgid="8117240999340284429">"--° 大致晴朗"</string>
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"山景城 • H: --° L: --°"</string>

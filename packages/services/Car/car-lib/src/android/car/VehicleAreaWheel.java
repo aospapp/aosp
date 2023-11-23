@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 import android.car.hardware.CarPropertyConfig;
 
 import java.lang.annotation.Retention;
@@ -38,14 +39,19 @@ import java.lang.annotation.RetentionPolicy;
 // exactly be same as VehicleAreaWheel in /hardware/interfaces/automotive/vehicle/2.0/types.hal.
 public final class VehicleAreaWheel {
     /** Unknown wheel*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WHEEL_UNKNOWN = 0x00;
     /** Constant for left front wheel.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WHEEL_LEFT_FRONT = 0x01;
     /** Constant for right front wheel.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WHEEL_RIGHT_FRONT = 0x02;
     /** Constant for left rear wheel.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WHEEL_LEFT_REAR = 0x04;
     /** Constant for right rear wheel.*/
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WHEEL_RIGHT_REAR = 0x08;
 
     /** @hide */

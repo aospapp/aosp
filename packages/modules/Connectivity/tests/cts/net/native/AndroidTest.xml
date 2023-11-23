@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for CTS Native Network xt_qtaguid test cases">
+<configuration description="Config for CTS Native Network test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="networking" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />

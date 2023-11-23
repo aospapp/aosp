@@ -49,9 +49,9 @@ import android.net.wifi.CoexUnsafeChannel;
 import android.net.wifi.ICoexCallback;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
+import android.os.test.TestLooper;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.Annotation;
 import android.telephony.CarrierConfigManager;
@@ -103,6 +103,8 @@ public class CoexManagerTest extends WifiBaseTest {
     private static final String FILEPATH_LTE_27_HARMONIC = "assets/coex_lte_27_harmonic.xml";
     private static final String FILEPATH_LTE_7_INTERMOD = "assets/coex_lte_7_intermod.xml";
 
+    private TestLooper mTestLooper;
+
     @Mock private Context mMockContext;
     @Mock private Resources mMockResources;
     @Mock private WifiNative mMockWifiNative;
@@ -134,10 +136,10 @@ public class CoexManagerTest extends WifiBaseTest {
     }
 
     private CoexManager createCoexManager() {
-        Looper.prepare();
+        mTestLooper = new TestLooper();
         final CoexManager coexManager = new CoexManager(mMockContext, mMockWifiNative,
                 mMockDefaultTelephonyManager, mMockSubscriptionManager, mMockCarrierConfigManager,
-                new Handler(Looper.myLooper()));
+                new Handler(mTestLooper.getLooper()));
         coexManager.enableVerboseLogging(true);
         return coexManager;
     }
@@ -637,6 +639,8 @@ public class CoexManagerTest extends WifiBaseTest {
         );
 
         coexManager.resetMockCellChannels();
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS);
+        mTestLooper.dispatchAll();
 
         // Real channels should be used when mock channels are reset.
         assertThat(coexManager.getCoexUnsafeChannels()).isEmpty();
@@ -853,6 +857,8 @@ public class CoexManagerTest extends WifiBaseTest {
         telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
                 createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 41, 2399_900, 10_000, 0, 0)
         ));
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS);
+        mTestLooper.dispatchAll();
         // Update physical channel configs back to the first channel
         telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
                 createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
@@ -866,5 +872,174 @@ public class CoexManagerTest extends WifiBaseTest {
         verify(listener, times(3)).onCoexUnsafeChannelsChanged();
         // The remote callback has an extra call since it was notified on registration.
         verify(remoteCallback, times(4)).onCoexUnsafeChannelsChanged(any(), anyInt());
+    }
+
+    /**
+     * Verifies that calling onPhysicalChannelConfigChanged with empty cell channels will delay
+     * clearing the list.
+     */
+    @Test
+    public void testOnPhysicalChannelConfigChanged_emptyCellChannels_channelClearanceIsDelayed()
+            throws Exception {
+        when(mMockResources.getString(R.string.config_wifiCoexTableFilepath))
+                .thenReturn(createFileFromResource(FILEPATH_LTE_40_NEIGHBORING).getCanonicalPath());
+        final TelephonyManager telephonyManager = setUpSubIdMocks(0);
+        CoexManager coexManager = createCoexManager();
+        verify(mMockSubscriptionManager).addOnSubscriptionsChangedListener(
+                any(), mCoexSubscriptionsListenerCaptor.capture());
+        mCoexSubscriptionsListenerCaptor.getValue().onSubscriptionsChanged();
+        final ArgumentCaptor<CoexManager.CoexTelephonyCallback> telephonyCallbackCaptor =
+                ArgumentCaptor.forClass(CoexManager.CoexTelephonyCallback.class);
+        verify(telephonyManager).registerTelephonyCallback(any(Executor.class),
+                telephonyCallbackCaptor.capture());
+
+        // Update physical channel configs to populate the unsafe channel list
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
+        ));
+        assertThat(coexManager.getCellChannels()).isNotEmpty();
+
+        // Update physical channel configs to clear unsafe channel list.
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(new ArrayList<>());
+        // List should not be cleared yet since clearance delay isn't over
+        assertThat(coexManager.getCoexUnsafeChannels()).isNotEmpty();
+        // Simulate clearance delay
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS);
+        mTestLooper.dispatchAll();
+        // Unsafe channels should now be cleared
+        assertThat(coexManager.getCoexUnsafeChannels()).isEmpty();
+
+        // Repopulate unsafe channels
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
+        ));
+        assertThat(coexManager.getCellChannels()).isNotEmpty();
+
+        // Update physical channel configs to clear unsafe channel list.
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(new ArrayList<>());
+        // Repopulate unsafe channels again before clearance delay is over
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
+        ));
+        // Simulate clearance delay
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS);
+        mTestLooper.dispatchAll();
+        // Unsafe channels should not be cleared since we got a physical channel config during delay
+        assertThat(coexManager.getCoexUnsafeChannels()).isNotEmpty();
+    }
+
+    /**
+     * Verifies that any pending channel clearances triggered by empty channel lists in
+     * onPhysicalChannelConfigChanged will be cancelled if a non-empty list is received.
+     */
+    @Test
+    public void testOnPhysicalChannelConfigChanged_nonEmptyCellChannels_cancelsChannelClearances()
+            throws Exception {
+        when(mMockResources.getString(R.string.config_wifiCoexTableFilepath))
+                .thenReturn(createFileFromResource(FILEPATH_LTE_40_NEIGHBORING).getCanonicalPath());
+        final TelephonyManager telephonyManager = setUpSubIdMocks(0);
+        CoexManager coexManager = createCoexManager();
+        verify(mMockSubscriptionManager).addOnSubscriptionsChangedListener(
+                any(), mCoexSubscriptionsListenerCaptor.capture());
+        mCoexSubscriptionsListenerCaptor.getValue().onSubscriptionsChanged();
+        final ArgumentCaptor<CoexManager.CoexTelephonyCallback> telephonyCallbackCaptor =
+                ArgumentCaptor.forClass(CoexManager.CoexTelephonyCallback.class);
+        verify(telephonyManager).registerTelephonyCallback(any(Executor.class),
+                telephonyCallbackCaptor.capture());
+        // Populate channel list
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
+        ));
+        assertThat(coexManager.getCellChannels()).isNotEmpty();
+
+        // Schedule a channel clearance.
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(new ArrayList<>());
+        // List should not be empty yet since delay isn't over
+        assertThat(coexManager.getCoexUnsafeChannels()).isNotEmpty();
+        // Populate channel list to cancel first channel clearance
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 2399_900, 10_000, 0, 0)
+        ));
+        // Schedule a second clearance to be done after the first clearance time
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS / 2);
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(new ArrayList<>());
+
+        // Simulate the first clearance time. List should be non-empty since this clearance was
+        // cancelled.
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS / 2);
+        mTestLooper.dispatchAll();
+        assertThat(coexManager.getCoexUnsafeChannels()).isNotEmpty();
+
+        // Simulate the second clearance time. List should be empty since this clearance was
+        // not cancelled.
+        mTestLooper.moveTimeForward(CoexManager.CELL_CHANNEL_IDLE_DELAY_MILLIS / 2);
+        mTestLooper.dispatchAll();
+        assertThat(coexManager.getCoexUnsafeChannels()).isEmpty();
+    }
+
+    /**
+     * Verify that multiple calls to setCoexUnsafeChannels with the same unsafe channels will only
+     * update the driver the first time.
+     */
+    @Test
+    public void testSetCoexUnsafeChannels_multipleSameChannels_updatesDriverOnce() {
+        CoexManager coexManager = createCoexManager();
+
+        coexManager.setCoexUnsafeChannels(new ArrayList<>(), 0);
+        coexManager.setCoexUnsafeChannels(new ArrayList<>(), 0);
+        coexManager.setCoexUnsafeChannels(new ArrayList<>(), 0);
+        // Default state after initialization is no channels and no restrictions, so no update to
+        // the driver is necessary
+        verify(mMockWifiNative, times(0)).setCoexUnsafeChannels(any(), anyInt());
+
+        coexManager.setCoexUnsafeChannels(
+                Arrays.asList(new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 6)), COEX_RESTRICTION_SOFTAP);
+        coexManager.setCoexUnsafeChannels(
+                Arrays.asList(new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 6)), COEX_RESTRICTION_SOFTAP);
+        coexManager.setCoexUnsafeChannels(
+                Arrays.asList(new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 6)), COEX_RESTRICTION_SOFTAP);
+        // Driver should be updated only once for the same unsafe channels
+        verify(mMockWifiNative, times(1)).setCoexUnsafeChannels(any(), anyInt());
+
+        // Change in restrictions with same unsafe channels should trigger an update
+        coexManager.setCoexUnsafeChannels(
+                Arrays.asList(new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 6)), 0);
+        verify(mMockWifiNative, times(2)).setCoexUnsafeChannels(any(), anyInt());
+    }
+
+    /**
+     * Verifies that CoexUnsafeChannels due to GPS are correctly added when the current cell
+     * channels impact GPS with the 2.4GHz band.
+     */
+    @Test
+    public void testOnPhysicalChannelConfigChanged_unsafeChannelsDueToGps_updatesUnsafeChannels() {
+        when(mMockResources.getBoolean(R.bool.config_wifiCoexForGpsL1)).thenReturn(true);
+        when(mMockResources.getInteger(R.integer.config_wifiCoexGpsL1ThresholdKhz))
+                .thenReturn(5_000);
+        final TelephonyManager telephonyManager = setUpSubIdMocks(0);
+        CoexManager coexManager = createCoexManager();
+        verify(mMockSubscriptionManager).addOnSubscriptionsChangedListener(
+                any(), mCoexSubscriptionsListenerCaptor.capture());
+        mCoexSubscriptionsListenerCaptor.getValue().onSubscriptionsChanged();
+        final ArgumentCaptor<CoexManager.CoexTelephonyCallback> telephonyCallbackCaptor =
+                ArgumentCaptor.forClass(CoexManager.CoexTelephonyCallback.class);
+        verify(telephonyManager).registerTelephonyCallback(any(Executor.class),
+                telephonyCallbackCaptor.capture());
+        // Populate channel list with a channel that impacts GPS with the 2.4GHz band.
+        telephonyCallbackCaptor.getValue().onPhysicalChannelConfigChanged(Arrays.asList(
+                createMockPhysicalChannelConfig(NETWORK_TYPE_LTE, 40, 0, 0, 861_580, 10_000)
+        ));
+        List<CoexUnsafeChannel> unsafeChannels = coexManager.getCoexUnsafeChannels();
+        assertThat(unsafeChannels).isNotEmpty();
+        assertThat(unsafeChannels).containsExactly(
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 2),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 3),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 4),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 5),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 6),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 7),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 8),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 9),
+                new CoexUnsafeChannel(WIFI_BAND_24_GHZ, 10));
     }
 }

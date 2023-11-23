@@ -25,6 +25,7 @@ import static android.net.ipsec.test.ike.SaProposal.KEY_LEN_AES_128;
 import static android.net.ipsec.test.ike.SaProposal.KEY_LEN_UNUSED;
 import static android.net.ipsec.test.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC;
 import static android.net.ipsec.test.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_256;
+import static android.os.Build.VERSION_CODES.R;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -40,10 +41,15 @@ import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EncryptionTr
 import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.IntegrityTransform;
 import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.PrfTransform;
 import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.Transform;
+import com.android.testutils.DevSdkIgnoreRule;
+import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 
+import org.junit.Rule;
 import org.junit.Test;
 
 public final class SaProposalTest {
+    @Rule public final DevSdkIgnoreRule ignoreRule = new DevSdkIgnoreRule();
+
     private final EncryptionTransform mEncryption3DesTransform;
     private final EncryptionTransform mEncryptionAesCbcTransform;
     private final EncryptionTransform mEncryptionAesGcm8Transform;
@@ -407,6 +413,7 @@ public final class SaProposalTest {
         assertTrue(respProposal.isNegotiatedFrom(reqProposal));
     }
 
+    @IgnoreUpTo(R)
     @Test(expected = IllegalArgumentException.class)
     public void testBuildChildProposalWithUnsupportedEncryptionAlgo() throws Exception {
         new ChildSaProposal.Builder()
@@ -414,7 +421,12 @@ public final class SaProposalTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void testBuildChildProposalWithUnsupportedIntegrityAlgo() throws Exception {
+    public void testBuildChildProposalWithInvalidEncryptionAlgo() throws Exception {
+        new ChildSaProposal.Builder().addEncryptionAlgorithm(ALGORITHM_ID_INVALID, KEY_LEN_UNUSED);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildChildProposalWithInvalidIntegrityAlgo() throws Exception {
         new ChildSaProposal.Builder().addIntegrityAlgorithm(ALGORITHM_ID_INVALID);
     }
 }

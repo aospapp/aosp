@@ -21,16 +21,16 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.car.builtin.util.Slogf;
 import android.car.media.CarAudioManager;
-import android.media.AudioDevicePort;
+import android.media.AudioDeviceInfo;
 import android.os.UserHandle;
-import android.util.IndentingPrintWriter;
-import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
 import com.android.car.audio.CarAudioContext.AudioContext;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
@@ -71,7 +71,7 @@ import java.util.Map;
     @GuardedBy("mLock")
     private boolean mIsMuted;
     @GuardedBy("mLock")
-    private @UserIdInt int mUserId = UserHandle.USER_CURRENT;
+    private @UserIdInt int mUserId = UserHandle.CURRENT.getIdentifier();
 
     private CarVolumeGroup(int zoneId, int id, CarAudioSettings settingsManager, int stepSize,
             int defaultGain, int minGain, int maxGain, SparseArray<String> contextToAddress,
@@ -93,8 +93,11 @@ import java.util.Map;
     }
 
     void init() {
-        mStoredGainIndex = mSettingsManager.getStoredVolumeGainIndexForUser(mUserId, mZoneId, mId);
-        updateCurrentGainIndexLocked();
+        synchronized (mLock) {
+            mStoredGainIndex = mSettingsManager.getStoredVolumeGainIndexForUser(
+                    mUserId, mZoneId, mId);
+            updateCurrentGainIndexLocked();
+        }
     }
 
     @Nullable
@@ -118,6 +121,25 @@ import java.util.Map;
     @Nullable
     String getAddressForContext(int audioContext) {
         return mContextToAddress.get(audioContext);
+    }
+
+    /**
+     * Returns the audio devices for the given context
+     * or {@code null} if the context does not exist in the volume group
+     */
+    @Nullable
+    AudioDeviceInfo getAudioDeviceForContext(int audioContext) {
+        String address = getAddressForContext(audioContext);
+        if (address == null) {
+            return null;
+        }
+
+        CarAudioDeviceInfo info = mAddressToCarAudioDeviceInfo.get(address);
+        if (info == null) {
+            return null;
+        }
+
+        return info.getAudioDeviceInfo();
     }
 
     @AudioContext
@@ -157,6 +179,7 @@ import java.util.Map;
         }
     }
 
+    @GuardedBy("mLock")
     private int getCurrentGainIndexLocked() {
         return mCurrentGainIndex;
     }
@@ -175,6 +198,7 @@ import java.util.Map;
         }
     }
 
+    @GuardedBy("mLock")
     private void setCurrentGainIndexLocked(int gainIndex) {
         int gainInMillibels = getGainForIndex(gainIndex);
         for (String address : mAddressToCarAudioDeviceInfo.keySet()) {
@@ -187,16 +211,6 @@ import java.util.Map;
         storeGainIndexForUserLocked(mCurrentGainIndex, mUserId);
     }
 
-    @Nullable
-    AudioDevicePort getAudioDevicePortForContext(int carAudioContext) {
-        final String address = mContextToAddress.get(carAudioContext);
-        if (address == null || mAddressToCarAudioDeviceInfo.get(address) == null) {
-            return null;
-        }
-
-        return mAddressToCarAudioDeviceInfo.get(address).getAudioDevicePort();
-    }
-
     boolean hasCriticalAudioContexts() {
         return mHasCriticalAudioContexts;
     }
@@ -204,10 +218,12 @@ import java.util.Map;
     @Override
     @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     public String toString() {
-        return "CarVolumeGroup id: " + mId
-                + " currentGainIndex: " + mCurrentGainIndex
-                + " contexts: " + Arrays.toString(getContexts())
-                + " addresses: " + String.join(", ", getAddresses());
+        synchronized (mLock) {
+            return "CarVolumeGroup id: " + mId
+                    + " currentGainIndex: " + mCurrentGainIndex
+                    + " contexts: " + Arrays.toString(getContexts())
+                    + " addresses: " + String.join(", ", getAddresses());
+        }
     }
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
@@ -258,7 +274,8 @@ import java.util.Map;
         }
     }
 
-    void setMuteLocked(boolean mute) {
+    @GuardedBy("mLock")
+    private void setMuteLocked(boolean mute) {
         mIsMuted = mute;
         if (mSettingsManager.isPersistVolumeGroupMuteEnabled(mUserId)) {
             mSettingsManager.storeVolumeGroupMuteForUser(mUserId, mZoneId, mId, mute);
@@ -291,7 +308,7 @@ import java.util.Map;
     private int getCurrentGainIndexForUserLocked() {
         int gainIndexForUser = mSettingsManager.getStoredVolumeGainIndexForUser(mUserId, mZoneId,
                 mId);
-        Slog.i(CarLog.TAG_AUDIO, "updateUserId userId " + mUserId
+        Slogf.i(CarLog.TAG_AUDIO, "updateUserId userId " + mUserId
                 + " gainIndexForUser " + gainIndexForUser);
         return gainIndexForUser;
     }

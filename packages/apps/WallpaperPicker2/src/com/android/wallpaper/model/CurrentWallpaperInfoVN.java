@@ -169,4 +169,9 @@ public class CurrentWallpaperInfoVN extends WallpaperInfo {
                             int requestCode) {
         srcActivity.startActivityForResult(factory.newIntent(srcActivity, this), requestCode);
     }
+
+    @Override
+    public String getStoredWallpaperId(Context context) {
+        return null;
+    }
 }

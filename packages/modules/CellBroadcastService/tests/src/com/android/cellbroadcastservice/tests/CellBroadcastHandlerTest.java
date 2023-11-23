@@ -21,6 +21,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -42,6 +45,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 import android.text.format.DateUtils;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 
@@ -71,7 +75,7 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
     private TestableLooper mTestbleLooper;
 
     @Mock
-    private Map<Integer, Resources> mMockedResourcesCache;
+    private Map<Pair<Context, Integer>, Resources> mMockedResourcesCache;
 
     private CbSendMessageCalculatorFactoryFacade mSendMessageFactory;
 
@@ -149,9 +153,9 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
         ((MockContentResolver) mMockedContext.getContentResolver()).addProvider(
                 Telephony.CellBroadcasts.CONTENT_URI.getAuthority(),
                 new CellBroadcastContentProvider());
-        doReturn(true).when(mMockedResourcesCache).containsKey(anyInt());
-        doReturn(mMockedResources).when(mMockedResourcesCache).get(anyInt());
-        replaceInstance(CellBroadcastHandler.class, "mResourcesCache", mCellBroadcastHandler,
+        doReturn(true).when(mMockedResourcesCache).containsKey(any());
+        doReturn(mMockedResources).when(mMockedResourcesCache).get(any());
+        replaceInstance(SubscriptionManager.class, "sResourcesCache", mCellBroadcastHandler,
                 mMockedResourcesCache);
         putResources(com.android.cellbroadcastservice.R.integer.message_expiration_time,
                 (int) DateUtils.DAY_IN_MILLIS);
@@ -224,16 +228,12 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
     @Test
     @SmallTest
     public void testDump() throws Exception {
-        try {
             mCellBroadcastHandler.dump(null, new PrintWriter(new OutputStream() {
                 @Override
                 public void write(int b) throws IOException {
                     // no implementation needed for sanity test
                 }
             }), null);
-        } catch (Exception e) {
-            fail("Exception not expected in dump" + e);
-        }
     }
 
     @Test
@@ -290,6 +290,34 @@ public class CellBroadcastHandlerTest extends CellBroadcastServiceTestBase {
             // message should be detected as duplicate again
             assertTrue(mCellBroadcastHandler.isDuplicate(msg));
         }
+    }
+
+    @Test
+    @SmallTest
+    public void testGetResources() throws Exception {
+        // verify not to call SubscriptionManager#getResourcesForSubId for DEFAULT ID
+        mCellBroadcastHandler.getResources(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+
+        verify(mMockedResourcesCache, never()).containsKey(any());
+        verify(mMockedContext, times(1)).getResources();
+
+        // verify not to call SubscriptionManager#getResourcesForSubId for INVALID ID
+        mCellBroadcastHandler.getResources(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+
+        verify(mMockedResourcesCache, never()).containsKey(any());
+        verify(mMockedContext, times(2)).getResources();
+
+        // verify to call SubscriptionManager#getResourcesForSubId for normal sub id
+        mCellBroadcastHandler.getResources(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID - 1);
+
+        verify(mMockedResourcesCache, times(1)).containsKey(any());
+        verify(mMockedContext, times(2)).getResources();
+
+        // verify to call SubscriptionManager#getResourcesForSubId again for the same sub
+        mCellBroadcastHandler.getResources(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID - 1);
+
+        verify(mMockedResourcesCache, times(2)).containsKey(any());
+        verify(mMockedContext, times(2)).getResources();
     }
 
     /**

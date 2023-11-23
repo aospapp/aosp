@@ -584,7 +584,7 @@
     <string name="onscreenSwapCallsText" msgid="2682542150803377991">"ಸ್ವ್ಯಾಪ್‌ ಮಾಡು"</string>
     <string name="onscreenManageCallsText" msgid="1162047856081836469">"ಕರೆಗಳನ್ನು ನಿರ್ವಹಿಸಿ"</string>
     <string name="onscreenManageConferenceText" msgid="4700574060601755137">"ಕಾನ್ಫರೆನ್ಸ್ ನಿರ್ವಹಿಸಿ"</string>
-    <string name="onscreenAudioText" msgid="7224226735052019986">"ಆಡಿಯೊ"</string>
+    <string name="onscreenAudioText" msgid="7224226735052019986">"ಆಡಿಯೋ"</string>
     <string name="onscreenVideoCallText" msgid="1743992456126258698">"ವೀಡಿಯೊ ಕರೆ"</string>
     <string name="importSimEntry" msgid="3892354284082689894">"ಆಮದು"</string>
     <string name="importAllSimEntries" msgid="2628391505643564007">"ಎಲ್ಲವನ್ನೂ ಆಮದು ಮಾಡು"</string>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"ತುರ್ತು ಕಾಲ್‌ಬ್ಯಾಕ್‌ ಮೋಡ್‌"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ಡೇಟಾ ಸಂಪರ್ಕ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> ರವರೆಗೆ ಯಾವುದೇ ಡೇಟಾ ಸಂಪರ್ಕವಿಲ್ಲ"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">ಪೋನ್‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳ ಕಾಲ ತುರ್ತು ಮರಳಿ ಕರೆಮಾಡು ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ. ಈ ಮೋಡ್‌ನಲ್ಲಿರುವಾಗ ಯಾವುದೇ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಡೇಟಾ ಸಂಪರ್ಕವನ್ನು ಬಳಸಿಕೊಂಡು ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ನೀವು ಇದೀಗ ನಿರ್ಗಮಿಸಲು ಬಯಸುವಿರಾ?</item>
-      <item quantity="other">ಪೋನ್‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳ ಕಾಲ ತುರ್ತು ಮರಳಿ ಕರೆಮಾಡು ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ. ಈ ಮೋಡ್‌ನಲ್ಲಿರುವಾಗ ಯಾವುದೇ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ಡೇಟಾ ಸಂಪರ್ಕವನ್ನು ಬಳಸಿಕೊಂಡು ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ನೀವು ಇದೀಗ ನಿರ್ಗಮಿಸಲು ಬಯಸುವಿರಾ?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">ತುರ್ತು ಮರಳಿ ಕರೆಮಾಡು ಮೋಡ್‌ನಲ್ಲಿರುವಾಗ ಆಯ್ಕೆಮಾಡಿದ ಕ್ರಿಯೆಯು ಲಭ್ಯವಿರುವುದಿಲ್ಲ. ಫೋನ್‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳ ಕಾಲ ಈ ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ. ನೀವು ಇದೀಗ ನಿರ್ಗಮಿಸಲು ಬಯಸುವಿರಾ?</item>
-      <item quantity="other">ತುರ್ತು ಮರಳಿ ಕರೆಮಾಡು ಮೋಡ್‌ನಲ್ಲಿರುವಾಗ ಆಯ್ಕೆಮಾಡಿದ ಕ್ರಿಯೆಯು ಲಭ್ಯವಿರುವುದಿಲ್ಲ. ಫೋನ್‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳ ಕಾಲ ಈ ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ. ನೀವು ಇದೀಗ ನಿರ್ಗಮಿಸಲು ಬಯಸುವಿರಾ?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"ತುರ್ತು ಕರೆಯಲ್ಲಿರುವಾಗ ಆಯ್ಕೆಮಾಡಿದ ಕ್ರಿಯೆಯು ಲಭ್ಯವಿರುವುದಿಲ್ಲ."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"ತುರ್ತು ಕಾಲ್‌ಬ್ಯಾಕ್‌ ಮೋಡ್‌ನಿಂದ ನಿರ್ಗಮಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ಹೌದು"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"ವಜಾಗೊಳಿಸಿ"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ಫೋನ್‌‌, ತುರ್ತು ಕಾಲ್‌ಬ್ಯಾಕ್ ಮೋಡ್‌ನಲ್ಲಿದೆ"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> ವರೆಗೆ"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">ಫೋನ್‌‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳವರೆಗೆ ತುರ್ತು ಕಾಲ್‌ಬ್ಯಾಕ್ ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ.\n ನೀವು ಈಗಲೇ ನಿರ್ಗಮಿಸಲು ಬಯಸುತ್ತೀರಾ?</item>
-      <item quantity="other">ಫೋನ್‌‌ <xliff:g id="COUNT_1">%s</xliff:g> ನಿಮಿಷಗಳವರೆಗೆ ತುರ್ತು ಕಾಲ್‌ಬ್ಯಾಕ್ ಮೋಡ್‌ನಲ್ಲಿರುತ್ತದೆ.\n ನೀವು ಈಗಲೇ ನಿರ್ಗಮಿಸಲು ಬಯಸುತ್ತೀರಾ?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"ಸೇವೆ"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"ಸೆಟಪ್"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;ಹೊಂದಿಸಿಲ್ಲ&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ಪ್ರವೇಶಿಸುವಿಕೆ"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"ಅವರಿಂದ ವೈ-ಫೈ ಕರೆ"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"ವೈ-ಫೈ ಕರೆ"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"ತೆರೆಯಲು ಮತ್ತೆ ಟ್ಯಾಪ್‌ ಮಾಡಿ"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"ಸಂದೇಶವನ್ನು ಡೀಕೋಡ್ ಮಾಡುವಾಗ ದೋಷವುಂಟಾಗಿದೆ."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ನಿಮ್ಮ ಸೇವೆಯನ್ನು ಸಿಮ್‌ ಕಾರ್ಡ್‌ ಸಕ್ರಿಯಗೊಳಿಸಿದೆ ಮತ್ತು ನಿಮ್ಮ ಫೋನ್‌ನ ರೋಮಿಂಗ್ ಸಾಮರ್ಥ್ಯವನ್ನು ಅಪ್‌ಡೇಟ್‌ ಮಾಡಲಾಗಿದೆ."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"ಹಲವಾರು ಸಕ್ರಿಯ ಕರೆಗಳು. ಹೊಸ ಕರೆ ಮಾಡುವ ಮೊದಲು ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಕರೆಗಳನ್ನು ಅಂತ್ಯಗೊಳಿಸಿ ಅಥವಾ ವಿಲೀನಗೊಳಿಸಿ."</string>
@@ -694,7 +684,7 @@
     <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"ಈ ಸ್ಥಳದಲ್ಲಿ ವೈ-ಫೈ ಕರೆ ಮಾಡುವಿಕೆ ಮೂಲಕ ತುರ್ತು ಕರೆಗಳು ಲಭ್ಯವಿರುವುದಿಲ್ಲ."</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"ಈ ಸ್ಥಳದಲ್ಲಿ ವೈ-ಫೈ ಕರೆಮಾಡುವಿಕೆ ಲಭ್ಯವಿಲ್ಲ."</string>
     <string name="change_pin_title" msgid="3564254326626797321">"ಧ್ವನಿಮೇಲ್ ಪಿನ್‌ ಬದಲಾಯಿಸಿ"</string>
-    <string name="change_pin_continue_label" msgid="5177011752453506371">"ಮುಂದುವರಿಸು"</string>
+    <string name="change_pin_continue_label" msgid="5177011752453506371">"ಮುಂದುವರಿಸಿ"</string>
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"ರದ್ದುಮಾಡಿ"</string>
     <string name="change_pin_ok_label" msgid="6861082678817785330">"ಸರಿ"</string>
     <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"ನಿಮ್ಮ ಹಳೆಯ ಪಿನ್‌ ಅನ್ನು ದೃಢೀಕರಿಸಿ"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ಹೊಸ ಕರೆಯನ್ನು ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ ಏಕೆಂದರೆ ಮತ್ತೊಂದು ಕರೆಯನ್ನು ಈಗಾಗಲೇ ಮಾಡಲಾಗುತ್ತಿದೆ."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"ಉತ್ತರಿಸದೇ ಒಳಬರುವ ಕರೆ ಬರುತ್ತಿರುವುದರಿಂದ ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ಹೊಸ ಕರೆಯನ್ನು ಮಾಡುವ ಮೊದಲು ಕರೆಗೆ ಉತ್ತರ ನೀಡಿ ಅಥವಾ ತಿರಸ್ಕರಿಸಿ."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ಕರೆ ವೈಶಿಷ್ಟ್ಯವನ್ನು ro.telephony.disable-call ಸಿಸ್ಟಂ ಗುಣಲಕ್ಷಣದಿಂದ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿರುತ್ತದೆ, ಆದ್ದರಿಂದ ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ಈಗಾಗಲೇ ಎರಡು ಕರೆಗಳು ಪ್ರಗತಿಯಲ್ಲಿರುವುದರಿಂದ, ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ.ಒಂದು ಕರೆಯ ಸಂಪರ್ಕವನ್ನು ಕಡಿತಗೊಳಿಸಿ ಅಥವಾ ನೀವು ಹೊಸ ಕರೆಯನ್ನು ಮಾಡುವ ಮೊದಲು ಎರಡು ಕರೆಗಳನ್ನು ಒಂದೇ ಕಾನ್ಫರೆನ್ಸ್‌ನಲ್ಲಿ ವಿಲೀನಗೊಳಿಸಿ."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"ಈಗಾಗಲೇ ಎರಡು ಕರೆಗಳು ಪ್ರಗತಿಯಲ್ಲಿರುವುದರಿಂದ, ಕರೆ ಮಾಡಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ. ಒಂದು ಕರೆಯ ಸಂಪರ್ಕವನ್ನು ಕಡಿತಗೊಳಿಸಿ ಅಥವಾ ಹೊಸ ಕರೆಯನ್ನು ಮಾಡುವ ಮೊದಲು ಎರಡು ಕರೆಗಳನ್ನು ಒಂದೇ ಕಾನ್ಫರೆನ್ಸ್‌ನಲ್ಲಿ ವಿಲೀನಗೊಳಿಸಿ."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ಅನ್ನು ಬಳಸಲು, ಮೊಬೈಲ್ ಡೇಟಾ ಆನ್‌ ಆಗಿದೆಯೇ ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ. ನೀವು ಇದನ್ನು ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> ಅನ್ನು ಬಳಸಲು, ಮೊಬೈಲ್ ಡೇಟಾ ಮತ್ತು ಡೇಟಾ ರೋಮಿಂಗ್ ಆನ್‌ ಆಗಿದೆಯೇ ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ. ನೀವು ಇದನ್ನು ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> ಅನ್ನು ಬಳಸಲು, <xliff:g id="SIM_NUMBER">%2$d</xliff:g> ಸಿಮ್‌ಗಾಗಿ ಮೊಬೈಲ್ ಡೇಟಾ ಆನ್‌ ಆಗಿದೆಯೇ ಎಂದು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ. ನೀವು ಇದನ್ನು ಮೊಬೈಲ್‌ ನೆಟ್‌ವರ್ಕ್‌ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"ಈ ಸೆಟ್ಟಿಂಗ್ ಅನ್ನು ಬದಲಾಯಿಸಲು ನೀವು ಸಾಧನವನ್ನು ಮರುಪ್ರಾರಂಭಿಸುವ ಅಗತ್ಯವಿದೆ."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"ಮರುಪ್ರಾರಂಭಿಸಿ"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ರದ್ದುಮಾಡಿ"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"ತೆಗೆದುಹಾಕಬಹುದಾದ eSIM ಅನ್ನು ಡೀಫಾಲ್ಟ್ ಆಗಿ ಸೆಟ್ ಮಾಡಿ"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ಮೊಬೈಲ್ ರೇಡಿಯೋ ಪವರ್"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ಸಿಮ್ ವಿಳಾಸ ಪುಸ್ತಕವನ್ನು ವೀಕ್ಷಿಸಿ"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ಸ್ಥಿರ ಡಯಲಿಂಗ್ ಸಂಖ್ಯೆಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ರೇಡಿಯೋ ಬ್ಯಾಂಡ್ ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ಧ್ವನಿ ನೆಟ್‌ವರ್ಕ್‌ ಪ್ರಕಾರ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ಡೇಟಾ ನೆಟ್‌ವರ್ಕ್ ಪ್ರಕಾರ:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ನೆಟ್‌ವರ್ಕ್ ಪ್ರಕಾರವನ್ನು ಅತಿಕ್ರಮಿಸಿ:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ಫೋನ್ ಸೂಚಿಕೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ಆದ್ಯತೆಯ ನೆಟ್‌ವರ್ಕ್‌ ಪ್ರಕಾರವನ್ನು ಹೊಂದಿಸಿ:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ಹೋಸ್ಟ್‌ ಹೆಸರನ್ನು ಪಿಂಗ್ ಮಾಡಿ(www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ರಿಫ್ರೆಶ್ ಮಾಡಿ"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS ಪರಿಶೀಲನೆ ಟಾಗಲ್ ಮಾಡಿ"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-ನಿರ್ದಿಷ್ಟ ಮಾಹಿತಿ/ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ಲಭ್ಯವಿದೆ:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"ನಿರ್ಬಂಧಿತ DCNR:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ಲಭ್ಯವಿದೆ:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR ಸ್ಥಿತಿ:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC ಲಭ್ಯವಿದೆ (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR ನಿರ್ಬಂಧಿತ (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR ಲಭ್ಯವಿದೆ (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR ಸ್ಥಿತಿ (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ಫ್ರೀಕ್ವೆನ್ಸಿ:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ರೇಡಿಯೋ ಬ್ಯಾಂಡ್ ಮೋಡ್ ಹೊಂದಿಸಿ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ಬ್ಯಾಂಡ್ ಪಟ್ಟಿಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>

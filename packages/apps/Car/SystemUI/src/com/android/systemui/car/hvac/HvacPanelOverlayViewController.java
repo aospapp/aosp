@@ -32,9 +32,6 @@ import com.android.wm.shell.animation.FlingAnimationUtils;
 
 import javax.inject.Inject;
 
-/**
- *  An {@link OverlayPanelViewController} implementation for HvacPanelOverlayView.
- */
 @SysUISingleton
 public class HvacPanelOverlayViewController extends OverlayPanelViewController {
 

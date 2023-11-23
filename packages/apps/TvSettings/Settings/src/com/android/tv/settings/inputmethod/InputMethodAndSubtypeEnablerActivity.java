@@ -19,7 +19,6 @@ package com.android.tv.settings.inputmethod;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Activity for android.settings.INPUT_METHOD_SUBTYPE_SETTINGS
@@ -28,7 +27,8 @@ public class InputMethodAndSubtypeEnablerActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
-            .newSettingsFragment(InputMethodAndSubtypeEnablerFragment.class.getName(), null);
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
+                .newSettingsFragment(InputMethodAndSubtypeEnablerFragment.class.getName(), null);
     }
 }

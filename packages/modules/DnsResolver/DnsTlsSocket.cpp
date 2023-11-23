@@ -33,7 +33,6 @@
 #include "IDnsTlsSocketObserver.h"
 
 #include <android-base/logging.h>
-#include <android-base/stringprintf.h>
 #include <netdutils/SocketOption.h>
 #include <netdutils/ThreadUtil.h>
 
@@ -44,8 +43,6 @@
 
 namespace android {
 
-using android::net::Experiments;
-using base::StringPrintf;
 using netdutils::enableSockopt;
 using netdutils::enableTcpKeepAlives;
 using netdutils::isOk;
@@ -400,7 +397,7 @@ void DnsTlsSocket::loop() {
     std::deque<std::vector<uint8_t>> q;
     const int timeout_msecs = DnsTlsSocket::kIdleTimeout.count() * 1000;
 
-    setThreadName(StringPrintf("TlsListen_%u", mMark & 0xffff).c_str());
+    setThreadName(fmt::format("TlsListen_{}", mMark & 0xffff));
 
     if (mAsyncHandshake) {
         if (Status status = tcpConnect(); !status.ok()) {

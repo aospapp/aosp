@@ -19,5 +19,4 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"ड्राइवर"</string>
     <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"अनुमानित जगह की जानकारी सिर्फ़ तब ऐक्सेस करें, जब ऐप्लिकेशन स्क्रीन पर खुला हो"</string>
-    <string name="sensor_privacy_start_use_dialog_turn_on_button" msgid="2297855099350562159">"माइक्रोफ़ोन चालू करें"</string>
 </resources>

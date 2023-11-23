@@ -9,10 +9,18 @@ rust_binary {
         "authfs_aidl_interface-rust",
         "libandroid_logger",
         "libanyhow",
+        "libauthfs_fsverity_metadata",
+        "libbinder_common",
+        "libbinder_rpc_unstable_bindgen",
+        "libbinder_rs",
         "libclap",
         "liblibc",
         "liblog_rust",
         "libnix",
+    ],
+    prefer_rlib: true,
+    shared_libs: [
+        "libbinder_rpc_unstable",
     ],
     apex_available: ["com.android.virt"],
 }

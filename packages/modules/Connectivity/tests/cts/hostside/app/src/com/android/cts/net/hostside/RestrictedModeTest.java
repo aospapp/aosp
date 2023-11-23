@@ -24,6 +24,7 @@ public final class RestrictedModeTest extends AbstractRestrictBackgroundNetworkT
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        setRestrictedNetworkingMode(false);
     }
 
     @After
@@ -34,8 +35,6 @@ public final class RestrictedModeTest extends AbstractRestrictBackgroundNetworkT
 
     @Test
     public void testNetworkAccess() throws Exception {
-        setRestrictedNetworkingMode(false);
-
         // go to foreground state and enable restricted mode
         launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
         setRestrictedNetworkingMode(true);
@@ -52,6 +51,20 @@ public final class RestrictedModeTest extends AbstractRestrictBackgroundNetworkT
 
         // go to background state
         finishActivity();
+        assertBackgroundNetworkAccess(true);
+    }
+
+    @Test
+    public void testNetworkAccess_withBatterySaver() throws Exception {
+        setBatterySaverMode(true);
+        addPowerSaveModeWhitelist(TEST_APP2_PKG);
+        assertBackgroundNetworkAccess(true);
+
+        setRestrictedNetworkingMode(true);
+        // App would be denied network access since Restricted mode is on.
+        assertBackgroundNetworkAccess(false);
+        setRestrictedNetworkingMode(false);
+        // Given that Restricted mode is turned off, app should be able to access network again.
         assertBackgroundNetworkAccess(true);
     }
 }

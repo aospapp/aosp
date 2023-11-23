@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"Ok"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Telefon sahibi haqqında heç bir məlumat yoxdur"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Əgər bu Sizin telefonunuzdursa, fövqəladə hal zamanı burada görünəcək məlumatı əlavə etmək üçün karandaş ikonasına tıklayın"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Telefonunuz kiliddən çıxarılmış halda fövqəladə hal zamanı burada görünəcək məlumatı əlavə etmək üçün karandaş ikonasına tıklayın"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hamısını silin"</string>
     <string name="clear" msgid="3648880442502887163">"Təmizləyin"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Bütün məlumat və kontaktlar silinsin?"</string>

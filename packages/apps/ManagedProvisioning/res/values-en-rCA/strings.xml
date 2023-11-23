@@ -22,20 +22,18 @@
     <string name="app_label" msgid="1527793174155125990">"Work Setup"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Oops!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Set up work profile"</string>
-    <string name="company_controls_workspace" msgid="2808025277267917221">"Your organisation controls this profile and keeps it secure. You control everything else on your device."</string>
-    <string name="company_controls_device" msgid="8230957518758871390">"Your organisation will control this device and keep it secure."</string>
+    <string name="company_controls_workspace" msgid="2808025277267917221">"Your organization controls this profile and keeps it secure. You control everything else on your device."</string>
+    <string name="company_controls_device" msgid="8230957518758871390">"Your organization will control this device and keep it secure."</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"The following app will need to access this profile:"</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"The following app will manage your device:"</string>
     <string name="next" msgid="1004321437324424398">"Next"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Setting up work profile…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions and data associated with this profile, including your network activity, as well as your device\'s location, call history and contact search history.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Your IT admin can monitor and manage settings, corporate access, apps, permissions, data, and network activity associated with this profile, as well as your call history and contact search history. Contact your IT admin for more information and to learn more about your organization\'s privacy policies."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions, and data associated with this device, including your network activity, as well as your device\'s location, call history, and contact search history.<xliff:g id="LINE_BREAK">
 
-</xliff:g>Contact your IT admin for more information, including your organisation\'s privacy policies."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Your IT admin has the ability to monitor and manage settings, corporate access, apps, permissions and data associated with this device, including your network activity, as well as your device\'s location, call history and contact search history.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Contact your IT admin for more information, including your organisation\'s privacy policies."</string>
+</xliff:g>Contact your IT admin for more information, including your organization\'s privacy policies."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"To use theft-protection features, you must have a password-protected screen lock for your device."</string>
-    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Contact your IT admin for more information, including your organisation\'s privacy policies."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Contact your IT admin for more information, including your organization\'s privacy policies."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Learn more"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Cancel"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
@@ -96,14 +94,14 @@
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Yes"</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"Cancelling…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Stop profile setup?"</string>
-    <string name="work_profile_setup_later_message" msgid="122069011117225292">"You can set up your work profile later in your organisation\'s device management app"</string>
+    <string name="work_profile_setup_later_message" msgid="122069011117225292">"You can set up your work profile later in your organization\'s device management app"</string>
     <string name="continue_button" msgid="7177918589510964446">"Continue"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Stop"</string>
     <string name="dismiss" msgid="9009534756748565880">"Dismiss"</string>
-    <string name="profile_owner_info" msgid="8975319972303812298">"You\'re about to create a work profile that will be managed and monitored by your organisation. Terms will apply."</string>
-    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"You\'re about to create a work profile that will be managed and monitored by your organisation. Terms from <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> will apply."</string>
-    <string name="profile_owner_info_comp" msgid="9190421701126119142">"A profile will be created for your work apps. This profile and the rest of your device will be managed and monitored by your organisation. Terms will apply."</string>
-    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"A profile will be created for your work apps. This profile and the rest of your device will be managed and monitored by your organisation. Terms from <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> will apply."</string>
+    <string name="profile_owner_info" msgid="8975319972303812298">"You\'re about to create a work profile that\'ll be managed and monitored by your organization. Terms will apply."</string>
+    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"You\'re about to create a work profile that\'ll be managed and monitored by your organization. Terms from <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> will apply."</string>
+    <string name="profile_owner_info_comp" msgid="9190421701126119142">"A profile will be created for your work apps. This profile and the rest of your device will be managed and monitored by your organization. Terms will apply."</string>
+    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"A profile will be created for your work apps. This profile and the rest of your device will be managed and monitored by your organization. Terms from <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> will apply."</string>
     <string name="device_owner_info" msgid="3716661456037934467">"This device will be managed, monitored and kept secure by <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Terms will apply. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"This device will be managed, monitored and kept secure by <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Terms from <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> will apply. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"This link isn\'t secure and can\'t be opened until device setup is finished: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
@@ -113,8 +111,8 @@
     <string name="for_help_contact_admin" msgid="5922538077702487859">"For help, contact your IT admin"</string>
     <string name="organization_admin" msgid="5975914478148511290">"IT admin"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> will manage and monitor this device using the following app:"</string>
-    <string name="your_organization_beginning" msgid="5952561489910967255">"Your organisation"</string>
-    <string name="your_organization_middle" msgid="8288538158061644733">"your organisation"</string>
+    <string name="your_organization_beginning" msgid="5952561489910967255">"Your organization"</string>
+    <string name="your_organization_middle" msgid="8288538158061644733">"your organization"</string>
     <string name="view_terms" msgid="7230493092383341605">"View terms"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Accept &amp; continue"</string>
     <string name="back" msgid="6455622465896147127">"Back"</string>
@@ -153,11 +151,11 @@
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
     <string name="take_a_few_minutes" msgid="6282806501305322838">"This may take a few minutes"</string>
-    <string name="work_profile_description" msgid="8524116010729569213">"Your work apps will be kept in this profile and managed by your organisation"</string>
-    <string name="device_owner_description" msgid="168013145812679664">"This device will be kept secure and managed by your organisation"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"Your work apps will be kept in this profile and managed by your organization"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"This device will be kept secure and managed by your organization"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Preparing to set up work device…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Setting up admin app"</string>
-    <string name="brand_screen_header" msgid="8865808542690116648">"This device belongs to your organisation"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"This device belongs to your organization"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"The following app will be used to manage and monitor this phone"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Your account is managed"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Your IT admin uses mobile device management to enforce security policies"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> can install the <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> app so that you can make payments for this device."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"This device can be restricted"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> can restrict access to this device if you don\'t make payments."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Can\'t set up device. Contact your IT admin and reference \'Invalid checksum\'."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Try again later or ask your IT admin for help"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Can\'t set up device. Contact your IT admin and reference \'Missing or corrupted components\'."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Setting up…"</string>
 </resources>

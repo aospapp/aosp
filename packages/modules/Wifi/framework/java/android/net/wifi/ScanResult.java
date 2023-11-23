@@ -17,12 +17,15 @@
 package android.net.wifi;
 
 import android.annotation.IntDef;
+import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
+import android.net.MacAddress;
 import android.net.wifi.WifiAnnotations.ChannelWidth;
 import android.net.wifi.WifiAnnotations.WifiStandard;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -47,19 +50,126 @@ import java.util.Objects;
 public final class ScanResult implements Parcelable {
     /**
      * The network name.
+     *
+     * @deprecated Use {@link #getWifiSsid()} instead.
      */
+    @Deprecated
     public String SSID;
 
     /**
      * Ascii encoded SSID. This will replace SSID when we deprecate it. @hide
+     *
+     * @deprecated Use {@link #getWifiSsid()} instead.
      */
-    @UnsupportedAppUsage
+    @Deprecated
+    // TODO(b/231433398): add maxTargetSdk = Build.VERSION_CODES.S
+    @UnsupportedAppUsage(publicAlternatives = "{@link #getWifiSsid()}")
     public WifiSsid wifiSsid;
+
+    /**
+     * Set the SSID of the access point.
+     * @hide
+     */
+    @SystemApi
+    public void setWifiSsid(@NonNull WifiSsid ssid) {
+        wifiSsid = ssid;
+        CharSequence utf8Text = wifiSsid.getUtf8Text();
+        SSID = utf8Text != null ? utf8Text.toString() : WifiManager.UNKNOWN_SSID;
+    }
+
+    /**
+     * The SSID of the access point.
+     */
+    @Nullable
+    public WifiSsid getWifiSsid() {
+        return wifiSsid;
+    }
 
     /**
      * The address of the access point.
      */
     public String BSSID;
+
+    /**
+     * The Multi-Link Device (MLD) address of the access point.
+     * Only applicable for Wi-Fi 7 access points, null otherwise.
+     */
+    private MacAddress mApMldMacAddress;
+
+    /**
+     * Return the access point Multi-Link Device (MLD) MAC Address for Wi-Fi 7 access points.
+     * i.e. {@link #getWifiStandard()} returns {@link #WIFI_STANDARD_11BE}.
+     *
+     * @return MLD MAC Address for access point if exists (Wi-Fi 7 access points), null otherwise.
+     */
+    @Nullable
+    public MacAddress getApMldMacAddress() {
+        return mApMldMacAddress;
+    }
+
+    /**
+     * Set the access point Multi-Link Device (MLD) MAC Address.
+     * @hide
+     */
+    public void setApMldMacAddress(@Nullable MacAddress address) {
+        mApMldMacAddress = address;
+    }
+
+    /**
+     * The Multi-Link Operation (MLO) link id for the access point.
+     * Only applicable for Wi-Fi 7 access points.
+     */
+    private int mApMloLinkId = MloLink.INVALID_MLO_LINK_ID;
+
+    /**
+     * Return the access point Multi-Link Operation (MLO) link-id for Wi-Fi 7 access points.
+     * i.e. when {@link #getWifiStandard()} returns {@link #WIFI_STANDARD_11BE}, otherwise return
+     * {@link MloLink#INVALID_MLO_LINK_ID}.
+     *
+     * Valid values are 0-15 as described in IEEE 802.11be Specification, section 9.4.2.295b.2.
+     *
+     * @return {@link MloLink#INVALID_MLO_LINK_ID} or a valid value (0-15).
+     */
+    @IntRange(from = MloLink.INVALID_MLO_LINK_ID, to = MloLink.MAX_MLO_LINK_ID)
+    public int getApMloLinkId() {
+        return mApMloLinkId;
+    }
+
+    /**
+     * Sets the access point Multi-Link Operation (MLO) link-id
+     * @hide
+     */
+    public void setApMloLinkId(int linkId) {
+        mApMloLinkId = linkId;
+    }
+
+    /**
+     * The Multi-Link Operation (MLO) affiliated Links.
+     * Only applicable for Wi-Fi 7 access points.
+     * Note: the list of links includes the access point for this ScanResult.
+     */
+    private List<MloLink> mAffiliatedMloLinks = Collections.emptyList();
+
+    /**
+     * Return the Multi-Link Operation (MLO) affiliated Links for Wi-Fi 7 access points.
+     * i.e. when {@link #getWifiStandard()} returns {@link #WIFI_STANDARD_11BE}.
+     *
+     * @return List of affiliated MLO links, or an empty list if access point is not Wi-Fi 7
+     */
+    @NonNull
+    public List<MloLink> getAffiliatedMloLinks() {
+        return new ArrayList<MloLink>(mAffiliatedMloLinks);
+    }
+
+    /**
+     * Set the Multi-Link Operation (MLO) affiliated Links.
+     * Only applicable for Wi-Fi 7 access points.
+     *
+     * @hide
+     */
+    public void setAffiliatedMloLinks(@NonNull List<MloLink> links) {
+        mAffiliatedMloLinks = new ArrayList<MloLink>(links);
+    }
 
     /**
      * The HESSID from the beacon.
@@ -230,9 +340,14 @@ public final class ScanResult implements Parcelable {
     public static final int KEY_MGMT_FILS_SHA384 = 16;
     /**
      * @hide
+     * Security key management scheme: DPP.
+     */
+    public static final int KEY_MGMT_DPP = 17;
+    /**
+     * @hide
      * Security key management scheme: any unknown AKM.
      */
-    public static final int KEY_MGMT_UNKNOWN = 17;
+    public static final int KEY_MGMT_UNKNOWN = 18;
     /**
      * @hide
      * No cipher suite.
@@ -301,9 +416,10 @@ public final class ScanResult implements Parcelable {
      * an absolute signal level which can be displayed to a user.
      */
     public int level;
+
     /**
-     * The primary 20 MHz frequency (in MHz) of the channel over which the client is communicating
-     * with the access point.
+     * The center frequency of the primary 20 MHz frequency (in MHz) of the channel over which the
+     * client is communicating with the access point.
      */
     public int frequency;
 
@@ -327,6 +443,32 @@ public final class ScanResult implements Parcelable {
     * AP Channel bandwidth is 160 MHZ, but 80MHZ + 80MHZ
     */
     public static final int CHANNEL_WIDTH_80MHZ_PLUS_MHZ = 4;
+   /**
+    * AP Channel bandwidth is 320 MHZ
+    */
+    public static final int CHANNEL_WIDTH_320MHZ = 5;
+
+    /**
+     * Preamble type: Legacy.
+     */
+    public static final int PREAMBLE_LEGACY = 0;
+    /**
+     * Preamble type: HT.
+     */
+    public static final int PREAMBLE_HT = 1;
+    /**
+     * Preamble type: VHT.
+     */
+    public static final int PREAMBLE_VHT = 2;
+    /**
+     * Preamble type: HE.
+     */
+    public static final int PREAMBLE_HE = 3;
+
+    /**
+     * Preamble type: EHT.
+     */
+    public static final int PREAMBLE_EHT = 4;
 
     /**
      * Wi-Fi unknown standard
@@ -357,6 +499,11 @@ public final class ScanResult implements Parcelable {
      * Wi-Fi 802.11ad
      */
     public static final int WIFI_STANDARD_11AD = 7;
+
+    /**
+     * Wi-Fi 802.11be
+     */
+    public static final int WIFI_STANDARD_11BE = 8;
 
     /**
      * Wi-Fi 2.4 GHz band.
@@ -393,7 +540,7 @@ public final class ScanResult implements Parcelable {
     /**
      * AP wifi standard.
      */
-    private @WifiStandard int mWifiStandard;
+    private @WifiStandard int mWifiStandard = WIFI_STANDARD_UNKNOWN;
 
     /**
      * return the AP wifi standard.
@@ -425,6 +572,8 @@ public final class ScanResult implements Parcelable {
                 return "11ax";
             case WIFI_STANDARD_11AD:
                 return "11ad";
+            case WIFI_STANDARD_11BE:
+                return "11be";
             case WIFI_STANDARD_UNKNOWN:
                 return "unknown";
         }
@@ -433,14 +582,14 @@ public final class ScanResult implements Parcelable {
 
     /**
      * AP Channel bandwidth; one of {@link #CHANNEL_WIDTH_20MHZ}, {@link #CHANNEL_WIDTH_40MHZ},
-     * {@link #CHANNEL_WIDTH_80MHZ}, {@link #CHANNEL_WIDTH_160MHZ}
-     * or {@link #CHANNEL_WIDTH_80MHZ_PLUS_MHZ}.
+     * {@link #CHANNEL_WIDTH_80MHZ}, {@link #CHANNEL_WIDTH_160MHZ}, {@link #CHANNEL_WIDTH_320MHZ},
+     * or {@link #CHANNEL_WIDTH_80MHZ_PLUS_MHZ}, or {@link #CHANNEL_WIDTH_320MHZ}
      */
     public @ChannelWidth int channelWidth;
 
     /**
      * Not used if the AP bandwidth is 20 MHz
-     * If the AP use 40, 80 or 160 MHz, this is the center frequency (in MHz)
+     * If the AP use 40, 80, 160 or 320MHz, this is the center frequency (in MHz)
      * if the AP use 80 + 80 MHz, this is the center frequency of the first segment (in MHz)
      */
     public int centerFreq0;
@@ -825,6 +974,39 @@ public final class ScanResult implements Parcelable {
     }
 
     /**
+     * Utility function to convert Operating Class into a band
+     *
+     * Use 802.11 Specification Table E-4: Global Operating Classes for decoding
+     *
+     * @param opClass operating class
+     * @param channel number
+     *
+     * @return one of {@link WifiScanner.WIFI_BAND_24_GHZ}, {@link WifiScanner.WIFI_BAND_5_GHZ}, or
+     *         {@link WifiScanner.WIFI_BAND_6_GHZ} for a valid opClass, channel pair, otherwise
+     *         {@link WifiScanner.WIFI_BAND_UNSPECIFIED} is returned.
+     *
+     * @hide
+     */
+    public static int getBandFromOpClass(int opClass, int channel) {
+        if (opClass >= 81 && opClass <= 84) {
+            if (channel >= BAND_24_GHZ_FIRST_CH_NUM && channel <= BAND_24_GHZ_LAST_CH_NUM) {
+                return WifiScanner.WIFI_BAND_24_GHZ;
+            }
+        } else if (opClass >= 115 && opClass <= 130) {
+            if (channel >= BAND_5_GHZ_FIRST_CH_NUM && channel <= BAND_5_GHZ_LAST_CH_NUM) {
+                return WifiScanner.WIFI_BAND_5_GHZ;
+            }
+        } else if (opClass >= 131 && opClass <= 137) {
+            if (channel >= BAND_6_GHZ_FIRST_CH_NUM && channel <= BAND_6_GHZ_LAST_CH_NUM) {
+                return WifiScanner.WIFI_BAND_6_GHZ;
+            }
+        }
+
+        // If none of the above combinations, then return as invalid band
+        return WifiScanner.WIFI_BAND_UNSPECIFIED;
+    }
+
+    /**
      * Utility function to convert frequency in MHz to channel number.
      *
      * See also {@link #convertChannelToFrequencyMhzIfSupported(int, int)}.
@@ -850,6 +1032,32 @@ public final class ScanResult implements Parcelable {
         }
 
         return UNSPECIFIED;
+    }
+
+    /**
+     * Returns the band for the ScanResult according to its frequency.
+     * @hide
+     */
+    @WifiBand public static int toBand(int frequency) {
+        if (ScanResult.is24GHz(frequency)) {
+            return ScanResult.WIFI_BAND_24_GHZ;
+        } else if (ScanResult.is5GHz(frequency)) {
+            return ScanResult.WIFI_BAND_5_GHZ;
+        } else if (ScanResult.is6GHz(frequency)) {
+            return ScanResult.WIFI_BAND_6_GHZ;
+        } else if (ScanResult.is60GHz(frequency)) {
+            return ScanResult.WIFI_BAND_60_GHZ;
+        }
+        return ScanResult.UNSPECIFIED;
+    }
+
+    /**
+     * Returns the band for the ScanResult according to its frequency.
+     * @hide
+     */
+    @SystemApi
+    @WifiBand public int getBand() {
+        return ScanResult.toBand(this.frequency);
     }
 
     /**
@@ -908,6 +1116,8 @@ public final class ScanResult implements Parcelable {
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public static final int EID_TIM = 5;
         /** @hide */
+        public static final int EID_COUNTRY = 7;
+        /** @hide */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public static final int EID_BSS_LOAD = 11;
         /** @hide */
@@ -939,6 +1149,8 @@ public final class ScanResult implements Parcelable {
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public static final int EID_VHT_OPERATION = 192;
         /** @hide */
+        public static final int EID_RNR = 201;
+        /** @hide */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public static final int EID_VSA = 221;
         /** @hide */
@@ -949,6 +1161,24 @@ public final class ScanResult implements Parcelable {
         public static final int EID_EXT_HE_CAPABILITIES = 35;
         /** @hide */
         public static final int EID_EXT_HE_OPERATION = 36;
+        /**
+         * EHT Operation IE extension id: see IEEE 802.11be Specification section 9.4.2.1
+         *
+         * @hide
+         */
+        public static final int EID_EXT_EHT_OPERATION = 106;
+        /**
+         * Multi-Link IE extension id: see IEEE 802.11be Specification section 9.4.2.1
+         *
+         * @hide
+         */
+        public static final int EID_EXT_MULTI_LINK = 107;
+        /**
+         * EHT Capabilities IE extension id: see IEEE 802.11be Specification section 9.4.2.1
+         *
+         * @hide
+         */
+        public static final int EID_EXT_EHT_CAPABILITIES = 108;
 
         /** @hide */
         @UnsupportedAppUsage
@@ -964,8 +1194,14 @@ public final class ScanResult implements Parcelable {
         public InformationElement() {
         }
 
-        /** @hide */
-        public InformationElement(int id, int idExt, byte[] bytes) {
+        /**
+         * Constructs InformationElements from beacon.
+         *
+         * @param id element id
+         * @param idExt element id extension
+         * @param bytes the body of the information element, may contain multiple elements
+         */
+        public InformationElement(int id, int idExt, @NonNull byte[] bytes) {
             this.id = id;
             this.idExt = idExt;
             this.bytes = bytes.clone();
@@ -1067,16 +1303,49 @@ public final class ScanResult implements Parcelable {
         return Collections.unmodifiableList(Arrays.asList(informationElements));
     }
 
+    /**
+     * Get all the security types supported by this ScanResult.
+     * @return array of {@code WifiInfo#SECURITY_TYPE_*}.
+     */
+    @NonNull
+    public @WifiInfo.SecurityType int[] getSecurityTypes() {
+        List<SecurityParams> params = ScanResultUtil.generateSecurityParamsListFromScanResult(this);
+        int[] securityTypes = new int[params.size()];
+        for (int i = 0; i < securityTypes.length; i++) {
+            securityTypes[i] = WifiInfo.convertWifiConfigurationSecurityType(
+                    params.get(i).getSecurityType());
+        }
+        return securityTypes;
+    }
+
     /** ANQP response elements.
      * @hide
      */
     public AnqpInformationElement[] anqpElements;
 
+    /**
+     * Returns whether a WifiSsid represents a "hidden" SSID of all zero values.
+     */
+    private boolean isHiddenSsid(@NonNull WifiSsid wifiSsid) {
+        for (byte b : wifiSsid.getBytes()) {
+            if (b != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** {@hide} */
     public ScanResult(WifiSsid wifiSsid, String BSSID, long hessid, int anqpDomainId,
             byte[] osuProviders, String caps, int level, int frequency, long tsf) {
         this.wifiSsid = wifiSsid;
-        this.SSID = (wifiSsid != null) ? wifiSsid.toString() : WifiManager.UNKNOWN_SSID;
+        if (wifiSsid != null && isHiddenSsid(wifiSsid)) {
+            // Retain the legacy behavior of setting SSID to "" if the SSID is all zero values.
+            this.SSID = "";
+        } else {
+            final CharSequence utf8Ssid = (wifiSsid != null) ? wifiSsid.getUtf8Text() : null;
+            this.SSID = (utf8Ssid != null) ? utf8Ssid.toString() : WifiManager.UNKNOWN_SSID;
+        }
         this.BSSID = BSSID;
         this.hessid = hessid;
         this.anqpDomainId = anqpDomainId;
@@ -1097,14 +1366,20 @@ public final class ScanResult implements Parcelable {
         this.centerFreq1 = UNSPECIFIED;
         this.flags = 0;
         this.radioChainInfos = null;
-        this.mWifiStandard = WIFI_STANDARD_UNKNOWN;
+        this.mApMldMacAddress = null;
     }
 
     /** {@hide} */
     public ScanResult(WifiSsid wifiSsid, String BSSID, String caps, int level, int frequency,
             long tsf, int distCm, int distSdCm) {
         this.wifiSsid = wifiSsid;
-        this.SSID = (wifiSsid != null) ? wifiSsid.toString() : WifiManager.UNKNOWN_SSID;
+        if (wifiSsid != null && isHiddenSsid(wifiSsid)) {
+            // Retain the legacy behavior of setting SSID to "" if the SSID is all zero values.
+            this.SSID = "";
+        } else {
+            final CharSequence utf8Ssid = (wifiSsid != null) ? wifiSsid.getUtf8Text() : null;
+            this.SSID = (utf8Ssid != null) ? utf8Ssid.toString() : WifiManager.UNKNOWN_SSID;
+        }
         this.BSSID = BSSID;
         this.capabilities = caps;
         this.level = level;
@@ -1117,7 +1392,7 @@ public final class ScanResult implements Parcelable {
         this.centerFreq1 = UNSPECIFIED;
         this.flags = 0;
         this.radioChainInfos = null;
-        this.mWifiStandard = WIFI_STANDARD_UNKNOWN;
+        this.mApMldMacAddress = null;
     }
 
     /** {@hide} */
@@ -1144,7 +1419,7 @@ public final class ScanResult implements Parcelable {
             this.flags = 0;
         }
         this.radioChainInfos = null;
-        this.mWifiStandard = WIFI_STANDARD_UNKNOWN;
+        this.mApMldMacAddress = null;
     }
 
     /** {@hide} */
@@ -1185,6 +1460,10 @@ public final class ScanResult implements Parcelable {
             radioChainInfos = source.radioChainInfos;
             this.mWifiStandard = source.mWifiStandard;
             this.ifaceName = source.ifaceName;
+            this.mApMldMacAddress = source.mApMldMacAddress;
+            this.mApMloLinkId = source.mApMloLinkId;
+            this.mAffiliatedMloLinks = source.mAffiliatedMloLinks != null
+                    ? new ArrayList<>(source.mAffiliatedMloLinks) : Collections.emptyList();
         }
     }
 
@@ -1224,6 +1503,17 @@ public final class ScanResult implements Parcelable {
         sb.append(((flags & FLAG_80211mc_RESPONDER) != 0) ? "is supported" : "is not supported");
         sb.append(", Radio Chain Infos: ").append(Arrays.toString(radioChainInfos));
         sb.append(", interface name: ").append(ifaceName);
+
+        if (mApMldMacAddress != null) {
+            sb.append(", MLO Info: ")
+                    .append(" AP MLD MAC Address: ")
+                    .append(mApMldMacAddress.toString())
+                    .append(", AP MLO Link-Id: ")
+                    .append((mApMloLinkId == MloLink.INVALID_MLO_LINK_ID)
+                            ? "Unspecified" : mApMloLinkId)
+                    .append(", AP MLO Affiliated Links: ").append(mAffiliatedMloLinks);
+        }
+
         return sb.toString();
     }
 
@@ -1293,6 +1583,12 @@ public final class ScanResult implements Parcelable {
             dest.writeInt(0);
         }
         dest.writeString((ifaceName != null) ? ifaceName.toString() : "");
+
+
+        // Add MLO related attributes
+        dest.writeParcelable(mApMldMacAddress, flags);
+        dest.writeInt(mApMloLinkId);
+        dest.writeTypedList(mAffiliatedMloLinks);
     }
 
     /** Implement the Parcelable interface */
@@ -1361,6 +1657,13 @@ public final class ScanResult implements Parcelable {
                     }
                 }
                 sr.ifaceName = in.readString();
+
+
+                // Read MLO related attributes
+                sr.mApMldMacAddress = in.readParcelable(MacAddress.class.getClassLoader());
+                sr.mApMloLinkId = in.readInt();
+                sr.mAffiliatedMloLinks = in.createTypedArrayList(MloLink.CREATOR);
+
                 return sr;
             }
 

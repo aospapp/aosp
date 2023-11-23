@@ -28,5 +28,5 @@ interface IMyService {
     void sendNotification(int notificationId, String notificationType);
     void registerNetworkCallback(in NetworkRequest request, in INetworkCallback cb);
     void unregisterNetworkCallback();
-    void scheduleJob(in JobInfo jobInfo);
+    int scheduleJob(in JobInfo jobInfo);
 }

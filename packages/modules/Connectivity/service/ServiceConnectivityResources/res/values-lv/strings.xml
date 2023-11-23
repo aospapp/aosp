@@ -23,7 +23,7 @@
     <!-- no translation found for network_available_sign_in_detailed (8439369644697866359) -->
     <skip />
     <string name="wifi_no_internet" msgid="1326348603404555475">"Tīklā <xliff:g id="NETWORK_SSID">%1$s</xliff:g> nav piekļuves internetam"</string>
-    <string name="wifi_no_internet_detailed" msgid="1746921096565304090">"Pieskarieties, lai skatītu iespējas."</string>
+    <string name="wifi_no_internet_detailed" msgid="1746921096565304090">"Pieskarieties, lai skatītu opcijas."</string>
     <string name="mobile_no_internet" msgid="4087718456753201450">"Mobilajā tīklā nav piekļuves internetam."</string>
     <string name="other_networks_no_internet" msgid="5693932964749676542">"Tīklā nav piekļuves internetam."</string>
     <string name="private_dns_broken_detailed" msgid="2677123850463207823">"Nevar piekļūt privātam DNS serverim."</string>

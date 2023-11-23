@@ -19,13 +19,13 @@ package com.android.tv.settings.connectivity;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 public class NetworkActivity extends TvSettingsActivity {
 
     @Override
-    protected Fragment createSettingsFragment()  {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+    protected Fragment createSettingsFragment() {
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(NetworkFragment.class.getName(), null);
     }
 }

@@ -20,12 +20,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 
-import com.android.car.internal.ICarServiceHelper;
 import com.android.car.power.CarPowerManagementService;
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.storagemonitoring.LifetimeWriteInfoProvider;
 import com.android.car.storagemonitoring.UidIoStatsProvider;
 import com.android.car.storagemonitoring.WearInformationProvider;
+import com.android.car.user.CarUserService;
 
 import java.io.File;
 import java.time.Duration;
@@ -72,9 +72,6 @@ public class SystemInterface implements ActivityManagerInterface,
     public SystemStateInterface getSystemStateInterface() { return mSystemStateInterface; }
     public TimeInterface getTimeInterface() { return mTimeInterface; }
     public WakeLockInterface getWakeLockInterface() { return mWakeLockInterface; }
-    public void setCarServiceHelper(ICarServiceHelper helper) {
-        mSystemStateInterface.setCarServiceHelper(helper);
-    }
 
     @Override
     public void sendBroadcastAsUser(Intent intent, UserHandle user) {
@@ -116,6 +113,10 @@ public class SystemInterface implements ActivityManagerInterface,
         mTimeInterface.scheduleAction(r, delayMs);
     }
 
+    /**
+     * @deprecated see {@link ProcessInfo}
+     */
+    @Deprecated
     @Override
     public List<ProcessInfo> getRunningProcesses() {
         return mSystemStateInterface.getRunningProcesses();
@@ -137,8 +138,14 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
-    public void startDisplayStateMonitoring(CarPowerManagementService service) {
-        mDisplayInterface.startDisplayStateMonitoring(service);
+    public void init(CarPowerManagementService carPowerManagementService,
+            CarUserService carUserService) {
+        mDisplayInterface.init(carPowerManagementService, carUserService);
+    }
+
+    @Override
+    public void startDisplayStateMonitoring() {
+        mDisplayInterface.startDisplayStateMonitoring();
     }
 
     @Override
@@ -152,8 +159,10 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
-    public WearInformationProvider[] getFlashWearInformationProviders() {
-        return mStorageMonitoringInterface.getFlashWearInformationProviders();
+    public WearInformationProvider[] getFlashWearInformationProviders(
+            String lifetimePath, String eolPath) {
+        return mStorageMonitoringInterface.getFlashWearInformationProviders(
+                lifetimePath, eolPath);
     }
 
     @Override
@@ -177,6 +186,11 @@ public class SystemInterface implements ActivityManagerInterface,
     }
 
     @Override
+    public boolean enterHibernation() {
+        return mSystemStateInterface.enterHibernation();
+    }
+
+    @Override
     public void scheduleActionForBootCompleted(Runnable action, Duration delay) {
         mSystemStateInterface.scheduleActionForBootCompleted(action, delay);
     }
@@ -189,6 +203,11 @@ public class SystemInterface implements ActivityManagerInterface,
     @Override
     public boolean isSystemSupportingDeepSleep() {
         return mSystemStateInterface.isSystemSupportingDeepSleep();
+    }
+
+    @Override
+    public boolean isSystemSupportingHibernation() {
+        return mSystemStateInterface.isSystemSupportingHibernation();
     }
 
     @Override
@@ -274,12 +293,12 @@ public class SystemInterface implements ActivityManagerInterface,
 
         public SystemInterface build() {
             return new SystemInterface(Objects.requireNonNull(mActivityManagerInterface),
-                Objects.requireNonNull(mDisplayInterface),
-                Objects.requireNonNull(mIOInterface),
-                Objects.requireNonNull(mStorageMonitoringInterface),
-                Objects.requireNonNull(mSystemStateInterface),
-                Objects.requireNonNull(mTimeInterface),
-                Objects.requireNonNull(mWakeLockInterface));
+                    Objects.requireNonNull(mDisplayInterface),
+                    Objects.requireNonNull(mIOInterface),
+                    Objects.requireNonNull(mStorageMonitoringInterface),
+                    Objects.requireNonNull(mSystemStateInterface),
+                    Objects.requireNonNull(mTimeInterface),
+                    Objects.requireNonNull(mWakeLockInterface));
         }
     }
 }

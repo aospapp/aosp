@@ -18,11 +18,17 @@ package com.android.car.settings.testutils;
 
 import static junit.framework.Assert.fail;
 
+import android.annotation.StringRes;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
+import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+
+import com.android.car.settings.R;
+import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +41,7 @@ public class BluetoothTestUtils {
     private static final int BLUETOOTH_TOGGLE_TIMEOUT = 30; // in seconds
     private static final IntentFilter STATE_INTENT_FILTER = new IntentFilter(
             BluetoothAdapter.ACTION_STATE_CHANGED);
+    private static final int TEST_RES_ID = R.string.settings_label; // placeholder
 
     /**
      * Set the default bluetooth adapter state.
@@ -87,6 +94,76 @@ public class BluetoothTestUtils {
             } else if (!mEnable && state == BluetoothAdapter.STATE_OFF) {
                 mLatch.countDown();
             }
+        }
+    }
+
+    public static class TestLocalBluetoothProfile implements LocalBluetoothProfile {
+        private final int mProfileId;
+        private boolean mIsEnabled;
+
+        public TestLocalBluetoothProfile(int profileId) {
+            mProfileId = profileId;
+        }
+
+        @Override
+        public boolean accessProfileEnabled() {
+            return false;
+        }
+
+        @Override
+        public boolean isAutoConnectable() {
+            return false;
+        }
+
+        @Override
+        public int getConnectionStatus(BluetoothDevice device) {
+            return 0;
+        }
+
+        @Override
+        public boolean isEnabled(BluetoothDevice device) {
+            return mIsEnabled;
+        }
+
+        @Override
+        public int getConnectionPolicy(BluetoothDevice device) {
+            return 0;
+        }
+
+        @Override
+        public boolean setEnabled(BluetoothDevice device, boolean enabled) {
+            return mIsEnabled = enabled;
+        }
+
+        @Override
+        public boolean isProfileReady() {
+            return false;
+        }
+
+        @Override
+        public int getProfileId() {
+            return mProfileId;
+        }
+
+        @Override
+        public int getOrdinal() {
+            return 0;
+        }
+
+        @Override
+        @StringRes
+        public int getNameResource(BluetoothDevice device) {
+            return TEST_RES_ID;
+        }
+
+        @Override
+        public int getSummaryResourceForDevice(BluetoothDevice device) {
+            return 0;
+        }
+
+        @Override
+        public int getDrawableResource(BluetoothClass btClass) {
+            return 0;
         }
     }
 }

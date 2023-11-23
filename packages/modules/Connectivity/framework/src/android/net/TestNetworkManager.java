@@ -45,9 +45,20 @@ public class TestNetworkManager {
      */
     public static final String TEST_TAP_PREFIX = "testtap";
 
+    /**
+     * Prefix for clat interfaces.
+     * @hide
+     */
+    public static final String CLAT_INTERFACE_PREFIX = "v4-";
+
     @NonNull private static final String TAG = TestNetworkManager.class.getSimpleName();
 
     @NonNull private final ITestNetworkManager mService;
+
+    private static final boolean TAP = false;
+    private static final boolean TUN = true;
+    private static final boolean BRING_UP = true;
+    private static final LinkAddress[] NO_ADDRS = new LinkAddress[0];
 
     /** @hide */
     public TestNetworkManager(@NonNull ITestNetworkManager service) {
@@ -155,7 +166,8 @@ public class TestNetworkManager {
     public TestNetworkInterface createTunInterface(@NonNull Collection<LinkAddress> linkAddrs) {
         try {
             final LinkAddress[] arr = new LinkAddress[linkAddrs.size()];
-            return mService.createTunInterface(linkAddrs.toArray(arr));
+            return mService.createInterface(TUN, BRING_UP, linkAddrs.toArray(arr),
+                    null /* iface */);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -173,10 +185,50 @@ public class TestNetworkManager {
     @NonNull
     public TestNetworkInterface createTapInterface() {
         try {
-            return mService.createTapInterface();
+            return mService.createInterface(TAP, BRING_UP, NO_ADDRS, null /* iface */);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
     }
 
+    /**
+     * Create a tap interface for testing purposes
+     *
+     * @param bringUp whether to bring up the interface before returning it.
+     *
+     * @return A ParcelFileDescriptor of the underlying TAP interface. Close this to tear down the
+     *     TAP interface.
+     * @hide
+     */
+    @RequiresPermission(Manifest.permission.MANAGE_TEST_NETWORKS)
+    @NonNull
+    public TestNetworkInterface createTapInterface(boolean bringUp) {
+        try {
+            return mService.createInterface(TAP, bringUp, NO_ADDRS, null /* iface */);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * Create a tap interface with a given interface name for testing purposes
+     *
+     * @param bringUp whether to bring up the interface before returning it.
+     * @param iface interface name to be assigned, so far only interface name which starts with
+     *              "v4-testtap" or "v4-testtun" is allowed to be created. If it's null, then use
+     *              the default name(e.g. testtap or testtun).
+     *
+     * @return A ParcelFileDescriptor of the underlying TAP interface. Close this to tear down the
+     *     TAP interface.
+     * @hide
+     */
+    @RequiresPermission(Manifest.permission.MANAGE_TEST_NETWORKS)
+    @NonNull
+    public TestNetworkInterface createTapInterface(boolean bringUp, @NonNull String iface) {
+        try {
+            return mService.createInterface(TAP, bringUp, NO_ADDRS, iface);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
 }

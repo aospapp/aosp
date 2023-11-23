@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"இயல்புநிலை வகைகளை மீட்டமை"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"இயல்புநிலை வகைகள் மீட்டமைக்கப்பட்டன"</string>
     <string name="default_categories" msgid="2117679794687799407">"இயல்புநிலை"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d தேர்ந்தெடுக்கப்பட்டது</item>
-      <item quantity="one">%d தேர்ந்தெடுக்கப்பட்டது</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# தேர்ந்தெடுக்கப்பட்டது}other{# தேர்ந்தெடுக்கப்பட்டன}}"</string>
     <string name="applications" msgid="521776761270770549">"ஆப்ஸ்"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"பிழை திருத்தக்கூடிய ஆப்ஸ் சாதனத்தில் இல்லை"</string>
     <string name="buffer_size" msgid="3944311026715111454">"ஒவ்வொரு CPUவுக்குமான பஃபர் அளவு"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"பெர்ஃபெட்டோ (பீட்டா) பதிப்பைப் பயன்படுத்தவும்"</string>
     <string name="long_traces" msgid="5110949471775966329">"நீண்ட டிரேஸ்கள்"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"சாதனச் சேமிப்பகத்தில் தொடர்ந்து சேமிக்கப்படும்"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"சாதனச் சேமிப்பகத்தில் தொடர்ந்து சேமிக்கப்படும் (பிழை அறிக்கைகளில் தானாக இணைக்கப்படாது)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"டிரேஸ் செய்யக்கூடிய அதிகபட்ச அளவு"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"நீண்ட டிரேஸின் அதிகபட்ச கால அளவு"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 மெ.பை."</string>

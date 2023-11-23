@@ -19,12 +19,11 @@ package com.android.tv.settings.accessories;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.text.Html;
 import android.util.Log;
 
-import androidx.annotation.DrawableRes;
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -141,6 +140,13 @@ final class AccessoryUtils {
                         Collections.unmodifiableList(
                                 Arrays.asList(context.getResources().getStringArray(
                                         R.array.known_bluetooth_device_labels)));
+                // For backward compatibility, the customization name used to be known_remote_labels
+                if (sKnownDeviceLabels.isEmpty()) {
+                    sKnownDeviceLabels = Collections.unmodifiableList(
+                            Arrays.asList(
+                                context.getResources().getStringArray(
+                                    R.array.known_remote_labels)));
+                }
             }
         }
 
@@ -151,6 +157,14 @@ final class AccessoryUtils {
             }
         }
         return false;
+    }
+
+    @Nullable
+    static String getHtmlEscapedDeviceName(@Nullable BluetoothDevice bluetoothDevice) {
+        if (bluetoothDevice == null || bluetoothDevice.getName() == null) {
+            return null;
+        }
+        return Html.escapeHtml(bluetoothDevice.getName());
     }
 
     private AccessoryUtils() {

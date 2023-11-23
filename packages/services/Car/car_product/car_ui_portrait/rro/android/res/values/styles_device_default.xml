@@ -113,7 +113,7 @@
     </style>
 
     <style name="Widget.DeviceDefault.CompoundButton.CheckBox" parent="android:Widget.Material.CompoundButton.CheckBox">
-        <item name="android:button">@*android:drawable/car_checkbox</item>
+        <item name="android:button">@drawable/car_checkbox</item>
     </style>
 
     <style name="Widget.DeviceDefault.CompoundButton.Switch" parent="android:Widget.Material.CompoundButton.Switch">

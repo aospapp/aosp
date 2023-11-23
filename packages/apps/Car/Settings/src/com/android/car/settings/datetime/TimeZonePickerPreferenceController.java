@@ -61,17 +61,11 @@ public class TimeZonePickerPreferenceController extends PreferenceController<Pre
         return Preference.class;
     }
 
-    @Override
-    protected void onCreateInternal() {
-        super.onCreateInternal();
-        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
-                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
-    }
-
     /** Starts the broadcast receiver which listens for time changes */
     @Override
     protected void onStartInternal() {
-        getContext().registerReceiver(mTimeChangeReceiver, mIntentFilter);
+        getContext().registerReceiver(mTimeChangeReceiver, mIntentFilter,
+                Context.RECEIVER_NOT_EXPORTED);
     }
 
     /** Stops the broadcast receiver which listens for time changes */
@@ -85,7 +79,10 @@ public class TimeZonePickerPreferenceController extends PreferenceController<Pre
         Calendar now = Calendar.getInstance();
         preference.setSummary(ZoneGetter.getTimeZoneOffsetAndName(getContext(), now.getTimeZone(),
                 now.getTime()));
-        preference.setEnabled(!autoTimezoneIsEnabled() && getAvailabilityStatus() == AVAILABLE);
+        boolean isAvailable = getAvailabilityStatus() == AVAILABLE;
+        preference.setEnabled(!autoTimezoneIsEnabled() && isAvailable);
+        setClickableWhileDisabled(preference, !isAvailable, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
     }
 
     @Override

@@ -33,7 +33,7 @@ public:
     MockWatchdogPerfService() {}
     ~MockWatchdogPerfService() {}
     MOCK_METHOD(android::base::Result<void>, registerDataProcessor,
-                (android::sp<IDataProcessorInterface>), (override));
+                (android::sp<DataProcessorInterface>), (override));
     MOCK_METHOD(android::base::Result<void>, start, (), (override));
     MOCK_METHOD(void, terminate, (), (override));
     MOCK_METHOD(void, setSystemState, (SystemState), (override));

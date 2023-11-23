@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.UiccPortInfo;
 import android.telephony.UiccSlotInfo;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -33,6 +34,7 @@ import com.google.android.collect.Lists;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Collections;
 import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
@@ -106,7 +108,11 @@ public class SubscriptionUtilsTest {
 
     private UiccSlotInfo createUuicSlotInfo(boolean isActive, boolean isEsim, int simSlotIndex,
             String cardId, int cardStateInfo) {
-        return new UiccSlotInfo(isActive, isEsim, cardId, cardStateInfo, simSlotIndex,
-                /* isExtendedApduSupported= */ false, /* isRemoveable= */ true);
+        return new UiccSlotInfo(
+                isEsim, cardId, cardStateInfo,
+                /* isExtendedApduSupported= */ false, /* isRemovable= */ true,
+                Collections.singletonList(
+                        new UiccPortInfo("" /* iccId */, 0 /* portIdx */,
+                                simSlotIndex /* logicalSlotIdx */, isActive /* isActive */)));
     }
 }

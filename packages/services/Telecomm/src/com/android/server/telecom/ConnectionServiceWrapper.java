@@ -45,6 +45,8 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.telephony.CellIdentity;
+import android.telephony.TelephonyManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telecom.IConnectionService;
@@ -60,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 
 /**
  * Wrapper for {@link IConnectionService}s, handles binding to {@link IConnectionService} and keeps
@@ -965,6 +968,31 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
 
                         if (alreadyAddedConnection != null
                                 && mCallIdMapper.getCall(callId) == null) {
+                            if (!Objects.equals(connection.getHandle(),
+                                    alreadyAddedConnection.getHandle())) {
+                                alreadyAddedConnection.setHandle(connection.getHandle());
+                            }
+                            if (connection.getHandlePresentation() !=
+                                    alreadyAddedConnection.getHandlePresentation()) {
+                                alreadyAddedConnection.setHandle(connection.getHandle(),
+                                        connection.getHandlePresentation());
+                            }
+                            if (!Objects.equals(connection.getCallerDisplayName(),
+                                    alreadyAddedConnection.getCallerDisplayName())) {
+                                alreadyAddedConnection.setCallerDisplayName(connection
+                                                .getCallerDisplayName(),
+                                        connection.getCallerDisplayNamePresentation());
+                            }
+                            if (connection.getConnectionCapabilities() !=
+                                    alreadyAddedConnection.getConnectionCapabilities()) {
+                                alreadyAddedConnection.setConnectionCapabilities(connection
+                                        .getConnectionCapabilities());
+                            }
+                            if (connection.getConnectionProperties() !=
+                                    alreadyAddedConnection.getConnectionProperties()) {
+                                alreadyAddedConnection.setConnectionCapabilities(connection
+                                        .getConnectionProperties());
+                            }
                             mCallIdMapper.addCall(alreadyAddedConnection, callId);
                             alreadyAddedConnection
                                     .replaceConnectionService(ConnectionServiceWrapper.this);
@@ -1236,6 +1264,24 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
         }
     }
 
+    private CellIdentity getLastKnownCellIdentity() {
+        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
+        if (telephonyManager != null) {
+            CellIdentity lastKnownCellIdentity = telephonyManager.getLastKnownCellIdentity();
+            try {
+                mAppOpsManager.noteOp(AppOpsManager.OP_FINE_LOCATION,
+                        mContext.getPackageManager().getPackageUid(
+                                getComponentName().getPackageName(), 0),
+                        getComponentName().getPackageName());
+            } catch (PackageManager.NameNotFoundException nameNotFoundException) {
+                Log.e(this, nameNotFoundException, "could not find the package -- %s",
+                        getComponentName().getPackageName());
+            }
+            return lastKnownCellIdentity;
+        }
+        return null;
+    }
+
     /**
      * Creates a conference for a new outgoing call or attach to an existing incoming call.
      */
@@ -1354,6 +1400,11 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
                 Log.addEvent(call, LogUtils.Events.START_CONNECTION,
                         Log.piiHandle(call.getHandle()) + " via:" +
                                 getComponentName().getPackageName());
+
+                if (call.isEmergencyCall()) {
+                    extras.putParcelable(Connection.EXTRA_LAST_KNOWN_CELL_IDENTITY,
+                            getLastKnownCellIdentity());
+                }
 
                 ConnectionRequest connectionRequest = new ConnectionRequest.Builder()
                         .setAccountHandle(call.getTargetPhoneAccount())
@@ -2066,11 +2117,11 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
             // failure to connect; we handle all failures uniformly
             Call foundCall = mCallIdMapper.getCall(callId);
 
-            if (connection.getConnectTimeMillis() != 0) {
-                foundCall.setConnectTimeMillis(connection.getConnectTimeMillis());
-            }
-
             if (foundCall != null) {
+                if (connection.getConnectTimeMillis() != 0) {
+                    foundCall.setConnectTimeMillis(connection.getConnectTimeMillis());
+                }
+
                 // The post-dial digits are created when the call is first created.  Normally
                 // the ConnectionService is responsible for stripping them from the address, but
                 // since a failed connection will not have done this, we could end up with duplicate

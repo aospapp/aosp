@@ -22,6 +22,7 @@ import android.content.Context;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SecurityParams;
+import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
 import android.util.ArrayMap;
 
@@ -99,6 +100,10 @@ public class WifiCandidates {
          */
         boolean isOemPrivate();
         /**
+         * Returns true for a secondary network with internet.
+         */
+        boolean isSecondaryInternet();
+        /**
          * Returns true if suggestion came from a carrier or privileged app.
          */
         boolean isCarrierOrPrivileged();
@@ -148,6 +153,11 @@ public class WifiCandidates {
          * Gets the scan frequency.
          */
         int getFrequency();
+
+        /**
+         * Gets the channel width.
+         */
+        @WifiAnnotations.ChannelWidth int getChannelWidth();
         /**
          * Gets the predicted throughput in Mbps.
          */
@@ -160,6 +170,11 @@ public class WifiCandidates {
          * Gets statistics from the scorecard.
          */
         @Nullable WifiScoreCardProto.Signal getEventStatistics(WifiScoreCardProto.Event event);
+
+        /**
+         * Returns true for a restricted network.
+         */
+        boolean isRestricted();
     }
 
     /**
@@ -170,6 +185,7 @@ public class WifiCandidates {
         private final @WifiNetworkSelector.NetworkNominator.NominatorId int mNominatorId;
         private final int mScanRssi;
         private final int mFrequency;
+        private final int mChannelWidth;
         private final double mLastSelectionWeight;
         private final WifiScoreCard.PerBssid mPerBssid; // For accessing the scorecard entry
         private final boolean mIsCurrentNetwork;
@@ -181,8 +197,10 @@ public class WifiCandidates {
         private final boolean mPasspoint;
         private final boolean mEphemeral;
         private final boolean mTrusted;
+        private final boolean mRestricted;
         private final boolean mOemPaid;
         private final boolean mOemPrivate;
+        private final boolean mSecondaryInternet;
         private final boolean mCarrierOrPrivileged;
         private final int mPredictedThroughputMbps;
         private final int mEstimatedPercentInternetAvailability;
@@ -192,6 +210,7 @@ public class WifiCandidates {
                 @WifiNetworkSelector.NetworkNominator.NominatorId int nominatorId,
                 int scanRssi,
                 int frequency,
+                int channelWidth,
                 double lastSelectionWeight,
                 boolean isCurrentNetwork,
                 boolean isCurrentBssid,
@@ -202,6 +221,7 @@ public class WifiCandidates {
             this.mNominatorId = nominatorId;
             this.mScanRssi = scanRssi;
             this.mFrequency = frequency;
+            this.mChannelWidth = channelWidth;
             this.mPerBssid = perBssid;
             this.mLastSelectionWeight = lastSelectionWeight;
             this.mIsCurrentNetwork = isCurrentNetwork;
@@ -215,10 +235,12 @@ public class WifiCandidates {
             this.mTrusted = config.trusted;
             this.mOemPaid = config.oemPaid;
             this.mOemPrivate = config.oemPrivate;
+            this.mSecondaryInternet = config.dbsSecondaryInternet;
             this.mCarrierOrPrivileged = isCarrierOrPrivileged;
             this.mPredictedThroughputMbps = predictedThroughputMbps;
             this.mEstimatedPercentInternetAvailability = perBssid == null ? 50 :
                     perBssid.estimatePercentInternetAvailability();
+            this.mRestricted = config.restricted;
         }
 
         @Override
@@ -252,6 +274,11 @@ public class WifiCandidates {
         }
 
         @Override
+        public boolean isRestricted() {
+            return mRestricted;
+        }
+
+        @Override
         public boolean isOemPaid() {
             return mOemPaid;
         }
@@ -259,6 +286,11 @@ public class WifiCandidates {
         @Override
         public boolean isOemPrivate() {
             return mOemPrivate;
+        }
+
+        @Override
+        public boolean isSecondaryInternet() {
+            return mSecondaryInternet;
         }
 
         @Override
@@ -312,6 +344,11 @@ public class WifiCandidates {
         }
 
         @Override
+        public int getChannelWidth() {
+            return mChannelWidth;
+        }
+
+        @Override
         public int getPredictedThroughputMbps() {
             return mPredictedThroughputMbps;
         }
@@ -346,6 +383,7 @@ public class WifiCandidates {
                     + "config = " + getNetworkConfigId() + ", "
                     + "bssid = " + key.bssid + ", "
                     + "freq = " + getFrequency() + ", "
+                    + "channelWidth = " + getChannelWidth() + ", "
                     + "rssi = " + getScanRssi() + ", "
                     + "Mbps = " + getPredictedThroughputMbps() + ", "
                     + "nominator = " + getNominatorId() + ", "
@@ -355,8 +393,10 @@ public class WifiCandidates {
                     + (isCurrentNetwork() ? "current, " : "")
                     + (isEphemeral() ? "ephemeral" : "saved") + ", "
                     + (isTrusted() ? "trusted, " : "")
+                    + (isRestricted() ? "restricted, " : "")
                     + (isOemPaid() ? "oemPaid, " : "")
                     + (isOemPrivate() ? "oemPrivate, " : "")
+                    + (isSecondaryInternet() ? "secondaryInternet, " : "")
                     + (isCarrierOrPrivileged() ? "priv, " : "")
                     + (isMetered() ? "metered, " : "")
                     + (hasNoInternetAccess() ? "noInternet, " : "")
@@ -494,6 +534,7 @@ public class WifiCandidates {
         return add(key, config, nominatorId,
                 scanDetail.getScanResult().level,
                 scanDetail.getScanResult().frequency,
+                scanDetail.getScanResult().channelWidth,
                 lastSelectionWeightBetweenZeroAndOne,
                 isMetered,
                 false,
@@ -526,6 +567,7 @@ public class WifiCandidates {
             @WifiNetworkSelector.NetworkNominator.NominatorId int nominatorId,
             int scanRssi,
             int frequency,
+            @WifiAnnotations.ChannelWidth int channelWidth,
             double lastSelectionWeightBetweenZeroAndOne,
             boolean isMetered,
             boolean isCarrierOrPrivileged,
@@ -546,6 +588,7 @@ public class WifiCandidates {
         CandidateImpl candidate = new CandidateImpl(key, config, perBssid, nominatorId,
                 scanRssi,
                 frequency,
+                channelWidth,
                 Math.min(Math.max(lastSelectionWeightBetweenZeroAndOne, 0.0), 1.0),
                 config.networkId == mCurrentNetworkId,
                 key.bssid.equals(mCurrentBssid),

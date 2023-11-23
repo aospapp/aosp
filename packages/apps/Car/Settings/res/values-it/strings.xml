@@ -27,7 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Modalità notturna"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Rete e Internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Rete mobile"</string>
-    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}one{# SIM}other{# SIM}}"</string>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}other{# SIM}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Attivo/SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Non attivo/SIM"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"Attivo/SIM scaricata"</string>
@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Accedi ai dati tramite la rete mobile"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Rete mobile"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Usa dati mobili"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Off"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Disattivare i dati mobili?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Fai una scelta"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Utilizzare <xliff:g id="CARRIER">%1$s</xliff:g> per i dati mobili?"</string>
@@ -52,7 +53,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"Avviso relativo ai dati: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"Limite dati: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"Avviso relativo ai dati: <xliff:g id="ID_1">^1</xliff:g>/Limite dati: <xliff:g id="ID_2">^2</xliff:g>"</string>
-    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Manca # giorno}one{Manca # giorno}other{Mancano # giorni}}"</string>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Manca # giorno}other{Mancano # giorni}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"Tempo scaduto"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"Resta meno di 1 giorno"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"Aggiornamento eseguito da <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> fa"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Ricerca di reti Wi-Fi attiva"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Passa automaticamente ai dati mobili"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Usa dati mobili quando la rete Wi-Fi non ha accesso a Internet. Potrebbero essere applicati costi per l\'utilizzo dei dati."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Cerca e connetti a reti Wi-Fi"</string>
     <string name="learn_more" msgid="8214605928933358604">"Ulteriori informazioni"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Nome hotspot"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Attivazione di <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Gli altri dispositivi possono collegarsi a <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Password hotspot"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Sicurezza"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Nessuno"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Banda AP"</string>
@@ -298,7 +302,7 @@
     <string name="default_applications" msgid="1558183275638697087">"App predefinite"</string>
     <string name="app_permissions" msgid="32799922508313948">"Autorizzazioni app"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"Controlla l\'accesso delle app ai tuoi dati"</string>
-    <string name="applications_settings" msgid="794261395191035632">"Informazioni sull\'app"</string>
+    <string name="applications_settings" msgid="794261395191035632">"Informazioni app"</string>
     <string name="force_stop" msgid="2153183697014720520">"Forza interruzione"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Vuoi forzare l\'interruzione?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Se forzi l\'interruzione di un\'app, questa potrebbe funzionare in modo anomalo."</string>
@@ -320,7 +324,7 @@
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Nessuna autorizzazione concessa"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Nessuna autorizzazione richiesta"</string>
     <string name="unused_apps" msgid="648471933781010395">"App inutilizzate"</string>
-    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# app inutilizzata}one{# app inutilizzata}other{# app inutilizzate}}"</string>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# app inutilizzata}other{# app inutilizzate}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"Rimuovi autorizzazioni e libera spazio"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s nella memoria interna"</string>
     <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"Utilizza le risorse del sistema per dare la priorità alle prestazioni dell\'app"</string>
@@ -338,7 +342,7 @@
     <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"Limita dati"</string>
     <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"Usa dati mobili solo quando l\'app è in primo piano"</string>
     <string name="computing_size" msgid="5791407621793083965">"Elaborazione…"</string>
-    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# autorizzazione aggiuntiva}one{# autorizzazione aggiuntiva}other{# autorizzazioni aggiuntive}}"</string>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# autorizzazione aggiuntiva}other{# autorizzazioni aggiuntive}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"Nota: dopo il riavvio, devi sbloccare il veicolo per poter avviare l\'app."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"Assistenza e input vocale"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"App di assistenza"</string>
@@ -420,7 +424,7 @@
     <string name="microphone_recently_accessed" msgid="2084292372486026607">"Usi recenti"</string>
     <string name="microphone_no_recent_access" msgid="6412908936060990649">"Nessuna app recente"</string>
     <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"Nessuna app ha accesso"</string>
-    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{Ha accesso # su {total_count} app}one{Ha accesso # su {total_count} app}other{Hanno accesso # su {total_count} app}}"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{Ha accesso # su {total_count} app}other{Hanno accesso # su {total_count} app}}"</string>
     <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"Usi recenti"</string>
     <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"Mostra tutto"</string>
     <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"Caricamento in corso…"</string>
@@ -462,7 +466,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Licenze di terze parti"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Errore di caricamento delle licenze."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"Caricamento…"</string>
-    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Ti manca # passaggio per diventare sviluppatore.}one{Ti manca # passaggio per diventare sviluppatore.}other{Ti mancano # passaggi per diventare sviluppatore.}}"</string>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Ti manca # passaggio per diventare sviluppatore.}other{Ti mancano # passaggi per diventare sviluppatore.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"Ora sei sviluppatore."</string>
     <string name="show_dev_already" msgid="1678087328973865736">"Non è necessario, sei già sviluppatore."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"Opzioni sviluppatore"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Le preferenze per le app sono state reimpostate"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Cancella tutti i dati"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Cancella tutti i dati e i profili dal sistema di infotainment"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Verranno cancellati tutti i dati dal sistema di infotainment del veicolo, inclusi:\n\n"<li>"Il tuo Account Google"</li>\n<li>"Le impostazioni e i dati di sistema e delle app"</li>\n<li>"Le app scaricate"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Verranno cancellati tutti i dati dal sistema di infotainment del veicolo, inclusi:\n\n"<li>"I tuoi account e profili"</li>\n<li>"Le impostazioni e i dati di sistema e delle app"</li>\n<li>"Le app scaricate"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Hai eseguito l\'accesso ai seguenti account:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Per questo veicolo sono già stati configurati altri profili."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Cancella tutti i dati"</string>
@@ -502,7 +506,7 @@
     <string name="date_time_auto" msgid="6018635902717385962">"Imposta automatic. data e ora"</string>
     <string name="zone_auto" msgid="4174874778459184605">"Imposta automatic. fuso orario"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"Formato 24 ore"</string>
-    <string name="date_time_24hour" msgid="1137618702556486913">"Usa formato 24 ore"</string>
+    <string name="date_time_24hour" msgid="1137618702556486913">"Usa il formato 24 ore"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Ora"</string>
     <string name="date_time_set_time" msgid="6449555153906058248">"Imposta ora"</string>
     <string name="date_time_set_timezone_title" msgid="3001779256157093425">"Fuso orario"</string>
@@ -531,7 +535,7 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"I nuovi profili dovrebbero essere personalizzati dalle persone per cui sono stati creati."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"Qualsiasi profilo può aggiornare le app che verranno usate da tutti gli altri profili."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"Limite di profili raggiunto"</string>
-    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{È possibile creare un solo profilo.}one{È possibile creare al massimo # profilo.}other{È possibile creare al massimo # profili.}}"</string>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{È possibile creare un solo profilo.}other{È possibile creare al massimo # profili.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"Impossibile creare un nuovo profilo"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"Vuoi eliminare questo profilo?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"Verranno eliminati tutti i dati e le app di questo profilo"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Scegli il nuovo amministratore"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Devi avere almeno un amministratore. Per eliminare questo devi prima sceglierne uno sostitutivo."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Scegli l\'amministratore"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Ospite"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Ospite"</string>
     <string name="user_switch" msgid="6544839750534690781">"Cambia"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Tu (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Nome"</string>
@@ -569,7 +571,7 @@
     <string name="storage_data_size_label" msgid="7986110464268960652">"Dati del profilo"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"Cache"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"Totale"</string>
-    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Cancella spazio di archiviazione"</string>
+    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Cancella dati archiviati"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"Svuota cache"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"Eliminare i dati dell\'app?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"Tutti i dati dell\'app verranno eliminati definitivamente, inclusi tutti i file, le impostazioni, gli account, i database e così via."</string>
@@ -581,10 +583,10 @@
     <string name="no_accounts_added" msgid="5148163140691096055">"Nessun account aggiunto"</string>
     <string name="account_list_title" msgid="7631588514613843065">"Account per <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sincronizza dati automaticamente"</string>
-    <string name="account_auto_sync_summary" msgid="6963837893148304128">"Consenti aggiornamento automatico dei dati delle app"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Attivare sincron. automatica?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Tutte le modifiche che apporti ai tuoi account sul Web verranno automaticamente copiate sul dispositivo.\n\nAlcuni account potrebbero inoltre copiare automaticamente sul Web tutte le modifiche che apporti sul telefono. Gli Account Google funzionano in questo modo."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Disattivare sincron. automatica?"</string>
+    <string name="account_auto_sync_summary" msgid="6963837893148304128">"Consenti l\'aggiornamento automatico dei dati delle app"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Consentire sincronizzazione automatica dei dati?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Tutte le modifiche che apporti ai tuoi account sul Web verranno automaticamente copiate sul veicolo.\n\nAlcuni account potrebbero inoltre copiare automaticamente sul Web tutte le modifiche che apporti sul veicolo."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Vietare la sincronizzazione automatica dei dati?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"I dati verranno conservati, ma dovrai sincronizzare manualmente ogni account per raccogliere le informazioni recenti. Inoltre non riceverai notifiche quando verranno eseguiti aggiornamenti."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Dati dell\'account"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Aggiungi account"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privacy"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Dati del sistema di infotainment"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Controlla l\'accesso delle app alla tua posizione"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Fotocamera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Controlla l\'accesso delle app alle tue fotocamere"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Microfono"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Controlla l\'accesso delle app al microfono"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Dati sistema di infotainment"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Annulla"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Conferma"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Deve contenere almeno 4 caratteri"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Deve contenere almeno <xliff:g id="COUNT">%d</xliff:g> caratteri"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"Il PIN deve contenere almeno <xliff:g id="COUNT">%d</xliff:g> cifre"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Deve contenere meno di <xliff:g id="NUMBER">%d</xliff:g> caratteri"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Deve contenere meno di <xliff:g id="NUMBER">%d</xliff:g> cifre"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Deve contenere solo cifre da 0 a 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"L\'amministratore del dispositivo non consente l\'utilizzo di un PIN recente"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"I PIN comuni sono stati bloccati dall\'amministratore IT. Prova a usare un altro PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"L\'amministratore del dispositivo non consente l\'utilizzo di una password recente"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Errore di salvataggio della password"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Le password comuni sono state bloccate dall\'amministratore IT. Prova a usare un\'altra password."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Non sono consentite sequenze di cifre in ordine crescente o decrescente oppure ripetute."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Deve contenere almeno una lettera"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Deve contenere almeno una cifra"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Deve contenere almeno un simbolo"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Deve contenere almeno # lettera}other{Deve contenere almeno # lettere}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Deve contenere almeno # lettera minuscola}other{Deve contenere almeno # lettere minuscole}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Deve contenere almeno # lettera maiuscola}other{Deve contenere almeno # lettere maiuscole}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Deve contenere almeno # cifra numerica}other{Deve contenere almeno # cifre numeriche}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Deve contenere almeno # simbolo speciale}other{Deve contenere almeno # simboli speciali}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Deve contenere almeno # carattere non costituito da una lettera}other{Deve contenere almeno # caratteri non costituiti da una lettera}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Deve contenere almeno # carattere non numerico}other{Deve contenere almeno # caratteri non numerici}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Deve contenere almeno # carattere}other{Deve contenere almeno # caratteri}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Deve contenere almeno # cifra}other{Deve contenere almeno # cifre}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Deve contenere meno di # carattere}other{Deve contenere meno di # caratteri}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Deve contenere meno di # cifra}other{Deve contenere meno di # cifre}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Non sono consentite sequenze di cifre in ordine crescente o decrescente oppure ripetute"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opzioni di blocco schermo"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g> giorni fa"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Cancella credenziali"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Rimuovi"</string>
     <string name="cancel" msgid="750286395700355455">"Annulla"</string>
     <string name="allow" msgid="7519431342750394402">"Consenti"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Non consentire"</string>
     <string name="deny" msgid="340512788979930804">"Rifiuta"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Tasto Backspace"</string>
     <string name="enter_key" msgid="2121394305541579468">"Inserisci il codice"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Attiva questa app di sistema di infotainment"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Disattiva e disinstalla"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Disattiva quest\'app di sistema di infotainment"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Altri dettagli"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Il gestore dell\'organizzazione può monitorare e gestire le app e i dati associati a questo profilo, inclusi accesso aziendale, impostazioni, autorizzazioni, attività di rete e informazioni sulla posizione del veicolo."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Il gestore dell\'organizzazione può monitorare e gestire le app e i dati associati a questo profilo, inclusi accesso aziendale, impostazioni, autorizzazioni, attività di rete e informazioni sulla posizione del dispositivo."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Il gestore dell\'organizzazione può monitorare e gestire le app e i dati associati a questo sistema di infotainment, inclusi accesso aziendale, impostazioni, autorizzazioni, attività di rete e informazioni sulla posizione del veicolo."</string>
@@ -752,17 +766,72 @@
     <string name="default_admin_support_msg" msgid="2986598061733013282">"L\'accesso ad alcune funzionalità è stato limitato dall\'organizzazione.\n\nPer eventuali domande, contatta il responsabile dell\'organizzazione."</string>
     <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
     <string name="manage_device_admin" msgid="7087659697154317316">"App per amministratori veicolo"</string>
-    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# app attivata}one{# app attivate}other{# app attivate}}"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# app attivata}other{# app attivate}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"Nessuna app attivata"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Norme relative ai veicoli <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Impostazioni gestite dal gestore dell\'organizzazione"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Scopri di più su <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informazioni veicolo gestito"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Impostazioni gestite dall\'amministratore del parco risorse"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Per fornire l\'accesso ai dati su questo veicolo gestito, l\'amministratore del parco risorse può modificare impostazioni e installare software sul sistema di infotainment.\n\nContatta l\'amministratore del parco risorse per ulteriori dettagli in proposito."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informazioni visibili dall\'amministratore del parco risorse"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Modifiche apportate dall\'amministratore del parco risorse"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Dati associati all\'account del veicolo gestito"</li>\n" "<li>"Elenco di app sul veicolo gestito"</li>\n" "<li>"Dati utilizzati e tempo trascorso in ogni app"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Il tuo accesso al sistema di infotainment"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Elenco di app sul veicolo"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Il numero delle app è una stima e potrebbe non includere le app scaricate e installate da uno store diverso dal Play Store."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Almeno <xliff:g id="COUNT_1">%d</xliff:g> app</item>
+      <item quantity="one">Almeno <xliff:g id="COUNT_0">%d</xliff:g> app</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> app</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> app</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Log del traffico di rete più recente"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Segnalazione di bug più recente"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Log di sicurezza più recente"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Nessuna"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"App installate"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Autorizzazioni di accesso alla posizione"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Autorizzazioni microfono"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Autorizzazioni fotocamera"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"App predefinite"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Tastiera predefinita"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Metodo impostato: <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Proxy HTTP globale impostato"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Credenziali attendibili nel profilo personale"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"L\'amministratore può bloccare il sistema di infotainment e reimpostare la password"</li>\n" "<li>"L\'amministratore può eliminare i dati sul sistema di infotainment"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Tentativi di inserimento della password non riusciti prima dell\'eliminazione di tutti i dati sul sistema di infotainment"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Tentativi di inserimento della password non riusciti prima dell\'eliminazione dei dati del profilo"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tentativi</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> tentativo</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">App fotocamera</item>
+      <item quantity="one">App fotocamera</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">App client di posta</item>
+      <item quantity="one">App client di posta</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">App telefono</item>
+      <item quantity="one">App telefono</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Condividere la segnalazione di bug?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Il gestore dell\'organizzazione del veicolo ha richiesto una segnalazione di bug per contribuire a risolvere i problemi di questo dispositivo. Potrebbero essere condivisi dati e app."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Il gestore dell\'organizzazione del veicolo ha richiesto una segnalazione di bug per contribuire a risolvere i problemi di questo dispositivo. Potrebbero essere condivisi dati e app e il dispositivo potrebbe rallentare temporaneamente."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"La segnalazione di bug sta per essere condivisa con il gestore dell\'organizzazione del veicolo. Contatta il gestore per maggiori dettagli."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Condividi"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Rifiuta"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Ripristina il sistema di infotainment"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Il sistema ha ricevuto una richiesta di ripristino dei dati di fabbrica e di cancellazione di tutti i dati. Puoi effettuare ora il ripristino oppure alla successiva accensione del motore. Dopodiché potrai configurare un nuovo profilo."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Ripristina ora"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Ripristina più tardi"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Il sistema di infotainment verrà ripristinato alla successiva accensione del motore."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Parcheggia per avviare il ripristino."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Al momento non è possibile modificare questa impostazione"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Accessibilità"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Sottotitoli"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Nero su bianco"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Giallo su nero"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Giallo su blu"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Screen reader"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Off"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Leggi gli elementi sullo schermo"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Utilizza <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Opzioni"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Impostazioni"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Fotocamera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Utilizza fotocamera"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Consenti a tutte le app di accedere alla fotocamera"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Gestisci le autorizzazioni di accesso alla fotocamera"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Usi recenti"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Nessuna app recente"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Nessuna app ha accesso"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{Ha accesso # app su {total_count}}other{Hanno accesso # app su {total_count}}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Usi recenti"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Mostra tutto"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Caricamento in corso…"</string>
 </resources>

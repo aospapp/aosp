@@ -54,6 +54,7 @@ java_defaults {
         "apache-commons-compress",
         "com.google.android.material_material",
         "guava",
+        "modules-utils-build_system",
     ],
 
     libs: [
@@ -136,6 +137,7 @@ android_library {
     static_libs: [
         "androidx.appcompat_appcompat",
         "com.google.android.material_material",
+        "modules-utils-build_system",
     ],
 
     resource_dirs: [

@@ -570,21 +570,17 @@ public class WebViewBrowserActivity extends Activity implements PopupMenu.OnMenu
     // but we still use it because we support api level 19 and up.
     @SuppressWarnings("deprecation")
     private void initializeSettings(WebSettings settings) {
-        File appcache = null;
         File geolocation = null;
 
         StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
-        appcache = getDir("appcache", 0);
         geolocation = getDir("geolocation", 0);
         StrictMode.setThreadPolicy(oldPolicy);
 
         settings.setJavaScriptEnabled(true);
 
         // configure local storage apis and their database paths.
-        settings.setAppCachePath(appcache.getPath());
         settings.setGeolocationDatabasePath(geolocation.getPath());
 
-        settings.setAppCacheEnabled(true);
         settings.setGeolocationEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setDomStorageEnabled(true);

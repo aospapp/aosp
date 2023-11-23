@@ -27,6 +27,9 @@ import java.net.Inet6Address;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -50,12 +53,14 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
     private final Inet6Address mIpv6Addr;
     private final int mPort;
     private final int mTransportProtocol;
+    private final List<WifiAwareChannelInfo> mChannelInfos;
 
     /** @hide */
     public WifiAwareNetworkInfo() {
         mIpv6Addr = null;
         mPort = 0; // a value of 0 is considered invalid
         mTransportProtocol = -1;  // a value of -1 is considered invalid
+        mChannelInfos = Collections.emptyList();
     }
 
     /** @hide */
@@ -63,19 +68,23 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
         mIpv6Addr = ipv6Addr;
         mPort = 0; // a value of 0 is considered invalid
         mTransportProtocol = -1;  // a value of -1 is considered invalid
+        mChannelInfos = Collections.emptyList();
     }
 
     /** @hide */
-    public WifiAwareNetworkInfo(Inet6Address ipv6Addr, int port, int transportProtocol) {
+    public WifiAwareNetworkInfo(Inet6Address ipv6Addr, int port, int transportProtocol,
+            List<WifiAwareChannelInfo> channelInfos) {
         mIpv6Addr = ipv6Addr;
         mPort = port;
         mTransportProtocol = transportProtocol;
+        mChannelInfos = channelInfos;
     }
 
     private WifiAwareNetworkInfo(@Nullable WifiAwareNetworkInfo source) {
         mIpv6Addr = source != null ? source.mIpv6Addr : null;
         mPort = source != null ? source.mPort : 0;
         mTransportProtocol = source != null ? source.mTransportProtocol : -1;
+        mChannelInfos = source != null ? source.mChannelInfos : Collections.emptyList();
     }
 
     /**
@@ -116,6 +125,16 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
         return mTransportProtocol;
     }
 
+    /**
+     * Get a list {@link WifiAwareChannelInfo} which is used by this Aware data-path
+     *
+     * @return A list of {@link WifiAwareChannelInfo}
+     */
+    @NonNull
+    public List<WifiAwareChannelInfo> getChannelInfoList() {
+        return mChannelInfos;
+    }
+
     // parcelable methods
 
     @Override
@@ -130,6 +149,7 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
         dest.writeString(ni == null ? null : ni.getName());
         dest.writeInt(mPort);
         dest.writeInt(mTransportProtocol);
+        dest.writeTypedList(mChannelInfos);
     }
 
     public static final @NonNull Creator<WifiAwareNetworkInfo> CREATOR =
@@ -141,6 +161,8 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
                     int port = in.readInt();
                     int transportProtocol = in.readInt();
                     Inet6Address ipv6Addr;
+                    List<WifiAwareChannelInfo> channelInfos = new ArrayList<>();
+                    in.readTypedList(channelInfos, WifiAwareChannelInfo.CREATOR);
                     try {
                         NetworkInterface ni = null;
                         if (interfaceName != null) {
@@ -155,7 +177,8 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
                         e.printStackTrace();
                         return new WifiAwareNetworkInfo();
                     }
-                    return new WifiAwareNetworkInfo(ipv6Addr, port, transportProtocol);
+                    return new WifiAwareNetworkInfo(ipv6Addr, port, transportProtocol,
+                            channelInfos);
                 }
 
                 @Override
@@ -169,9 +192,11 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
 
     @Override
     public String toString() {
-        return new StringBuilder("AwareNetworkInfo: IPv6=").append(mIpv6Addr).append(
-                ", port=").append(mPort).append(", transportProtocol=").append(
-                mTransportProtocol).toString();
+        return new StringBuilder("AwareNetworkInfo: IPv6=").append(mIpv6Addr)
+                .append(", port=").append(mPort)
+                .append(", transportProtocol=").append(mTransportProtocol)
+                .append(", channelInfos=").append(mChannelInfos)
+                .toString();
     }
 
     /** @hide */
@@ -187,12 +212,13 @@ public final class WifiAwareNetworkInfo implements TransportInfo, Parcelable {
 
         WifiAwareNetworkInfo lhs = (WifiAwareNetworkInfo) obj;
         return Objects.equals(mIpv6Addr, lhs.mIpv6Addr) && mPort == lhs.mPort
-                && mTransportProtocol == lhs.mTransportProtocol;
+                && mTransportProtocol == lhs.mTransportProtocol
+                && mChannelInfos.equals(lhs.mChannelInfos);
     }
 
     /** @hide */
     @Override
     public int hashCode() {
-        return Objects.hash(mIpv6Addr, mPort, mTransportProtocol);
+        return Objects.hash(mIpv6Addr, mPort, mTransportProtocol, mChannelInfos);
     }
 }

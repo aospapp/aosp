@@ -49,8 +49,9 @@ import com.google.android.car.kitchensink.alertdialog.AlertDialogTestFragment;
 import com.google.android.car.kitchensink.assistant.CarAssistantFragment;
 import com.google.android.car.kitchensink.audio.AudioTestFragment;
 import com.google.android.car.kitchensink.audio.CarAudioInputTestFragment;
-import com.google.android.car.kitchensink.bluetooth.BluetoothDeviceFragment;
+import com.google.android.car.kitchensink.backup.BackupAndRestoreFragment;
 import com.google.android.car.kitchensink.bluetooth.BluetoothHeadsetFragment;
+import com.google.android.car.kitchensink.bluetooth.BluetoothUuidFragment;
 import com.google.android.car.kitchensink.bluetooth.MapMceTestFragment;
 import com.google.android.car.kitchensink.carboard.KeyboardTestFragment;
 import com.google.android.car.kitchensink.cluster.InstrumentClusterFragment;
@@ -80,11 +81,12 @@ import com.google.android.car.kitchensink.users.ProfileUserFragment;
 import com.google.android.car.kitchensink.users.UserFragment;
 import com.google.android.car.kitchensink.users.UserRestrictionsFragment;
 import com.google.android.car.kitchensink.vehiclectrl.VehicleCtrlFragment;
-import com.google.android.car.kitchensink.vhal.VehicleHalFragment;
 import com.google.android.car.kitchensink.volume.VolumeTestFragment;
 import com.google.android.car.kitchensink.watchdog.CarWatchdogTestFragment;
 import com.google.android.car.kitchensink.weblinks.WebLinksTestFragment;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -180,9 +182,10 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("assistant", CarAssistantFragment.class),
             new FragmentMenuEntry("audio", AudioTestFragment.class),
             new FragmentMenuEntry("Audio Input", CarAudioInputTestFragment.class),
-            new FragmentMenuEntry("BT device", BluetoothDeviceFragment.class),
+            new FragmentMenuEntry("B&R", BackupAndRestoreFragment.class),
             new FragmentMenuEntry("BT headset", BluetoothHeadsetFragment.class),
             new FragmentMenuEntry("BT messaging", MapMceTestFragment.class),
+            new FragmentMenuEntry("BT Uuids", BluetoothUuidFragment.class),
             new FragmentMenuEntry("carapi", CarApiTestFragment.class),
             new FragmentMenuEntry("carboard", KeyboardTestFragment.class),
             new FragmentMenuEntry("connectivity", ConnectivityFragment.class),
@@ -193,8 +196,6 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("experimental feature", ExperimentalFeatureTestFragment.class),
             new FragmentMenuEntry("hvac", HvacTestFragment.class),
             new FragmentMenuEntry("inst cluster", InstrumentClusterFragment.class),
-            // TODO (b/141774865) Enable after b/141635607 is fixed
-            // new FragmentMenuEntry("input test", InputTestFragment.class),
             new FragmentMenuEntry("notification", NotificationFragment.class),
             new FragmentMenuEntry("orientation test", OrientationTestFragment.class),
             new FragmentMenuEntry("package info", PackageInfoFragment.class),
@@ -214,7 +215,6 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("users", UserFragment.class),
             new FragmentMenuEntry("user restrictions", UserRestrictionsFragment.class),
             new FragmentMenuEntry("vehicle ctrl", VehicleCtrlFragment.class),
-            new FragmentMenuEntry("vehicle hal", VehicleHalFragment.class),
             new FragmentMenuEntry("volume test", VolumeTestFragment.class),
             new FragmentMenuEntry("watchdog", CarWatchdogTestFragment.class),
             new FragmentMenuEntry("web links", WebLinksTestFragment.class),
@@ -399,6 +399,17 @@ public class KitchenSinkActivity extends FragmentActivity {
         }
         Log.i(TAG, "onDestroy");
         super.onDestroy();
+    }
+
+    @Override
+    public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
+        if (args != null && args.length > 0 && args[0].equals("cmd")) {
+            String[] cmdArgs = new String[args.length - 1];
+            System.arraycopy(args, 1, cmdArgs, 0, args.length - 1);
+            new KitchenSinkShellCommand(this, writer, cmdArgs).run();
+            return;
+        }
+        super.dump(prefix, fd, writer, args);
     }
 
     private void showFragment(Fragment fragment) {

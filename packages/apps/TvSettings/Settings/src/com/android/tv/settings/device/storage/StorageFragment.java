@@ -36,7 +36,7 @@ import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppsFragment;
 
-import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 
@@ -232,23 +232,18 @@ public class StorageFragment extends SettingsPreferenceFragment {
         final long downloadsSize = totalValues(details.mediaSize.get(currentUser),
                 Environment.DIRECTORY_DOWNLOADS);
 
-        mAvailablePref.setSize(Math.max(0L, details.availSize - cachePartitionSize()));
+        try {
+            mAvailablePref.setSize(mStorageManager.getAllocatableBytes(
+                    StorageManager.convert(mVolumeInfo.fsUuid)));
+        } catch (IOException e) {
+            mAvailablePref.setSize(details.availSize);
+        }
         mAppsUsagePref.setSize(details.appsSize.get(currentUser));
         mDcimUsagePref.setSize(dcimSize);
         mMusicUsagePref.setSize(musicSize);
         mDownloadsUsagePref.setSize(downloadsSize);
         mCacheUsagePref.setSize(details.cacheSize);
         mMiscUsagePref.setSize(details.miscSize.get(currentUser));
-    }
-
-    private static long cachePartitionSize() {
-        File cache = new File("/cache");
-        try {
-            return cache.getUsableSpace();
-        } catch (SecurityException e) {
-            Log.w(TAG, "Cannot determine cache partition size.", e);
-            return 0;
-        }
     }
 
     private static long totalValues(HashMap<String, Long> map, String... keys) {

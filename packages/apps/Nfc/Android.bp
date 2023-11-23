@@ -21,7 +21,10 @@ android_app {
     platform_apis: true,
     certificate: "platform",
     jni_libs: ["libnfc_nci_jni"],
-    static_libs: ["androidx.appcompat_appcompat"],
+    static_libs: [
+        "androidx.appcompat_appcompat",
+        "com.google.android.material_material",
+    ],
     optimize: {
         enabled: false,
     },

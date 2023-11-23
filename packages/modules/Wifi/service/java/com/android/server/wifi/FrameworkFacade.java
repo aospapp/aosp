@@ -28,6 +28,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
@@ -46,8 +47,6 @@ import android.telephony.CarrierConfigManager;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.android.server.wifi.util.WifiAsyncChannel;
-
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -60,6 +59,13 @@ public class FrameworkFacade {
     private ContentResolver mContentResolver = null;
     private CarrierConfigManager mCarrierConfigManager = null;
     private ActivityManager mActivityManager = null;
+
+    // verbose logging controlled by user
+    private static final int VERBOSE_LOGGING_ALWAYS_ON_LEVEL_NONE = 0;
+    // verbose logging on by default for userdebug
+    private static final int VERBOSE_LOGGING_ALWAYS_ON_LEVEL_USERDEBUG = 1;
+    // verbose logging on by default for all builds -->
+    private static final int VERBOSE_LOGGING_ALWAYS_ON_LEVEL_ALL = 2;
 
     private ContentResolver getContentResolver(Context context) {
         if (mContentResolver == null) {
@@ -177,10 +183,11 @@ public class FrameworkFacade {
     }
 
     /**
-     * Wrapper for {@link PendingIntent#getActivity}.
+     * Wrapper for {@link PendingIntent#getActivity} using the current foreground user.
      */
     public PendingIntent getActivity(Context context, int requestCode, Intent intent, int flags) {
-        return PendingIntent.getActivity(context, requestCode, intent, flags);
+        return PendingIntent.getActivity(context.createContextAsUser(UserHandle.CURRENT, 0),
+                requestCode, intent, flags);
     }
 
     public boolean getConfigWiFiDisableInECBM(Context context) {
@@ -211,15 +218,6 @@ public class FrameworkFacade {
      */
     public void makeIpClient(Context context, String iface, IpClientCallbacks callback) {
         IpClientUtil.makeIpClient(context, iface, callback);
-    }
-
-    /**
-     * Create a new instance of WifiAsyncChannel
-     * @param tag String corresponding to the service creating the channel
-     * @return WifiAsyncChannel object created
-     */
-    public WifiAsyncChannel makeWifiAsyncChannel(String tag) {
-        return new WifiAsyncChannel(tag);
     }
 
     /**
@@ -266,6 +264,8 @@ public class FrameworkFacade {
      * Create a new instance of {@link AlertDialog.Builder}.
      * @param context reference to a Context
      * @return an instance of AlertDialog.Builder
+     * @deprecated Use {@link WifiDialogManager#createSimpleDialog} instead, or create another
+     *             dialog type in WifiDialogManager.
      */
     public AlertDialog.Builder makeAlertDialogBuilder(Context context) {
         boolean isDarkTheme = (context.getResources().getConfiguration().uiMode
@@ -354,5 +354,86 @@ public class FrameworkFacade {
      */
     public String getWifiKeyGrantAsUser(Context context, UserHandle user, String alias) {
         return KeyChain.getWifiKeyGrantAsUser(context, user, alias);
+    }
+
+    /**
+     * Check if the request comes from foreground app/service.
+     * @param context Application context
+     * @param requestorPackageName requestor package name
+     * @return true if the requestor is foreground app/service.
+     */
+    public boolean isRequestFromForegroundAppOrService(Context context,
+            @NonNull String requestorPackageName) {
+        ActivityManager activityManager = getActivityManager(context);
+        if (activityManager == null) return false;
+        try {
+            return activityManager.getPackageImportance(requestorPackageName)
+                    <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
+        } catch (SecurityException e) {
+            Log.e(TAG, "Failed to check the app state", e);
+            return false;
+        }
+    }
+
+    /**
+     * Check if the request comes from foreground app.
+     * @param context Application context
+     * @param requestorPackageName requestor package name
+     * @return true if requestor is foreground app.
+     */
+    public boolean isRequestFromForegroundApp(Context context,
+            @NonNull String requestorPackageName) {
+        ActivityManager activityManager = getActivityManager(context);
+        if (activityManager == null) return false;
+        try {
+            return activityManager.getPackageImportance(requestorPackageName)
+                    <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+        } catch (SecurityException e) {
+            Log.e(TAG, "Failed to check the app state", e);
+            return false;
+        }
+    }
+
+    /**
+     * Check if the verbose always on is enabled
+     * @param alwaysOnLevel verbose logging always on level
+     * @param buildProperties build property of current build
+     * @return true if verbose always on is enabled on current build
+     */
+    public boolean isVerboseLoggingAlwaysOn(int alwaysOnLevel,
+            @NonNull BuildProperties buildProperties) {
+        switch (alwaysOnLevel) {
+            // If the overlay setting enabled for all builds
+            case VERBOSE_LOGGING_ALWAYS_ON_LEVEL_ALL:
+                return true;
+            //If the overlay setting enabled for userdebug builds only
+            case VERBOSE_LOGGING_ALWAYS_ON_LEVEL_USERDEBUG:
+                // If it is a userdebug build
+                if (buildProperties.isUserdebugBuild()) return true;
+                break;
+            case VERBOSE_LOGGING_ALWAYS_ON_LEVEL_NONE:
+                // nothing
+                break;
+            default:
+                Log.e(TAG, "Unrecognized config_wifiVerboseLoggingAlwaysOnLevel " + alwaysOnLevel);
+                break;
+        }
+        return false;
+    }
+
+    /**
+     * Return the (displayable) application name corresponding to the (uid, packageName).
+     */
+    public @NonNull CharSequence getAppName(Context context, @NonNull String packageName, int uid) {
+        ApplicationInfo applicationInfo = null;
+        try {
+            applicationInfo = context.getPackageManager().getApplicationInfoAsUser(
+                    packageName, 0, UserHandle.getUserHandleForUid(uid));
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Failed to find app name for " + packageName);
+            return "";
+        }
+        CharSequence appName = context.getPackageManager().getApplicationLabel(applicationInfo);
+        return (appName != null) ? appName : "";
     }
 }

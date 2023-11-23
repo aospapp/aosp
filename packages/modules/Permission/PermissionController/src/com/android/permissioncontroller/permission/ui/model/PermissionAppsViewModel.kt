@@ -17,12 +17,16 @@
 package com.android.permissioncontroller.permission.ui.model
 
 import android.Manifest
+import android.Manifest.permission_group.LOCATION
 import android.app.Application
 import android.content.Intent
 import android.content.res.Resources
+import android.hardware.SensorPrivacyManager
+import android.os.Build
 import android.os.Bundle
 import android.os.UserHandle
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.MediatorLiveData
@@ -31,6 +35,7 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import androidx.savedstate.SavedStateRegistryOwner
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.PermissionControllerStatsLog
 import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED
 import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__UNDEFINED
@@ -41,10 +46,12 @@ import com.android.permissioncontroller.permission.data.AllPackageInfosLiveData
 import com.android.permissioncontroller.permission.data.FullStoragePermissionAppsLiveData
 import com.android.permissioncontroller.permission.data.FullStoragePermissionAppsLiveData.FullStoragePackageState
 import com.android.permissioncontroller.permission.data.SinglePermGroupPackagesUiInfoLiveData
-import com.android.permissioncontroller.permission.model.AppPermissionUsage
+import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage
+import com.android.permissioncontroller.permission.data.SmartUpdateMediatorLiveData
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo.PermGrantState
 import com.android.permissioncontroller.permission.ui.Category
 import com.android.permissioncontroller.permission.ui.LocationProviderInterceptDialog
+import com.android.permissioncontroller.permission.ui.handheld.v31.is7DayToggleEnabled
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.CREATION_LOGGED_KEY
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.HAS_SYSTEM_APPS_KEY
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.SHOULD_SHOW_SYSTEM_KEY
@@ -74,7 +81,8 @@ class PermissionAppsViewModel(
 ) : ViewModel() {
 
     companion object {
-        const val AGGREGATE_DATA_FILTER_BEGIN_DAYS = 1
+        const val AGGREGATE_DATA_FILTER_BEGIN_DAYS_1 = 1
+        const val AGGREGATE_DATA_FILTER_BEGIN_DAYS_7 = 7
         internal const val SHOULD_SHOW_SYSTEM_KEY = "showSystem"
         internal const val HAS_SYSTEM_APPS_KEY = "hasSystem"
         internal const val SHOW_ALWAYS_ALLOWED = "showAlways"
@@ -86,6 +94,12 @@ class PermissionAppsViewModel(
     val showAllowAlwaysStringLiveData = state.getLiveData(SHOW_ALWAYS_ALLOWED, false)
     val categorizedAppsLiveData = CategorizedAppsLiveData(groupName)
 
+    @get:RequiresApi(Build.VERSION_CODES.S)
+    val sensorStatusLiveData: SensorStatusLiveData by lazy(LazyThreadSafetyMode.NONE)
+    @RequiresApi(Build.VERSION_CODES.S) {
+        SensorStatusLiveData()
+    }
+
     fun updateShowSystem(showSystem: Boolean) {
         if (showSystem != state.get(SHOULD_SHOW_SYSTEM_KEY)) {
             state.set(SHOULD_SHOW_SYSTEM_KEY, showSystem)
@@ -95,6 +109,65 @@ class PermissionAppsViewModel(
     var creationLogged
         get() = state.get(CREATION_LOGGED_KEY) ?: false
         set(value) = state.set(CREATION_LOGGED_KEY, value)
+
+    /**
+     * A LiveData that tracks the status (blocked or available) of a sensor
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    inner class SensorStatusLiveData() : SmartUpdateMediatorLiveData<Boolean>() {
+        val sensorPrivacyManager = app.getSystemService(SensorPrivacyManager::class.java)!!
+        val sensor = Utils.getSensorCode(groupName)
+        val isLocation = LOCATION.equals(groupName)
+
+        init {
+            checkAndUpdateStatus()
+        }
+
+        fun checkAndUpdateStatus() {
+            var blocked: Boolean
+
+            if (isLocation) {
+                blocked = !LocationUtils.isLocationEnabled(app.getApplicationContext())
+            } else {
+                blocked = sensorPrivacyManager.isSensorPrivacyEnabled(sensor)
+            }
+
+            if (blocked) {
+                value = blocked
+            }
+        }
+
+        override fun onActive() {
+            super.onActive()
+            checkAndUpdateStatus()
+            if (isLocation) {
+                LocationUtils.addLocationListener(locListener)
+            } else {
+                sensorPrivacyManager.addSensorPrivacyListener(sensor, listener)
+            }
+        }
+
+        override fun onInactive() {
+            super.onInactive()
+            if (isLocation) {
+                LocationUtils.removeLocationListener(locListener)
+            } else {
+                sensorPrivacyManager.removeSensorPrivacyListener(sensor, listener)
+            }
+        }
+
+        private val listener = { sensor: Int, status: Boolean ->
+            value = status
+        }
+
+        private val locListener = { status: Boolean ->
+            value = !status
+        }
+
+        override fun onUpdate() {
+            // Do nothing
+        }
+    }
 
     inner class CategorizedAppsLiveData(groupName: String)
         : MediatorLiveData<@kotlin.jvm.JvmSuppressWildcards
@@ -180,7 +253,7 @@ class PermissionAppsViewModel(
                     PermGrantState.PERMS_ASK -> Category.ASK
                 }
 
-                if (groupName == Manifest.permission_group.STORAGE &&
+                if (!SdkLevel.isAtLeastT() && groupName == Manifest.permission_group.STORAGE &&
                     packagesWithFullFileAccess.any { !it.isLegacy && it.isGranted &&
                         it.packageName to it.user == packageUserPair }) {
                     category = Category.ALLOWED
@@ -258,8 +331,11 @@ class PermissionAppsViewModel(
     }
 
     fun getFilterTimeBeginMillis(): Long {
+        val aggregateDataFilterBeginDays = if (is7DayToggleEnabled())
+            AGGREGATE_DATA_FILTER_BEGIN_DAYS_7 else AGGREGATE_DATA_FILTER_BEGIN_DAYS_1
+
         return max(System.currentTimeMillis() -
-                TimeUnit.DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS.toLong()),
+                TimeUnit.DAYS.toMillis(aggregateDataFilterBeginDays.toLong()),
                 Instant.EPOCH.toEpochMilli())
     }
 
@@ -270,9 +346,15 @@ class PermissionAppsViewModel(
     fun extractGroupUsageLastAccessTime(appPermissionUsages: List<AppPermissionUsage>):
             MutableMap<String, Long> {
         val accessTime: MutableMap<String, Long> = HashMap()
+        if (!SdkLevel.isAtLeastS()) {
+            return accessTime
+        }
+
+        val aggregateDataFilterBeginDays = if (is7DayToggleEnabled())
+            AGGREGATE_DATA_FILTER_BEGIN_DAYS_7 else AGGREGATE_DATA_FILTER_BEGIN_DAYS_1
         val now = System.currentTimeMillis()
         val filterTimeBeginMillis = max(
-                now - TimeUnit.DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS.toLong()),
+                now - TimeUnit.DAYS.toMillis(aggregateDataFilterBeginDays.toLong()),
                 Instant.EPOCH.toEpochMilli())
         val numApps: Int = appPermissionUsages.size
         for (appIndex in 0 until numApps) {
@@ -300,14 +382,19 @@ class PermissionAppsViewModel(
     /**
      * Return the String preference summary based on the last access time.
      */
-    fun getPreferenceSummary(res: Resources, summaryTimestamp: Pair<String, Int>): String {
+    fun getPreferenceSummary(res: Resources, summaryTimestamp: Triple<String, Int, String>):
+            String {
         return when (summaryTimestamp.second) {
             Utils.LAST_24H_CONTENT_PROVIDER -> res.getString(
-                    R.string.app_perms_content_provider)
+                    R.string.app_perms_content_provider_24h)
+            Utils.LAST_7D_CONTENT_PROVIDER -> res.getString(
+                    R.string.app_perms_content_provider_7d)
             Utils.LAST_24H_SENSOR_TODAY -> res.getString(R.string.app_perms_24h_access,
                     summaryTimestamp.first)
             Utils.LAST_24H_SENSOR_YESTERDAY -> res.getString(R.string.app_perms_24h_access_yest,
                     summaryTimestamp.first)
+            Utils.LAST_7D_SENSOR -> res.getString(R.string.app_perms_7d_access,
+                    summaryTimestamp.third, summaryTimestamp.first)
             else -> ""
         }
     }

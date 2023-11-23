@@ -21,9 +21,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.EthernetManager;
+import android.net.EthernetManager.InterfaceStateListener;
+import android.net.IpConfiguration;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
@@ -31,10 +32,12 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -44,6 +47,7 @@ import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.core.lifecycle.events.OnStart;
 import com.android.settingslib.core.lifecycle.events.OnStop;
+import com.android.settingslib.utils.ThreadUtils;
 import com.android.settingslib.wifi.AccessPoint;
 import com.android.settingslib.wifi.WifiTracker;
 
@@ -89,6 +93,9 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
     private int mNetworkType;
     private String mWifiSsid;
     private int mWifiSignalStrength;
+    private final InterfaceStateListener mEthernetListener;
+    private final ArrayMap<String, IpConfiguration> mAvailableInterfaces = new ArrayMap<>();
+    private final Handler mUiHandler = ThreadUtils.getUiThreadHandler();
 
     /**
      * @deprecated use the constructor that provides a {@link Lifecycle} instead
@@ -113,6 +120,17 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
                 mWifiTracker = new WifiTracker(context, this, true, true);
             }
         }
+        mEthernetListener = (iface, state, role, configuration) -> {
+            if (state == EthernetManager.STATE_LINK_UP) {
+                mAvailableInterfaces.put(iface, configuration);
+            } else {
+                mAvailableInterfaces.remove(iface);
+            }
+            updateConnectivityStatus();
+            if (mListener != null) {
+                mListener.onConnectivityChange();
+            }
+        };
         updateConnectivityStatus();
     }
 
@@ -148,6 +166,10 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
                 telephonyManager.listen(mPhoneStateListener,
                         PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
             }
+            if (mEthernetManager != null) {
+                mEthernetManager.addInterfaceStateListener(r -> mUiHandler.post(r),
+                        mEthernetListener);
+            }
         }
     }
 
@@ -175,6 +197,9 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
                     .getSystemService(TelephonyManager.class);
             if (telephonyManager != null) {
                 telephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
+            }
+            if (mEthernetManager != null) {
+                mEthernetManager.removeInterfaceStateListener(mEthernetListener);
             }
         }
     }
@@ -279,12 +304,23 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
         return mNetworkType == ConnectivityManager.TYPE_MOBILE;
     }
 
+    private void ensureRunningOnUiThread() {
+        if (mUiHandler.getLooper().getThread() != Thread.currentThread()) {
+            throw new IllegalStateException("Not running on the UI thread: "
+                    + Thread.currentThread().getName());
+        }
+    }
+
+    private boolean isEthernetEnabled() {
+        return mEthernetManager != null;
+    }
+
     /**
      * Return whether Ethernet port is available.
      */
     public boolean isEthernetAvailable() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_ETHERNET)
-                && mEthernetManager.getAvailableInterfaces().length > 0;
+        ensureRunningOnUiThread();
+        return isEthernetEnabled() && (mAvailableInterfaces.size() > 0);
     }
 
     private Network getFirstEthernet() {
@@ -329,6 +365,25 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
             return null;
         }
         return formatIpAddresses(network);
+    }
+
+
+    /**
+     * Get the current Ethernet interface name.
+     */
+    public String getEthernetInterfaceName() {
+        ensureRunningOnUiThread();
+        if (mAvailableInterfaces.size() == 0) return null;
+        return mAvailableInterfaces.keyAt(0);
+    }
+
+    /**
+     * Get the current IP configuration of Ethernet interface.
+     */
+    public IpConfiguration getEthernetIpConfiguration() {
+        ensureRunningOnUiThread();
+        if (mAvailableInterfaces.size() == 0) return null;
+        return mAvailableInterfaces.valueAt(0);
     }
 
     public int getWifiSignalStrength(int maxLevel) {

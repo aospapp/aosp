@@ -164,7 +164,7 @@ public final class DnsResolver {
         */
         @DnsError public final int code;
 
-        DnsException(@DnsError int code, @Nullable Throwable cause) {
+        public DnsException(@DnsError int code, @Nullable Throwable cause) {
             super(cause);
             this.code = code;
         }

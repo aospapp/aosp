@@ -37,12 +37,13 @@ android_test {
     },
 
     static_libs: [
+        "vehicle-hal-support-lib",
         "com.android.car.obd2",
         "androidx.test.rules",
     ],
 
     libs: [
-        "android.car",
+        "android.car-system-stubs",
         "android.test.runner",
     ],
 }

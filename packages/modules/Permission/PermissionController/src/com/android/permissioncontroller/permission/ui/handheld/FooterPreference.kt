@@ -45,8 +45,8 @@ class FooterPreference : Preference {
 
     private var secondSummaryView: TextView? = null
 
-    override fun onBindViewHolder(holder: PreferenceViewHolder?) {
-        secondSummaryView = holder?.findViewById(R.id.summary2) as TextView
+    override fun onBindViewHolder(holder: PreferenceViewHolder) {
+        secondSummaryView = holder.findViewById(R.id.summary2) as TextView
         secondSummaryView?.text = secondSummary
         super.onBindViewHolder(holder)
     }

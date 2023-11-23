@@ -48,7 +48,7 @@ public class ManagePermissionsActivityTrampoline extends Activity {
         if (action.equals(PermissionSearchIndexablesProvider.ACTION_MANAGE_PERMISSION_APPS)) {
             newIntent
                     .setAction(Intent.ACTION_MANAGE_PERMISSION_APPS)
-                    .putExtra(Intent.EXTRA_PERMISSION_NAME,
+                    .putExtra(Intent.EXTRA_PERMISSION_GROUP_NAME,
                             PermissionSearchIndexablesProvider.getOriginalKey(intent));
         } else {
             finish();

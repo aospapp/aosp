@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"পাবলিক ফোন থেকে করা কল ব্লক করুন"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"অজানা"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"অচেনা নম্বর থেকে করা কল ব্লক করুন"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"উপলভ্য নেই"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ব্লক করা কলের ক্ষেত্রে ফোন নম্বর দেখা যায় না"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"কল ব্লক করা"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"কল ব্লক করার বৈশিষ্ট্য বন্ধ করা হয়েছে"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"জরুরি অবস্থার কল করা হয়েছে"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"কল ব্লক করার বৈশিষ্ট্য বন্ধ করা হয়েছে যাতে জরুরি অবস্থার সাহায্যকারী ব্যক্তি আপনার সাথে যোগাযোগ করতে পারেন।"</string>
     <string name="developer_title" msgid="9146088855661672353">"টেলিকম ডেভেলপার মেনু"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"জরুরি কল চলাকালীন কোনও কল রিসিভ করা যাবে না।"</string>
+    <string name="cancel" msgid="6733466216239934756">"বাতিল করুন"</string>
 </resources>

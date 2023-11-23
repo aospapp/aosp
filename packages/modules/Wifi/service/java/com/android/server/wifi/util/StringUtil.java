@@ -57,4 +57,13 @@ public class StringUtil {
                 .mapToObj(i -> Character.toString(pool.charAt(i)))
                 .collect(Collectors.joining());
     }
+
+    /** Returns a random string which consists of alphabets and numbers. */
+    public static String generateRandomString(int length) {
+        final String pool = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        return new Random(System.currentTimeMillis())
+                .ints(length, 0, pool.length())
+                .mapToObj(i -> Character.toString(pool.charAt(i)))
+                .collect(Collectors.joining());
+    }
 }

@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_NNAPI_TYPES_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_NNAPI_TYPES_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TYPES_NNAPI_TYPES_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TYPES_NNAPI_TYPES_H
 
 #include <android-base/chrono_utils.h>
 #include <android-base/expected.h>
@@ -111,8 +111,12 @@ enum class ErrorStatus {
 };
 
 struct GeneralError {
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    /*implicit*/ GeneralError(std::string message = {},
+                              ErrorStatus code = ErrorStatus::GENERAL_FAILURE);
+
     std::string message;
-    ErrorStatus code = ErrorStatus::GENERAL_FAILURE;
+    ErrorStatus code;
 };
 
 template <typename Type>
@@ -128,10 +132,18 @@ using CacheToken = std::array<uint8_t, kByteSizeOfCacheToken>;
 %insert OutputShape
 
 struct ExecutionError {
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    /*implicit*/ ExecutionError(std::string message = {},
+                                ErrorStatus code = ErrorStatus::GENERAL_FAILURE,
+                                std::vector<OutputShape> outputShapes = {});
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    /*implicit*/ ExecutionError(GeneralError error);
+
     std::string message;
-    ErrorStatus code = ErrorStatus::GENERAL_FAILURE;
+    ErrorStatus code;
     // OutputShapes for code == OUTPUT_INSUFFICIENT_SIZE
-    std::vector<OutputShape> outputShapes = {};
+    std::vector<OutputShape> outputShapes;
 };
 
 template <typename Type>
@@ -147,11 +159,7 @@ using ExecutionResult = base::expected<Type, ExecutionError>;
 
 %insert Operand
 
-struct Handle {
-    std::vector<base::unique_fd> fds;
-    std::vector<int> ints;
-};
-
+using Handle = base::unique_fd;
 using SharedHandle = std::shared_ptr<const Handle>;
 
 struct Memory {
@@ -175,6 +183,10 @@ struct Memory {
     };
 
     struct Unknown {
+        struct Handle {
+            std::vector<base::unique_fd> fds;
+            std::vector<int> ints;
+        };
         Handle handle;
         size_t size;
         std::string name;
@@ -182,6 +194,8 @@ struct Memory {
 
     std::variant<Ashmem, Fd, HardwareBuffer, Unknown> handle;
 };
+
+%insert ExtensionNameAndPrefix
 
 %insert Model
 
@@ -235,7 +249,39 @@ using OptionalTimePoint = std::optional<TimePoint>;
 // Returns status, timingLaunched, timingFenced
 using ExecuteFencedInfoCallback = std::function<GeneralResult<std::pair<Timing, Timing>>()>;
 
-enum class Version { ANDROID_OC_MR1, ANDROID_P, ANDROID_Q, ANDROID_R, ANDROID_S, CURRENT_RUNTIME };
+// Version is a tuple that contains what NNAPI feature level is supported/required and whether
+// runtime-only features are supported/required.
+struct Version {
+    enum class Level : uint8_t {
+        FEATURE_LEVEL_1,
+        FEATURE_LEVEL_2,
+        FEATURE_LEVEL_3,
+        FEATURE_LEVEL_4,
+        FEATURE_LEVEL_5,
+        FEATURE_LEVEL_6,
+        FEATURE_LEVEL_7,
+        FEATURE_LEVEL_8,
+#ifdef NN_EXPERIMENTAL_FEATURE
+        FEATURE_LEVEL_EXPERIMENTAL,
+#endif  // NN_EXPERIMENTAL_FEATURE
+    };
+
+    Level level;
+    bool runtimeOnlyFeatures = false;
+};
+
+constexpr auto kVersionFeatureLevel1 = Version{.level = Version::Level::FEATURE_LEVEL_1};
+constexpr auto kVersionFeatureLevel2 = Version{.level = Version::Level::FEATURE_LEVEL_2};
+constexpr auto kVersionFeatureLevel3 = Version{.level = Version::Level::FEATURE_LEVEL_3};
+constexpr auto kVersionFeatureLevel4 = Version{.level = Version::Level::FEATURE_LEVEL_4};
+constexpr auto kVersionFeatureLevel5 = Version{.level = Version::Level::FEATURE_LEVEL_5};
+constexpr auto kVersionFeatureLevel6 = Version{.level = Version::Level::FEATURE_LEVEL_6};
+constexpr auto kVersionFeatureLevel7 = Version{.level = Version::Level::FEATURE_LEVEL_7};
+constexpr auto kVersionFeatureLevel8 = Version{.level = Version::Level::FEATURE_LEVEL_8};
+#ifdef NN_EXPERIMENTAL_FEATURE
+constexpr auto kVersionFeatureLevelExperimental =
+        Version{.level = Version::Level::FEATURE_LEVEL_EXPERIMENTAL};
+#endif  // NN_EXPERIMENTAL_FEATURE
 
 // Describes the memory preference of an operand.
 struct MemoryPreference {
@@ -252,6 +298,28 @@ struct MemoryPreference {
     uint32_t padding;
 };
 
+/**
+ * A type that is used to represent a token / byte array data pair.
+ */
+struct TokenValuePair {
+    /**
+     * A 32bit integer token. The token is created by combining the
+     * extension prefix and enum defined within the extension. Of the 32 bits in the token, the high
+     * kExtensionPrefixBits bits is the extension prefix and the low kExtensionTypeBits bits
+     * represents the enum within the extension.
+     *
+     * For example, if a token value is 0x7AAA000B and corresponding {@link ExtensionNameAndPrefix}
+     * contains an entry with prefix=0x7AAA and name="vendor.test.test_extension", then the token
+     * should be interpreted as the enum value 0x000B of the extension named
+     * vendor.test.test_extension.
+     */
+    int32_t token;
+    /**
+     * A byte array containing the raw data.
+     */
+    std::vector<uint8_t> value;
+};
+
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_NNAPI_TYPES_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_TYPES_NNAPI_TYPES_H

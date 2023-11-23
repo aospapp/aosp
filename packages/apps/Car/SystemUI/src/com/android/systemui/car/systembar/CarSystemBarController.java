@@ -16,10 +16,12 @@
 
 package com.android.systemui.car.systembar;
 
+import android.annotation.LayoutRes;
 import android.app.ActivityManager;
 import android.app.StatusBarManager;
 import android.content.Context;
 import android.os.Build;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -33,6 +35,9 @@ import com.android.systemui.R;
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.hvac.HvacPanelOverlayViewController;
+import com.android.systemui.car.privacy.CameraPrivacyElementsProviderImpl;
+import com.android.systemui.car.privacy.CameraQcPanel;
+import com.android.systemui.car.privacy.MicPrivacyElementsProviderImpl;
 import com.android.systemui.car.privacy.MicQcPanel;
 import com.android.systemui.car.statusbar.UserNameViewController;
 import com.android.systemui.car.statusicon.StatusIconPanelController;
@@ -41,6 +46,7 @@ import com.android.systemui.statusbar.policy.ConfigurationController;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import javax.inject.Inject;
 
@@ -61,8 +67,10 @@ public class CarSystemBarController {
     private final ButtonSelectionStateController mButtonSelectionStateController;
     private final ButtonRoleHolderController mButtonRoleHolderController;
     private final Lazy<UserNameViewController> mUserNameViewControllerLazy;
-    private final Lazy<PrivacyChipViewController> mPrivacyChipViewControllerLazy;
-    private final Lazy<MicQcPanel.MicPrivacyElementsProvider> mMicPrivacyElementsProviderLazy;
+    private final Lazy<MicPrivacyChipViewController> mMicPrivacyChipViewControllerLazy;
+    private final Lazy<CameraPrivacyChipViewController> mCameraPrivacyChipViewControllerLazy;
+    private final Lazy<MicPrivacyElementsProviderImpl> mMicPrivacyElementsProviderLazy;
+    private final Lazy<CameraPrivacyElementsProviderImpl> mCameraPrivacyElementsProviderLazy;
 
     private final boolean mShowTop;
     private final boolean mShowBottom;
@@ -70,13 +78,15 @@ public class CarSystemBarController {
     private final boolean mShowRight;
     private final int mPrivacyChipXOffset;
 
-    private View.OnTouchListener mTopBarTouchListener;
-    private View.OnTouchListener mBottomBarTouchListener;
-    private View.OnTouchListener mLeftBarTouchListener;
-    private View.OnTouchListener mRightBarTouchListener;
+    private final Set<View.OnTouchListener> mTopBarTouchListeners = new ArraySet<>();
+    private final Set<View.OnTouchListener> mBottomBarTouchListeners = new ArraySet<>();
+    private final Set<View.OnTouchListener> mLeftBarTouchListeners = new ArraySet<>();
+    private final Set<View.OnTouchListener> mRightBarTouchListeners = new ArraySet<>();
+
     private NotificationsShadeController mNotificationsShadeController;
     private HvacPanelController mHvacPanelController;
     private StatusIconPanelController mMicPanelController;
+    private StatusIconPanelController mCameraPanelController;
     private StatusIconPanelController mProfilePanelController;
     private HvacPanelOverlayViewController mHvacPanelOverlayViewController;
 
@@ -85,7 +95,11 @@ public class CarSystemBarController {
     private CarSystemBarView mLeftView;
     private CarSystemBarView mRightView;
 
+    // Saved StatusBarManager.DisableFlags
     private int mStatusBarState;
+    // Saved StatusBarManager.Disable2Flags
+    private int mStatusBarState2;
+    private int mLockTaskMode;
 
     @Inject
     public CarSystemBarController(Context context,
@@ -95,10 +109,12 @@ public class CarSystemBarController {
             ConfigurationController configurationController,
             ButtonSelectionStateController buttonSelectionStateController,
             Lazy<UserNameViewController> userNameViewControllerLazy,
-            Lazy<PrivacyChipViewController> privacyChipViewControllerLazy,
+            Lazy<MicPrivacyChipViewController> micPrivacyChipViewControllerLazy,
+            Lazy<CameraPrivacyChipViewController> cameraPrivacyChipViewControllerLazy,
             ButtonRoleHolderController buttonRoleHolderController,
             SystemBarConfigs systemBarConfigs,
-            Lazy<MicQcPanel.MicPrivacyElementsProvider> micPrivacyElementsProvider) {
+            Lazy<MicPrivacyElementsProviderImpl> micPrivacyElementsProvider,
+            Lazy<CameraPrivacyElementsProviderImpl> cameraPrivacyElementsProvider) {
         mContext = context;
         mCarSystemBarViewFactory = carSystemBarViewFactory;
         mCarServiceProvider = carServiceProvider;
@@ -106,9 +122,11 @@ public class CarSystemBarController {
         mConfigurationController = configurationController;
         mButtonSelectionStateController = buttonSelectionStateController;
         mUserNameViewControllerLazy = userNameViewControllerLazy;
-        mPrivacyChipViewControllerLazy = privacyChipViewControllerLazy;
+        mMicPrivacyChipViewControllerLazy = micPrivacyChipViewControllerLazy;
+        mCameraPrivacyChipViewControllerLazy = cameraPrivacyChipViewControllerLazy;
         mButtonRoleHolderController = buttonRoleHolderController;
         mMicPrivacyElementsProviderLazy = micPrivacyElementsProvider;
+        mCameraPrivacyElementsProviderLazy = cameraPrivacyElementsProvider;
 
         // Read configuration.
         mShowTop = systemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.TOP);
@@ -145,8 +163,10 @@ public class CarSystemBarController {
         mButtonSelectionStateController.removeAll();
         mButtonRoleHolderController.removeAll();
         mUserNameViewControllerLazy.get().removeAll();
-        mPrivacyChipViewControllerLazy.get().removeAll();
+        mMicPrivacyChipViewControllerLazy.get().removeAll();
+        mCameraPrivacyChipViewControllerLazy.get().removeAll();
         mMicPanelController = null;
+        mCameraPanelController = null;
         mProfilePanelController = null;
     }
 
@@ -208,19 +228,27 @@ public class CarSystemBarController {
     }
 
     /**
-     * Sets the status bar state and refreshes the system bar when the state was changed.
+     * Sets the system bar states - {@code StatusBarManager.DisableFlags},
+     * {@code StatusBarManager.Disable2Flags}, lock task mode. When there is a change in state,
+     * and refreshes the system bars.
+     *
+     * @param state {@code StatusBarManager.DisableFlags}
+     * @param state2 {@code StatusBarManager.Disable2Flags}
      */
-    public void setStatusBarState(int state) {
-        int diff = state ^ mStatusBarState;
-        if (diff == 0) {
+    public void setSystemBarStates(int state, int state2) {
+        int diff = (state ^ mStatusBarState) | (state2 ^ mStatusBarState2);
+        int lockTaskMode = getLockTaskModeState();
+        if (diff == 0 && mLockTaskMode == lockTaskMode) {
             if (DEBUG) {
-                Log.d(TAG, "setStatusBarState(): status bar states unchanged: "
-                        + state);
+                Log.d(TAG, "setSystemBarStates(): status bar states unchanged: state: "
+                        + state + " state2: " +  state2 + " lockTaskMode: " + mLockTaskMode);
             }
             return;
         }
         mStatusBarState = state;
-        refreshSystemBarByLockTaskFeatures();
+        mStatusBarState2 = state2;
+        mLockTaskMode = lockTaskMode;
+        refreshSystemBar();
     }
 
     @VisibleForTesting
@@ -228,47 +256,77 @@ public class CarSystemBarController {
         return mStatusBarState;
     }
 
+    @VisibleForTesting
+    protected int getStatusBarState2() {
+        return mStatusBarState2;
+    }
+
+    @VisibleForTesting
+    protected int getLockTaskMode() {
+        return mLockTaskMode;
+    }
+
     /**
-     * Refreshes certain system bar views when lock task mode feature is changed based on
-     * {@link StatusBarManager} flags.
+     * Refreshes system bar views and sets the visibility of certain components based on
+     * {@link StatusBarManager} flags and lock task mode.
+     * <ul>
+     * <li>Home button will be disabled when {@code StatusBarManager.DISABLE_HOME} is set.
+     * <li>Phone call button will be disable in lock task mode.
+     * <li>App grid button will be disable when {@code StatusBarManager.DISABLE_HOME} is set.
+     * <li>Notification button will be disable when
+     * {@code StatusBarManager.DISABLE_NOTIFICATION_ICONS} is set.
+     * <li>Quick settings and user switcher will be hidden when in lock task mode or when
+     * {@code StatusBarManager.DISABLE2_QUICK_SETTINGS} is set.
+     * </ul>
      */
-    public void refreshSystemBarByLockTaskFeatures() {
-        boolean locked = isLockTaskModeLocked();
-        int lockTaskModeVisibility = locked ? View.GONE : View.VISIBLE;
+    public void refreshSystemBar() {
         boolean homeDisabled = ((mStatusBarState & StatusBarManager.DISABLE_HOME) > 0);
         boolean notificationDisabled =
                 ((mStatusBarState & StatusBarManager.DISABLE_NOTIFICATION_ICONS) > 0);
+        boolean locked = (mLockTaskMode == ActivityManager.LOCK_TASK_MODE_LOCKED);
+        boolean qcDisabled =
+                ((mStatusBarState2 & StatusBarManager.DISABLE2_QUICK_SETTINGS) > 0) || locked;
+        boolean systemIconsDisabled =
+                ((mStatusBarState2 & StatusBarManager.DISABLE2_SYSTEM_ICONS) > 0) || locked;
+
+        setDisabledSystemBarButton(R.id.home, homeDisabled, "home");
+        setDisabledSystemBarButton(R.id.phone_nav, locked, "phone_nav");
+        setDisabledSystemBarButton(R.id.grid_nav, homeDisabled, "grid_nav");
+        setDisabledSystemBarButton(R.id.notifications, notificationDisabled, "notifications");
+
+        setDisabledSystemBarContainer(R.id.qc_entry_points_container, qcDisabled,
+                "qc_entry_points_container");
+        setDisabledSystemBarContainer(R.id.user_name_container, qcDisabled,
+                "user_name_container");
+        setDisabledSystemBarContainer(R.id.read_only_icons_container, systemIconsDisabled,
+                "read_only_icons_container");
+
         if (DEBUG) {
-            Log.d(TAG, "refreshSystemBarByLockTaskFeatures: locked?: " + locked
+            Log.d(TAG, "refreshSystemBar: locked?: " + locked
                     + " homeDisabled: " + homeDisabled
-                    + " notificationDisabled: " + notificationDisabled);
-        }
-
-        setLockTaskDisabledContainer(R.id.qc_entry_points_container, lockTaskModeVisibility);
-        setLockTaskDisabledContainer(R.id.user_name_container, lockTaskModeVisibility);
-
-        // Check navigation icons
-        setLockTaskDisabledButton(R.id.home, homeDisabled);
-        setLockTaskDisabledButton(R.id.phone_nav, locked);
-        setLockTaskDisabledButton(R.id.grid_nav, homeDisabled);
-        setLockTaskDisabledButton(R.id.notifications, notificationDisabled);
-    }
-
-    private boolean isLockTaskModeLocked() {
-        return mContext.getSystemService(ActivityManager.class).getLockTaskModeState()
-                == ActivityManager.LOCK_TASK_MODE_LOCKED;
-    }
-
-    private void setLockTaskDisabledButton(int viewId, boolean disabled) {
-        for (CarSystemBarView barView : getAllAvailableSystemBarViews()) {
-            barView.setLockTaskDisabledButton(viewId, disabled, () ->
-                    showAdminSupportDetailsDialog());
+                    + " notificationDisabled: " + notificationDisabled
+                    + " qcDisabled: " + qcDisabled
+                    + " systemIconsDisabled: " + systemIconsDisabled);
         }
     }
 
-    private void setLockTaskDisabledContainer(int viewId, @View.Visibility int visibility) {
+    private int getLockTaskModeState() {
+        return mContext.getSystemService(ActivityManager.class).getLockTaskModeState();
+    }
+
+    private void setDisabledSystemBarButton(int viewId, boolean disabled,
+                @Nullable String buttonName) {
         for (CarSystemBarView barView : getAllAvailableSystemBarViews()) {
-            barView.setLockTaskDisabledContainer(viewId, visibility);
+            barView.setDisabledSystemBarButton(viewId, disabled,
+                    () -> showAdminSupportDetailsDialog(), buttonName);
+        }
+    }
+
+    private void setDisabledSystemBarContainer(int viewId, boolean disabled,
+                @Nullable String viewName) {
+        for (CarSystemBarView barView : getAllAvailableSystemBarViews()) {
+            barView.setVisibilityByViewId(viewId, viewName,
+                    disabled ? View.INVISIBLE : View.VISIBLE);
         }
     }
 
@@ -288,13 +346,15 @@ public class CarSystemBarController {
         }
 
         mTopView = mCarSystemBarViewFactory.getTopBar(isSetUp);
-        setupBar(mTopView, mTopBarTouchListener, mNotificationsShadeController,
+        setupBar(mTopView, mTopBarTouchListeners, mNotificationsShadeController,
                 mHvacPanelController, mHvacPanelOverlayViewController);
 
         if (isSetUp) {
-            // We do not want the mic privacy chip or the profile picker to be clickable in
+            // We do not want the privacy chips or the profile picker to be clickable in
             // unprovisioned mode.
-            setupMicQcPanel();
+            setupSensorQcPanel(mMicPanelController, R.id.mic_privacy_chip, R.layout.qc_mic_panel);
+            setupSensorQcPanel(mCameraPanelController, R.id.camera_privacy_chip,
+                    R.layout.qc_camera_panel);
             setupProfilePanel();
         }
 
@@ -309,7 +369,7 @@ public class CarSystemBarController {
         }
 
         mBottomView = mCarSystemBarViewFactory.getBottomBar(isSetUp);
-        setupBar(mBottomView, mBottomBarTouchListener, mNotificationsShadeController,
+        setupBar(mBottomView, mBottomBarTouchListeners, mNotificationsShadeController,
                 mHvacPanelController, mHvacPanelOverlayViewController);
         return mBottomView;
     }
@@ -322,7 +382,7 @@ public class CarSystemBarController {
         }
 
         mLeftView = mCarSystemBarViewFactory.getLeftBar(isSetUp);
-        setupBar(mLeftView, mLeftBarTouchListener, mNotificationsShadeController,
+        setupBar(mLeftView, mLeftBarTouchListeners, mNotificationsShadeController,
                 mHvacPanelController, mHvacPanelOverlayViewController);
         return mLeftView;
     }
@@ -335,42 +395,48 @@ public class CarSystemBarController {
         }
 
         mRightView = mCarSystemBarViewFactory.getRightBar(isSetUp);
-        setupBar(mRightView, mRightBarTouchListener, mNotificationsShadeController,
+        setupBar(mRightView, mRightBarTouchListeners, mNotificationsShadeController,
                 mHvacPanelController, mHvacPanelOverlayViewController);
         return mRightView;
     }
 
-    private void setupBar(CarSystemBarView view, View.OnTouchListener statusBarTouchListener,
+    private void setupBar(CarSystemBarView view, Set<View.OnTouchListener> statusBarTouchListeners,
             NotificationsShadeController notifShadeController,
             HvacPanelController hvacPanelController,
             HvacPanelOverlayViewController hvacPanelOverlayViewController) {
-        view.setStatusBarWindowTouchListener(statusBarTouchListener);
+        view.setStatusBarWindowTouchListeners(statusBarTouchListeners);
         view.setNotificationsPanelController(notifShadeController);
         view.setHvacPanelController(hvacPanelController);
         view.registerHvacPanelOverlayViewController(hvacPanelOverlayViewController);
         mButtonSelectionStateController.addAllButtonsWithSelectionState(view);
         mButtonRoleHolderController.addAllButtonsWithRoleName(view);
         mUserNameViewControllerLazy.get().addUserNameView(view);
-        mPrivacyChipViewControllerLazy.get().addPrivacyChipView(view);
+        mMicPrivacyChipViewControllerLazy.get().addPrivacyChipView(view);
+        mCameraPrivacyChipViewControllerLazy.get().addPrivacyChipView(view);
     }
 
-    private void setupMicQcPanel() {
-        if (mMicPanelController == null) {
-            mMicPanelController = new StatusIconPanelController(mContext, mCarServiceProvider,
+    private void setupSensorQcPanel(@Nullable StatusIconPanelController panelController,
+            int chipId, @LayoutRes int panelLayoutRes) {
+        if (panelController == null) {
+            panelController = new StatusIconPanelController(mContext, mCarServiceProvider,
                     mBroadcastDispatcher, mConfigurationController);
         }
 
-        mMicPanelController.setOnQcViewsFoundListener(qcViews -> qcViews.forEach(qcView -> {
+        panelController.setOnQcViewsFoundListener(qcViews -> qcViews.forEach(qcView -> {
             if (qcView.getLocalQCProvider() instanceof MicQcPanel) {
                 MicQcPanel micQcPanel = (MicQcPanel) qcView.getLocalQCProvider();
-                micQcPanel.setControllers(mPrivacyChipViewControllerLazy.get(),
+                micQcPanel.setControllers(mMicPrivacyChipViewControllerLazy.get(),
                         mMicPrivacyElementsProviderLazy.get());
+            } else if (qcView.getLocalQCProvider() instanceof CameraQcPanel) {
+                CameraQcPanel cameraQcPanel = (CameraQcPanel) qcView.getLocalQCProvider();
+                cameraQcPanel.setControllers(mCameraPrivacyChipViewControllerLazy.get(),
+                        mCameraPrivacyElementsProviderLazy.get());
             }
         }));
 
-        mMicPanelController.attachPanel(mTopView.requireViewById(R.id.privacy_chip),
-                R.layout.qc_mic_panel, R.dimen.car_mic_qc_panel_width, mPrivacyChipXOffset,
-                mMicPanelController.getDefaultYOffset(), Gravity.TOP | Gravity.END);
+        panelController.attachPanel(mTopView.requireViewById(chipId), panelLayoutRes,
+                R.dimen.car_sensor_qc_panel_width, mPrivacyChipXOffset,
+                panelController.getDefaultYOffset(), Gravity.TOP | Gravity.END);
     }
 
     private void setupProfilePanel() {
@@ -388,33 +454,33 @@ public class CarSystemBarController {
 
     /** Sets a touch listener for the top navigation bar. */
     public void registerTopBarTouchListener(View.OnTouchListener listener) {
-        mTopBarTouchListener = listener;
-        if (mTopView != null) {
-            mTopView.setStatusBarWindowTouchListener(mTopBarTouchListener);
+        boolean setModified = mTopBarTouchListeners.add(listener);
+        if (setModified && mTopView != null) {
+            mTopView.setStatusBarWindowTouchListeners(mTopBarTouchListeners);
         }
     }
 
     /** Sets a touch listener for the bottom navigation bar. */
     public void registerBottomBarTouchListener(View.OnTouchListener listener) {
-        mBottomBarTouchListener = listener;
-        if (mBottomView != null) {
-            mBottomView.setStatusBarWindowTouchListener(mBottomBarTouchListener);
+        boolean setModified = mBottomBarTouchListeners.add(listener);
+        if (setModified && mBottomView != null) {
+            mBottomView.setStatusBarWindowTouchListeners(mBottomBarTouchListeners);
         }
     }
 
     /** Sets a touch listener for the left navigation bar. */
     public void registerLeftBarTouchListener(View.OnTouchListener listener) {
-        mLeftBarTouchListener = listener;
-        if (mLeftView != null) {
-            mLeftView.setStatusBarWindowTouchListener(mLeftBarTouchListener);
+        boolean setModified = mLeftBarTouchListeners.add(listener);
+        if (setModified && mLeftView != null) {
+            mLeftView.setStatusBarWindowTouchListeners(mLeftBarTouchListeners);
         }
     }
 
     /** Sets a touch listener for the right navigation bar. */
     public void registerRightBarTouchListener(View.OnTouchListener listener) {
-        mRightBarTouchListener = listener;
-        if (mRightView != null) {
-            mRightView.setStatusBarWindowTouchListener(mRightBarTouchListener);
+        boolean setModified = mRightBarTouchListeners.add(listener);
+        if (setModified && mRightView != null) {
+            mRightView.setStatusBarWindowTouchListeners(mRightBarTouchListeners);
         }
     }
 

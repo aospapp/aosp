@@ -47,6 +47,8 @@ typedef struct ifc_status_monitor_st {
     void (*start)(const struct ifc_status_monitor_st *this_p,
             void (*status_callback)(const printer_state_dyn_t *new_status,
                     const printer_state_dyn_t *old_status, void *param),
+            void (*job_status_callback)(const job_state_dyn_t *new_state,
+                    void *param),
             void *param);
 
     /*

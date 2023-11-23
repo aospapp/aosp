@@ -25,13 +25,19 @@
 
     <uses-sdk
         android:minSdkVersion="24"
-        android:targetSdkVersion="29"/>
+        android:targetSdkVersion="32"/>
 
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BACKUP"/>
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <!-- Request legacy Bluetooth permissions on older devices. -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+                     android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+                     android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED"/>
     <uses-permission android:name="android.permission.CAR_VENDOR_EXTENSION"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
@@ -76,6 +82,19 @@
         android:requiredForAllUsers="true"
         android:directBootAware="true"
         android:supportsRtl="true">
+
+        <activity android:name=".admin.FactoryResetActivity"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:exported="false"
+            android:launchMode="singleTask">
+        </activity>
+        <activity android:name=".admin.NewUserDisclaimerActivity"
+            android:excludeFromRecents="true"
+            android:theme="@style/ActionDialogTheme"
+            android:exported="false"
+            android:launchMode="singleTask">
+        </activity>
 
         <activity
             android:name=".common.CarSettingActivities$QuickSettingActivity"
@@ -219,6 +238,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.settings.NOTIFICATION_SETTINGS" />
+                <action android:name="android.settings.ALL_APPS_NOTIFICATION_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
@@ -669,6 +689,7 @@
 
         <activity
             android:name=".bluetooth.BluetoothPairingDialog"
+            android:permission="android.permission.BLUETOOTH_PRIVILEGED"
             android:excludeFromRecents="true"
             android:windowSoftInputMode="stateVisible|adjustResize"
             android:taskAffinity="car.settings.bluetooth"
@@ -697,7 +718,8 @@
             android:excludeFromRecents="true"
             android:clearTaskOnLaunch="true"
             android:exported="true"
-            android:launchMode="singleInstance">
+            android:launchMode="singleInstance"
+            android:permission="android.permission.BLUETOOTH_CONNECT">
             <intent-filter>
                 <action android:name="android.bluetooth.adapter.action.REQUEST_DISCOVERABLE" />
                 <action android:name="android.bluetooth.adapter.action.REQUEST_ENABLE" />
@@ -762,6 +784,7 @@
 
         <activity
             android:name=".security.ChooseLockPatternActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode"
             android:windowSoftInputMode="adjustPan"
             android:noHistory="true"
             android:exported="false">
@@ -770,6 +793,7 @@
 
         <activity
             android:name=".security.ChooseLockPinActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode"
             android:windowSoftInputMode="adjustPan"
             android:noHistory="true"
             android:exported="false">
@@ -778,6 +802,7 @@
 
         <activity
             android:name=".security.ChooseLockPasswordActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize|uiMode"
             android:windowSoftInputMode="adjustResize"
             android:noHistory="true"
             android:exported="false">
@@ -844,7 +869,8 @@
             android:excludeFromRecents="true"
             android:clearTaskOnLaunch="true"
             android:exported="true"
-            android:launchMode="singleInstance">
+            android:launchMode="singleInstance"
+            android:permission="android.permission.CHANGE_WIFI_STATE">
             <intent-filter>
                 <action android:name="android.net.wifi.action.REQUEST_ENABLE" />
                 <action android:name="android.net.wifi.action.REQUEST_DISABLE" />
@@ -874,7 +900,8 @@
             android:label=""
             android:screenOrientation="nosensor"
             android:exported="true"
-            android:theme="@style/FallbackHome">
+            android:theme="@style/FallbackHome"
+            android:configChanges="keyboardHidden">
             <intent-filter android:priority="-900">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -906,7 +933,7 @@
         </activity>
 
         <activity android:name=".notifications.NotificationAccessConfirmationActivity"
-            android:exported="true"
+            android:exported="false"
             android:taskAffinity="com.android.car.settings.notifications.NotificationAccessConfirmationActivity"
             android:theme="@style/ActionDialogTheme"
             />

@@ -199,6 +199,13 @@ public final class Logger {
         return Log.isLoggable(TAG, Log.INFO) || forceAllLogging();
     }
 
+    /**
+     * Returns the tag used when wrapping {@link Log} methods.
+     */
+    public String getTag() {
+        return TAG;
+    }
+
     @Override
     public String toString() {
         return "Logger[TAG=" + TAG + ", prefix=\"" + mPrefix + "\"]";

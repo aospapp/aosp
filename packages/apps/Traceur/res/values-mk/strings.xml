@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Врати ги стандардните категории"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Вратени се стандардните категории"</string>
     <string name="default_categories" msgid="2117679794687799407">"Стандардни"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">Избрани се %d</item>
-      <item quantity="other">Избрани се %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{Избрано е #}one{Избрани се #}other{Избрани се #}}"</string>
     <string name="applications" msgid="521776761270770549">"Апликации"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Нема апликации со грешки за отстранување"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Големина на привремената меморија по CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Користете Perfetto (Бета)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Долги траги"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Постојано зачувување во капацитетот на уредот"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Се зачувува континуирано во капацитетот на уредот (нема автоматски да се приложува во извештаи за грешки)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Максимална големина на долга трага"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Максимално времетраење на долга трага"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

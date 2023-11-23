@@ -57,6 +57,7 @@ import com.android.cellbroadcastservice.CellBroadcastStatsLog;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -206,8 +207,8 @@ public class CellBroadcastAlertService extends Service {
         CellBroadcastChannelManager channelManager =
                 new CellBroadcastChannelManager(mContext, message.getSubscriptionId());
         // check the full-screen message settings to hide or show message to users.
-        if (channelManager.checkCellBroadcastChannelRange(message.getServiceCategory(),
-                R.array.public_safety_messages_channels_range_strings)) {
+        if (channelManager.getCellBroadcastChannelResourcesKey(message.getServiceCategory())
+                == R.array.public_safety_messages_channels_range_strings) {
             return PreferenceManager.getDefaultSharedPreferences(this)
                     .getBoolean(CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES_FULL_SCREEN,
                             true);
@@ -421,12 +422,18 @@ public class CellBroadcastAlertService extends Service {
             // start alert sound / vibration / TTS and display full-screen alert
             openEmergencyAlertNotification(cbm);
             Resources res = CellBroadcastSettings.getResources(mContext, cbm.getSubscriptionId());
+
+            CellBroadcastChannelRange range = channelManager
+                    .getCellBroadcastChannelRangeFromMessage(cbm);
+
             // KR carriers mandate to always show notifications along with alert dialog.
             if (res.getBoolean(R.bool.show_alert_dialog_with_notification) ||
                     // to support emergency alert on companion devices use flag
                     // show_notification_if_connected_to_companion_devices instead.
                     (res.getBoolean(R.bool.show_notification_if_connected_to_companion_devices)
-                            && isConnectedToCompanionDevices())) {
+                            && isConnectedToCompanionDevices())
+                    // show dialog and notification for specific channel
+                    || (range != null && range.mDisplayDialogWithNotification)) {
                 // add notification to the bar by passing the list of unread non-emergency
                 // cell broadcast messages. The notification should be of LOW_IMPORTANCE if the
                 // notification is shown together with full-screen dialog.
@@ -449,35 +456,36 @@ public class CellBroadcastAlertService extends Service {
      * @return true if the channel is enabled on the device, otherwise false.
      */
     private boolean isChannelEnabled(SmsCbMessage message) {
-        CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(mContext,
-                message.getSubscriptionId());
+        int subId = message.getSubscriptionId();
+        CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
+                mContext, subId);
         CellBroadcastChannelRange chanelrange = channelManager
                 .getCellBroadcastChannelRangeFromMessage(message);
-        Resources res = CellBroadcastSettings.getResources(mContext, message.getSubscriptionId());
+        Resources res = CellBroadcastSettings.getResourcesByOperator(mContext, subId,
+                CellBroadcastReceiver.getRoamingOperatorSupported(this));
         if (chanelrange != null && chanelrange.mAlwaysOn) {
             Log.d(TAG, "channel is enabled due to always-on, ignoring preference check");
             return true;
         }
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         // Check if all emergency alerts are disabled.
-        boolean emergencyAlertEnabled =
-                prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE, true);
+        boolean emergencyAlertEnabled = checkAlertConfigEnabled(
+                subId, CellBroadcastSettings.KEY_ENABLE_ALERTS_MASTER_TOGGLE, true);
         int channel = message.getServiceCategory();
+        int resourcesKey = channelManager.getCellBroadcastChannelResourcesKey(channel);
+        CellBroadcastChannelRange range = channelManager.getCellBroadcastChannelRange(channel);
 
         SmsCbEtwsInfo etwsInfo = message.getEtwsWarningInfo();
         if ((etwsInfo != null && etwsInfo.getWarningType()
                 == SmsCbEtwsInfo.ETWS_WARNING_TYPE_TEST_MESSAGE)
-                || channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.etws_test_alerts_range_strings)) {
+                || resourcesKey == R.array.etws_test_alerts_range_strings) {
             return emergencyAlertEnabled
                     && CellBroadcastSettings.isTestAlertsToggleVisible(getApplicationContext())
-                    && PreferenceManager.getDefaultSharedPreferences(this)
-                    .getBoolean(CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
+                    && checkAlertConfigEnabled(subId,
+                            CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
         }
 
-        if (message.isEtwsMessage() || channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.etws_alerts_range_strings)) {
+        if (message.isEtwsMessage() || resourcesKey == R.array.etws_alerts_range_strings) {
             // ETWS messages.
             // Turn on/off emergency notifications is the only way to turn on/off ETWS messages.
             return emergencyAlertEnabled;
@@ -486,109 +494,81 @@ public class CellBroadcastAlertService extends Service {
         // Check if the messages are on additional channels enabled by the resource config.
         // If those channels are enabled by the carrier, but the device is actually roaming, we
         // should not allow the messages.
-        ArrayList<CellBroadcastChannelRange> ranges = channelManager.getCellBroadcastChannelRanges(
-                R.array.additional_cbs_channels_strings);
-
-        for (CellBroadcastChannelRange range : ranges) {
-            if (range.mStartId <= channel && range.mEndId >= channel) {
-                // Check if the channel is within the scope. If not, ignore the alert message.
-                if (!channelManager.checkScope(range.mScope)) {
-                    Log.d(TAG, "The range [" + range.mStartId + "-" + range.mEndId
-                            + "] is not within the scope. mScope = " + range.mScope);
-                    return false;
-                }
-
-                if (range.mAlertType == AlertType.TEST) {
-                    return emergencyAlertEnabled
-                            && CellBroadcastSettings.isTestAlertsToggleVisible(
-                                    getApplicationContext())
-                            && PreferenceManager.getDefaultSharedPreferences(this)
-                            .getBoolean(CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS,
-                                    false);
-                }
-                if (range.mAlertType == AlertType.AREA) {
-                    return emergencyAlertEnabled && PreferenceManager
-                            .getDefaultSharedPreferences(this)
-                            .getBoolean(CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS,
-                                    false);
-                }
-
-                return emergencyAlertEnabled;
+        if (resourcesKey == R.array.additional_cbs_channels_strings) {
+            // Check if the channel is within the scope. If not, ignore the alert message.
+            if (!channelManager.checkScope(range.mScope)) {
+                Log.d(TAG, "The range [" + range.mStartId + "-" + range.mEndId
+                        + "] is not within the scope. mScope = " + range.mScope);
+                return false;
             }
+
+            if (range.mAlertType == AlertType.TEST) {
+                return emergencyAlertEnabled
+                        && CellBroadcastSettings.isTestAlertsToggleVisible(getApplicationContext())
+                        && checkAlertConfigEnabled(subId,
+                                CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
+            }
+            if (range.mAlertType == AlertType.AREA) {
+                return emergencyAlertEnabled && checkAlertConfigEnabled(subId,
+                        CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS, false);
+            }
+
+            return emergencyAlertEnabled;
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.emergency_alerts_channels_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this).getBoolean(
-                            CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
+        if (resourcesKey == R.array.emergency_alerts_channels_range_strings) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
         }
         // CMAS warning types
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.cmas_presidential_alerts_channels_range_strings)) {
+        if (resourcesKey == R.array.cmas_presidential_alerts_channels_range_strings) {
             // always enabled
             return true;
         }
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.cmas_alert_extreme_channels_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this).getBoolean(
-                            CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, true);
+        if (resourcesKey == R.array.cmas_alert_extreme_channels_range_strings) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS, true);
         }
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.cmas_alerts_severe_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this).getBoolean(
-                            CellBroadcastSettings.KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS, true);
+        if (resourcesKey == R.array.cmas_alerts_severe_range_strings) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS, true);
         }
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.cmas_amber_alerts_channels_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this)
-                            .getBoolean(CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, true);
+        if (resourcesKey == R.array.cmas_amber_alerts_channels_range_strings) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_CMAS_AMBER_ALERTS, true);
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(
-                channel, R.array.exercise_alert_range_strings) &&
-                res.getBoolean(R.bool.show_separate_exercise_settings)) {
-            return emergencyAlertEnabled && PreferenceManager.getDefaultSharedPreferences(this)
-                    .getBoolean(CellBroadcastSettings.KEY_ENABLE_EXERCISE_ALERTS, false);
+        if (resourcesKey == R.array.exercise_alert_range_strings
+                && res.getBoolean(R.bool.show_separate_exercise_settings)) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_EXERCISE_ALERTS, false);
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(
-                channel, R.array.operator_defined_alert_range_strings) &&
-                res.getBoolean(R.bool.show_separate_operator_defined_settings)) {
-            return emergencyAlertEnabled && PreferenceManager.getDefaultSharedPreferences(this)
-                    .getBoolean(CellBroadcastSettings.KEY_OPERATOR_DEFINED_ALERTS, false);
+        if (resourcesKey == R.array.operator_defined_alert_range_strings
+                && res.getBoolean(R.bool.show_separate_operator_defined_settings)) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_OPERATOR_DEFINED_ALERTS, false);
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.required_monthly_test_range_strings)
-                || channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.exercise_alert_range_strings)
-                || channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.operator_defined_alert_range_strings)) {
+        if (resourcesKey == R.array.required_monthly_test_range_strings
+                || resourcesKey == R.array.exercise_alert_range_strings
+                || resourcesKey == R.array.operator_defined_alert_range_strings) {
             return emergencyAlertEnabled
                     && CellBroadcastSettings.isTestAlertsToggleVisible(getApplicationContext())
-                    && PreferenceManager.getDefaultSharedPreferences(this)
-                            .getBoolean(CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS,
-                                    false);
+                    && checkAlertConfigEnabled(
+                            subId, CellBroadcastSettings.KEY_ENABLE_TEST_ALERTS, false);
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.public_safety_messages_channels_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this)
-                    .getBoolean(CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES,
-                            true);
+        if (resourcesKey == R.array.public_safety_messages_channels_range_strings) {
+            return emergencyAlertEnabled && checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES, true);
         }
 
-        if (channelManager.checkCellBroadcastChannelRange(channel,
-                R.array.state_local_test_alert_range_strings)) {
-            return emergencyAlertEnabled
-                    && PreferenceManager.getDefaultSharedPreferences(this)
-                    .getBoolean(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS,
-                            false);
+        if (resourcesKey == R.array.state_local_test_alert_range_strings) {
+            return emergencyAlertEnabled && (checkAlertConfigEnabled(
+                    subId, CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS, false)
+                    || (!res.getBoolean(R.bool.show_state_local_test_settings)
+                    && res.getBoolean(R.bool.state_local_test_alerts_enabled_default)));
         }
 
         Log.e(TAG, "received undefined channels: " + channel);
@@ -642,7 +622,7 @@ public class CellBroadcastAlertService extends Service {
             }
         } else {
             int channel = message.getServiceCategory();
-            ArrayList<CellBroadcastChannelRange> ranges = channelManager
+            List<CellBroadcastChannelRange> ranges = channelManager
                     .getAllCellBroadcastChannelRanges();
             for (CellBroadcastChannelRange range : ranges) {
                 if (channel >= range.mStartId && channel <= range.mEndId) {
@@ -674,7 +654,9 @@ public class CellBroadcastAlertService extends Service {
 
         if (!CellBroadcastSettings.getResourcesForDefaultSubId(mContext)
                 .getBoolean(R.bool.show_alert_speech_setting)
-                || prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_SPEECH, true)) {
+                || prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_SPEECH,
+            CellBroadcastSettings.getResourcesForDefaultSubId(mContext)
+                .getBoolean(R.bool.enable_alert_speech_default))) {
             audioIntent.putExtra(CellBroadcastAlertAudio.ALERT_AUDIO_MESSAGE_BODY, messageBody);
 
             String language = message.getLanguageCode();
@@ -752,8 +734,7 @@ public class CellBroadcastAlertService extends Service {
             pi = PendingIntent.getBroadcast(context, 0, intent, 0);
         } else {
             pi = PendingIntent.getActivity(context, REQUEST_CODE_CONTENT_INTENT, intent,
-                    PendingIntent.FLAG_ONE_SHOT
-                            | PendingIntent.FLAG_UPDATE_CURRENT
+                            PendingIntent.FLAG_UPDATE_CURRENT
                             | PendingIntent.FLAG_IMMUTABLE);
         }
         CellBroadcastChannelManager channelManager = new CellBroadcastChannelManager(
@@ -802,8 +783,7 @@ public class CellBroadcastAlertService extends Service {
             Intent deleteIntent = new Intent(intent);
             deleteIntent.putExtra(CellBroadcastAlertService.DISMISS_DIALOG, true);
             builder.setDeleteIntent(PendingIntent.getActivity(context, REQUEST_CODE_DELETE_INTENT,
-                    deleteIntent, PendingIntent.FLAG_ONE_SHOT
-                            | PendingIntent.FLAG_UPDATE_CURRENT
+                    deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT
                             | PendingIntent.FLAG_IMMUTABLE));
 
             builder.setContentIntent(pi);
@@ -987,5 +967,24 @@ public class CellBroadcastAlertService extends Service {
             }
         }
         return false;
+    }
+
+    private boolean checkAlertConfigEnabled(int subId, String key, boolean defaultValue) {
+        boolean result = defaultValue;
+        String roamingOperator = CellBroadcastReceiver.getRoamingOperatorSupported(this);
+        // For roaming supported case
+        if (!roamingOperator.isEmpty()) {
+            int resId = CellBroadcastSettings.getResourcesIdForDefaultPrefValue(key);
+            if (resId != 0) {
+                result = CellBroadcastSettings.getResourcesByOperator(
+                        mContext, subId, roamingOperator).getBoolean(resId);
+                // For roaming support case, the channel can be enabled by the default config
+                // for the network even it is disabled by the preference
+                if (result) {
+                    return true;
+                }
+            }
+        }
+        return PreferenceManager.getDefaultSharedPreferences(this).getBoolean(key, defaultValue);
     }
 }

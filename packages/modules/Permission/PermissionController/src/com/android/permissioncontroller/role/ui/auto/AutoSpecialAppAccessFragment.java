@@ -16,7 +16,6 @@
 
 package com.android.permissioncontroller.role.ui.auto;
 
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -82,14 +81,14 @@ public class AutoSpecialAppAccessFragment extends AutoSettingsFrameFragment impl
 
     @NonNull
     @Override
-    public TwoStatePreference createApplicationPreference(@NonNull Context context) {
-        return new SwitchPreference(context);
+    public TwoStatePreference createApplicationPreference() {
+        return new SwitchPreference(requireContext());
     }
 
     @NonNull
     @Override
-    public Preference createFooterPreference(@NonNull Context context) {
-        Preference preference = new Preference(context);
+    public Preference createFooterPreference() {
+        Preference preference = new Preference(requireContext());
         preference.setIcon(R.drawable.ic_info_outline);
         preference.setSelectable(false);
         return preference;

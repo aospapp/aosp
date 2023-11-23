@@ -19,8 +19,10 @@ package com.android.car.obd2;
 import android.os.SystemClock;
 import android.util.JsonWriter;
 import android.util.Log;
+
 import com.android.car.obd2.Obd2Command.FreezeFrameCommand;
 import com.android.car.obd2.Obd2Command.OutputSemanticHandler;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

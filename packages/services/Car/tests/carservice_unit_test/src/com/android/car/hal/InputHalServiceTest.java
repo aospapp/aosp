@@ -16,7 +16,9 @@
 package com.android.car.hal;
 
 import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
-import static android.hardware.automotive.vehicle.V2_0.CustomInputType.CUSTOM_EVENT_F1;
+import static android.hardware.automotive.vehicle.CustomInputType.CUSTOM_EVENT_F1;
+
+import static com.android.car.CarServiceUtils.toIntArray;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -34,21 +36,16 @@ import android.car.CarOccupantZoneManager;
 import android.car.input.CarInputManager;
 import android.car.input.CustomInputEvent;
 import android.car.input.RotaryEvent;
-import android.hardware.automotive.vehicle.V2_0.RotaryInputType;
-import android.hardware.automotive.vehicle.V2_0.VehicleDisplay;
-import android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.RotaryInputType;
+import android.hardware.automotive.vehicle.VehicleDisplay;
+import android.hardware.automotive.vehicle.VehicleHwKeyInputAction;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.view.Display;
 import android.view.KeyEvent;
 
 import androidx.test.filters.RequiresDevice;
 
-import com.android.car.vehiclehal.test.VehiclePropConfigBuilder;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.android.car.hal.test.AidlVehiclePropConfigBuilder;
 
 import org.junit.After;
 import org.junit.Before;
@@ -69,12 +66,14 @@ public class InputHalServiceTest {
     @Mock InputHalService.InputListener mInputListener;
     @Mock LongSupplier mUptimeSupplier;
 
-    private static final VehiclePropConfig HW_KEY_INPUT_CONFIG =
-            VehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_KEY_INPUT).build();
-    private static final VehiclePropConfig HW_ROTARY_INPUT_CONFIG =
-            VehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_ROTARY_INPUT).build();
-    private static final VehiclePropConfig HW_CUSTOM_INPUT_CONFIG =
-            VehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_CUSTOM_INPUT).build();
+    private static final HalPropConfig HW_KEY_INPUT_CONFIG = new AidlHalPropConfig(
+            AidlVehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_KEY_INPUT).build());
+    private static final HalPropConfig HW_ROTARY_INPUT_CONFIG = new AidlHalPropConfig(
+            AidlVehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_ROTARY_INPUT).build());
+    private static final HalPropConfig HW_CUSTOM_INPUT_CONFIG = new AidlHalPropConfig(
+            AidlVehiclePropConfigBuilder.newBuilder(VehicleProperty.HW_CUSTOM_INPUT).build());
+
+    private final HalPropValueBuilder mPropValueBuilder = new HalPropValueBuilder(/*isAidl=*/true);
 
     private enum Key {DOWN, UP}
 
@@ -100,17 +99,18 @@ public class InputHalServiceTest {
         mInputHalService.setInputListener(mInputListener);
 
         int anyDisplay = VehicleDisplay.MAIN;
-        mInputHalService.onHalEvents(
-                ImmutableList.of(makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_ENTER, anyDisplay)));
+        mInputHalService.onHalEvents(List.of(makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_ENTER,
+                anyDisplay)));
         verify(mInputListener, never()).onKeyEvent(any(), anyInt());
     }
 
     @Test
     public void takesKeyInputProperty() {
-        Set<VehiclePropConfig> offeredProps = ImmutableSet.of(
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.ABS_ACTIVE).build(),
+        Set<HalPropConfig> offeredProps = Set.of(new AidlHalPropConfig(
+                AidlVehiclePropConfigBuilder.newBuilder(VehicleProperty.ABS_ACTIVE).build()),
                 HW_KEY_INPUT_CONFIG,
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.CURRENT_GEAR).build());
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.CURRENT_GEAR).build()));
 
         mInputHalService.takeProperties(offeredProps);
 
@@ -121,10 +121,12 @@ public class InputHalServiceTest {
 
     @Test
     public void takesRotaryInputProperty() {
-        Set<VehiclePropConfig> offeredProps = ImmutableSet.of(
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.ABS_ACTIVE).build(),
+        Set<HalPropConfig> offeredProps = Set.of(
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.ABS_ACTIVE).build()),
                 HW_ROTARY_INPUT_CONFIG,
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.CURRENT_GEAR).build());
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.CURRENT_GEAR).build()));
 
         mInputHalService.takeProperties(offeredProps);
 
@@ -135,10 +137,12 @@ public class InputHalServiceTest {
 
     @Test
     public void takesCustomInputProperty() {
-        Set<VehiclePropConfig> offeredProps = ImmutableSet.of(
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.ABS_ACTIVE).build(),
+        Set<HalPropConfig> offeredProps = Set.of(
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.ABS_ACTIVE).build()),
                 HW_CUSTOM_INPUT_CONFIG,
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.CURRENT_GEAR).build());
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.CURRENT_GEAR).build()));
 
         mInputHalService.takeProperties(offeredProps);
 
@@ -149,12 +153,14 @@ public class InputHalServiceTest {
 
     @Test
     public void takesKeyAndRotaryAndCustomInputProperty() {
-        Set<VehiclePropConfig> offeredProps = ImmutableSet.of(
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.ABS_ACTIVE).build(),
+        Set<HalPropConfig> offeredProps = Set.of(
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.ABS_ACTIVE).build()),
                 HW_KEY_INPUT_CONFIG,
                 HW_ROTARY_INPUT_CONFIG,
                 HW_CUSTOM_INPUT_CONFIG,
-                VehiclePropConfigBuilder.newBuilder(VehicleProperty.CURRENT_GEAR).build());
+                new AidlHalPropConfig(AidlVehiclePropConfigBuilder.newBuilder(
+                        VehicleProperty.CURRENT_GEAR).build()));
 
         mInputHalService.takeProperties(offeredProps);
 
@@ -198,7 +204,7 @@ public class InputHalServiceTest {
         }).when(mInputListener).onKeyEvent(any(), eq(CarOccupantZoneManager.DISPLAY_TYPE_MAIN));
 
         mInputHalService.onHalEvents(
-                ImmutableList.of(
+                List.of(
                         makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_ENTER, VehicleDisplay.MAIN),
                         makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_MENU, VehicleDisplay.MAIN)));
 
@@ -223,7 +229,7 @@ public class InputHalServiceTest {
                 eq(CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER));
 
         mInputHalService.onHalEvents(
-                ImmutableList.of(
+                List.of(
                         makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_ENTER,
                                 VehicleDisplay.INSTRUMENT_CLUSTER),
                         makeKeyPropValue(Key.DOWN, KeyEvent.KEYCODE_MENU,
@@ -233,6 +239,27 @@ public class InputHalServiceTest {
         assertThat(events.get(1).getKeyCode()).isEqualTo(KeyEvent.KEYCODE_MENU);
 
         events.forEach(KeyEvent::recycle);
+    }
+
+    @Test
+    public void dispatchesInputEvent_invalidInputEvent() {
+        subscribeListener();
+        HalPropValue v = mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT, /* areaId= */ 0);
+        // Missing action, code, display_type.
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onKeyEvent(any(),  anyInt());
+
+        // Missing code, display_type.
+        v = mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT, /* areaId= */ 0,
+                VehicleHwKeyInputAction.ACTION_DOWN);
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onKeyEvent(any(),  anyInt());
+
+        // Missing display_type.
+        v = mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT, /* areaId= */ 0,
+                new int[]{VehicleHwKeyInputAction.ACTION_DOWN, KeyEvent.KEYCODE_ENTER});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onKeyEvent(any(),  anyInt());
     }
 
     @Test
@@ -383,7 +410,7 @@ public class InputHalServiceTest {
         long timestampNanos = 12_345_678_901L;
 
         // Act
-        mInputHalService.onHalEvents(ImmutableList.of(
+        mInputHalService.onHalEvents(List.of(
                 makeRotaryPropValue(RotaryInputType.ROTARY_INPUT_TYPE_AUDIO_VOLUME, 1,
                         timestampNanos, 0, VehicleDisplay.MAIN)));
 
@@ -417,7 +444,7 @@ public class InputHalServiceTest {
         int numberOfDetents = 3;
 
         // Act
-        mInputHalService.onHalEvents(ImmutableList.of(
+        mInputHalService.onHalEvents(List.of(
                 makeRotaryPropValue(RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION,
                         -numberOfDetents, timestampNanos, deltaNanos, VehicleDisplay.MAIN)));
 
@@ -435,6 +462,57 @@ public class InputHalServiceTest {
     }
 
     @Test
+    public void dispatchesRotaryEvent_invalidInputEvent() {
+        subscribeListener();
+        HalPropValue v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 0);
+
+        // Missing rotaryInputType, detentCount, targetDisplayType.
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Missing detentCount, targetDisplayType.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 0,
+                RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION);
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Missing targetDisplayType.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 0,
+                new int[]{RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION, 1});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Add targetDisplayType and set detentCount to 0.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 0,
+                new int[]{RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION, 0,
+                        VehicleDisplay.MAIN});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Set detentCount to 1.
+        // Add additional unnecessary arguments so that the array size does not match detentCount.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 1,
+                new int[]{RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION, 1,
+                        VehicleDisplay.MAIN, 0});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Set invalid detentCount.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 1,
+                new int[]{RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION, Integer.MAX_VALUE,
+                        VehicleDisplay.MAIN, 0});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+
+        // Set invalid detentCount.
+        v = mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 1,
+                new int[]{RotaryInputType.ROTARY_INPUT_TYPE_SYSTEM_NAVIGATION, Integer.MIN_VALUE,
+                        VehicleDisplay.MAIN, 0});
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onRotaryEvent(any(),  anyInt());
+    }
+
+    @Test
     public void dispatchesCustomInputEvent_mainDisplay() {
         // Arrange mInputListener to capture incoming CustomInputEvent
         subscribeListener();
@@ -448,11 +526,11 @@ public class InputHalServiceTest {
 
         // Arrange
         int repeatCounter = 1;
-        VehiclePropValue customInputPropValue = makeCustomInputPropValue(
+        HalPropValue customInputPropValue = makeCustomInputPropValue(
                 CUSTOM_EVENT_F1, VehicleDisplay.MAIN, repeatCounter);
 
         // Act
-        mInputHalService.onHalEvents(ImmutableList.of(customInputPropValue));
+        mInputHalService.onHalEvents(List.of(customInputPropValue));
 
         // Assert
         assertThat(events).containsExactly(new CustomInputEvent(
@@ -474,11 +552,11 @@ public class InputHalServiceTest {
 
         // Arrange
         int repeatCounter = 1;
-        VehiclePropValue customInputPropValue = makeCustomInputPropValue(
+        HalPropValue customInputPropValue = makeCustomInputPropValue(
                 CUSTOM_EVENT_F1, VehicleDisplay.INSTRUMENT_CLUSTER, repeatCounter);
 
         // Act
-        mInputHalService.onHalEvents(ImmutableList.of(customInputPropValue));
+        mInputHalService.onHalEvents(List.of(customInputPropValue));
 
         // Assert
         assertThat(events).containsExactly(new CustomInputEvent(
@@ -487,8 +565,64 @@ public class InputHalServiceTest {
                 repeatCounter));
     }
 
+    @Test
+    public void dispatchesCustomInputEvent_InvalidEvent() {
+        // Arrange mInputListener to capture incoming CustomInputEvent
+        subscribeListener();
+
+        HalPropValue v = mPropValueBuilder.build(VehicleProperty.HW_CUSTOM_INPUT, /* areaId= */ 0);
+
+        // Missing inputCode, targetDisplayType, repeatCounter.
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onCustomInputEvent(any());
+
+        // Missing targetDisplayType, repeatCounter.
+        v = mPropValueBuilder.build(VehicleProperty.HW_CUSTOM_INPUT, /* areaId= */ 0,
+                CustomInputEvent.INPUT_CODE_F1);
+        mInputHalService.onHalEvents(List.of(v));
+        verify(mInputListener, never()).onCustomInputEvent(any());
+
+        // Missing repeatCounter.
+        v = mPropValueBuilder.build(VehicleProperty.HW_CUSTOM_INPUT, /* areaId= */ 0,
+                new int[]{CustomInputEvent.INPUT_CODE_F1,
+                        CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER});
+        mInputHalService.onHalEvents(List.of(v));
+
+        verify(mInputListener, never()).onCustomInputEvent(any());
+    }
+
+    @Test
+    public void dispatchesCustomInputEvent_acceptInputCodeHigherThanF10() {
+        // Custom Input Events may accept input code values outside the
+        // CUSTOM_EVENT_F1 to F10 range.
+        int someInputCodeValueHigherThanF10 = 1000;
+
+        // Arrange mInputListener to capture incoming CustomInputEvent
+        subscribeListener();
+
+        List<CustomInputEvent> events = new ArrayList<>();
+        doAnswer(invocation -> {
+            CustomInputEvent event = invocation.getArgument(0);
+            events.add(event);
+            return null;
+        }).when(mInputListener).onCustomInputEvent(any());
+
+        // Arrange
+        int repeatCounter = 1;
+        HalPropValue customInputPropValue = makeCustomInputPropValue(
+                someInputCodeValueHigherThanF10, VehicleDisplay.MAIN, repeatCounter);
+
+        // Act
+        mInputHalService.onHalEvents(List.of(customInputPropValue));
+
+        // Assert
+        assertThat(events).containsExactly(new CustomInputEvent(
+                someInputCodeValueHigherThanF10, CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
+                repeatCounter));
+    }
+
     private void subscribeListener() {
-        mInputHalService.takeProperties(ImmutableSet.of(HW_KEY_INPUT_CONFIG));
+        mInputHalService.takeProperties(Set.of(HW_KEY_INPUT_CONFIG));
         assertThat(mInputHalService.isKeyInputSupported()).isTrue();
 
         mInputHalService.setInputListener(mInputListener);
@@ -500,7 +634,7 @@ public class InputHalServiceTest {
         ArgumentCaptor<KeyEvent> captor = ArgumentCaptor.forClass(KeyEvent.class);
         reset(mInputListener);
         mInputHalService.onHalEvents(
-                ImmutableList.of(makeKeyPropValue(action, code, actualDisplay)));
+                List.of(makeKeyPropValue(action, code, actualDisplay)));
         verify(mInputListener).onKeyEvent(captor.capture(), eq(expectedDisplay));
         reset(mInputListener);
         return captor.getValue();
@@ -511,59 +645,45 @@ public class InputHalServiceTest {
         ArgumentCaptor<KeyEvent> captor = ArgumentCaptor.forClass(KeyEvent.class);
         reset(mInputListener);
         mInputHalService.onHalEvents(
-                ImmutableList.of(makeKeyPropValueWithIndents(code, indents, actualDisplay)));
+                List.of(makeKeyPropValueWithIndents(code, indents, actualDisplay)));
         verify(mInputListener, times(indents)).onKeyEvent(captor.capture(),
                 eq(expectedDisplay));
         reset(mInputListener);
         return captor.getValue();
     }
 
-    private VehiclePropValue makeKeyPropValue(Key action, int code,
+    private HalPropValue makeKeyPropValue(Key action, int code,
             @DisplayTypeEnum int targetDisplayType) {
-        VehiclePropValue v = new VehiclePropValue();
-        v.prop = VehicleProperty.HW_KEY_INPUT;
-        v.value.int32Values.add(
-                (action == Key.DOWN
+        int actionValue = (action == Key.DOWN
                         ? VehicleHwKeyInputAction.ACTION_DOWN
-                        : VehicleHwKeyInputAction.ACTION_UP));
-        v.value.int32Values.add(code);
-        v.value.int32Values.add(targetDisplayType);
-        return v;
+                        : VehicleHwKeyInputAction.ACTION_UP);
+        return mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT, /* areaId= */ 0,
+                new int[]{actionValue, code, targetDisplayType});
     }
 
-    private VehiclePropValue makeKeyPropValueWithIndents(int code, int indents,
+    private HalPropValue makeKeyPropValueWithIndents(int code, int indents,
             @DisplayTypeEnum int targetDisplayType) {
-        VehiclePropValue v = new VehiclePropValue();
-        v.prop = VehicleProperty.HW_KEY_INPUT;
         // Only Key.down can have indents.
-        v.value.int32Values.add(VehicleHwKeyInputAction.ACTION_DOWN);
-        v.value.int32Values.add(code);
-        v.value.int32Values.add(targetDisplayType);
-        v.value.int32Values.add(indents);
-        return v;
+        return mPropValueBuilder.build(VehicleProperty.HW_KEY_INPUT, /* areaId= */ 0,
+                new int[]{VehicleHwKeyInputAction.ACTION_DOWN, code, targetDisplayType, indents});
     }
 
-    private VehiclePropValue makeRotaryPropValue(int rotaryInputType, int detents, long timestamp,
+    private HalPropValue makeRotaryPropValue(int rotaryInputType, int detents, long timestamp,
             int delayBetweenDetents, @DisplayTypeEnum int targetDisplayType) {
-        VehiclePropValue v = new VehiclePropValue();
-        v.prop = VehicleProperty.HW_ROTARY_INPUT;
-        v.value.int32Values.add(rotaryInputType);
-        v.value.int32Values.add(detents);
-        v.value.int32Values.add(targetDisplayType);
+        ArrayList<Integer> int32Values = new ArrayList<>();
+        int32Values.add(rotaryInputType);
+        int32Values.add(detents);
+        int32Values.add(targetDisplayType);
         for (int i = 0; i < Math.abs(detents) - 1; i++) {
-            v.value.int32Values.add(delayBetweenDetents);
+            int32Values.add(delayBetweenDetents);
         }
-        v.timestamp = timestamp;
-        return v;
+        return mPropValueBuilder.build(VehicleProperty.HW_ROTARY_INPUT, /* areaId= */ 0, timestamp,
+                /*status=*/0, toIntArray(int32Values));
     }
 
-    private VehiclePropValue makeCustomInputPropValue(int inputCode,
+    private HalPropValue makeCustomInputPropValue(int inputCode,
             @DisplayTypeEnum int targetDisplayType, int repeatCounter) {
-        VehiclePropValue v = new VehiclePropValue();
-        v.prop = VehicleProperty.HW_CUSTOM_INPUT;
-        v.value.int32Values.add(inputCode);
-        v.value.int32Values.add(targetDisplayType);
-        v.value.int32Values.add(repeatCounter);
-        return v;
+        return mPropValueBuilder.build(VehicleProperty.HW_CUSTOM_INPUT, /* areaId= */ 0,
+                new int[]{inputCode, targetDisplayType, repeatCounter});
     }
 }

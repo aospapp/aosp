@@ -16,14 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="500552243728728684">"રાજ્ય/સ્થાનિક અલર્ટ"</string>
-    <string name="cmas_required_monthly_test" msgid="8883307874160041291">"પરીક્ષણ માટેનું અલર્ટ"</string>
-    <string name="cmas_extreme_alert" msgid="4249800618530472053">"જીવના જોખમ માટેનું અલર્ટ"</string>
+    <string name="cmas_presidential_level_alert" msgid="6414900103808998795">"રાજ્ય/સ્થાનિક અલર્ટનું નોટિફિકેશન"</string>
+    <string name="cmas_required_monthly_test" msgid="4500730781867583957">"પરીક્ષણ માટેના અલર્ટનું નોટિફિકેશન"</string>
+    <string name="cmas_extreme_alert" msgid="1869609432530517469">"જીવના જોખમ માટેના અલર્ટનું નોટિફિકેશન"</string>
     <!-- no translation found for cmas_extreme_immediate_observed_alert (6296555014688324240) -->
     <skip />
     <!-- no translation found for cmas_extreme_immediate_likely_alert (8246414214802170006) -->
     <skip />
-    <string name="cmas_amber_alert" msgid="5411113795367656316">"નુકસાન કે અપહરણ માટેનું અલર્ટ"</string>
+    <string name="cmas_amber_alert" msgid="8879124499883205793">"નુકસાન કે અપહરણ માટેના અલર્ટનું નોટિફિકેશન"</string>
     <!-- no translation found for enable_cmas_test_alerts_title (7191924098636195819) -->
     <skip />
     <string name="enable_cmas_test_alerts_summary" msgid="8476051987965553727"></string>

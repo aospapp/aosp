@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-// Prebuilt generated using 'generated_prebuilts.sh'
 package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
+    // Inherits all licenses from parent to get Apache 2.0 and package name
+    default_applicable_licenses: [
+        "packages_modules_NeuralNetworks_license",
+    ],
 }
 
+// Prebuilt generated using 'generated_prebuilts.sh'
 cc_prebuilt_library_shared {
     name: "neuralnetworks_sample_sl_driver_prebuilt",
 
+    host_supported: false,
     shared_libs: [
         "libbase",
         "libcutils",
@@ -51,23 +55,30 @@ cc_prebuilt_library_shared {
 
 cc_defaults {
     name: "NeuralNetworksShimDriverAidl_defaults",
-    defaults: ["neuralnetworks_defaults"],
+    host_supported: false,
+    defaults: [
+        "neuralnetworks_defaults",
+        "neuralnetworks_use_latest_utils_hal_aidl",
+    ],
     header_libs: [
         "libneuralnetworks_headers",
     ],
     cflags: [
         "-DNN_COMPATIBILITY_LIBRARY_BUILD",
     ],
+    ldflags: [
+        // neuralnetworks_sample_sl_driver_prebuilt has undefined symbols that
+        // cause linker failures with --no-allow-shlib-undefined, the default
+        // when linking executables.
+        "-Wl,--allow-shlib-undefined",
+    ],
     static_libs: [
-        "android.hardware.common-V2-ndk_platform",
-        "android.hardware.graphics.common-V2-ndk_platform",
-        "android.hardware.neuralnetworks-V1-ndk_platform",
         "libaidlcommonsupport",
         "libarect",
         "libcutils",
+        "libneuralnetworks_common",
         "libneuralnetworks_shim_static",
         "neuralnetworks_supportlibrary_loader",
-        "neuralnetworks_utils_hal_aidl",
         "neuralnetworks_utils_hal_common",
     ],
     shared_libs: [
@@ -90,10 +101,18 @@ cc_defaults {
     proprietary: true,
 }
 
+// android.hardware.neuralnetworks-shim-service-sample takes an existing Support
+// Library prebuilt object and registers it as a sAIDL vendor service.
+//
+// To see an example where the driver code is available as a vendor service
+// directly in the build system, refer to how the sAIDL adapter is used in
+// android.hardware.neuralnetworks-service-sample-limited in the file
+// packages/modules/NeuralNetworks/driver/sample_aidl/Android.bp.
 cc_binary {
     name: "android.hardware.neuralnetworks-shim-service-sample",
     srcs: ["ShimServiceSample.cpp"],
     defaults: ["NeuralNetworksShimDriverAidl_server_defaults"],
+    stl: "libc++_static",
     init_rc: ["config/android.hardware.neuralnetworks-shim-service-sample.rc"],
     vintf_fragments: ["config/android.hardware.neuralnetworks-shim-service-sample.xml"],
 }

@@ -305,7 +305,7 @@
     <string name="carrier_settings_euicc_summary" msgid="2027941166597330117">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="7228249980933944101">"Мобилни подаци"</string>
     <string name="mobile_data_settings_summary" msgid="5012570152029118471">"Користи податке преко мобилне мреже"</string>
-    <string name="data_usage_disable_mobile" msgid="5669109209055988308">"Желите ли да искључите мобилне податке?"</string>
+    <string name="data_usage_disable_mobile" msgid="5669109209055988308">"Желите да искључите мобилне податке?"</string>
     <string name="sim_selection_required_pref" msgid="6985901872978341314">"Потребно је да изаберете нешто"</string>
     <string name="sim_change_data_title" msgid="9142726786345906606">"Да променимо SIM за податке?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Желите ли да за мобилне податке користите <xliff:g id="NEW_SIM">%1$s</xliff:g> уместо <xliff:g id="OLD_SIM">%2$s</xliff:g>?"</string>
@@ -615,7 +615,7 @@
     <string name="ota_title_activate" msgid="4049645324841263423">"Активирајте телефон"</string>
     <string name="ota_touch_activate" msgid="838764494319694754">"Потребно је да упутите посебан позив да бисте активирали услугу свој телефона. \n\nНакон што притиснете дугме „Активирај“, слушајте дата упутства да бисте да бисте активирали свој телефон."</string>
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"Активирање..."</string>
-    <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"Телефон активира услугу мобилног преноса података.\n\nТо може да потраје и до 5 минута."</string>
+    <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"Телефон активира услугу мобилних података.\n\nТо може да потраје и до 5 минута."</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"Желите ли да прескочите активацију?"</string>
     <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"Ако прескочите активацију, не можете да упућујете позиве или да се повезујете са мрежама за мобилни пренос података (иако можете да се повежете са WiFi мрежама). Све док не активирате свој телефон, бићете упитани да то учините сваки пут када га укључите."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"Прескочи"</string>
@@ -637,16 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Режим за хитан повратни позив"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Веза за пренос података је онемогућена"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Веза за пренос података неће бити доступна до <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">Телефон ће бити у Режиму хитног повратног позива <xliff:g id="COUNT_1">%s</xliff:g> минут. Док је у овом режиму не можете да користите апликације које користе везу за пренос података. Желите ли одмах да изађете из овог режима?</item>
-      <item quantity="few">Телефон ће бити у Режиму хитног повратног позива <xliff:g id="COUNT_1">%s</xliff:g> минута. Док је у овом режиму не можете да користите апликације које користе везу за пренос података. Желите ли одмах да изађете из овог режима?</item>
-      <item quantity="other">Телефон ће бити у Режиму хитног повратног позива <xliff:g id="COUNT_1">%s</xliff:g> минута. Док је у овом режиму не можете да користите апликације које користе везу за пренос података. Желите ли одмах да изађете из овог режима?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">Изабрана радња није доступна док сте у Режиму хитног повратног позива. Телефон ће бити у овом режиму <xliff:g id="COUNT_1">%s</xliff:g> минут. Желите ли одмах да изађете из овог режима?</item>
-      <item quantity="few">Изабрана радња није доступна док сте у Режиму хитног повратног позива. Телефон ће бити у овом режиму <xliff:g id="COUNT_1">%s</xliff:g> минута. Желите ли одмах да изађете из овог режима?</item>
-      <item quantity="other">Изабрана радња није доступна док сте у Режиму хитног повратног позива. Телефон ће бити у овом режиму <xliff:g id="COUNT_1">%s</xliff:g> минута. Желите ли одмах да изађете из овог режима?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Изабрана радња није доступна када је у току хитан позив"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Излазак из Режима хитног повратног позива"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Да"</string>
@@ -654,11 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Одбаци"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Телефон је у режиму за хитан повратни позив"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"До <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">Телефон ће <xliff:g id="COUNT_1">%s</xliff:g> минут бити у режиму за хитан повратни позив.\nЖелите сад да изађете из њега?</item>
-      <item quantity="few">Телефон ће <xliff:g id="COUNT_1">%s</xliff:g> минута бити у режиму за хитан повратни позив.\nЖелите сад да изађете из њега?</item>
-      <item quantity="other">Телефон ће <xliff:g id="COUNT_1">%s</xliff:g> минута бити у режиму за хитан повратни позив.\nЖелите сад да изађете из њега?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Услуга"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Подешавање"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Није подешено&gt;"</string>
@@ -686,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Приступачност"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"WiFi позив од"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"WiFi позив"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Додирните поново да бисте отворили"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Дошло је до грешке при декодирању поруке."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM картица је активирала услугу и ажурирала функције роминга на телефону."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Има превише активних позива. Завршите или обједините постојеће позиве пре него што упутите нови."</string>
@@ -830,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Не можете да позовете јер се већ упућује други одлазни позив."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Не можете да позовете јер имате долазни позив на који нисте одговорили. Одговорите на долазни позив или га одбијте пре упућивања новог позива."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Не можете да позовете јер је позивање онемогућено преко својства система ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Не можете да позовете јер су два позива већ у току. Прекините један од позива или их обједините у конференцију да бисте упутили нови позив."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Не можете да позовете јер су два позива већ у току. Прекините један од њих или их обједините у конференцију да бисте упутили нови позив."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Да бисте користили <xliff:g id="SUPP_SERVICE">%s</xliff:g>, уверите се да су укључени мобилни подаци. То можете да промените у подешавањима мобилне мреже."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Да бисте користили <xliff:g id="SUPP_SERVICE">%s</xliff:g>, уверите се да су укључени мобилни подаци и пренос података у ромингу. То можете да промените у подешавањима мобилне мреже."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Да бисте користили <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, уверите се да су за SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> укључени мобилни подаци. То можете да промените у подешавањима мобилне мреже."</string>
@@ -848,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Треба да рестартујте уређај да бисте променили ово подешавање."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Рестартуј"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Откажи"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Подеси преносиви eSIM као подразумевани"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Напајање за радио на мобилним уређајима"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Прикажи адресар SIM-а"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Прикажи бројеве за фиксно бирање"</string>
@@ -870,7 +858,7 @@
     <string name="radioInfo_phone_offhook" msgid="7564601639749936170">"Позив је у току"</string>
     <string name="radioInfo_data_disconnected" msgid="8085447971880814541">"Веза је прекинута"</string>
     <string name="radioInfo_data_connecting" msgid="925092271092152472">"Повезује се"</string>
-    <string name="radioInfo_data_connected" msgid="7637335645634239508">"Повезано је"</string>
+    <string name="radioInfo_data_connected" msgid="7637335645634239508">"Повезано"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Суспендовано"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Непознато"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"пак."</string>
@@ -902,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Изаберите радијски опсег"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тип гласовне мреже:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тип мреже за пренос података:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Замени тип мреже:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Изаберите индекс телефона"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Подесите жељени тип мреже:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"IPv4 имена хоста за пинговање (www.google.com):"</string>
@@ -913,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Освежи"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Укључи/искључи проверу DNS-а"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Информације/подешавања специфична за произвођача оригиналне опреме"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC доступно:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ограничено:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR доступно:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR стање:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC доступно (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR ограничено (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR доступно (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR стање (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR учесталост:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Подесите режим радијског опсега"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Учитава се листа опсега…"</string>

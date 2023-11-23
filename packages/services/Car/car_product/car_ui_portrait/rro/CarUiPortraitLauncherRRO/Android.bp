@@ -27,5 +27,6 @@ android_app {
         "androidx-constraintlayout_constraintlayout",
         "car-media-common",
         "car-apps-common",
+        "car-ui-lib",
     ],
 }

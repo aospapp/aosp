@@ -25,6 +25,9 @@ android_app {
         ":Telecom-srcs",
         "proto/**/*.proto",
     ],
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
     resource_dirs: ["res"],
     proto: {
         type: "nano",
@@ -37,7 +40,6 @@ android_app {
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },
-    defaults: ["SettingsLibDefaults"],
 }
 
 android_test {
@@ -52,7 +54,8 @@ android_test {
         "androidx.legacy_legacy-support-core-utils",
         "androidx.core_core",
         "androidx.fragment_fragment",
-        "androidx.test.ext.junit"
+        "androidx.test.ext.junit",
+        "platform-compat-test-rules",
     ],
     srcs: [
         "tests/src/**/*.java",

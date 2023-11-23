@@ -117,7 +117,7 @@ public class GrantPermissionsAutoViewHandler implements GrantPermissionsViewHand
                 .setAllowDismissButton(false)
                 .setOnDismissListener((dialog) -> {
                     mDialog = null;
-                    mResultListener.onPermissionGrantResult(mGroupName, DENIED);
+                    mResultListener.onPermissionGrantResult(mGroupName, CANCELED);
                 });
         if (mGroupIcon != null) {
             builder.setIcon(mGroupIcon.loadDrawable(mContext));
@@ -200,7 +200,7 @@ public class GrantPermissionsAutoViewHandler implements GrantPermissionsViewHand
         if (mDialog != null) {
             mDialog.dismiss();
         } else if (mResultListener != null) {
-            mResultListener.onPermissionGrantResult(mGroupName, DENIED);
+            mResultListener.onPermissionGrantResult(mGroupName, CANCELED);
         }
     }
 }

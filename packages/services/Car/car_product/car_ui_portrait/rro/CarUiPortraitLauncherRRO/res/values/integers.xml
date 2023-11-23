@@ -17,7 +17,5 @@
 <resources>
     <!-- Number of buttons shown for the media playback controls bar -->
     <integer name="playback_controls_bar_columns">3</integer>
-    <!--  Entry/exit animation transition speed in milliseconds.  This is the animation of foreground DA.-->
-    <integer name="enter_exit_animation_foreground_display_area_duration_ms">500</integer>
 </resources>
 

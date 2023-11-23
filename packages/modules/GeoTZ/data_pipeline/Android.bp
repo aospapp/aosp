@@ -15,12 +15,24 @@
 // Proto library
 package {
     // See: http://go/android-license-faq
-    // A large-scale-change added 'default_applicable_licenses' to import
-    // all of the 'license_kinds' from "packages_modules_GeoTZ_license"
-    // to get the below license kinds:
-    //   SPDX-license-identifier-Apache-2.0
-    //   legacy_restricted
-    default_applicable_licenses: ["packages_modules_GeoTZ_license"],
+    default_applicable_licenses: [
+        "Android-Apache-2.0",
+        "packages_modules_GeoTZ_data_pipeline_license",
+    ],
+}
+
+license {
+    name: "packages_modules_GeoTZ_data_pipeline_license",
+    license_kinds: ["legacy_restricted"],
+    license_text: [
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/canonicalizetzs2polygons/data/input_polygons/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/canonicalizetzs2polygons/data/output_polygons/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/createtzs2protodatafile/data/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/geojsontz_to_tzs2polygons/data/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/mergetzs2ranges/data/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/tzs2cellunions_to_tzs2ranges/data/LICENSE",
+        "src/test/java/com/android/timezone/location/data_pipeline/steps/tzs2polygons_tzs2cellunions/data/LICENSE",
+    ],
 }
 
 java_library_host {

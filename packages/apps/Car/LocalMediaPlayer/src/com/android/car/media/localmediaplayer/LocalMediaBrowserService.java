@@ -128,7 +128,7 @@ public class LocalMediaBrowserService extends MediaBrowserService {
         filter.addAction(ACTION_PAUSE);
         filter.addAction(ACTION_NEXT);
         filter.addAction(ACTION_PREV);
-        registerReceiver(mNotificationReceiver, filter);
+        registerReceiver(mNotificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
     }
 
     @Override

@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Získajte prístup ku kamerám auta."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"získať prístup k informáciám o energii auta"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Získajte prístup k informáciám o palive a energii auta."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Ovládanie nastavení nabíjania (EV) auta"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Ovládanie nastavení nabíjania (EV) auta."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"úprava dojazdu auta – zostatok"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Úprava zostávajúcej hodnoty dojazdu auta."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"získať prístup ku kúreniu, vzduchotechnike a klimatizácii auta"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Povoliť aplikácii deklarovať aktivity, aby sa zobrazili v klastri prístrojov"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Ovládanie klastra prístrojov"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Spustiť aplikácie v klastri nástrojov"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Stav navigácie klastra prístroja"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Sledovať zmeny stavu navigácie klastru prístroja"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Vykresľovanie klastra prístrojov"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Získavať údaje o klastri prístrojov"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Konfigurácia obmedzení dojmu používateľa"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Umožňuje ovládať spustenie a zastavenie grafu detekcie systému detekcie posádky"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Služba vstupov auta"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Spravovať udalosti vstupu"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"Zbernica CAN zlyhala"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Zbernica CAN nereaguje. Odpojte autorádio a znova ho pripojte. Potom auto znova naštartujte."</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Túto funkciu nie je možné používať za jazdy"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Ak chcete začať odznova s bezpečnými funkciami aplikácie, vyberte tlačidlo <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Späť"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Zavrieť aplikáciu"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Späť"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"čítať diagnostické údaje"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Čítanie diagnostických údajov z auta."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"vymazať diagnostické údaje"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Ovládanie sedadiel auta."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"získať prístup k základným informáciám o aute"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Prístup k základným informáciám o aute."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"prístup k informáciám o aute s obmedzenou prístupnosťou"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Prístup k informáciám o aute s obmedzenou prístupnosťou."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"prístup k informáciám o povoleniach dodávateľa auta"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Prístup k informáciám o povoleniach dodávateľa auta."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"čítať stav vonkajších svetiel auta"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Čítanie pravidiel pre napájanie komponentov auta."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"ovládanie pravidiel pre napájanie komponentov auta"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Ovládanie pravidiel pre napájanie komponentov auta."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"upraviť postup vypnutia"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Úprava postupu vypnutia."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"vykresľovanie šablón"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Vykresľovanie šablón."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ovládanie spúšťaných aplikácií"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Ovládanie spúšťaných aplikácií."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"Zbernica CAN zlyhala"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Zbernica CAN nereaguje. Odpojte autorádio a znova ho pripojte. Potom auto znova naštartujte."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Moje zariadenie"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Hosť"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Predvolená dôležitosť"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Vysoká dôležitosť"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Vyžaduje sa obnovenie výrobných nastavení"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Všetky údaje palubného systému budú vymazané. Po resetovaní môžete vytvoriť nový profil."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Viac"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Resetovanie palubného systému"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Váš systém prijal požiadavku na obnovenie výrobných nastavení a vymazanie všetkých údajov. Môžete ho resetovať teraz alebo sa resetuje pri ďalšom naštartovaní auta. Potom budete môcť nastaviť nový profil."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Resetovať"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Resetovať neskôr"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Palubný systém sa resetuje pri naštartovaní auta."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Ak chcete resetovať, auto musí byť zaparkované."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> ovplyvňuje výkon systému"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Ak chcete zlepšiť výkon systému, deaktivujte aplikáciu. Môžete ju znova aktivovať v Nastaveniach."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Ak chcete túto aplikáciu naďalej používať, uprednostnite ju."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Ak chcete zlepšiť výkon systému, odinštalujte aplikáciu."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Deaktivovať aplikáciu"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Uprednostniť aplikáciu"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Odinštalovať aplikáciu"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Aplikácia <xliff:g id="ID_1">^1</xliff:g> bola deaktivovaná. Môžete ju znova aktivovať v Nastaveniach."</string>
 </resources>

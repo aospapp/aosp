@@ -302,6 +302,10 @@ public class ErrorPolicyManager {
             ret = DataFailCause.IWLAN_DNS_RESOLUTION_NAME_FAILURE;
         } else if (error.getErrorType() == IwlanError.IKE_INTERNAL_IO_EXCEPTION) {
             ret = DataFailCause.IWLAN_IKEV2_MSG_TIMEOUT;
+        } else if (error.getErrorType() == IwlanError.SIM_NOT_READY_EXCEPTION) {
+            ret = DataFailCause.IWLAN_PDN_CONNECTION_REJECTION;
+        } else if (error.getErrorType() == IwlanError.NETWORK_FAILURE) {
+            ret = DataFailCause.NETWORK_FAILURE;
         } else if (error.getErrorType() == IwlanError.IKE_PROTOCOL_EXCEPTION) {
             Exception exception = error.getException();
             if (exception != null && exception instanceof IkeProtocolException) {

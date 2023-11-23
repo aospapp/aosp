@@ -20,6 +20,9 @@ import static android.car.CarOccupantZoneManager.DISPLAY_TYPE_MAIN;
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 import static android.media.AudioAttributes.AttributeUsage;
 
+import static com.android.car.custominput.sample.CustomInputEventListener.EventAction.INJECT_VOICE_ASSIST_ACTION_DOWN;
+import static com.android.car.custominput.sample.CustomInputEventListener.EventAction.INJECT_VOICE_ASSIST_ACTION_UP;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -75,10 +78,14 @@ public class CustomInputEventListenerTest {
 
     private CustomInputEventListener mEventHandler;
 
-    @Mock private Context mContext;
-    @Mock private CarAudioManager mCarAudioManager;
-    @Mock private CarOccupantZoneManager mCarOccupantZoneManager;
-    @Mock private SampleCustomInputService mService;
+    @Mock
+    private Context mContext;
+    @Mock
+    private CarAudioManager mCarAudioManager;
+    @Mock
+    private CarOccupantZoneManager mCarOccupantZoneManager;
+    @Mock
+    private SampleCustomInputService mService;
 
     @Before
     public void setUp() {
@@ -139,7 +146,10 @@ public class CustomInputEventListenerTest {
         mEventHandler.handle(SOME_DISPLAY_TYPE, event);
 
         // Assert
-        assertKeyEvent(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN, KeyEvent.KEYCODE_CALL);
+        assertKeyEvents(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CALL),
+                new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CALL));
+
     }
 
     @Test
@@ -156,7 +166,9 @@ public class CustomInputEventListenerTest {
         mEventHandler.handle(SOME_DISPLAY_TYPE, event);
 
         // Assert
-        assertKeyEvent(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN, KeyEvent.KEYCODE_ENDCALL);
+        assertKeyEvents(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENDCALL),
+                new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENDCALL));
     }
 
     @Test
@@ -173,27 +185,9 @@ public class CustomInputEventListenerTest {
         mEventHandler.handle(SOME_DISPLAY_TYPE, event);
 
         // Assert
-        assertKeyEvent(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN, KeyEvent.KEYCODE_HOME);
-    }
-
-    private void assertKeyEvent(int expectedDisplayType, int keyCode) {
-        ArgumentCaptor<KeyEvent> keyEventCaptor = ArgumentCaptor.forClass(KeyEvent.class);
-        ArgumentCaptor<Integer> displayTypeCaptor = ArgumentCaptor.forClass(Integer.class);
-        verify(mService, times(2)).injectKeyEvent(keyEventCaptor.capture(),
-                displayTypeCaptor.capture());
-
-        List<KeyEvent> actualEvents = keyEventCaptor.getAllValues();
-        KeyEvent actualEventDown = actualEvents.get(0);
-        assertThat(actualEventDown.getAction()).isEqualTo(KeyEvent.ACTION_DOWN);
-        assertThat(actualEventDown.getKeyCode()).isEqualTo(keyCode);
-        assertThat(actualEventDown.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
-
-        KeyEvent actualEventUp = actualEvents.get(1);
-        assertThat(actualEventUp.getAction()).isEqualTo(KeyEvent.ACTION_UP);
-        assertThat(actualEventUp.getKeyCode()).isEqualTo(keyCode);
-        assertThat(actualEventUp.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
-
-        assertThat(displayTypeCaptor.getValue()).isEqualTo(expectedDisplayType);
+        assertKeyEvents(/* expectedDisplayType= */ DISPLAY_TYPE_MAIN,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_HOME),
+                new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_HOME));
     }
 
     @Test
@@ -335,5 +329,54 @@ public class CustomInputEventListenerTest {
 
         // Assert
         verify(mCarAudioManager, never()).setGroupVolume(anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    public void testHandleEvent_injectVoiceAssistActionUp() {
+        // Arrange
+        CustomInputEvent event = new CustomInputEvent(
+                /* inputCode= */ INJECT_VOICE_ASSIST_ACTION_UP,
+                /* targetDisplayType= */ SOME_DISPLAY_TYPE,
+                /* repeatCounter= */ 1);
+
+        // Act
+        mEventHandler.handle(SOME_DISPLAY_TYPE, event);
+
+        // Assert
+        assertKeyEvents(DISPLAY_TYPE_MAIN,
+                new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOICE_ASSIST));
+    }
+
+    @Test
+    public void testHandleEvent_injectVoiceAssistActionDown() {
+        // Arrange
+        CustomInputEvent event = new CustomInputEvent(
+                /* inputCode= */ INJECT_VOICE_ASSIST_ACTION_DOWN,
+                /* targetDisplayType= */ SOME_DISPLAY_TYPE,
+                /* repeatCounter= */ 1);
+
+        // Act
+        mEventHandler.handle(SOME_DISPLAY_TYPE, event);
+
+        // Assert
+        assertKeyEvents(DISPLAY_TYPE_MAIN,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOICE_ASSIST));
+    }
+
+    private void assertKeyEvents(int expectedDisplayType, KeyEvent... events) {
+        ArgumentCaptor<KeyEvent> keyEventCaptor = ArgumentCaptor.forClass(KeyEvent.class);
+        ArgumentCaptor<Integer> displayTypeCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mService, times(events.length)).injectKeyEvent(keyEventCaptor.capture(),
+                displayTypeCaptor.capture());
+
+        assertThat(displayTypeCaptor.getValue()).isEqualTo(expectedDisplayType);
+
+        List<KeyEvent> actualEvents = keyEventCaptor.getAllValues();
+        for (int i = 0; i < actualEvents.size(); i++) {
+            KeyEvent actual = actualEvents.get(i);
+            assertThat(actual.getAction()).isEqualTo(events[i].getAction());
+            assertThat(actual.getKeyCode()).isEqualTo(events[i].getKeyCode());
+            assertThat(actual.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
+        }
     }
 }

@@ -18,7 +18,6 @@ package com.android.car.carlauncher;
 
 import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_LAUNCHABLES;
 import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_MEDIA_SERVICES;
-import static com.android.car.carlauncher.displayarea.CarDisplayAreaOrganizer.FOREGROUND_DISPLAY_AREA_ROOT;
 
 import android.app.Activity;
 import android.app.usage.UsageStats;
@@ -50,7 +49,6 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup;
 
 import com.android.car.carlauncher.AppLauncherUtils.LauncherAppsInfo;
-import com.android.car.carlauncher.displayarea.CarDisplayAreaController;
 import com.android.car.ui.FocusArea;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
@@ -170,14 +168,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
 
         ToolbarController toolbar = CarUi.requireToolbar(this);
 
-        // Check if a custom policy builder is defined.
-        if (CarLauncherUtils.isCustomDisplayPolicyDefined(this)) {
-            CarDisplayAreaController carDisplayAreaController =
-                    CarDisplayAreaController.getInstance();
-            carDisplayAreaController.showTitleBar(FOREGROUND_DISPLAY_AREA_ROOT, this);
-        } else {
-            toolbar.setNavButtonMode(NavButtonMode.CLOSE);
-        }
+        toolbar.setNavButtonMode(NavButtonMode.CLOSE);
 
         if (Build.IS_DEBUGGABLE) {
             toolbar.setMenuItems(Collections.singletonList(MenuItem.builder(this)
@@ -255,7 +246,8 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
     /** Updates the list of all apps, and the list of the most recently used ones. */
     private void updateAppsLists() {
         Set<String> appsToHide = mShowAllApps ? Collections.emptySet() : mHiddenApps;
-        LauncherAppsInfo appsInfo = AppLauncherUtils.getLauncherApps(appsToHide,
+        LauncherAppsInfo appsInfo = AppLauncherUtils.getLauncherApps(getApplicationContext(),
+                appsToHide,
                 mCustomMediaComponents,
                 mMode.mAppTypes,
                 mMode.mOpenMediaCenter,

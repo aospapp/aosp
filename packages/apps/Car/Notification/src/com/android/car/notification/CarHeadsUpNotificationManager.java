@@ -48,11 +48,9 @@ import com.android.car.notification.template.MessageNotificationViewHolder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Notification Manager for heads-up notifications in car.
@@ -98,8 +96,6 @@ public class CarHeadsUpNotificationManager
     private boolean mShouldRestrictMessagePreview;
     private NotificationClickHandlerFactory mClickHandlerFactory;
     private NotificationDataManager mNotificationDataManager;
-
-    private Set<String> mAlertEntryKeyToRemove = new HashSet<>();
 
     public CarHeadsUpNotificationManager(Context context,
             NotificationClickHandlerFactory clickHandlerFactory,
@@ -191,24 +187,23 @@ public class CarHeadsUpNotificationManager
     public void maybeRemoveHeadsUp(AlertEntry alertEntry) {
         HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
                 alertEntry.getKey());
-        mAlertEntryKeyToRemove.add(alertEntry.getKey());
         // if the heads up notification is already removed do nothing.
         if (currentActiveHeadsUpNotification == null) {
             return;
         }
-
+        currentActiveHeadsUpNotification.mShouldRemove = true;
         long totalDisplayDuration =
                 System.currentTimeMillis() - currentActiveHeadsUpNotification.getPostTime();
         // ongoing notification that has passed the minimum threshold display time.
         if (totalDisplayDuration >= mMinDisplayDuration) {
-            removeHun(alertEntry);
+            dismissHun(alertEntry);
             return;
         }
 
         long earliestRemovalTime = mMinDisplayDuration - totalDisplayDuration;
 
         currentActiveHeadsUpNotification.getHandler().postDelayed(() ->
-                removeHun(alertEntry), earliestRemovalTime);
+                dismissHun(alertEntry), earliestRemovalTime);
     }
 
     /**
@@ -234,17 +229,6 @@ public class CarHeadsUpNotificationManager
      * OnHeadsUpNotificationStateChange}s array.
      */
     private void handleHeadsUpNotificationStateChanged(AlertEntry alertEntry, boolean isHeadsUp) {
-        String alertEntryKey = alertEntry.getKey();
-        // TODO(b/203784760): Implement a proper why to remove notification by user clicks.
-        boolean scheduledToBeRemoved = mAlertEntryKeyToRemove.contains(alertEntryKey);
-        if (scheduledToBeRemoved) {
-            mAlertEntryKeyToRemove.remove(alertEntryKey);
-            if (!isHeadsUp) {
-                // Skip creation of notification center notification.
-                return;
-            }
-        }
-
         mNotificationStateChangeListeners.forEach(
                 listener -> listener.onStateChange(alertEntry, isHeadsUp));
     }
@@ -495,7 +479,7 @@ public class CarHeadsUpNotificationManager
     /**
      * Animates the heads up notification out of the screen and reset the views.
      */
-    private void animateOutHun(AlertEntry alertEntry, boolean isRemoved) {
+    private void dismissHun(AlertEntry alertEntry) {
         Log.d(TAG, "clearViews for Heads Up Notification: ");
         // get the current notification to perform animations and remove it immediately from the
         // active notification maps and cancel all other call backs if any.
@@ -505,6 +489,11 @@ public class CarHeadsUpNotificationManager
         if (currentHeadsUpNotification == null) {
             return;
         }
+        // view could already be in the process of being dismissed
+        if (currentHeadsUpNotification.mIsDismissing) {
+            return;
+        }
+        currentHeadsUpNotification.mIsDismissing = true;
         currentHeadsUpNotification.getHandler().removeCallbacksAndMessages(null);
         resetViewTreeListenersEntry(currentHeadsUpNotification);
         View view = currentHeadsUpNotification.getNotificationView();
@@ -521,20 +510,12 @@ public class CarHeadsUpNotificationManager
                 mActiveHeadsUpNotifications.remove(alertEntry.getKey());
 
                 // If the HUN was not specifically removed then add it to the panel.
-                if (!isRemoved) {
+                if (!currentHeadsUpNotification.mShouldRemove) {
                     handleHeadsUpNotificationStateChanged(alertEntry, /* isHeadsUp= */ false);
                 }
             }
         });
         animatorSet.start();
-    }
-
-    private void dismissHun(AlertEntry alertEntry) {
-        animateOutHun(alertEntry, /* isRemoved= */ false);
-    }
-
-    private void removeHun(AlertEntry alertEntry) {
-        animateOutHun(alertEntry, /* isRemoved= */ true);
     }
 
     /**

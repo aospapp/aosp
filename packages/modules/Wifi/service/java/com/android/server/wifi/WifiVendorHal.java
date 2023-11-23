@@ -17,6 +17,10 @@ package com.android.server.wifi;
 
 import static android.net.wifi.CoexUnsafeChannel.POWER_CAP_NONE;
 
+import static com.android.server.wifi.HalDeviceManager.HDM_CREATE_IFACE_AP;
+import static com.android.server.wifi.HalDeviceManager.HDM_CREATE_IFACE_AP_BRIDGE;
+import static com.android.server.wifi.HalDeviceManager.HDM_CREATE_IFACE_STA;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -52,12 +56,9 @@ import android.hardware.wifi.V1_0.WifiStatus;
 import android.hardware.wifi.V1_0.WifiStatusCode;
 import android.hardware.wifi.V1_2.IWifiChipEventCallback.IfaceInfo;
 import android.hardware.wifi.V1_5.IWifiChip.MultiStaUseCase;
-import android.hardware.wifi.V1_5.IWifiChip.UsableChannelFilter;
-import android.hardware.wifi.V1_5.StaPeerInfo;
-import android.hardware.wifi.V1_5.StaRateStat;
 import android.hardware.wifi.V1_5.WifiBand;
 import android.hardware.wifi.V1_5.WifiIfaceMode;
-import android.hardware.wifi.V1_5.WifiUsableChannel;
+import android.hardware.wifi.V1_6.IWifiChip.UsableChannelFilter;
 import android.net.MacAddress;
 import android.net.apf.ApfCapabilities;
 import android.net.wifi.ScanResult;
@@ -121,9 +122,9 @@ public class WifiVendorHal {
      *
      * @param verbose - with the obvious interpretation
      */
-    public void enableVerboseLogging(boolean verbose) {
+    public void enableVerboseLogging(boolean verboseEnabled, boolean halVerboseEnabled) {
         synchronized (sLock) {
-            if (verbose) {
+            if (verboseEnabled) {
                 mVerboseLog = mLog;
                 enter("verbose=true").flush();
             } else {
@@ -371,25 +372,6 @@ public class WifiVendorHal {
     }
 
     /**
-     * Bring up the HIDL Vendor HAL and configure for AP (Access Point) mode
-     *
-     * @return true for success
-     */
-    public boolean startVendorHalAp() {
-        synchronized (sLock) {
-            if (!startVendorHal()) {
-                return false;
-            }
-            if (TextUtils.isEmpty(createApIface(null, null,
-                    SoftApConfiguration.BAND_2GHZ, false))) {
-                stopVendorHal();
-                return false;
-            }
-            return true;
-        }
-    }
-
-    /**
      * Bring up the HIDL Vendor HAL and configure for STA (Station) mode
      *
      * @return true for success
@@ -459,7 +441,7 @@ public class WifiVendorHal {
             @NonNull WorkSource requestorWs) {
         synchronized (sLock) {
             IWifiStaIface iface = mHalDeviceManager.createStaIface(
-                    new StaInterfaceDestroyedListenerInternal(destroyedListener), null,
+                    new StaInterfaceDestroyedListenerInternal(destroyedListener), mHalEventHandler,
                     requestorWs);
             if (iface == null) {
                 mLog.err("Failed to create STA iface").flush();
@@ -478,7 +460,6 @@ public class WifiVendorHal {
                 mLog.err("Failed to get wifi chip").flush();
                 return nullResult();
             }
-            enableLinkLayerStats(iface);
             mIWifiStaIfaces.put(ifaceName, iface);
             return ifaceName;
         }
@@ -564,17 +545,19 @@ public class WifiVendorHal {
      * @param requestorWs Requestor worksource.
      * @param band The requesting band for this AP interface.
      * @param isBridged Whether or not AP interface is a bridge interface.
+     * @param softApManager SoftApManager of the request.
      * @return iface name on success, null otherwise.
      */
     public String createApIface(@Nullable InterfaceDestroyedListener destroyedListener,
             @NonNull WorkSource requestorWs,
             @SoftApConfiguration.BandType int band,
-            boolean isBridged) {
+            boolean isBridged,
+            @NonNull SoftApManager softApManager) {
         synchronized (sLock) {
             IWifiApIface iface = mHalDeviceManager.createApIface(
                     getNecessaryCapabilitiesForSoftApMode(band),
-                    new ApInterfaceDestroyedListenerInternal(destroyedListener), null,
-                    requestorWs, isBridged);
+                    new ApInterfaceDestroyedListenerInternal(destroyedListener), mHalEventHandler,
+                    requestorWs, isBridged, softApManager);
             if (iface == null) {
                 mLog.err("Failed to create AP iface").flush();
                 return nullResult();
@@ -1123,7 +1106,9 @@ public class WifiVendorHal {
      * @return the statistics, or null if unable to do so
      */
     public WifiLinkLayerStats getWifiLinkLayerStats(@NonNull String ifaceName) {
-        if (getWifiStaIfaceForV1_5Mockable(ifaceName) != null) {
+        if (getWifiStaIfaceForV1_6Mockable(ifaceName) != null) {
+            return getWifiLinkLayerStats_1_6_Internal(ifaceName);
+        } else if (getWifiStaIfaceForV1_5Mockable(ifaceName) != null) {
             return getWifiLinkLayerStats_1_5_Internal(ifaceName);
         } else if (getWifiStaIfaceForV1_3Mockable(ifaceName) != null) {
             return getWifiLinkLayerStats_1_3_Internal(ifaceName);
@@ -1200,6 +1185,28 @@ public class WifiVendorHal {
         return stats;
     }
 
+    private WifiLinkLayerStats getWifiLinkLayerStats_1_6_Internal(@NonNull String ifaceName) {
+        class AnswerBox {
+            public android.hardware.wifi.V1_6.StaLinkLayerStats value = null;
+        }
+        AnswerBox answer = new AnswerBox();
+        synchronized (sLock) {
+            try {
+                android.hardware.wifi.V1_6.IWifiStaIface iface =
+                        getWifiStaIfaceForV1_6Mockable(ifaceName);
+                if (iface == null) return null;
+                iface.getLinkLayerStats_1_6((status, stats) -> {
+                    if (!ok(status)) return;
+                    answer.value = stats;
+                });
+            } catch (RemoteException e) {
+                handleRemoteException(e);
+                return null;
+            }
+        }
+        WifiLinkLayerStats stats = frameworkFromHalLinkLayerStats_1_6(answer.value);
+        return stats;
+    }
 
     /**
      * Makes the framework version of link layer stats from the hal version.
@@ -1242,6 +1249,21 @@ public class WifiVendorHal {
         setRadioStats_1_5(out, stats.radios);
         setTimeStamp(out, stats.timeStampInMs);
         out.version = WifiLinkLayerStats.V1_5;
+        return out;
+    }
+
+    /**
+     * Makes the framework version of link layer stats from the hal version.
+     */
+    @VisibleForTesting
+    static WifiLinkLayerStats frameworkFromHalLinkLayerStats_1_6(
+            android.hardware.wifi.V1_6.StaLinkLayerStats stats) {
+        if (stats == null) return null;
+        WifiLinkLayerStats out = new WifiLinkLayerStats();
+        setIfaceStats_1_6(out, stats.iface);
+        setRadioStats_1_6(out, stats.radios);
+        setTimeStamp(out, stats.timeStampInMs);
+        out.version = WifiLinkLayerStats.V1_5; //TODO: Does the change justify moving to 1.6 ??
         return out;
     }
 
@@ -1301,13 +1323,64 @@ public class WifiVendorHal {
         stats.peerInfo = new PeerInfo[iface.peers.size()];
         for (int i = 0; i < stats.peerInfo.length; i++) {
             PeerInfo peer = new PeerInfo();
-            StaPeerInfo staPeerInfo = iface.peers.get(i);
+            android.hardware.wifi.V1_5.StaPeerInfo staPeerInfo = iface.peers.get(i);
             peer.staCount = staPeerInfo.staCount;
             peer.chanUtil = staPeerInfo.chanUtil;
             RateStat[] rateStats = new RateStat[staPeerInfo.rateStats.size()];
             for (int j = 0; j < staPeerInfo.rateStats.size(); j++) {
                 rateStats[j] = new RateStat();
-                StaRateStat staRateStat = staPeerInfo.rateStats.get(j);
+                android.hardware.wifi.V1_5.StaRateStat staRateStat = staPeerInfo.rateStats.get(j);
+                rateStats[j].preamble = staRateStat.rateInfo.preamble;
+                rateStats[j].nss = staRateStat.rateInfo.nss;
+                rateStats[j].bw = staRateStat.rateInfo.bw;
+                rateStats[j].rateMcsIdx = staRateStat.rateInfo.rateMcsIdx;
+                rateStats[j].bitRateInKbps = staRateStat.rateInfo.bitRateInKbps;
+                rateStats[j].txMpdu = staRateStat.txMpdu;
+                rateStats[j].rxMpdu = staRateStat.rxMpdu;
+                rateStats[j].mpduLost = staRateStat.mpduLost;
+                rateStats[j].retries = staRateStat.retries;
+            }
+            peer.rateStats = rateStats;
+            stats.peerInfo[i] = peer;
+        }
+    }
+
+    private static void setIfaceStats_1_6(WifiLinkLayerStats stats,
+            android.hardware.wifi.V1_6.StaLinkLayerIfaceStats iface) {
+        if (iface == null) return;
+        setIfaceStats(stats, iface.V1_0);
+        stats.timeSliceDutyCycleInPercent = iface.timeSliceDutyCycleInPercent;
+        // WME Best Effort Access Category
+        stats.contentionTimeMinBeInUsec = iface.wmeBeContentionTimeStats.contentionTimeMinInUsec;
+        stats.contentionTimeMaxBeInUsec = iface.wmeBeContentionTimeStats.contentionTimeMaxInUsec;
+        stats.contentionTimeAvgBeInUsec = iface.wmeBeContentionTimeStats.contentionTimeAvgInUsec;
+        stats.contentionNumSamplesBe = iface.wmeBeContentionTimeStats.contentionNumSamples;
+        // WME Background Access Category
+        stats.contentionTimeMinBkInUsec = iface.wmeBkContentionTimeStats.contentionTimeMinInUsec;
+        stats.contentionTimeMaxBkInUsec = iface.wmeBkContentionTimeStats.contentionTimeMaxInUsec;
+        stats.contentionTimeAvgBkInUsec = iface.wmeBkContentionTimeStats.contentionTimeAvgInUsec;
+        stats.contentionNumSamplesBk = iface.wmeBkContentionTimeStats.contentionNumSamples;
+        // WME Video Access Category
+        stats.contentionTimeMinViInUsec = iface.wmeViContentionTimeStats.contentionTimeMinInUsec;
+        stats.contentionTimeMaxViInUsec = iface.wmeViContentionTimeStats.contentionTimeMaxInUsec;
+        stats.contentionTimeAvgViInUsec = iface.wmeViContentionTimeStats.contentionTimeAvgInUsec;
+        stats.contentionNumSamplesVi = iface.wmeViContentionTimeStats.contentionNumSamples;
+        // WME Voice Access Category
+        stats.contentionTimeMinVoInUsec = iface.wmeVoContentionTimeStats.contentionTimeMinInUsec;
+        stats.contentionTimeMaxVoInUsec = iface.wmeVoContentionTimeStats.contentionTimeMaxInUsec;
+        stats.contentionTimeAvgVoInUsec = iface.wmeVoContentionTimeStats.contentionTimeAvgInUsec;
+        stats.contentionNumSamplesVo = iface.wmeVoContentionTimeStats.contentionNumSamples;
+        // Peer information statistics
+        stats.peerInfo = new PeerInfo[iface.peers.size()];
+        for (int i = 0; i < stats.peerInfo.length; i++) {
+            PeerInfo peer = new PeerInfo();
+            android.hardware.wifi.V1_6.StaPeerInfo staPeerInfo = iface.peers.get(i);
+            peer.staCount = staPeerInfo.staCount;
+            peer.chanUtil = staPeerInfo.chanUtil;
+            RateStat[] rateStats = new RateStat[staPeerInfo.rateStats.size()];
+            for (int j = 0; j < staPeerInfo.rateStats.size(); j++) {
+                rateStats[j] = new RateStat();
+                android.hardware.wifi.V1_6.StaRateStat staRateStat = staPeerInfo.rateStats.get(j);
                 rateStats[j].preamble = staRateStat.rateInfo.preamble;
                 rateStats[j].nss = staRateStat.rateInfo.nss;
                 rateStats[j].bw = staRateStat.rateInfo.bw;
@@ -1342,9 +1415,9 @@ public class WifiVendorHal {
     }
 
     /**
-     * Set individual radio stats from the hal radio stats
+     * Set individual radio stats from the hal radio stats for V1_3
      */
-    private static void setFrameworkPerRadioStatsFromHidl(int radioId, RadioStat radio,
+    private static void setFrameworkPerRadioStatsFromHidl_1_3(int radioId, RadioStat radio,
             android.hardware.wifi.V1_3.StaLinkLayerRadioStats hidlRadioStats) {
         radio.radio_id = radioId;
         radio.on_time = hidlRadioStats.V1_0.onTimeInMs;
@@ -1368,10 +1441,37 @@ public class WifiVendorHal {
     }
 
     /**
+     * Set individual radio stats from the hal radio stats for V1_6
+     */
+    private static void setFrameworkPerRadioStatsFromHidl_1_6(RadioStat radio,
+            android.hardware.wifi.V1_6.StaLinkLayerRadioStats hidlRadioStats) {
+        radio.radio_id = hidlRadioStats.radioId;
+        radio.on_time = hidlRadioStats.V1_0.onTimeInMs;
+        radio.tx_time = hidlRadioStats.V1_0.txTimeInMs;
+        radio.rx_time = hidlRadioStats.V1_0.rxTimeInMs;
+        radio.on_time_scan = hidlRadioStats.V1_0.onTimeInMsForScan;
+        radio.on_time_nan_scan = hidlRadioStats.onTimeInMsForNanScan;
+        radio.on_time_background_scan = hidlRadioStats.onTimeInMsForBgScan;
+        radio.on_time_roam_scan = hidlRadioStats.onTimeInMsForRoamScan;
+        radio.on_time_pno_scan = hidlRadioStats.onTimeInMsForPnoScan;
+        radio.on_time_hs20_scan = hidlRadioStats.onTimeInMsForHs20Scan;
+        /* Copy list of channel stats */
+        for (android.hardware.wifi.V1_6.WifiChannelStats channelStats
+                : hidlRadioStats.channelStats) {
+            ChannelStats channelStatsEntry = new ChannelStats();
+            channelStatsEntry.frequency = channelStats.channel.centerFreq;
+            channelStatsEntry.radioOnTimeMs = channelStats.onTimeInMs;
+            channelStatsEntry.ccaBusyTimeMs = channelStats.ccaBusyTimeInMs;
+            radio.channelStatsMap.put(channelStats.channel.centerFreq, channelStatsEntry);
+        }
+    }
+
+    /**
      * If config_wifiLinkLayerAllRadiosStatsAggregationEnabled is set to true, aggregate
      * the radio stats from all the radios else process the stats from Radio 0 only.
+     * This method is for V1_3
      */
-    private static void aggregateFrameworkRadioStatsFromHidl(int radioIndex,
+    private static void aggregateFrameworkRadioStatsFromHidl_1_3(int radioIndex,
             WifiLinkLayerStats stats,
             android.hardware.wifi.V1_3.StaLinkLayerRadioStats hidlRadioStats) {
         if (!sContext.getResources()
@@ -1415,12 +1515,61 @@ public class WifiVendorHal {
         stats.numRadios++;
     }
 
+    /**
+     * If config_wifiLinkLayerAllRadiosStatsAggregationEnabled is set to true, aggregate
+     * the radio stats from all the radios else process the stats from Radio 0 only.
+     * This method is for V1_6
+     */
+    private static void aggregateFrameworkRadioStatsFromHidl_1_6(int radioIndex,
+            WifiLinkLayerStats stats,
+            android.hardware.wifi.V1_6.StaLinkLayerRadioStats hidlRadioStats) {
+        if (!sContext.getResources()
+                .getBoolean(R.bool.config_wifiLinkLayerAllRadiosStatsAggregationEnabled)
+                && radioIndex > 0) {
+            return;
+        }
+        // Aggregate the radio stats from all the radios
+        stats.on_time += hidlRadioStats.V1_0.onTimeInMs;
+        stats.tx_time += hidlRadioStats.V1_0.txTimeInMs;
+        // Aggregate tx_time_per_level based on the assumption that the length of
+        // txTimeInMsPerLevel is the same across all radios. So txTimeInMsPerLevel on other
+        // radios at array indices greater than the length of first radio will be dropped.
+        if (stats.tx_time_per_level == null) {
+            stats.tx_time_per_level = new int[hidlRadioStats.V1_0.txTimeInMsPerLevel.size()];
+        }
+        for (int i = 0; i < hidlRadioStats.V1_0.txTimeInMsPerLevel.size()
+                && i < stats.tx_time_per_level.length; i++) {
+            stats.tx_time_per_level[i] += hidlRadioStats.V1_0.txTimeInMsPerLevel.get(i);
+        }
+        stats.rx_time += hidlRadioStats.V1_0.rxTimeInMs;
+        stats.on_time_scan += hidlRadioStats.V1_0.onTimeInMsForScan;
+        stats.on_time_nan_scan += hidlRadioStats.onTimeInMsForNanScan;
+        stats.on_time_background_scan += hidlRadioStats.onTimeInMsForBgScan;
+        stats.on_time_roam_scan += hidlRadioStats.onTimeInMsForRoamScan;
+        stats.on_time_pno_scan += hidlRadioStats.onTimeInMsForPnoScan;
+        stats.on_time_hs20_scan += hidlRadioStats.onTimeInMsForHs20Scan;
+        /* Copy list of channel stats */
+        for (android.hardware.wifi.V1_6.WifiChannelStats channelStats
+                : hidlRadioStats.channelStats) {
+            ChannelStats channelStatsEntry =
+                    stats.channelStatsMap.get(channelStats.channel.centerFreq);
+            if (channelStatsEntry == null) {
+                channelStatsEntry = new ChannelStats();
+                channelStatsEntry.frequency = channelStats.channel.centerFreq;
+                stats.channelStatsMap.put(channelStats.channel.centerFreq, channelStatsEntry);
+            }
+            channelStatsEntry.radioOnTimeMs += channelStats.onTimeInMs;
+            channelStatsEntry.ccaBusyTimeMs += channelStats.ccaBusyTimeInMs;
+        }
+        stats.numRadios++;
+    }
+
     private static void setRadioStats_1_3(WifiLinkLayerStats stats,
             List<android.hardware.wifi.V1_3.StaLinkLayerRadioStats> radios) {
         if (radios == null) return;
         int radioIndex = 0;
         for (android.hardware.wifi.V1_3.StaLinkLayerRadioStats radioStats : radios) {
-            aggregateFrameworkRadioStatsFromHidl(radioIndex, stats, radioStats);
+            aggregateFrameworkRadioStatsFromHidl_1_3(radioIndex, stats, radioStats);
             radioIndex++;
         }
     }
@@ -1432,9 +1581,23 @@ public class WifiVendorHal {
         stats.radioStats = new RadioStat[radios.size()];
         for (android.hardware.wifi.V1_5.StaLinkLayerRadioStats radioStats : radios) {
             RadioStat radio = new RadioStat();
-            setFrameworkPerRadioStatsFromHidl(radioStats.radioId, radio, radioStats.V1_3);
+            setFrameworkPerRadioStatsFromHidl_1_3(radioStats.radioId, radio, radioStats.V1_3);
             stats.radioStats[radioIndex] = radio;
-            aggregateFrameworkRadioStatsFromHidl(radioIndex, stats, radioStats.V1_3);
+            aggregateFrameworkRadioStatsFromHidl_1_3(radioIndex, stats, radioStats.V1_3);
+            radioIndex++;
+        }
+    }
+
+    private static void setRadioStats_1_6(WifiLinkLayerStats stats,
+            List<android.hardware.wifi.V1_6.StaLinkLayerRadioStats> radios) {
+        if (radios == null) return;
+        int radioIndex = 0;
+        stats.radioStats = new RadioStat[radios.size()];
+        for (android.hardware.wifi.V1_6.StaLinkLayerRadioStats radioStats : radios) {
+            RadioStat radio = new RadioStat();
+            setFrameworkPerRadioStatsFromHidl_1_6(radio, radioStats);
+            stats.radioStats[radioIndex] = radio;
+            aggregateFrameworkRadioStatsFromHidl_1_6(radioIndex, stats, radioStats);
             radioIndex++;
         }
     }
@@ -1453,10 +1616,16 @@ public class WifiVendorHal {
      *
      * @param iface Iface object.
      */
-    private void enableLinkLayerStats(IWifiStaIface iface) {
+    public void enableLinkLayerStats(@NonNull String ifaceName) {
         synchronized (sLock) {
             try {
                 WifiStatus status;
+                IWifiStaIface iface = getStaIface(ifaceName);
+                if (iface == null) {
+                    mLog.err("STA iface object is NULL - Failed to enable link layer stats")
+                            .flush();
+                    return;
+                }
                 status = iface.enableLinkLayerStatsCollection(mLinkLayerStatsDebug);
                 if (!ok(status)) {
                     mLog.err("unable to enable link layer stats collection").flush();
@@ -2893,6 +3062,17 @@ public class WifiVendorHal {
     }
 
     /**
+     * Method to mock out the V1_6 IWifiChip retrieval in unit tests.
+     *
+     * @return 1.6 IWifiChip object if the device is running the 1.6 wifi hal service, null
+     * otherwise.
+     */
+    protected android.hardware.wifi.V1_6.IWifiChip getWifiChipForV1_6Mockable() {
+        if (mIWifiChip == null) return null;
+        return android.hardware.wifi.V1_6.IWifiChip.castFrom(mIWifiChip);
+    }
+
+    /**
      * Method to mock out the V1_2 IWifiStaIface retrieval in unit tests.
      *
      * @param ifaceName Name of the interface
@@ -2932,6 +3112,20 @@ public class WifiVendorHal {
         IWifiStaIface iface = getStaIface(ifaceName);
         if (iface == null) return null;
         return android.hardware.wifi.V1_5.IWifiStaIface.castFrom(iface);
+    }
+
+    /**
+     * Method to mock out the V1_6 IWifiStaIface retrieval in unit tests.
+     *
+     * @param ifaceName Name of the interface
+     * @return 1.6 IWifiStaIface object if the device is running the 1.6 wifi hal service, null
+     * otherwise.
+     */
+    protected android.hardware.wifi.V1_6.IWifiStaIface getWifiStaIfaceForV1_6Mockable(
+            @NonNull String ifaceName) {
+        IWifiStaIface iface = getStaIface(ifaceName);
+        if (iface == null) return null;
+        return android.hardware.wifi.V1_6.IWifiStaIface.castFrom(iface);
     }
 
     protected android.hardware.wifi.V1_4.IWifiApIface getWifiApIfaceForV1_4Mockable(
@@ -3196,13 +3390,35 @@ public class WifiVendorHal {
     }
 
     /**
+     * Returns whether the given HdmIfaceTypeForCreation combo is supported or not.
+     */
+    public boolean canDeviceSupportCreateTypeCombo(SparseArray<Integer> combo) {
+        synchronized (sLock) {
+            return mHalDeviceManager.canDeviceSupportCreateTypeCombo(combo);
+        }
+    }
+
+    /**
+     * Returns whether a new iface can be created without tearing down any existing ifaces.
+     */
+    public boolean canDeviceSupportAdditionalIface(
+            @HalDeviceManager.HdmIfaceTypeForCreation int createIfaceType,
+            @NonNull WorkSource requestorWs) {
+        synchronized (sLock) {
+            List<Pair<Integer, WorkSource>> creationImpact =
+                    mHalDeviceManager.reportImpactToCreateIface(createIfaceType, true, requestorWs);
+            return creationImpact != null && creationImpact.isEmpty();
+        }
+    }
+
+    /**
      * Returns whether STA + AP concurrency is supported or not.
      */
     public boolean isStaApConcurrencySupported() {
         synchronized (sLock) {
-            return mHalDeviceManager.canSupportIfaceCombo(new SparseArray<Integer>() {{
-                    put(IfaceType.STA, 1);
-                    put(IfaceType.AP, 1);
+            return mHalDeviceManager.canDeviceSupportCreateTypeCombo(new SparseArray<Integer>() {{
+                    put(HDM_CREATE_IFACE_STA, 1);
+                    put(HDM_CREATE_IFACE_AP, 1);
                 }});
         }
     }
@@ -3212,8 +3428,8 @@ public class WifiVendorHal {
      */
     public boolean isStaStaConcurrencySupported() {
         synchronized (sLock) {
-            return mHalDeviceManager.canSupportIfaceCombo(new SparseArray<Integer>() {{
-                    put(IfaceType.STA, 2);
+            return mHalDeviceManager.canDeviceSupportCreateTypeCombo(new SparseArray<Integer>() {{
+                    put(HDM_CREATE_IFACE_STA, 2);
                 }});
         }
     }
@@ -3223,7 +3439,17 @@ public class WifiVendorHal {
      */
     public boolean isItPossibleToCreateApIface(@NonNull WorkSource requestorWs) {
         synchronized (sLock) {
-            return mHalDeviceManager.isItPossibleToCreateIface(IfaceType.AP, requestorWs);
+            return mHalDeviceManager.isItPossibleToCreateIface(HDM_CREATE_IFACE_AP, requestorWs);
+        }
+    }
+
+    /**
+     * Returns whether a new AP iface can be created or not.
+     */
+    public boolean isItPossibleToCreateBridgedApIface(@NonNull WorkSource requestorWs) {
+        synchronized (sLock) {
+            return mHalDeviceManager.isItPossibleToCreateIface(
+                    HDM_CREATE_IFACE_AP_BRIDGE, requestorWs);
         }
     }
 
@@ -3232,7 +3458,7 @@ public class WifiVendorHal {
      */
     public boolean isItPossibleToCreateStaIface(@NonNull WorkSource requestorWs) {
         synchronized (sLock) {
-            return mHalDeviceManager.isItPossibleToCreateIface(IfaceType.STA, requestorWs);
+            return mHalDeviceManager.isItPossibleToCreateIface(HDM_CREATE_IFACE_STA, requestorWs);
         }
 
     }
@@ -3338,7 +3564,7 @@ public class WifiVendorHal {
         ScanResult frameworkScanResult = new ScanResult();
         frameworkScanResult.SSID = NativeUtil.encodeSsid(scanResult.ssid);
         frameworkScanResult.wifiSsid =
-                WifiSsid.createFromByteArray(NativeUtil.byteArrayFromArrayList(scanResult.ssid));
+                WifiSsid.fromBytes(NativeUtil.byteArrayFromArrayList(scanResult.ssid));
         frameworkScanResult.BSSID = NativeUtil.macAddressFromByteArray(scanResult.bssid);
         frameworkScanResult.level = scanResult.rssi;
         frameworkScanResult.frequency = scanResult.frequency;
@@ -3856,6 +4082,26 @@ public class WifiVendorHal {
         if ((filter & WifiAvailableChannel.FILTER_CELLULAR_COEXISTENCE) != 0) {
             halFilter |= UsableChannelFilter.CELLULAR_COEXISTENCE;
         }
+
+        return halFilter;
+    }
+
+    /**
+     * Convert framework's WifiAvailableChannel.FILTER_* to HAL's UsableChannelFilter 1.6.
+     */
+    private int frameworkToHalUsableFilter_1_6(@WifiAvailableChannel.Filter int filter) {
+        int halFilter = 0;  // O implies no additional filter other than regulatory (default)
+
+        if ((filter & WifiAvailableChannel.FILTER_CONCURRENCY) != 0) {
+            halFilter |= UsableChannelFilter.CONCURRENCY;
+        }
+        if ((filter & WifiAvailableChannel.FILTER_CELLULAR_COEXISTENCE) != 0) {
+            halFilter |= UsableChannelFilter.CELLULAR_COEXISTENCE;
+        }
+        if ((filter & WifiAvailableChannel.FILTER_NAN_INSTANT_MODE) != 0) {
+            halFilter |= UsableChannelFilter.NAN_INSTANT_MODE;
+        }
+
         return halFilter;
     }
 
@@ -3868,22 +4114,43 @@ public class WifiVendorHal {
             @WifiAvailableChannel.Filter int filter) {
         synchronized (sLock) {
             try {
-                android.hardware.wifi.V1_5.IWifiChip iWifiChipV15 = getWifiChipForV1_5Mockable();
-                if (iWifiChipV15 == null) {
-                    return null;
+                android.hardware.wifi.V1_5.IWifiChip iWifiChipV15 = null;
+                android.hardware.wifi.V1_6.IWifiChip iWifiChipV16 = getWifiChipForV1_6Mockable();
+                if (iWifiChipV16 == null) {
+                    iWifiChipV15 = getWifiChipForV1_5Mockable();
+                    if (iWifiChipV15 == null) {
+                        return null;
+                    }
                 }
+
                 Mutable<List<WifiAvailableChannel>> answer = new Mutable<>();
-                iWifiChipV15.getUsableChannels(
-                        makeWifiBandFromFrameworkBand(band),
-                        frameworkToHalIfaceMode(mode),
-                        frameworkToHalUsableFilter(filter), (status, channels) -> {
-                            if (!ok(status)) return;
-                            answer.value = new ArrayList<>();
-                            for (WifiUsableChannel ch : channels) {
-                                answer.value.add(new WifiAvailableChannel(ch.channel,
-                                        frameworkFromHalIfaceMode(ch.ifaceModeMask)));
-                            }
-                        });
+
+                if (iWifiChipV16 != null) {
+                    iWifiChipV16.getUsableChannels_1_6(
+                            makeWifiBandFromFrameworkBand(band),
+                            frameworkToHalIfaceMode(mode),
+                            frameworkToHalUsableFilter_1_6(filter), (status, channels) -> {
+                                if (!ok(status)) return;
+                                answer.value = new ArrayList<>();
+                                for (android.hardware.wifi.V1_6.WifiUsableChannel ch : channels) {
+                                    answer.value.add(new WifiAvailableChannel(ch.channel,
+                                            frameworkFromHalIfaceMode(ch.ifaceModeMask)));
+                                }
+                            });
+                } else {
+                    iWifiChipV15.getUsableChannels(
+                            makeWifiBandFromFrameworkBand(band),
+                            frameworkToHalIfaceMode(mode),
+                            frameworkToHalUsableFilter(filter), (status, channels) -> {
+                                if (!ok(status)) return;
+                                answer.value = new ArrayList<>();
+                                for (android.hardware.wifi.V1_5.WifiUsableChannel ch : channels) {
+                                    answer.value.add(new WifiAvailableChannel(ch.channel,
+                                            frameworkFromHalIfaceMode(ch.ifaceModeMask)));
+                                }
+                            });
+                }
+
                 return answer.value;
             } catch (RemoteException e) {
                 handleRemoteException(e);

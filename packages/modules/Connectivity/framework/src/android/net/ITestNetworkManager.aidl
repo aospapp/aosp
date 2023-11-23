@@ -29,8 +29,8 @@ import android.os.ParcelFileDescriptor;
  */
 interface ITestNetworkManager
 {
-    TestNetworkInterface createTunInterface(in LinkAddress[] linkAddrs);
-    TestNetworkInterface createTapInterface();
+    TestNetworkInterface createInterface(boolean isTun, boolean bringUp, in LinkAddress[] addrs,
+            in @nullable String iface);
 
     void setupTestNetwork(in String iface, in LinkProperties lp, in boolean isMetered,
             in int[] administratorUids, in IBinder binder);

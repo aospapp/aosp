@@ -23,13 +23,13 @@ import android.app.backup.BackupDataInput;
 import android.app.backup.BackupDataOutput;
 import android.content.ComponentName;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.database.Cursor;
 import android.os.ParcelFileDescriptor;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
-import android.provider.Settings;
 import android.telecom.PhoneAccountHandle;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -47,6 +47,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -81,6 +83,7 @@ public class CallLogBackupAgent extends BackupAgent {
         String callScreeningAppName = null;
         String callScreeningComponentName = null;
         long missedReason = MISSED_REASON_NOT_MISSED;
+        int isPhoneAccountMigrationPending;
 
         @Override
         public String toString() {
@@ -107,7 +110,7 @@ public class CallLogBackupAgent extends BackupAgent {
 
     /** Current version of CallLogBackup. Used to track the backup format. */
     @VisibleForTesting
-    static final int VERSION = 1008;
+    static final int VERSION = 1009;
     /** Version indicating that there exists no previous backup entry. */
     @VisibleForTesting
     static final int VERSION_NO_PREVIOUS_STATE = 0;
@@ -118,6 +121,11 @@ public class CallLogBackupAgent extends BackupAgent {
 
     static final int END_OEM_DATA_MARKER = 0x60061E;
 
+    static final String TELEPHONY_PHONE_ACCOUNT_HANDLE_COMPONENT_NAME =
+            "com.android.phone/com.android.services.telephony.TelephonyConnectionService";
+
+    @VisibleForTesting
+    protected Map<Integer, String> mSubscriptionInfoMap;
 
     private static final String[] CALL_LOG_PROJECTION = new String[] {
         CallLog.Calls._ID,
@@ -139,7 +147,8 @@ public class CallLogBackupAgent extends BackupAgent {
         CallLog.Calls.BLOCK_REASON,
         CallLog.Calls.CALL_SCREENING_APP_NAME,
         CallLog.Calls.CALL_SCREENING_COMPONENT_NAME,
-        CallLog.Calls.MISSED_REASON
+        CallLog.Calls.MISSED_REASON,
+        CallLog.Calls.IS_PHONE_ACCOUNT_MIGRATION_PENDING
     };
 
     /** ${inheritDoc} */
@@ -154,6 +163,20 @@ public class CallLogBackupAgent extends BackupAgent {
             state = readState(dataInput);
         } finally {
             dataInput.close();
+        }
+
+        SubscriptionManager subscriptionManager = getBaseContext().getSystemService(
+                SubscriptionManager.class);
+        if (subscriptionManager != null) {
+            mSubscriptionInfoMap = new HashMap<>();
+            // Use getAllSubscirptionInfoList() to get the mapping between iccId and subId
+            // from the subscription database
+            List<SubscriptionInfo> subscriptionInfos = subscriptionManager
+                    .getAllSubscriptionInfoList();
+            for (SubscriptionInfo subscriptionInfo : subscriptionInfos) {
+                mSubscriptionInfoMap.put(
+                        subscriptionInfo.getSubscriptionId(), subscriptionInfo.getIccId());
+            }
         }
 
         // Run the actual backup of data
@@ -224,7 +247,8 @@ public class CallLogBackupAgent extends BackupAgent {
         }
     }
 
-    private Iterable<Call> getAllCallLogEntries() {
+    @VisibleForTesting
+    Iterable<Call> getAllCallLogEntries() {
         List<Call> calls = new LinkedList<>();
 
         // We use the API here instead of querying ContactsDatabaseHelper directly because
@@ -258,6 +282,7 @@ public class CallLogBackupAgent extends BackupAgent {
                     ComponentName.unflattenFromString(call.accountComponentName), call.accountId);
         }
         boolean addForAllUsers = call.addForAllUsers == 1;
+
         // We backup the calllog in the user running this backup agent, so write calls to this user.
         Calls.addCall(null /* CallerInfo */, this, call.number, call.postDialDigits, call.viaNumber,
             call.numberPresentation, call.type, call.features, handle, call.date,
@@ -265,7 +290,8 @@ public class CallLogBackupAgent extends BackupAgent {
             call.callBlockReason /*callBlockReason*/,
             call.callScreeningAppName /*callScreeningAppName*/,
             call.callScreeningComponentName /*callScreeningComponentName*/,
-            call.missedReason);
+            call.missedReason,
+            call.isPhoneAccountMigrationPending);
     }
 
     @VisibleForTesting
@@ -384,6 +410,26 @@ public class CallLogBackupAgent extends BackupAgent {
             if (version >= 1008) {
                 call.missedReason = dataInput.readLong();
             }
+            if (version >= 1009) {
+                call.isPhoneAccountMigrationPending = dataInput.readInt();
+            }
+            /**
+             * In >=T Android, Telephony PhoneAccountHandle must use SubId as the ID (the unique
+             * identifier). Any version of Telephony call logs that are restored in >=T Android
+             * should set pending migration status as true and migrate to the subId later because
+             * different devices have different mappings between SubId and IccId.
+             *
+             * In <T Android, call log PhoneAccountHandle ID uses IccId, and backup with IccId;
+             * in >=T Android, call log PhoneAccountHandle ID uses SubId, and IccId is decided to
+             * use for backup for the reason mentioned above. Every time a call log is restored,
+             * the on-devie sub Id can be determined based on its IccId. The pending migration
+             * from IccId to SubId will be complete after the PhoneAccountHandle is registrated by
+             * Telecom and before CallLogProvider unhides it.
+             */
+            if (call.accountComponentName != null && call.accountComponentName.equals(
+                    TELEPHONY_PHONE_ACCOUNT_HANDLE_COMPONENT_NAME)) {
+                call.isPhoneAccountMigrationPending = 1;
+            }
             return call;
         } catch (IOException e) {
             Log.e(TAG, "Error reading call data for " + callId, e);
@@ -391,7 +437,27 @@ public class CallLogBackupAgent extends BackupAgent {
         }
     }
 
-    private Call readCallFromCursor(Cursor cursor) {
+    /**
+     * We need to use IccId for the PHONE_ACCOUNT_ID and set it as pending in backup when:
+     * 1) the phone account component name is telephony; AND
+     * 2) IS_PHONE_ACCOUNT_MIGRATION_PENDING status is not 1 ("1" means the ID is already IccId).
+     */
+    private boolean shouldConvertSubIdToIccIdForBackup(
+            String accountComponentName, int isPhoneAccountMigrationPending) {
+        if (mSubscriptionInfoMap == null) {
+            Log.e(TAG, "Subscription database is not available.");
+            return false;
+        }
+        if (accountComponentName != null
+                && accountComponentName.equals(TELEPHONY_PHONE_ACCOUNT_HANDLE_COMPONENT_NAME)
+                && isPhoneAccountMigrationPending != 1) {
+            return true;
+        }
+        return false;
+    }
+
+    @VisibleForTesting
+    Call readCallFromCursor(Cursor cursor) {
         Call call = new Call();
         call.id = cursor.getInt(cursor.getColumnIndex(CallLog.Calls._ID));
         call.date = cursor.getLong(cursor.getColumnIndex(CallLog.Calls.DATE));
@@ -419,6 +485,34 @@ public class CallLogBackupAgent extends BackupAgent {
             .getString(cursor.getColumnIndex(CallLog.Calls.CALL_SCREENING_COMPONENT_NAME));
         call.missedReason = cursor
             .getInt(cursor.getColumnIndex(CallLog.Calls.MISSED_REASON));
+        call.isPhoneAccountMigrationPending = cursor.getInt(
+                cursor.getColumnIndex(CallLog.Calls.IS_PHONE_ACCOUNT_MIGRATION_PENDING));
+        /*
+         * Starting Android T, the ID of Telephony PhoneAccountHandle need to migrate from IccId
+         * to SubId. Because the mapping between IccId and SubId in different devices is different,
+         * the Backup need to use IccId for the ID and set it as pending migration, and when the
+         * ID is restored, ID need migrated to SubId after the corresponding PhoneAccountHandle
+         * is registrated by Telecom and before CallLogProvider unhides them.
+         */
+        if (shouldConvertSubIdToIccIdForBackup(call.accountComponentName,
+                call.isPhoneAccountMigrationPending)) {
+            Log.i(TAG, "Processing PhoneAccountMigration Backup accountId: " + call.accountId);
+            String iccId = null;
+            try {
+                iccId = mSubscriptionInfoMap.get(Integer.parseInt(call.accountId));
+            } catch (NullPointerException e) {
+                // Ignore, iccId will be null;
+            } catch(NumberFormatException e) {
+                // Ignore, iccId will be null;
+            }
+
+            if (iccId != null) {
+                Log.i(TAG, "processing PhoneAccountMigration Found Subid during Backup: "
+                        + call.accountId);
+                call.accountId = iccId;
+                call.isPhoneAccountMigrationPending = 1;
+            }
+        }
         return call;
     }
 
@@ -465,6 +559,7 @@ public class CallLogBackupAgent extends BackupAgent {
             writeInteger(data, null);
 
             data.writeLong(call.missedReason);
+            data.writeInt(call.isPhoneAccountMigrationPending);
 
             data.flush();
 

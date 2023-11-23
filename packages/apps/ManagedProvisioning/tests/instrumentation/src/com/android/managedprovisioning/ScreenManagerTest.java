@@ -17,14 +17,18 @@
 package com.android.managedprovisioning;
 
 import static com.android.managedprovisioning.ManagedProvisioningScreens.ADMIN_INTEGRATED_PREPARE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.DOWNLOAD_ROLE_HOLDER;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.ENCRYPT;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.ESTABLISH_NETWORK_CONNECTION;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.FINALIZATION_INSIDE_SUW;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.FINANCED_DEVICE_LANDING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.LANDING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.POST_ENCRYPT;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.PRE_PROVISIONING_VIA_NFC;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.PROVISIONING;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.RESET_AND_RETURN_DEVICE;
+import static com.android.managedprovisioning.ManagedProvisioningScreens.RETRY_LAUNCH;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.TERMS;
 import static com.android.managedprovisioning.ManagedProvisioningScreens.WEB;
 
@@ -40,10 +44,15 @@ import android.content.pm.PackageManager;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
+import com.android.managedprovisioning.common.RetryLaunchActivity;
+import com.android.managedprovisioning.finalization.FinalizationForwarderActivity;
 import com.android.managedprovisioning.finalization.FinalizationInsideSuwActivity;
+import com.android.managedprovisioning.networkconnection.EstablishNetworkConnectionActivity;
+import com.android.managedprovisioning.preprovisioning.DownloadRoleHolderActivity;
 import com.android.managedprovisioning.preprovisioning.EncryptDeviceActivity;
 import com.android.managedprovisioning.preprovisioning.PostEncryptionActivity;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivity;
+import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityViaNfc;
 import com.android.managedprovisioning.preprovisioning.WebActivity;
 import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
 import com.android.managedprovisioning.provisioning.AdminIntegratedFlowPrepareActivity;
@@ -65,7 +74,7 @@ import java.util.stream.Collectors;
 
 @SmallTest
 public final class ScreenManagerTest {
-    private static final int EXPECTED_NUMBER_OF_SCREENS = 11;
+    private static final int EXPECTED_NUMBER_OF_SCREENS = 15;
     private static final Map<ManagedProvisioningScreens, Class<? extends Activity>>
             TEST_SCREEN_TO_ACTIVITY_MAP = createTestScreenToActivityMap();
     private static final Map<ManagedProvisioningScreens, Class<? extends Activity>>
@@ -75,6 +84,7 @@ public final class ScreenManagerTest {
             "com.android.managedprovisioning.PreProvisioningActivityAfterEncryption",
             "com.android.managedprovisioning.PreProvisioningActivityViaTrustedApp",
             "com.android.managedprovisioning.PreProvisioningActivityViaNfc",
+            FinalizationForwarderActivity.class.getName(),
             TrampolineActivity.class.getName()
     ));
 
@@ -89,6 +99,8 @@ public final class ScreenManagerTest {
                 .isEqualTo(LandingActivity.class);
         assertThat(screenManager.getActivityClassForScreen(PRE_PROVISIONING))
                 .isEqualTo(PreProvisioningActivity.class);
+        assertThat(screenManager.getActivityClassForScreen(PRE_PROVISIONING_VIA_NFC))
+                .isEqualTo(PreProvisioningActivityViaNfc.class);
         assertThat(screenManager.getActivityClassForScreen(PROVISIONING))
                 .isEqualTo(ProvisioningActivity.class);
         assertThat(screenManager.getActivityClassForScreen(ADMIN_INTEGRATED_PREPARE))
@@ -107,6 +119,12 @@ public final class ScreenManagerTest {
                 .isEqualTo(TermsActivity.class);
         assertThat(screenManager.getActivityClassForScreen(FINANCED_DEVICE_LANDING))
                 .isEqualTo(FinancedDeviceLandingActivity.class);
+        assertThat(screenManager.getActivityClassForScreen(RETRY_LAUNCH))
+                .isEqualTo(RetryLaunchActivity.class);
+        assertThat(screenManager.getActivityClassForScreen(DOWNLOAD_ROLE_HOLDER))
+                .isEqualTo(DownloadRoleHolderActivity.class);
+        assertThat(screenManager.getActivityClassForScreen(ESTABLISH_NETWORK_CONNECTION))
+                .isEqualTo(EstablishNetworkConnectionActivity.class);
     }
 
     @Test
@@ -185,6 +203,7 @@ public final class ScreenManagerTest {
         Map<ManagedProvisioningScreens, Class<? extends Activity>> map = new HashMap<>();
         map.put(LANDING, Activity.class);
         map.put(PRE_PROVISIONING, Activity.class);
+        map.put(PRE_PROVISIONING_VIA_NFC, Activity.class);
         map.put(PROVISIONING, Activity.class);
         map.put(ADMIN_INTEGRATED_PREPARE, Activity.class);
         map.put(RESET_AND_RETURN_DEVICE, Activity.class);
@@ -194,6 +213,9 @@ public final class ScreenManagerTest {
         map.put(FINALIZATION_INSIDE_SUW, Activity.class);
         map.put(TERMS, Activity.class);
         map.put(FINANCED_DEVICE_LANDING, Activity.class);
+        map.put(RETRY_LAUNCH, Activity.class);
+        map.put(DOWNLOAD_ROLE_HOLDER, Activity.class);
+        map.put(ESTABLISH_NETWORK_CONNECTION, Activity.class);
         return map;
     }
 

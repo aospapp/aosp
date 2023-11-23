@@ -22,7 +22,4 @@
     <item msgid="933409503308401889">"Ära luba kunagi"</item>
     <item msgid="1154273129608299386">"Luba alati"</item>
   </string-array>
-  <string-array name="settings_qc_provider_package_allowlist">
-    <item msgid="864784677969753628">"com.android.systemui"</item>
-  </string-array>
 </resources>

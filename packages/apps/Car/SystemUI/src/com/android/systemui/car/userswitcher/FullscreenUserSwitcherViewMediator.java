@@ -20,7 +20,6 @@ import com.android.systemui.car.keyguard.CarKeyguardViewController;
 import com.android.systemui.car.window.OverlayViewMediator;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
-import com.android.systemui.statusbar.StatusBarState;
 
 import javax.inject.Inject;
 
@@ -58,9 +57,6 @@ public class FullscreenUserSwitcherViewMediator implements OverlayViewMediator {
         mStatusBarStateController.addCallback(new StatusBarStateController.StateListener() {
             @Override
             public void onStateChanged(int newState) {
-                if (newState == StatusBarState.FULLSCREEN_USER_SWITCHER) {
-                    return;
-                }
                 hide();
             }
         });

@@ -24,12 +24,15 @@ import android.util.AttributeSet;
  * items, but will automatically update its status and communicates with external apps through
  * slice api.
  */
-public class EmbeddedSlicePreference extends SlicePreference {
+public class EmbeddedSlicePreference extends SlicePreference
+        implements HasCustomContentDescription {
     private static final String TAG = "EmbeddedSlicePreference";
     private final EmbeddedSlicePreferenceHelper mHelper;
+    private String mContentDescription;
 
     public EmbeddedSlicePreference(Context context, String uri) {
         super(context);
+        setUri(uri);
         mHelper = new EmbeddedSlicePreferenceHelper(this, getUri());
     }
 
@@ -59,6 +62,7 @@ public class EmbeddedSlicePreference extends SlicePreference {
     }
 
     void update() {
+        setEnabled(mHelper.mNewPref.isEnabled());
         setTitle(mHelper.mNewPref.getTitle());
         setSummary(mHelper.mNewPref.getSummary());
         setIcon(mHelper.mNewPref.getIcon());
@@ -66,5 +70,18 @@ public class EmbeddedSlicePreference extends SlicePreference {
                 && ((HasSliceAction) mHelper.mNewPref).getSliceAction() != null) {
             setIntent(((HasSliceAction) mHelper.mNewPref).getSliceAction().getAction().getIntent());
         }
+    }
+
+
+    /**
+     * Sets the accessibility content description that will be read to the TalkBack users when they
+     * focus on this preference.
+     */
+    public void setContentDescription(String contentDescription) {
+        this.mContentDescription = contentDescription;
+    }
+
+    public String getContentDescription() {
+        return mContentDescription;
     }
 }

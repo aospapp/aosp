@@ -33,7 +33,7 @@ android_test {
 
     static_libs: [
         "CarNotificationLibForUnitTesting",
-        "android.car",
+        "android.car-system-stubs",
         "androidx.core_core",
         "androidx.test.core",
         "androidx.test.rules",

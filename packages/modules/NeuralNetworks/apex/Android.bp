@@ -15,7 +15,10 @@
  */
 
 package {
-    default_applicable_licenses: ["Android-Apache-2.0"],
+    // Inherits all licenses from parent to get Apache 2.0 and package name
+    default_applicable_licenses: [
+        "packages_modules_NeuralNetworks_license",
+    ],
 }
 
 apex_key {
@@ -36,8 +39,7 @@ filegroup {
 
 apex_defaults {
     name: "com.android.neuralnetworks-defaults",
-    updatable: true,
-    min_sdk_version: "30",
+    defaults: ["r-launched-apex-module"],
     androidManifest: ":com.android.neuralnetworks-androidManifest",
     native_shared_libs: [
         "libneuralnetworks",

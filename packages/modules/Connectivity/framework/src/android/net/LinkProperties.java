@@ -19,12 +19,16 @@ package android.net;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.app.compat.CompatChanges;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.net.module.util.LinkPropertiesUtils;
 
 import java.net.Inet4Address;
@@ -38,6 +42,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 /**
  * Describes the properties of a network link.
@@ -52,6 +57,17 @@ import java.util.StringJoiner;
  *
  */
 public final class LinkProperties implements Parcelable {
+    /**
+     * The {@link #getRoutes()} now can contain excluded as well as included routes. Use
+     * {@link RouteInfo#getType()} to determine route type.
+     *
+     * @hide
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.S_V2)
+    @VisibleForTesting
+    public static final long EXCLUDED_ROUTES = 186082280;
+
     // The interface described by the network link.
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private String mIfaceName;
@@ -738,10 +754,25 @@ public final class LinkProperties implements Parcelable {
     /**
      * Returns all the {@link RouteInfo} set on this link.
      *
+     * Only unicast routes are returned for apps targeting Android S or below.
+     *
      * @return An unmodifiable {@link List} of {@link RouteInfo} for this link.
      */
     public @NonNull List<RouteInfo> getRoutes() {
-        return Collections.unmodifiableList(mRoutes);
+        if (CompatChanges.isChangeEnabled(EXCLUDED_ROUTES)) {
+            return Collections.unmodifiableList(mRoutes);
+        } else {
+            return Collections.unmodifiableList(getUnicastRoutes());
+        }
+    }
+
+    /**
+     * Returns all the {@link RouteInfo} of type {@link RouteInfo#RTN_UNICAST} set on this link.
+     */
+    private @NonNull List<RouteInfo> getUnicastRoutes() {
+        return mRoutes.stream()
+                .filter(route -> route.getType() == RouteInfo.RTN_UNICAST)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -757,11 +788,14 @@ public final class LinkProperties implements Parcelable {
 
     /**
      * Returns all the routes on this link and all the links stacked above it.
+     *
+     * Only unicast routes are returned for apps targeting Android S or below.
+     *
      * @hide
      */
     @SystemApi
     public @NonNull List<RouteInfo> getAllRoutes() {
-        List<RouteInfo> routes = new ArrayList<>(mRoutes);
+        final List<RouteInfo> routes = new ArrayList<>(getRoutes());
         for (LinkProperties stacked: mStackedLinks.values()) {
             routes.addAll(stacked.getAllRoutes());
         }
@@ -1328,6 +1362,21 @@ public final class LinkProperties implements Parcelable {
             }
         }
 
+        return false;
+    }
+
+    /**
+     * Returns true if this link has a throw route.
+     *
+     * @return {@code true} if there is an exclude route, {@code false} otherwise.
+     * @hide
+     */
+    public boolean hasExcludeRoute() {
+        for (RouteInfo r : mRoutes) {
+            if (r.getType() == RouteInfo.RTN_THROW) {
+                return true;
+            }
+        }
         return false;
     }
 

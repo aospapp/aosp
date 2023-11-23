@@ -82,24 +82,23 @@ public final class TzS2PolygonsToTzS2CellUnions {
                 description = "The input directory containing the TzS2Polygons files",
                 required = true,
                 converter = FileConverter.class)
-        File inputDir;
+        public File inputDir;
 
         @Parameter(names = "--num-threads",
                 description = "The number of threads to use",
                 required = true)
-        int numThreads;
+        public int numThreads;
 
         @Parameter(names = "--output",
                 description = "The output directory to store the TzS2CellUnion files",
                 required = true,
                 converter = FileConverter.class)
-        File outputDir;
+        public File outputDir;
 
         @Parameter(names = "--max-s2-level",
                 description = "The maximum S2 level of the cells to include in the S2 cell unions",
                 required = true)
-        int maxS2Level;
-
+        public int maxS2Level;
     }
 
     /**

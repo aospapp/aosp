@@ -30,7 +30,6 @@ import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.TouchTargetEnforcer;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityBridgeCallbacks;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityController.UiParams;
 import com.android.server.utils.Slogf;
@@ -84,11 +83,9 @@ public final class CarConsentUiHelper implements ConsentUiHelper {
             titleResId = R.string.setup_device;
             headerResId = R.string.fully_managed_device_provisioning_accept_header;
         }
-        CustomizationParams customization = uiParams.customization;
         mCallback.onInitiateUi(
                 CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID,
-                headerResId,
-                customization);
+                headerResId);
         mActivity.setTitle(titleResId);
 
         // Set the base layout

@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.device.displaysound;
 
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
@@ -40,7 +40,7 @@ import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.PreferenceControllerFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,6 +86,21 @@ public class AdvancedVolumeFragment extends PreferenceControllerFragment {
         mAudioManager = getAudioManager();
         mFormats = mAudioManager.getSurroundFormats();
         mReportedFormats = mAudioManager.getReportedSurroundFormats();
+
+        // For the first time, when the user has never changed the surround sound setting, enable
+        // all the surround sound formats supported by android and audio device, and disable the
+        // formats supported by Android device, but not by audio device.
+        String formatString = Settings.Global.getString(getContext().getContentResolver(),
+                Settings.Global.ENCODED_SURROUND_OUTPUT_ENABLED_FORMATS);
+        if (formatString == null) {
+            for (int format : mFormats.keySet()) {
+                if (mReportedFormats.contains(format)) {
+                    mAudioManager.setSurroundFormatEnabled(format, true);
+                } else {
+                    mAudioManager.setSurroundFormatEnabled(format, false);
+                }
+            }
+        }
         super.onAttach(context);
     }
 

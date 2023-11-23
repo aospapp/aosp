@@ -191,7 +191,8 @@ public class TtsEngineSettingsFragment extends SettingsPreferenceFragment implem
         checkTtsData();
 
         getActivity().registerReceiver(mLanguagesChangedReceiver,
-                new IntentFilter(TextToSpeech.Engine.ACTION_TTS_DATA_INSTALLED));
+                new IntentFilter(TextToSpeech.Engine.ACTION_TTS_DATA_INSTALLED),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
     @Override

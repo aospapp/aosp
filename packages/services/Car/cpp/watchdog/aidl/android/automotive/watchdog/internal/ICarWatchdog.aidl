@@ -19,20 +19,23 @@ package android.automotive.watchdog.internal;
 import android.automotive.watchdog.internal.ComponentType;
 import android.automotive.watchdog.internal.ICarWatchdogMonitor;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
+import android.automotive.watchdog.internal.ProcessIdentifier;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.automotive.watchdog.internal.StateType;
 
 /**
- * ICarWatchdog is an interface implemented by watchdog server. This interface is used only by the
- * internal services to communicate with the watchdog server.
+ * ICarWatchdog is an interface implemented by the watchdog server. This interface is used only by
+ * the internal services to communicate with the watchdog server.
  * Watchdog service is the counter part of the watchdog server to help communicate with
  * the car service and Java side services.
  * For health check, 3 components are involved: watchdog server, watchdog service, watchdog monitor.
  *   - watchdog server:   1. Checks clients' health status by pinging and waiting for the response.
- *                        2. Monitors I/O overuse for system, OEM and third-party applications.
- *   - watchdog service: is a watchdog client by reporting its health status to the server, and
+ *                        2. Monitors disk I/O usage by system, OEM and third-party apps and
+ *                        services.
+ *   - watchdog service:  is a watchdog client by reporting its health status to the server, and
  *                        at the same time plays a role of watchdog server by checking its clients'
- *                        health status.
+ *                        health status and performs resource overuse monitoring and notifying
+ *                        the user and the apps.
  *   - watchdog monitor:  captures and reports the process state of watchdog clients.
  */
 interface ICarWatchdog {
@@ -74,21 +77,21 @@ interface ICarWatchdog {
    * The caller should have system UID. Otherwise, returns security exception binder error.
    *
    * @param service              Watchdog service that is responding.
-   * @param clientsNotResponding Array of process id of clients which haven't responded to the
-   *                             mediator.
+   * @param clientsNotResponding List of process identifiers of clients which haven't responded to
+   *                             the mediator.
    * @param sessionId            Session id given by watchdog server.
    */
-  void tellCarWatchdogServiceAlive(
-          in ICarWatchdogServiceForSystem service, in int[] clientsNotResponding, in int sessionId);
+  void tellCarWatchdogServiceAlive(in ICarWatchdogServiceForSystem service,
+          in List<ProcessIdentifier> processIdentifiers, in int sessionId);
 
   /**
    * Tell watchdog server that the monitor has finished dumping process information.
    * The caller should have system UID. Otherwise, returns security exception binder error.
    *
    * @param monitor              Watchdog monitor that is registered to watchdog server.
-   * @param pid                  Process id that has been dumped.
+   * @param pid                  Process identifier of the process that has been dumped.
    */
-  void tellDumpFinished(in ICarWatchdogMonitor monitor, in int pid);
+  void tellDumpFinished(in ICarWatchdogMonitor monitor, in ProcessIdentifier processIdentifier);
 
   /**
    * Notify watchdog server about the system state change.
@@ -120,11 +123,13 @@ interface ICarWatchdog {
    */
   List<ResourceOveruseConfiguration> getResourceOveruseConfigurations();
 
-   /**
-    * Enable/disable the internal client health check process.
-    * Disabling would stop the ANR killing process.
-    *
-    * @param isEnabled            New enabled state.
-    */
-    void controlProcessHealthCheck(in boolean disable);
+  /**
+   * Enable/disable the client health checking.
+   * Disabling the client health checking would stop killing clients on ANR.
+   * The caller should have system UID. Otherwise, returns security exception binder error.
+   *
+   * @param enable            When set to true, client health checking is enabled.
+   *                          Otherwise, it is disabled.
+   */
+  void controlProcessHealthCheck(in boolean enable);
 }

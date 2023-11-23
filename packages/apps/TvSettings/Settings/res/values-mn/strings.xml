@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"Бүртгэл нэмэх"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"Бүртгэл, нэвтрэлт"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Бүртгэл алга"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> бүртгэл</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> бүртгэл</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# бүртгэл}other{# бүртгэл}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Медиа үйлчилгээ, Туслах, Төлбөр"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Сүлжээ, интернэт"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"Дуу"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Апп"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Төхөөрөмжийн сонголт"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Удирдлага, дагалдах хэрэгслүүд"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Холбогдсон Bluetooth төхөөрөмж алга"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> дагалдах хэрэгсэл</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> дагалдах хэрэгсэл</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Дэлгэц болон дуу чимээ"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Тусламж болон санал хүсэлт"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Нууцлал"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"Үйлдвэрээс гарсан төлөвт"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Тааруулалт"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Эрчим хүч хэмнэгч"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"Төхөөрөмжүүд"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Формат сонгох"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"Орчин тойрны дуу"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"ИДЭВХЖҮҮЛСЭН ФОРМАТУУД"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"ИДЭВХГҮЙ БОЛГОСОН ФОРМАТУУД"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"Идэвхгүй болгохын тулд форматын сонголтыг Гар арга руу өөрчилнө үү."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"Нягтрал"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Автомат"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Нягтралыг өөрчилсөн"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Одооноос %1$s-г ашиглахын тулд OK-г сонгоно уу."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Цуцлах"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Гц"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Кеш хийгдсэн өгөгдлийг арилгах уу?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Бүх програмд зориулан кеш хийгдсэн өгөгдлийг арилгах болно."</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"Аксесуар нэмэх"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"Хослуулж байна…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"Холбогдож байна..."</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Дагалдах хэрэгслүүд"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Алсын удирдлага"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Алсын удирдлагын тохиргоо"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Удирдлагын товчлуур тохируулах"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"ТВ, хүлээн авагч болон дууны самбар дээрх дууны түвшин, асаах/унтраах, оролтыг удирдах"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Холбогдох"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"%1$s-д холбогдох"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"Салгах"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Боломжгүй"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"Төхөөрөмжийн админы апп"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Идэхтэй апп алга"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> идэвхтэй апп</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> идэвхтэй апп</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Админ, шифрлэлтийн бодлого, эсвэл итгэмжлэлийн сангаас цуцалсан"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Удирдсан төхөөрөмжийн мэдээлэл"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"Таны байгууллагын удирдсан тохиргооны өөрчлөлт"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"Байхгүй"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Апп суулгасан"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Аппын тоог тооцоолсон. Үүнд Play Store-с гадуур суулгасан аппуудыг оруулаагүй байж болзошгүй."</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">Хамгийн багадаа <xliff:g id="COUNT_1">%d</xliff:g> апп</item>
-      <item quantity="one">Хамгийн багадаа <xliff:g id="COUNT_0">%d</xliff:g> апп</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{Хамгийн багадаа # апп}other{Хамгийн багадаа # апп}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Байршлын зөвшөөрөл"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Микрофоны зөвшөөрөл"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Камерын зөвшөөрөл"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Өгөгдмөл апп"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> апп</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> апп</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# апп}other{# апп}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Өгөгдмөл гар"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"<xliff:g id="APP_LABEL">%s</xliff:g>-д тохируулах"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"Тогтмол асаалттай VPN асаасан"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Итгэмжит мандат үнэмлэх"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Таны хувийн профайлд суулгасан итгэмжит мандат үнэмлэх"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Таны ажлын профайлд суулгасан итгэмжит мандат үнэмлэх"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">Хамгийн багадаа <xliff:g id="COUNT_1">%d</xliff:g> CA сертификат</item>
-      <item quantity="one">Хамгийн багадаа <xliff:g id="COUNT_0">%d</xliff:g> CA сертификат</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# CA сертификат}other{# CA сертификат}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"Админ төхөөрөмжийг түгжиж, нууц үгийг сэргээх боломжтой"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"Админ төхөөрөмжийн бүх өгөгдлийг устгах боломжтой"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Бүх төхөөрөмжийн өгөгдлийг устгахаас өмнө нууц үгийн оролдлого амжилтгүй болсон"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"Ажлын профайлын өгөгдлийг устгахаас өмнө нууц үгийн оролдлого амжилтгүй болсон"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> оролдлого</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> оролдлого</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{# оролдлого}other{# оролдлого}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Энэ төхөөрөмжийг таны байгууллага удирдаж байна."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Энэ төхөөрөмжийг <xliff:g id="ORGANIZATION_NAME">%s</xliff:g> удирддаг"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"Дэлгэрэнгүй үзэх"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">Камерын аппууд</item>
-      <item quantity="one">Камерын апп</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Камерын апп}other{Камерын аппууд}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Хуанлины апп"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"Харилцагчийн апп"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">Имэйл хэрэглэгчийн аппууд</item>
-      <item quantity="one">Имэйл хэрэглэгчийн апп</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{Имэйл хэрэглэгчийн апп}other{Имэйл хэрэглэгчийн аппууд}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"Газрын зургийн апп"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">Гар утасны аппууд</item>
-      <item quantity="one">Гар утасны апп</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{Гар утасны апп}other{Гар утасны аппууд}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"Хөтөч апп"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV-н үйлдлийн системийн хувилбар"</string>
     <string name="about_serial" msgid="3432319328808745459">"Сериалын дугаар"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV-н үйлдлийн системийн хийц"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">Танд хөгжүүлэгч болоход <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> алхам дутуу байна</item>
-      <item quantity="one">Танд одоо хөгжүүлэгч болоход <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> алхам дутуу байна.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{Та одоо хөгжүүлэгч болоход # алхам дутуу байна}other{Та одоо хөгжүүлэгч болоход # алхам дутуу байна}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"Зар"</string>
     <string name="ads_description" msgid="8081069475265061074">"Зарын ID-г шинэчлэх зэргээр зарын тохиргоог удирд"</string>
     <string name="ads_content_description" msgid="1006489792324920289">"Зар, Зар сурталчилгааны ID-аа шинэчлэх зэрэг сурталчилгааны тохиргоогоо удирдаарай"</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Системийн нэмэлт шинэчлэлт"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"Сүлжээ хянагдаж байж болзошгүй"</string>
     <string name="done_button" msgid="616159688526431451">"Дууссан"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">Сертификатуудад итгэх эсвэл устгах</item>
-      <item quantity="one">Сертификатад итгэх эсвэл устгах</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> таны ажлын төхөөрөмжид сертификатын удирдлага суулгасан бөгөөд энэ нь тэдэнд имэйл, апп, аюулгүй вебсайт зэрэг таны төхөөрөмжийн сүлжээний үйл ажиллагааг удирдах зөвшөөрөл олгож болно. \n\nЭдгээр сертификатын талаар нэмэлт мэдээлэл авахын тулд админтайгаа холбогдоно уу.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> таны ажлын төхөөрөмжид сертификатын удирдлага суулгасан бөгөөд энэ нь тэдэнд имэйл, апп, аюулгүй вебсайт зэрэг таны төхөөрөмжийн сүлжээний үйл ажиллагааг удирдах зөвшөөрөл олгож болно. \n\nЭнэ сертификатын талаар нэмэлт мэдээлэл авахын тулд админтайгаа холбогдоно уу.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> таны ажлын профайлд сертификатын удирдлага суулгасан бөгөөд энэ нь тэдэнд имэйл, апп, аюулгүй вебсайт зэрэг ажлын сүлжээний үйл ажиллагааг удирдах зөвшөөрөл олгож болно. \n\nЭдгээр сертификатын талаар нэмэлт мэдээлэл авахын тулд админтайгаа холбогдоно уу.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> таны ажлын профайлд сертификатын удирдлага суулгасан бөгөөд энэ нь тэдэнд имэйл, апп, аюулгүй вебсайт зэрэг ажлын сүлжээний үйл ажиллагааг удирдах зөвшөөрөл олгож болно. \n\nЭнэ сертификатын талаар нэмэлт мэдээлэл авахын тулд админтайгаа холбогдоно уу.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Гуравдагч талын этгээд таны имэйл, апп-ууд болон аюулгүй вебсайтууд гэх мэтийг оруулан таны сүлжээний үйл ажиллагааг хянах боломжтой.\n\nТаны төхөөрөмж дээр суулгасан итгэмжлэгдсэн жуухын тусламжтайгаар ингэх боломжтой."</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">Сертификатууд шалгах</item>
-      <item quantity="one">Сертификат шалгах</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{Сертификатад итгэх эсвэл устгах}other{Сертификатуудад итгэх эсвэл устгах}}"</string>
     <string name="device_status" msgid="8266002761193692207">"Төлөв"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Сүлжээ, сериал дугаар болон бусад мэдээлэл"</string>
     <string name="manual" msgid="5683935624321864999">"Гар ажиллагаатай"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"Холбох"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"Сүлжээг мартах"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"Ингэснээр тус сүлжээнд холбогдоход шаардагддаг хадгалагдсан нууц үг гэх мэт мэдээллийг арилгах болно"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"Мобайл утаснаасаа QR кодыг скан хийж, Wi-Fi-д нэгдээд зааварчилгааг дагана уу."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" Мобайл утаснаас QR кодыг скан хийснээр Wi-Fi-д нэгдэж, зааварчилгааг дагана уу.\n \n "<b>"Android утаснаасаа"</b>" Тохиргоо -&gt; Сүлжээ &amp; Интернэт -&gt; Wi-Fi -&gt; Wi-Fi сонгох -&gt; Дэвшилтэт -&gt; Төхөөрөмж нэмэх рүү очоод, дараа нь QR кодыг скан хийнэ үү."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"Цуцлахын тулд буцах товчлуурыг дарна уу"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"OK"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"Үргэлжлүүлэх"</string>
@@ -529,7 +489,7 @@
     <string name="storage_calculating_size" msgid="5716281278843281044">"Тооцоолж байна…"</string>
     <string name="storage_apps_usage" msgid="8659915575274468924">"Апп"</string>
     <string name="storage_downloads_usage" msgid="8429196848359517158">"Татан авалтууд"</string>
-    <string name="storage_dcim_usage" msgid="1890098882753254745">"Зураг &amp; видео"</string>
+    <string name="storage_dcim_usage" msgid="1890098882753254745">"Зураг, видео"</string>
     <string name="storage_music_usage" msgid="5362871290115089474">"Аудио"</string>
     <string name="storage_media_misc_usage" msgid="3404230292054880339">"Янз бүрийн."</string>
     <string name="storage_media_cache_usage" msgid="6397941751551207630">"Кеш хийгдсэн өгөгдөл"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"Төхөөрөмжийн хадгалах сан"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Хөдөлгөөнт санах ой"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Дахин шинэчлэх"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"Хадгалах санд зай гаргах"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"Завсрын санах ойд хадгалсан өгөгдлийг арилгах"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"<xliff:g id="SPACE">%1$s</xliff:g>-д зай гаргах"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"Зай эзэлж байгаа түр зуурын файлуудыг арилгана уу. Аппын тохируулга эсвэл офлайн видео зэрэг хадгалсан өгөгдөлд нөлөөлөхгүй бөгөөд та дахин аппуудад нэвтрэх шаардлагагүй болно."</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"Завсрын санах ойд хадгалсан өгөгдлийг арилгах уу?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"Энэ нь бүх аппын завсрын санах ойд хадгалсан өгөгдлийг арилгах болно."</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"Аппуудыг устгах"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g>-ыг залгасан байна"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"<xliff:g id="NAME">%1$s</xliff:g>-ыг залгаж чадахгүй байна"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB хадгалах санг дахин холболоо"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"Микрофон"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Микрофоны хандалт"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Микрофоны аппын хандалт"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Микрофоны хандалтыг блоклосон"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"Блокоос гаргахын тулд төхөөрөмжийнхөө нууцлалын сэлгүүрийг микрофон асаалттай байрлалд зөөж микрофонд хандахыг зөвшөөрнө үү."</string>
     <string name="camera" msgid="1226671478936288283">"Камер"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"Камерын хандалт"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"Камерын аппын хандалт"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Камерын хандалтыг блоклосон"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"Блокоос гаргахын тулд төхөөрөмжийнхөө нууцлалын сэлгүүрийг камер асаалттай байрлалд зөөж камерт хандахыг зөвшөөрнө үү."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Микрофоны хандалт: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"Асаасан үед зөвшөөрөлтэй бүх апп болон үйлчилгээ энэ төхөөрөмж дээрх дурын микрофонд хандаж болно.\n\nЗахиалгат протоколтой аудионы нэмэлт хэрэгслүүдэд энэ тохиргоо нөлөөлөхгүй."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Камерын хандалт: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -679,7 +650,7 @@
     <string name="captions_edgecolor" msgid="2779925179084237336">"Хүрээний өнгө"</string>
     <string name="captions_backgroundshow" msgid="1080183686470477645">"Дэвсгэрийг харуулах"</string>
     <string name="captions_backgroundcolor" msgid="2056944109914399253">"Дэвсгэр өнгө"</string>
-    <string name="captions_backgroundopacity" msgid="1850126438162000027">"Дэвсгэрийн бүдэгрэлт"</string>
+    <string name="captions_backgroundopacity" msgid="1850126438162000027">"Арын дэвсгэрийн тод байдал"</string>
     <string name="captioning_preview_text" msgid="3034147586392743237">"Хадмал тескт дараахтай адил харагдана"</string>
     <string name="captions_textopacity" msgid="6055602491649526307">"Текстийн тод байдал"</string>
     <string name="captions_windowshow" msgid="6002072054703167886">"Цонх харуулах"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"Шар хөх"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Шар"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Магента"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Аудио тайлбар"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Дэмжсэн кино болон шоуны дэлгэц дээр юу болж байгаа талаарх тайлбарыг сонсоорой"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Идэвхжүүлэх"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Тохируулга"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g>-г ашиглах уу?"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"Мониторинг"</string>
     <string name="system_apps" msgid="8481888654606868074">"Апп"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"Идэвхтэй байлгах"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"Дэлгэц хэзээ ч унтрахгүй"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP шалгах"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI-н оновчлол"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"Одоо дахин эхлүүлэх үү?"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"HDMI төхөөрөмжүүдийг TВ-тэй хамт унтраах"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"ТВ автоматаар асаах"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"TВ-г HDMI төхөөрөмжийн хамт асаах"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">Холбогдсон оролт</item>
-      <item quantity="one">Холбогдсон оролт</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">Түр горимын оролт</item>
-      <item quantity="one">Түр горимын оролт</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">Холбогдоогүй оролт</item>
-      <item quantity="one">Холбогдоогүй оролт</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{Холбогдсон оролт}other{Холбогдсон оролт}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{Түр горимын оролт}other{Түр горимын оролт}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{Холбогдоогүй оролт}other{Холбогдоогүй оролт}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Өөрийн бүртгэл дээрх апп-ууд болон бусад контентэд хандахыг хязгаарлах"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Хязгаарлагдсан профайл"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g> хянадаг"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"Хязгаарлагдмал профайл үүсгэх"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"Тохиргоо"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"Зөвшөөрөгдсөн апп-ууд"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d apps allowed</item>
-      <item quantity="one">1 апп зөвшөөрөгдсөн байна</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"Зөвшөөрөгдсөн"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"Зөвшөөрөгдөөгүй"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"Хязгаарлалтуудыг тааруулах"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"Гуравдагч талын эх сурвалж"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"Зөвшөөрлүүд"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"Апп боломжгүй байна"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"Ашиглаагүй апп"</string>
     <string name="settings_ok" msgid="5950888975075541964">"OK"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"Баталгаажуулах"</string>
     <string name="settings_cancel" msgid="576094334743686152">"Цуцлах"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"Энэ зөвшөөрөл нь аппад системийн тохиргоог өөрчлөхийг зөвшөөрдөг."</string>
     <string name="write_settings_on" msgid="71675710746513956">"Тийм"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"Үгүй"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"Бүх файлд хандах хандалт"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"Бүх файлыг удирдахын тулд хандахыг зөвшөөрөх"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"Энэ аппад энэ төхөөрөмж дээрх эсвэл холбогдсон дурын хадгалах сангийн бүх файлыг унших, өөрчлөх болон устгахыг зөвшөөрөх. Зөвшөөрөл олгогдсон бол апп нь танд тодорхойлон мэдэгдэлгүйгээр файлд хандаж болзошгүй."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Дэлгэцэн доторх дэлгэц"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Дэлгэцэн доторх дэлгэцийг зөвшөөрөх"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Дэлгэцэн доторх дэлгэцийг дэмждэг суулгасан апп алга"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"Апп нээлттэй үед эсвэл таныг энэ аппаас гарсны дараа (жишээ нь видео үргэлжлүүлэн үзэхийн тулд) дэлгэцэн доторх дэлгэц цонх үүсгэхийг аппад зөвшөөрнө үү. Энэ цонх таны ашиглаж буй бусад апп дээр харагдана."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Аппад сэрүүлэг тавих болон хугацаанд мэдрэг үйлдлийн хуваарь гаргахыг зөвшөөрнө үү. Энэ нь аппад ард ажиллахыг зөвшөөрөх бөгөөд ингэснээр илүү их цэнэг ашиглаж магадгүй.\n\nХэрэв энэ зөвшөөрөл унтраалттай бол аппын аль хэдийн тавьсан сэрүүлэг болон хуваарь гаргасан хугацаанд тулгуурласан үйл явдал ажиллахгүй."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"Дэлгэцийг асаах"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"Дэлгэцийг асаахыг зөвшөөрнө үү"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"Аппад дэлгэцийг асаахыг зөвшөөрнө үү. Зөвшөөрсөн тохиолдолд апп нь таны тодорхой оролцоогүйгээр ямар ч үед дэлгэцийг асааж болно."</string>
     <string name="special_access" msgid="21806055758289916">"Аппын тусгай хандалт"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Аудио"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"Дата хэмнэгч"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Илүү бага мобайл дата ашиглахын тулд видеоны чанарыг автоматаар тохируулах"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Дата ашиглалт болон сэрэмжлүүлэг"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Та Wi-Fi, Ethernet эсвэл утасныхаа сүлжээний цэгээр дамжуулан интернэтэд холбогдох боломжтой. Нэмэлт тусламж авахын тулд "<b>"g.co/network"</b>" хаягаар зочилно уу."</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Та Wi-Fi, Ethernet эсвэл утасныхаа сүлжээний цэгээр дамжуулан интернэтэд холбогдох боломжтой."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Үйлдлийг зөвшөөрөөгүй"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Дууны түвшнийг өөрчлөх боломжгүй"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"Тэжээл болон эрчим хүч"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"Асаалттай үеийн төлөв"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Шинэчлэх"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Этернэт хослуулах код"</string>
 </resources>

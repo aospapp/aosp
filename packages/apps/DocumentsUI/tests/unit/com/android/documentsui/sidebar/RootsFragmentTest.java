@@ -19,7 +19,11 @@ package com.android.documentsui.sidebar;
 import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.pm.ResolveInfo;
 
 import androidx.test.filters.MediumTest;
@@ -47,6 +51,8 @@ import java.util.List;
 @MediumTest
 public class RootsFragmentTest {
 
+    private Context mContext;
+    private DevicePolicyManager mDevicePolicyManager;
     private RootsFragment mRootsFragment;
 
     private static final String[] EXPECTED_SORTED_RESULT = {
@@ -65,13 +71,20 @@ public class RootsFragmentTest {
 
     @Before
     public void setUp() {
+        mContext = mock(Context.class);
+        mDevicePolicyManager = mock(DevicePolicyManager.class);
+        when(mContext.getResources()).thenReturn(
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getResources());
+        when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .thenReturn(mDevicePolicyManager);
+
         mRootsFragment = new RootsFragment();
     }
 
     @Test
     public void testSortLoadResult_WithCorrectOrder() {
         List<Item> items = mRootsFragment.sortLoadResult(
-                InstrumentationRegistry.getInstrumentation().getTargetContext().getResources(),
+                mContext,
                 new State(),
                 createFakeRootInfoList(),
                 null /* excludePackage */, null /* handlerAppIntent */, new TestProvidersAccess(),

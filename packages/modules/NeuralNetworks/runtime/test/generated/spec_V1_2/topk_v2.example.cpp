@@ -2,67 +2,67 @@
 // DO NOT EDIT
 // clang-format off
 #include "TestHarness.h"
-using namespace test_helper;
+using namespace test_helper;  // NOLINT(google-build-using-namespace)
 
 namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -75,95 +75,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_all_inputs_as_internal() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }, { // input_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f})
                         }, { // placeholder
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -176,61 +176,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -243,95 +243,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_all_inputs_as_internal() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }, { // input_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, 0.2f, 0.8f, 0.1f})
                         }, { // placeholder1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param1
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -344,61 +344,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
+                        }, { // out_indices
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -411,95 +411,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_all_inputs_as_internal() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({})
                         }, { // k
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
                         }, { // out_indices
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 0, 0, 1})
                         }, { // input_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f})
                         }, { // placeholder2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // param2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.0f})
+                        }, { // param2
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -512,61 +512,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices1
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -579,95 +579,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_all_inputs_as_internal_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }, { // input1_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f})
                         }, { // placeholder3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param3
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -680,61 +680,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices1
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -747,95 +747,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_all_inputs_as_internal_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }, { // input1_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, 0.2f, 0.8f, 0.1f, -0.1f})
                         }, { // placeholder4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param4
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -848,61 +848,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
+                        }, { // out_indices1
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -915,95 +915,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_all_inputs_as_internal_2() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({})
                         }, { // k1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
                         }, { // out_indices1
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 0, 0, 1})
                         }, { // input1_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f})
                         }, { // placeholder5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // param5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.0f})
+                        }, { // param5
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1016,61 +1016,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices2
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1083,95 +1083,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_all_inputs_as_internal_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }, { // input2_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // placeholder6
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param6
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param6
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1184,61 +1184,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
+                        }, { // out_indices2
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -1251,95 +1251,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_all_inputs_as_internal_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.2f, -2.0f, 0.8f, 0.1f})
                         }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }, { // input2_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // placeholder7
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param7
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param7
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -1352,61 +1352,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
+                        }, { // out_indices2
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2, 2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1419,95 +1419,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_all_inputs_as_internal_3() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({})
                         }, { // k2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.20000000298023224f, -2.0f, 0.800000011920929f, 0.10000000149011612f})
                         }, { // out_indices2
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 0, 0, 1})
                         }, { // input2_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2, 4},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f})
                         }, { // placeholder8
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // param8
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.0f})
+                        }, { // param8
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1520,61 +1520,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f}),
-                            .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f})
+                        }, { // out_indices3
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1587,95 +1587,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_all_inputs_as_internal_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f})
                         }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }, { // input3_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // placeholder9
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param9
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param9
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1688,61 +1688,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f}),
-                            .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f})
+                        }, { // out_indices3
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -1755,95 +1755,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_all_inputs_as_internal_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.8f, 0.2f})
                         }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }, { // input3_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f}),
+                            .type = TestOperandType::TENSOR_FLOAT32,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({-2.0f, -3.0f, -4.0f, 0.2f, 0.8f, 0.1f, -0.1f, -0.8f})
                         }, { // placeholder10
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<float>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT32,
-                            .zeroPoint = 0
-                        }, { // param10
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<float>({0.0f})
+                        }, { // param10
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -1856,61 +1856,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.800000011920929f, 0.20000000298023224f}),
-                            .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
-                            .numberOfConsumers = 0,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.800000011920929f, 0.20000000298023224f})
+                        }, { // out_indices3
                             .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .dimensions = {2},
+                            .numberOfConsumers = 0,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -1923,95 +1923,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_all_inputs_as_internal_4() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({})
                         }, { // k3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.800000011920929f, 0.20000000298023224f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.800000011920929f, 0.20000000298023224f})
                         }, { // out_indices3
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({4, 3}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({4, 3})
                         }, { // input3_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f}),
+                            .type = TestOperandType::TENSOR_FLOAT16,
                             .dimensions = {8},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({-2.0f, -3.0f, -4.0f, 0.20000000298023224f, 0.800000011920929f, 0.10000000149011612f, -0.10000000149011612f, -0.800000011920929f})
                         }, { // placeholder11
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<_Float16>({0.0f}),
-                            .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
                             .type = TestOperandType::TENSOR_FLOAT16,
-                            .zeroPoint = 0
-                        }, { // param11
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .dimensions = {1},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<_Float16>({0.0f})
+                        }, { // param11
                             .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .dimensions = {},
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2024,61 +2024,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
-                        }, { // out_values4
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
-                            .dimensions = {2, 2},
                             .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
+                        }, { // out_values4
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
+                        }, { // out_indices4
+                            .type = TestOperandType::TENSOR_INT32,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2091,95 +2091,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_all_inputs_as_internal_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .zeroPoint = 128,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
                         }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }, { // input4_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // placeholder12
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({128}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // param12
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({128})
+                        }, { // param12
+                            .type = TestOperandType::INT32,
+                            .dimensions = {},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2192,61 +2192,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
-                        }, { // out_values4
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
-                            .dimensions = {2, 2},
                             .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
+                        }, { // out_values4
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
+                        }, { // out_indices4
+                            .type = TestOperandType::TENSOR_INT32,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -2259,95 +2259,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_all_inputs_as_internal_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .zeroPoint = 128,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
                         }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }, { // input4_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // placeholder13
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({128}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // param13
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({128})
+                        }, { // param13
+                            .type = TestOperandType::INT32,
+                            .dimensions = {},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -2360,61 +2360,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
-                        }, { // out_values4
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
-                            .dimensions = {2, 2},
                             .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
+                        }, { // out_values4
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
-                            .dimensions = {2, 2},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
+                        }, { // out_indices4
+                            .type = TestOperandType::TENSOR_INT32,
+                            .dimensions = {2, 2},
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2427,95 +2427,95 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_all_inputs_as_internal_5() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {4},
                 .operands = {{ // input4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::TEMPORARY_VARIABLE,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({})
                         }, { // k4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .zeroPoint = 128,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({3, 2, 251, 250})
                         }, { // out_indices4
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }, { // input4_new
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 2.0f,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({1, 2, 3, 251, 250, 249})
                         }, { // placeholder14
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<uint8_t>({128}),
+                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
                             .dimensions = {1},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 2.0f,
-                            .type = TestOperandType::TENSOR_QUANT8_ASYMM,
-                            .zeroPoint = 128
-                        }, { // param14
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({0}),
-                            .dimensions = {},
-                            .isIgnored = false,
+                            .zeroPoint = 128,
                             .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<uint8_t>({128})
+                        }, { // param14
+                            .type = TestOperandType::INT32,
+                            .dimensions = {},
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({0})
                         }},
                 .operations = {{
+                            .type = TestOperationType::ADD,
                             .inputs = {4, 5, 6},
-                            .outputs = {0},
-                            .type = TestOperationType::ADD
+                            .outputs = {0}
                         }, {
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {4},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2528,61 +2528,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_6() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249})
                         }, { // k5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250})
                         }, { // out_indices5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }
@@ -2595,61 +2595,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_relaxed_6() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = true,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249})
                         }, { // k5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250})
                         }, { // out_indices5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::UNKNOWN,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = true,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::UNKNOWN
     };
     return model;
 }
@@ -2662,61 +2662,61 @@ namespace generated_tests::topk_v2 {
 
 const TestModel& get_test_model_float16_6() {
     static TestModel model = {
-        .expectFailure = false,
-        .expectedMultinomialDistributionTolerance = 0,
-        .isRelaxed = false,
         .main = {
-                .inputIndexes = {0},
                 .operands = {{ // input5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 3},
-                            .isIgnored = false,
+                            .numberOfConsumers = 1,
+                            .scale = 0.0f,
+                            .zeroPoint = 0,
                             .lifetime = TestOperandLifeTime::SUBGRAPH_INPUT,
-                            .numberOfConsumers = 1,
-                            .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({1, 2, 3, 10251, 10250, 10249})
                         }, { // k5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2}),
+                            .type = TestOperandType::INT32,
                             .dimensions = {},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
                             .numberOfConsumers = 1,
                             .scale = 0.0f,
-                            .type = TestOperandType::INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::CONSTANT_COPY,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2})
                         }, { // out_values5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({3, 2, 10251, 10250})
                         }, { // out_indices5
-                            .channelQuant = {},
-                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1}),
+                            .type = TestOperandType::TENSOR_INT32,
                             .dimensions = {2, 2},
-                            .isIgnored = false,
-                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
                             .numberOfConsumers = 0,
                             .scale = 0.0f,
-                            .type = TestOperandType::TENSOR_INT32,
-                            .zeroPoint = 0
+                            .zeroPoint = 0,
+                            .lifetime = TestOperandLifeTime::SUBGRAPH_OUTPUT,
+                            .channelQuant = {},
+                            .isIgnored = false,
+                            .data = TestBuffer::createFromVector<int32_t>({2, 1, 0, 1})
                         }},
                 .operations = {{
+                            .type = TestOperationType::TOPK_V2,
                             .inputs = {0, 1},
-                            .outputs = {2, 3},
-                            .type = TestOperationType::TOPK_V2
+                            .outputs = {2, 3}
                         }},
+                .inputIndexes = {0},
                 .outputIndexes = {2, 3}
             },
-        .minSupportedVersion = TestHalVersion::V1_2,
-        .referenced = {}
+        .referenced = {},
+        .isRelaxed = false,
+        .expectedMultinomialDistributionTolerance = 0,
+        .expectFailure = false,
+        .minSupportedVersion = TestHalVersion::V1_2
     };
     return model;
 }

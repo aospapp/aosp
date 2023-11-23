@@ -26,6 +26,7 @@ allow experimentalcarservice_app {
     lock_settings_service
     media_session_service
     network_management_service
+    netstats_service
     power_service
     procfsinspector_service
     sensorservice_service

@@ -17,13 +17,17 @@
 package com.android.server.connectivity;
 
 import static android.net.ConnectivityDiagnosticsManager.ConnectivityReport;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_ETHERNET;
+import static android.net.NetworkCapabilities.TRANSPORT_TEST;
 import static android.net.NetworkCapabilities.transportNamesOf;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.CaptivePortalData;
+import android.net.DscpPolicy;
 import android.net.IDnsResolver;
 import android.net.INetd;
 import android.net.INetworkAgent;
@@ -51,11 +55,14 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.telephony.data.EpsBearerQosSessionAttributes;
 import android.telephony.data.NrQosSessionAttributes;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
 
+import com.android.internal.util.IndentingPrintWriter;
 import com.android.internal.util.WakeupMessage;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.server.ConnectivityService;
 
 import java.io.PrintWriter;
@@ -101,6 +108,12 @@ import java.util.TreeSet;
 //       or tunnel) but does not disconnect from the AP/cell tower, or
 //    d. a stand-alone device offering a WiFi AP without an uplink for configuration purposes.
 // 5. registered, created, connected, validated
+// 6. registered, created, connected, (validated or unvalidated), destroyed
+//    This is an optional state where the underlying native network is destroyed but the network is
+//    still connected for scoring purposes, so can satisfy requests, including the default request.
+//    It is used when the transport layer wants to replace a network with another network (e.g.,
+//    when Wi-Fi has roamed to a different BSSID that is part of a different L3 network) and does
+//    not want the device to switch to another network until the replacement connects and validates.
 //
 // The device's default network connection:
 // ----------------------------------------
@@ -179,6 +192,11 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
     // shows up in API calls, is able to satisfy NetworkRequests and can become the default network.
     // This is a sticky bit; once set it is never cleared.
     public boolean everConnected;
+    // Whether this network has been destroyed and is being kept temporarily until it is replaced.
+    public boolean destroyed;
+    // To check how long it has been since last roam.
+    public long lastRoamTimestamp;
+
     // Set to true if this Network successfully passed validation or if it did not satisfy the
     // default NetworkRequest in which case validation will not be attempted.
     // This is a sticky bit; once set it is never cleared even if future validation attempts fail.
@@ -377,6 +395,9 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         this.creatorUid = creatorUid;
         mLingerDurationMs = lingerDurationMs;
         mQosCallbackTracker = qosCallbackTracker;
+        declaredUnderlyingNetworks = (nc.getUnderlyingNetworks() != null)
+                ? nc.getUnderlyingNetworks().toArray(new Network[0])
+                : null;
     }
 
     private class AgentDeathMonitor implements IBinder.DeathRecipient {
@@ -697,6 +718,30 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
             mHandler.obtainMessage(NetworkAgent.EVENT_LINGER_DURATION_CHANGED,
                     new Pair<>(NetworkAgentInfo.this, durationMs)).sendToTarget();
         }
+
+        @Override
+        public void sendAddDscpPolicy(final DscpPolicy policy) {
+            mHandler.obtainMessage(NetworkAgent.EVENT_ADD_DSCP_POLICY,
+                    new Pair<>(NetworkAgentInfo.this, policy)).sendToTarget();
+        }
+
+        @Override
+        public void sendRemoveDscpPolicy(final int policyId) {
+            mHandler.obtainMessage(NetworkAgent.EVENT_REMOVE_DSCP_POLICY,
+                    new Pair<>(NetworkAgentInfo.this, policyId)).sendToTarget();
+        }
+
+        @Override
+        public void sendRemoveAllDscpPolicies() {
+            mHandler.obtainMessage(NetworkAgent.EVENT_REMOVE_ALL_DSCP_POLICIES,
+                    new Pair<>(NetworkAgentInfo.this, null)).sendToTarget();
+        }
+
+        @Override
+        public void sendUnregisterAfterReplacement(final int timeoutMillis) {
+            mHandler.obtainMessage(NetworkAgent.EVENT_UNREGISTER_AFTER_REPLACEMENT,
+                    new Pair<>(NetworkAgentInfo.this, timeoutMillis)).sendToTarget();
+        }
     }
 
     /**
@@ -720,7 +765,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         final NetworkCapabilities oldNc = networkCapabilities;
         networkCapabilities = nc;
         mScore = mScore.mixInScore(networkCapabilities, networkAgentConfig, everValidatedForYield(),
-                yieldToBadWiFi());
+                yieldToBadWiFi(), destroyed);
         final NetworkMonitorManager nm = mNetworkMonitor;
         if (nm != null) {
             nm.notifyNetworkCapabilitiesChanged(nc);
@@ -848,7 +893,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
 
     /**
      * Returns the number of requests currently satisfied by this network of type
-     * {@link android.net.NetworkRequest.Type.BACKGROUND_REQUEST}.
+     * {@link android.net.NetworkRequest.Type#BACKGROUND_REQUEST}.
      */
     public int numBackgroundNetworkRequests() {
         return mNumBackgroundNetworkRequests;
@@ -935,17 +980,17 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
      */
     public void setScore(final NetworkScore score) {
         mScore = FullScore.fromNetworkScore(score, networkCapabilities, networkAgentConfig,
-                everValidatedForYield(), yieldToBadWiFi());
+                everValidatedForYield(), yieldToBadWiFi(), destroyed);
     }
 
     /**
      * Update the ConnectivityService-managed bits in the score.
      *
-     * Call this after updating the network agent config.
+     * Call this after changing any data that might affect the score (e.g., agent config).
      */
     public void updateScoreForNetworkAgentUpdate() {
         mScore = mScore.mixInScore(networkCapabilities, networkAgentConfig,
-                everValidatedForYield(), yieldToBadWiFi());
+                everValidatedForYield(), yieldToBadWiFi(), destroyed);
     }
 
     private boolean everValidatedForYield() {
@@ -993,7 +1038,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
      * when a network is newly created.
      *
      * @param requestId The requestId of the request that no longer need to be served by this
-     *                  network. Or {@link NetworkRequest.REQUEST_ID_NONE} if this is the
+     *                  network. Or {@link NetworkRequest#REQUEST_ID_NONE} if this is the
      *                  {@code InactivityTimer} for a newly created network.
      */
     // TODO: Consider creating a dedicated function for nascent network, e.g. start/stopNascent.
@@ -1143,6 +1188,15 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
     }
 
     /**
+     * Dump the NAT64 xlat information.
+     *
+     * @param pw print writer.
+     */
+    public void dumpNat464Xlat(IndentingPrintWriter pw) {
+        clatd.dump(pw);
+    }
+
+    /**
      * Sets the most recent ConnectivityReport for this network.
      *
      * <p>This should only be called from the ConnectivityService thread.
@@ -1166,6 +1220,59 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
         return mConnectivityReport;
     }
 
+    /**
+     * Make sure the NC from network agents don't contain stuff they shouldn't.
+     *
+     * @param nc the capabilities to sanitize
+     * @param creatorUid the UID of the process creating this network agent
+     * @param hasAutomotiveFeature true if this device has the automotive feature, false otherwise
+     * @param authenticator the carrier privilege authenticator to check for telephony constraints
+     */
+    public static void restrictCapabilitiesFromNetworkAgent(@NonNull final NetworkCapabilities nc,
+            final int creatorUid, final boolean hasAutomotiveFeature,
+            @Nullable final CarrierPrivilegeAuthenticator authenticator) {
+        if (nc.hasTransport(TRANSPORT_TEST)) {
+            nc.restrictCapabilitiesForTestNetwork(creatorUid);
+        }
+        if (!areAllowedUidsAcceptableFromNetworkAgent(nc, hasAutomotiveFeature, authenticator)) {
+            nc.setAllowedUids(new ArraySet<>());
+        }
+    }
+
+    private static boolean areAllowedUidsAcceptableFromNetworkAgent(
+            @NonNull final NetworkCapabilities nc, final boolean hasAutomotiveFeature,
+            @Nullable final CarrierPrivilegeAuthenticator carrierPrivilegeAuthenticator) {
+        // NCs without access UIDs are fine.
+        if (!nc.hasAllowedUids()) return true;
+        // S and below must never accept access UIDs, even if an agent sends them, because netd
+        // didn't support the required feature in S.
+        if (!SdkLevel.isAtLeastT()) return false;
+
+        // On a non-restricted network, access UIDs make no sense
+        if (nc.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)) return false;
+
+        // If this network has TRANSPORT_TEST, then the caller can do whatever they want to
+        // access UIDs
+        if (nc.hasTransport(TRANSPORT_TEST)) return true;
+
+        // Factories that make ethernet networks can allow UIDs for automotive devices.
+        if (nc.hasSingleTransport(TRANSPORT_ETHERNET) && hasAutomotiveFeature) {
+            return true;
+        }
+
+        // Factories that make cell networks can allow the UID for the carrier service package.
+        // This can only work in T where there is support for CarrierPrivilegeAuthenticator
+        if (null != carrierPrivilegeAuthenticator
+                && nc.hasSingleTransport(TRANSPORT_CELLULAR)
+                && (1 == nc.getAllowedUidsNoCopy().size())
+                && (carrierPrivilegeAuthenticator.hasCarrierPrivilegeForNetworkCapabilities(
+                        nc.getAllowedUidsNoCopy().valueAt(0), nc))) {
+            return true;
+        }
+
+        return false;
+    }
+
     // TODO: Print shorter members first and only print the boolean variable which value is true
     // to improve readability.
     public String toString() {
@@ -1173,6 +1280,8 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
                 + "network{" + network + "}  handle{" + network.getNetworkHandle() + "}  ni{"
                 + networkInfo.toShortString() + "} "
                 + mScore + " "
+                + (created ? " created" : "")
+                + (destroyed ? " destroyed" : "")
                 + (isNascent() ? " nascent" : (isLingering() ? " lingering" : ""))
                 + (everValidated ? " everValidated" : "")
                 + (lastValidated ? " lastValidated" : "")
@@ -1187,6 +1296,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo>, NetworkRa
                         ? " underlying{" + Arrays.toString(declaredUnderlyingNetworks) + "}" : "")
                 + "  lp{" + linkProperties + "}"
                 + "  nc{" + networkCapabilities + "}"
+                + "  factorySerialNumber=" + factorySerialNumber
                 + "}";
     }
 

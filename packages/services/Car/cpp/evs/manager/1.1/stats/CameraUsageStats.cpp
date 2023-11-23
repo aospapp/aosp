@@ -16,9 +16,8 @@
 
 #include "CameraUsageStats.h"
 
-#include <statslog.h>
-
 #include <android-base/logging.h>
+#include <statslog_evs.h>
 
 namespace {
 
@@ -178,21 +177,18 @@ CameraUsageStatsRecord CameraUsageStats::snapshot() {
 Result<void> CameraUsageStats::writeStats() const {
     AutoMutex lock(mMutex);
 
-    // Reports the usage statistics before the destruction
     // EvsUsageStatsReported atom is defined in
     // frameworks/base/cmds/statsd/src/atoms.proto
     const auto duration = android::uptimeMillis() - mTimeCreatedMs;
-    android::util::stats_write(android::util::EVS_USAGE_STATS_REPORTED,
-                               mId,
-                               mStats.peakClientsCount,
-                               mStats.erroneousEventsCount,
-                               mStats.framesFirstRoundtripLatency,
-                               mStats.framesAvgRoundtripLatency,
-                               mStats.framesPeakRoundtripLatency,
-                               mStats.framesReceived,
-                               mStats.framesIgnored,
-                               mStats.framesSkippedToSync,
-                               duration);
+    auto result =
+            stats::stats_write(stats::EVS_USAGE_STATS_REPORTED, mId, mStats.peakClientsCount,
+                               mStats.erroneousEventsCount, mStats.framesFirstRoundtripLatency,
+                               mStats.framesAvgRoundtripLatency, mStats.framesPeakRoundtripLatency,
+                               mStats.framesReceived, mStats.framesIgnored,
+                               mStats.framesSkippedToSync, duration);
+    if (result < 0) {
+        LOG(WARNING) << "Failed to report usage stats";
+    }
     return {};
 }
 

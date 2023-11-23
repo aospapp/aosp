@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"โหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ปิดใช้งานการเชื่อมต่อเครือข่าย"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"ไม่มีการเชื่อมต่ออินเทอร์เน็ตมือถือจนถึง <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">โทรศัพท์จะเข้าโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_1">%s</xliff:g> นาที ขณะใช้โหมดนี้ จะไม่สามารถใช้แอปพลิเคชันที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการออกตอนนี้ไหม</item>
-      <item quantity="one">โทรศัพท์จะเข้าโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_0">%s</xliff:g> นาที ขณะใช้โหมดนี้ จะไม่สามารถใช้แอปที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการออกตอนนี้ไหม</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">ไม่สามารถทำงานที่เลือกนี้ได้ขณะอยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะใช้โหมดนี้เป็นเวลา <xliff:g id="COUNT_1">%s</xliff:g> นาที คุณต้องการออกตอนนี้ไหม</item>
-      <item quantity="one">ไม่สามารถทำงานที่เลือกนี้ได้ขณะอยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะใช้โหมดนี้เป็นเวลา <xliff:g id="COUNT_0">%s</xliff:g> นาที คุณต้องการออกตอนนี้ไหม</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา 1 นาที ในระหว่างที่อยู่ในโหมดนี้ คุณจะใช้แอปที่ใช้การเชื่อมต่ออินเทอร์เน็ตไม่ได้ คุณต้องการออกเลยไหม}other{โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา %s นาที ในระหว่างที่อยู่ในโหมดนี้ คุณจะใช้แอปพลิเคชันที่ใช้การเชื่อมต่ออินเทอร์เน็ตไม่ได้ คุณต้องการออกเลยไหม}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{การทำงานที่เลือกจะใช้ไม่ได้เมื่ออยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะอยู่ในโหมดนี้เป็นเวลา 1 นาที คุณต้องการออกเลยไหม}other{การทำงานที่เลือกจะใช้ไม่ได้เมื่ออยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะอยู่ในโหมดนี้เป็นเวลา %s นาที คุณต้องการออกเลยไหม}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"การทำงานที่เลือกใช้ไม่ได้ในระหว่างโทรฉุกเฉิน"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"กำลังออกจากโหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ใช่"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"เลิกแสดง"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"โทรศัพท์อยู่ในโหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"จนถึง <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_1">%s</xliff:g> นาที\nคุณต้องการออกเลยไหม</item>
-      <item quantity="one">โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_0">%s</xliff:g> นาที\nคุณต้องการออกเลยไหม</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา 1 นาที\nคุณต้องการออกเลยไหม}other{โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา %s นาที\nคุณต้องการออกเลยไหม}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"บริการ"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"การตั้งค่า"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;ไม่ได้ตั้งค่า&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"การเข้าถึง"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"โทรผ่าน Wi-Fi จาก"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"การโทรผ่าน Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"แตะอีกครั้งเพื่อเปิด"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"เกิดข้อผิดพลาดขณะถอดรหัสข้อความ"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ซิมการ์ดได้เปิดใช้บริการของคุณและอัปเดตความสามารถในการโรมมิ่งของโทรศัพท์"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"มีสายที่ใช้งานอยู่มากเกินไป โปรดวางสายหรือรวมสายที่มีก่อนโทรออกครั้งใหม่"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ไม่สามารถโทรออกได้เนื่องจากมีสายโทรออกอยู่แล้ว"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"ไม่สามารถโทรออกได้เนื่องจากมีสายเรียกเข้าที่ยังไม่ได้รับ รับหรือปฏิเสธสายเรียกเข้าก่อนโทรออกใหม่"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ไม่สามารถโทรออกได้เนื่องจากมีการปิดใช้การโทรโดยใช้คุณสมบัติของระบบ ro.telephony.disable-call"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ไม่สามารถโทรออกได้เนื่องจากมีการโทรสองสายกำลังดำเนินการอยู่ ตัดการเชื่อมต่อหนึ่งสายหรือรวมเป็นการประชุมสายก่อนโทรออกใหม่"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"ไม่สามารถโทรออกได้เนื่องจากมีการโทร 2 สายที่กำลังดำเนินอยู่ โปรดยกเลิกการเชื่อมต่อ 1 สายหรือรวมเป็นการประชุมสายก่อนโทรออกใหม่"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"หากต้องการใช้ <xliff:g id="SUPP_SERVICE">%s</xliff:g> โปรดเปิดเน็ตมือถือ คุณเปลี่ยนตัวเลือกนี้ได้ในการตั้งค่าเครือข่ายมือถือ"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"หากต้องการใช้ <xliff:g id="SUPP_SERVICE">%s</xliff:g> โปรดเปิดเน็ตมือถือและการโรมมิ่งข้อมูล คุณเปลี่ยนตัวเลือกเหล่านี้ได้ในการตั้งค่าเครือข่ายมือถือ"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"หากต้องการใช้ <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> โปรดเปิดเน็ตมือถือสำหรับ SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> คุณเปลี่ยนตัวเลือกนี้ได้ในการตั้งค่าเครือข่ายมือถือ"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"คุณต้องรีสตาร์ทอุปกรณ์เพื่อเปลี่ยนการตั้งค่านี้"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"รีสตาร์ท"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ยกเลิก"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"กำหนดให้ eSIM แบบนำออกได้เป็นค่าเริ่มต้น"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"กำลังส่งของวิทยุเครือข่ายมือถือ"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ดูสมุดที่อยู่ของซิม"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ดูการจำกัดหมายเลขโทรออก"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"เลือกย่านความถี่วิทยุ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ประเภทของเครือข่ายเสียง:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ประเภทเครือข่ายข้อมูล:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ประเภทการลบล้างเครือข่าย:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"เลือกดัชนีโทรศัพท์"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ตั้งค่าประเภทเครือข่ายที่ต้องการ:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ใช้คำสั่ง ping ชื่อโฮสต์ (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"รีเฟรช"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"สลับการตรวจสอบ DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ข้อมูล/การตั้งค่าเฉพาะตาม OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"มี EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ถูกจำกัด:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"มี NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"สถานะ NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC ที่พร้อมใช้งาน (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR ที่จำกัด (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR ที่พร้อมใช้งาน (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"สถานะ NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"ความถี่ NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ตั้งค่าโหมดย่านความถี่วิทยุ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"กำลังโหลดรายการย่านความถี่…"</string>

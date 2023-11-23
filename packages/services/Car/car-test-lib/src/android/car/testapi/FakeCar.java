@@ -16,9 +16,10 @@
 
 package android.car.testapi;
 
+import android.annotation.Nullable;
 import android.car.Car;
 import android.car.ICar;
-import android.car.ICarBluetooth;
+import android.car.ICarResultReceiver;
 import android.car.cluster.IInstrumentClusterManagerService;
 import android.car.content.pm.ICarPackageManager;
 import android.car.diagnostic.ICarDiagnostic;
@@ -29,6 +30,8 @@ import android.content.Context;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
+
+import com.android.car.internal.ICarServiceHelper;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -132,7 +135,6 @@ public class FakeCar {
         @Mock ICarDiagnostic.Stub mCarDiagnostic;
         @Mock ICarPower.Stub mCarPower;
         @Mock IInstrumentClusterManagerService.Stub mClusterService;
-        @Mock ICarBluetooth.Stub mCarBluetooth;
         @Mock ICarStorageMonitoring.Stub mCarStorageMonitoring;
         @Mock ICarDrivingState.Stub mCarDrivingState;
 
@@ -154,12 +156,14 @@ public class FakeCar {
         }
 
         @Override
-        public void setSystemServerConnections(IBinder helper, IBinder receiver)
+        public void setSystemServerConnections(ICarServiceHelper helper,
+                ICarResultReceiver receiver)
                 throws RemoteException {
             // Nothing to do yet.
         }
 
         @Override
+        @Nullable
         public IBinder getCarService(String serviceName) throws RemoteException {
             switch (serviceName) {
                 case Car.AUDIO_SERVICE:
@@ -185,8 +189,6 @@ public class FakeCar {
                     return mClusterService;
                 case Car.PROJECTION_SERVICE:
                     return mCarProjection;
-                case Car.BLUETOOTH_SERVICE:
-                    return mCarBluetooth;
                 case Car.STORAGE_MONITORING_SERVICE:
                     return mCarStorageMonitoring;
                 case Car.CAR_DRIVING_STATE_SERVICE:

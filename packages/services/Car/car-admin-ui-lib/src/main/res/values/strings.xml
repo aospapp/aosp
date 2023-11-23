@@ -16,8 +16,8 @@ limitations under the License.
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- Message displayed in multiple places indicating the device is managed by an organization, but the name of the organization is not known [CHAR LIMIT=NONE]-->
-    <string name="car_admin_ui_managed_device_message_generic">Vehicle managed by an organization</string>
+    <string name="car_admin_ui_managed_device_message_generic">This vehicle is managed by an organization</string>
     <!-- Message displayed in multiple places indicating the device is managed by an organization [CHAR LIMIT=NONE]-->
-    <string name="car_admin_ui_managed_device_message_by_org">Vehicle managed by <xliff:g id="organization name" example="Acme Corporation">%1$s</xliff:g></string>
+    <string name="car_admin_ui_managed_device_message_by_org">This vehicle is managed by <xliff:g id="organization name" example="Acme Corporation">%1$s</xliff:g></string>
 
 </resources>

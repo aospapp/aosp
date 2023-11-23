@@ -23,7 +23,7 @@ import android.app.Notification;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
-import android.graphics.drawable.Icon;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
 import android.text.BidiFormatter;
@@ -32,9 +32,11 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
+import android.widget.DateTimeView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
 
 import com.android.car.notification.AlertEntry;
 import com.android.car.notification.R;
@@ -55,6 +57,8 @@ public class CarNotificationHeaderView extends LinearLayout {
     private ImageView mIconView;
     @Nullable
     private TextView mHeaderTextView;
+    @Nullable
+    private DateTimeView mTimeView;
 
     public CarNotificationHeaderView(Context context) {
         super(context);
@@ -98,6 +102,10 @@ public class CarNotificationHeaderView extends LinearLayout {
         super.onFinishInflate();
         mIconView = findViewById(R.id.app_icon);
         mHeaderTextView = findViewById(R.id.header_text);
+        mTimeView = findViewById(R.id.time);
+        if (mTimeView != null) {
+            mTimeView.setShowRelativeTime(true);
+        }
     }
 
     /**
@@ -108,8 +116,8 @@ public class CarNotificationHeaderView extends LinearLayout {
      */
     public void bind(AlertEntry alertEntry, boolean isInGroup) {
         if (mUseLauncherIcon || isInGroup) {
-            // If the notification is part of a group, individual headers are not shown.
-            // Instead, there is a header for the entire group in the group notification template
+            // If the notification is part of a group, individual headers are not shown
+            // instead, there is a header for the entire group in the group notification template
             // OR
             // If launcher icon is used then hide header
             setVisibility(View.GONE);
@@ -126,10 +134,8 @@ public class CarNotificationHeaderView extends LinearLayout {
         // App icon
         if (mIconView != null) {
             mIconView.setVisibility(View.VISIBLE);
-            Icon icon = notification.getSmallIcon();
-            if (icon != null) {
-                mIconView.setImageDrawable(icon.loadDrawable(packageContext));
-            }
+            Drawable drawable = notification.getSmallIcon().loadDrawable(packageContext);
+            mIconView.setImageDrawable(drawable);
         }
 
         StringBuilder stringBuilder = new StringBuilder();
@@ -143,6 +149,9 @@ public class CarNotificationHeaderView extends LinearLayout {
         if (mIsHeadsUp) {
             if (mHeaderTextView != null) {
                 mHeaderTextView.setText(appName);
+            }
+            if (mTimeView != null) {
+                mTimeView.setVisibility(View.GONE);
             }
             return;
         }
@@ -165,6 +174,10 @@ public class CarNotificationHeaderView extends LinearLayout {
         // Optional field: time
         if (notification.showsTime()) {
             stringBuilder.append(mSeparatorText);
+            if (mTimeView != null) {
+                mTimeView.setVisibility(View.VISIBLE);
+                mTimeView.setTime(notification.when);
+            }
         }
 
         mHeaderTextView.setText(BidiFormatter.getInstance().unicodeWrap(stringBuilder,
@@ -190,6 +203,15 @@ public class CarNotificationHeaderView extends LinearLayout {
     }
 
     /**
+     * Sets the text color for the time field.
+     */
+    public void setTimeTextColor(@ColorInt int color) {
+        if (mTimeView != null) {
+            mTimeView.setTextColor(color);
+        }
+    }
+
+    /**
      * Resets the notification header empty.
      */
     public void reset() {
@@ -203,6 +225,12 @@ public class CarNotificationHeaderView extends LinearLayout {
             mHeaderTextView.setVisibility(View.GONE);
             mHeaderTextView.setText(null);
             setHeaderTextColor(mDefaultTextColor);
+        }
+
+        if (mTimeView != null) {
+            mTimeView.setVisibility(View.GONE);
+            mTimeView.setTime(0);
+            setTimeTextColor(mDefaultTextColor);
         }
     }
 
@@ -226,7 +254,7 @@ public class CarNotificationHeaderView extends LinearLayout {
         CharSequence name = pm.getApplicationLabel(packageContext.getApplicationInfo());
         if (notification.extras.containsKey(EXTRA_SUBSTITUTE_APP_NAME)) {
             // Only system packages which lump together a bunch of unrelated stuff may substitute a
-            // different name to make the purpose of the notification more clear.
+            // different name to make the purpose of the notification more clear
             // The correct package label should always be accessible via SystemUI
             final String subName = notification.extras.getString(EXTRA_SUBSTITUTE_APP_NAME);
             final String pkg = sbn.getPackageName();

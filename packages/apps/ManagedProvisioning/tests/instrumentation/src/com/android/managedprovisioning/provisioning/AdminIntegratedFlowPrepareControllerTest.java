@@ -21,10 +21,15 @@ import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZ
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.UserHandle;
 
 import androidx.test.InstrumentationRegistry;
@@ -37,6 +42,7 @@ import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
 import com.android.managedprovisioning.task.CreateAndProvisionManagedProfileTask;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,6 +69,7 @@ public final class AdminIntegratedFlowPrepareControllerTest {
     private static final int USER_ID = UserHandle.USER_SYSTEM;
     private static final Utils mUtils = new Utils();
     private static final int ERROR_CODE = 0;
+    private static final String TEST_ERROR_MESSAGE = "test error message";
 
     private final Context mContext = InstrumentationRegistry.getTargetContext();
     @Mock
@@ -72,10 +79,22 @@ public final class AdminIntegratedFlowPrepareControllerTest {
                     mContext, PARAMS, createProvisioningTaskCallback());
     private final AddWifiNetworkTask mWifiTask =
             new AddWifiNetworkTask(mContext, PARAMS, createProvisioningTaskCallback());
+    private String mErrorMessage;
+    private HandlerThread mHandlerThread;
+    private Handler mHandler;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+
+        mHandlerThread = new HandlerThread("TestHandler");
+        mHandlerThread.start();
+        mHandler = new Handler(mHandlerThread.getLooper());
+    }
+
+    @After
+    public void tearDown() {
+        mHandlerThread.quitSafely();
     }
 
     @Test
@@ -103,9 +122,19 @@ public final class AdminIntegratedFlowPrepareControllerTest {
 
     @Test
     public void getRequireFactoryReset_works() {
-        AdminIntegratedFlowPrepareController mController = createController(ORG_OWNED_PARAMS);
+        AdminIntegratedFlowPrepareController controller = createController(ORG_OWNED_PARAMS);
 
-        assertThat(mController.getRequireFactoryReset(mTask, ERROR_CODE)).isTrue();
+        assertThat(controller.getRequireFactoryReset(mTask, ERROR_CODE)).isTrue();
+    }
+
+    @Test
+    public void testErrorWithStringMessage() {
+        AdminIntegratedFlowPrepareController controller = createController(PARAMS);
+        controller.start(mHandler);
+
+        controller.onError(mTask, /* errorCode= */ 0, TEST_ERROR_MESSAGE);
+
+        assertThat(mErrorMessage).isEqualTo(TEST_ERROR_MESSAGE);
     }
 
     private AdminIntegratedFlowPrepareController createController(
@@ -141,6 +170,12 @@ public final class AdminIntegratedFlowPrepareControllerTest {
                     boolean factoryResetRequired) {}
 
             @Override
+            public void error(int dialogTitleId, String errorMessage,
+                    boolean factoryResetRequired) {
+                mErrorMessage = errorMessage;
+            }
+
+            @Override
             public void preFinalizationCompleted() {}
         };
     }
@@ -151,7 +186,8 @@ public final class AdminIntegratedFlowPrepareControllerTest {
             public void onSuccess(AbstractProvisioningTask task) {}
 
             @Override
-            public void onError(AbstractProvisioningTask task, int errorCode) {}
+            public void onError(
+                    AbstractProvisioningTask task, int errorCode, String errorMessage) {}
         };
     }
 }

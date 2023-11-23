@@ -19,13 +19,13 @@ package com.android.tv.settings.enterprise;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 public class EnterprisePrivacySettingsActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(EnterprisePrivacySettingsFragment.class.getName(), null);
     }
 }

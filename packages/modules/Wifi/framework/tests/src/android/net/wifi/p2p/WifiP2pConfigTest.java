@@ -19,6 +19,7 @@ package android.net.wifi.p2p;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import android.net.MacAddress;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
@@ -130,6 +131,52 @@ public class WifiP2pConfigTest {
         } catch (IllegalArgumentException e) {
             // expected exception.
         }
+    }
+
+    /** Verify that a default config can be built. */
+    @Test
+    public void testBuildDefaultConfig() {
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS)).build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+    }
+
+    /** Verify that a non-persistent config can be built. */
+    @Test
+    public void testBuildNonPersistentConfig() throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder()
+                .setDeviceAddress(MacAddress.fromString(DEVICE_ADDRESS))
+                .enablePersistentMode(false).build();
+        assertEquals(c.deviceAddress, DEVICE_ADDRESS);
+        assertEquals(WifiP2pGroup.NETWORK_ID_TEMPORARY, c.netId);
+    }
+
+    /**
+     * Verify that the builder throws IllegalStateException if none of
+     * network name, passphrase, and device address is set.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testBuildThrowIllegalStateExceptionWithoutNetworkNamePassphraseDeviceAddress()
+            throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder().build();
+    }
+
+    /**
+     * Verify that the builder throws IllegalStateException if only network name is set.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testBuildThrowIllegalStateExceptionWithOnlyNetworkName()
+            throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder().setNetworkName("DIRECT-ab-Hello").build();
+    }
+
+    /**
+     * Verify that the builder throws IllegalStateException if only passphrase is set.
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testBuildThrowIllegalStateExceptionWithOnlyPassphrase()
+            throws Exception {
+        WifiP2pConfig c = new WifiP2pConfig.Builder().setPassphrase("12345677").build();
     }
 
     @Test

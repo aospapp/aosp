@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"Biểu tượng theo chủ đề"</string>
     <string name="beta_title" msgid="8703819523760746458">"Thử nghiệm"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Thay đổi lưới ứng dụng"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Màu hình nền"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Màu hình nền"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Màu cơ bản"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Đã thay đổi màu"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Động"</string>
 </resources>

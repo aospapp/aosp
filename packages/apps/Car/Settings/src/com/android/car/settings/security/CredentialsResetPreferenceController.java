@@ -18,6 +18,8 @@ package com.android.car.settings.security;
 
 import static android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS;
 
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.UserManager;
@@ -26,6 +28,7 @@ import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /** Controls whether the option to reset credentials is shown to the user. */
 public class CredentialsResetPreferenceController extends PreferenceController<Preference> {
@@ -44,8 +47,31 @@ public class CredentialsResetPreferenceController extends PreferenceController<P
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (EnterpriseUtils
+                    .hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_CREDENTIALS)) {
+                showActionDisabledByAdminDialog();
+            }
+        });
+    }
+
+    @Override
     public int getAvailabilityStatus() {
-        return mUserManager.hasUserRestriction(DISALLOW_CONFIG_CREDENTIALS)
-                ? DISABLED_FOR_PROFILE : AVAILABLE;
+        if (EnterpriseUtils.hasUserRestrictionByUm(getContext(), DISALLOW_CONFIG_CREDENTIALS)) {
+            return DISABLED_FOR_PROFILE;
+        }
+        if (EnterpriseUtils.hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_CREDENTIALS)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_CONFIG_CREDENTIALS),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

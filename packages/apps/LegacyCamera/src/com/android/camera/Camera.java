@@ -1537,7 +1537,8 @@ public class Camera extends ActivityBase implements FocusManager.Listener,
         intentFilter.addAction(Intent.ACTION_MEDIA_SCANNER_FINISHED);
         intentFilter.addAction(Intent.ACTION_MEDIA_CHECKING);
         intentFilter.addDataScheme("file");
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         mDidRegister = true;
     }
 

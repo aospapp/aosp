@@ -15,10 +15,11 @@
  */
 package com.android.statsd.shelltools;
 
+import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReportList;
-
+import com.android.os.StatsLog.EventMetricData;
+import com.android.os.StatsLog.StatsLogReport;
 import com.google.common.io.Files;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Formatter;
@@ -280,5 +283,34 @@ public class Utils {
         logger.severe("More than one device is connected. Choose one"
                 + " with -s DEVICE_SERIAL or environment variable ANDROID_SERIAL.");
         return null;
+    }
+
+    public static List<EventMetricData> getEventMetricData(StatsLogReport metric) {
+        List<EventMetricData> data = new ArrayList<>();
+        for (EventMetricData metricData : metric.getEventMetrics().getDataList()) {
+            if (metricData.hasAtom()) {
+                data.add(metricData);
+            } else {
+                data.addAll(backfillAggregatedAtomsInEventMetric(metricData));
+            }
+        }
+        data.sort(Comparator.comparing(EventMetricData::getElapsedTimestampNanos));
+        return data;
+    }
+
+    private static List<EventMetricData> backfillAggregatedAtomsInEventMetric(
+            EventMetricData metricData) {
+        if (!metricData.hasAggregatedAtomInfo()) {
+            return Collections.emptyList();
+        }
+        List<EventMetricData> data = new ArrayList<>();
+        StatsLog.AggregatedAtomInfo atomInfo = metricData.getAggregatedAtomInfo();
+        for (long timestamp : atomInfo.getElapsedTimestampNanosList()) {
+            data.add(EventMetricData.newBuilder()
+                             .setAtom(atomInfo.getAtom())
+                             .setElapsedTimestampNanos(timestamp)
+                             .build());
+        }
+        return data;
     }
 }

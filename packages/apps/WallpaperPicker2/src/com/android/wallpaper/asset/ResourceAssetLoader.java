@@ -15,6 +15,11 @@
  */
 package com.android.wallpaper.asset;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+
+import androidx.annotation.Nullable;
+
 import com.bumptech.glide.Priority;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.Options;
@@ -23,9 +28,9 @@ import com.bumptech.glide.load.model.ModelLoader;
 import com.bumptech.glide.load.model.ModelLoaderFactory;
 import com.bumptech.glide.load.model.MultiModelLoaderFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-
-import androidx.annotation.Nullable;
 
 /**
  * Glide ModelLoader which loads InputStreams from ResourceAssets.
@@ -76,8 +81,13 @@ public class ResourceAssetLoader implements ModelLoader<ResourceAsset, InputStre
 
         @Override
         public void loadData(Priority priority, final DataCallback<? super InputStream> callback) {
-            callback.onDataReady(
-                    mResourceAsset.getResources().openRawResource(mResourceAsset.getResId()));
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = 8;
+            Bitmap bitmap = BitmapFactory.decodeResource(mResourceAsset.getResources(),
+                    mResourceAsset.getResId(), options);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+            callback.onDataReady(new ByteArrayInputStream(baos.toByteArray()));
         }
 
         @Override

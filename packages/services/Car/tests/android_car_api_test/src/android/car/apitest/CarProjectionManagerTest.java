@@ -22,25 +22,16 @@ import static org.testng.Assert.assertThrows;
 import android.app.Service;
 import android.car.Car;
 import android.car.CarProjectionManager;
-import android.car.CarProjectionManager.ProjectionAccessPointCallback;
 import android.content.Intent;
-import android.net.wifi.SoftApConfiguration;
 import android.os.Binder;
 import android.os.IBinder;
-import android.test.suitebuilder.annotation.LargeTest;
 
-import androidx.test.filters.RequiresDevice;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-@LargeTest
-public class CarProjectionManagerTest extends CarApiTestBase {
+public final class CarProjectionManagerTest extends CarApiTestBase {
     private static final String TAG = CarProjectionManagerTest.class.getSimpleName();
 
     private final CarProjectionManager.CarProjectionListener mListener = (fromLongPress) -> { };
@@ -104,24 +95,5 @@ public class CarProjectionManagerTest extends CarApiTestBase {
         }
         assertThat(TestService.getBound()).isTrue();
         mManager.unregisterProjectionRunner(intent);
-    }
-
-
-    @Ignore("//TODO(b/120081013): move this test to CTS")
-    @RequiresDevice
-    @Test
-    public void testAccessPoint() throws Exception {
-        CountDownLatch startedLatch = new CountDownLatch(1);
-
-        mManager.startProjectionAccessPoint(new ProjectionAccessPointCallback() {
-            @Override
-            public void onStarted(SoftApConfiguration softApConfiguration) {
-                startedLatch.countDown();
-            }
-        });
-
-        assertThat(startedLatch.await(30, TimeUnit.SECONDS)).isTrue();
-
-        mManager.stopProjectionAccessPoint();
     }
 }

@@ -70,7 +70,7 @@ class UnusedAppsViewModel(private val app: Application, private val sessionId: L
     data class UnusedPackageInfo(
         val packageName: String,
         val user: UserHandle,
-        val shouldDisable: Boolean,
+        val isSystemApp: Boolean,
         val revokedGroups: Set<String>
     )
 
@@ -107,10 +107,10 @@ class UnusedAppsViewModel(private val app: Application, private val sessionId: L
             categorizedApps[Months.THREE] = mutableListOf()
             categorizedApps[Months.SIX] = mutableListOf()
 
-            // Get all packages which should be disabled, instead of uninstalled
-            val disableActionApps = mutableListOf<Pair<String, UserHandle>>()
+            // Get all packages which cannot be uninstalled.
+            val systemApps = mutableListOf<Pair<String, UserHandle>>()
             for ((user, packageList) in AllPackageInfosLiveData.value!!) {
-                disableActionApps.addAll(packageList.mapNotNull { packageInfo ->
+                systemApps.addAll(packageList.mapNotNull { packageInfo ->
                     val key = packageInfo.packageName to user
                     if (unusedApps.contains(key) &&
                         (packageInfo.appFlags and ApplicationInfo.FLAG_SYSTEM) != 0) {
@@ -131,7 +131,7 @@ class UnusedAppsViewModel(private val app: Application, private val sessionId: L
 
                     categorizedApps[Months.THREE]!!.add(
                         UnusedPackageInfo(stat.packageName, user,
-                            disableActionApps.contains(statPackage), unusedApps[statPackage]!!))
+                            systemApps.contains(statPackage), unusedApps[statPackage]!!))
                     overSixMonthApps.remove(statPackage)
                 }
             }
@@ -154,7 +154,7 @@ class UnusedAppsViewModel(private val app: Application, private val sessionId: L
                 }
                 val userPackage = packageName to user
                 categorizedApps[months]!!.add(
-                    UnusedPackageInfo(packageName, user, disableActionApps.contains(userPackage),
+                    UnusedPackageInfo(packageName, user, systemApps.contains(userPackage),
                         unusedApps[userPackage]!!))
             }
 

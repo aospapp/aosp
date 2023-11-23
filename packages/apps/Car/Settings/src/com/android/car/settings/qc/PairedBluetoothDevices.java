@@ -17,9 +17,11 @@
 package com.android.car.settings.qc;
 
 import static android.os.UserManager.DISALLOW_BLUETOOTH;
+import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_TOGGLE;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
@@ -32,7 +34,6 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.UserManager;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
@@ -43,7 +44,7 @@ import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
-import com.android.settingslib.bluetooth.BluetoothUtils;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.HidProfile;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
@@ -72,13 +73,11 @@ public class PairedBluetoothDevices extends SettingsQCItem {
     private static final Logger LOG = new Logger(PairedBluetoothDevices.class);
 
     private final LocalBluetoothManager mBluetoothManager;
-    private final UserManager mUserManager;
     private final int mDeviceLimit;
 
     public PairedBluetoothDevices(Context context) {
         super(context);
         mBluetoothManager = LocalBluetoothManager.getInstance(context, /* onInitCallback= */ null);
-        mUserManager = UserManager.get(context);
         mDeviceLimit = context.getResources().getInteger(
                 R.integer.config_qc_bluetooth_device_limit);
     }
@@ -86,7 +85,7 @@ public class PairedBluetoothDevices extends SettingsQCItem {
     @Override
     QCItem getQCItem() {
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)
-                || mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)
+                || EnterpriseUtils.hasUserRestrictionByDpm(getContext(), DISALLOW_BLUETOOTH)
                 || mDeviceLimit == 0) {
             return null;
         }
@@ -133,7 +132,7 @@ public class PairedBluetoothDevices extends SettingsQCItem {
             CachedBluetoothDevice cachedDevice = filteredDevices.get(j);
             listBuilder.addRow(new QCRow.Builder()
                     .setTitle(cachedDevice.getName())
-                    .setSubtitle(getSubtitle(cachedDevice))
+                    .setSubtitle(cachedDevice.getCarConnectionSummary(/* shortSummary= */ true))
                     .setIcon(Icon.createWithResource(getContext(), getIconRes(cachedDevice)))
                     .addEndItem(createBluetoothButton(cachedDevice, i++))
                     .addEndItem(createPhoneButton(cachedDevice, i++))
@@ -149,7 +148,6 @@ public class PairedBluetoothDevices extends SettingsQCItem {
     Uri getUri() {
         return SettingsQCRegistry.PAIRED_BLUETOOTH_DEVICES_URI;
     }
-
 
     @Override
     void onNotifyChange(Intent intent) {
@@ -209,15 +207,6 @@ public class PairedBluetoothDevices extends SettingsQCItem {
         return PairedBluetoothDevicesWorker.class;
     }
 
-    private String getSubtitle(CachedBluetoothDevice device) {
-        if (device.isConnected()) {
-            return getContext().getString(BluetoothUtils
-                            .getConnectionStateSummary(BluetoothProfile.STATE_CONNECTED),
-                    /* appended text= */ "");
-        }
-        return device.getCarConnectionSummary();
-    }
-
     @DrawableRes
     private int getIconRes(CachedBluetoothDevice device) {
         BluetoothClass btClass = device.getBtClass();
@@ -257,7 +246,7 @@ public class PairedBluetoothDevices extends SettingsQCItem {
     private QCActionItem createBluetoothButton(CachedBluetoothDevice device, int requestCode) {
         return createBluetoothDeviceToggle(device, requestCode, BLUETOOTH_BUTTON,
                 Icon.createWithResource(getContext(), R.drawable.ic_qc_bluetooth), true,
-                !device.isBusy(), device.isConnected());
+                !device.isBusy(), false, device.isConnected());
     }
 
     private QCActionItem createPhoneButton(CachedBluetoothDevice device, int requestCode) {
@@ -267,7 +256,8 @@ public class PairedBluetoothDevices extends SettingsQCItem {
                 : R.drawable.ic_qc_bluetooth_phone_unavailable;
         return createBluetoothDeviceToggle(device, requestCode, PHONE_BUTTON,
                 Icon.createWithResource(getContext(), iconRes),
-                phoneState.mIsAvailable, phoneState.mIsEnabled, phoneState.mIsChecked);
+                phoneState.mIsAvailable, phoneState.mIsEnabled,
+                phoneState.mIsClickableWhileDisabled, phoneState.mIsChecked);
     }
 
     private QCActionItem createMediaButton(CachedBluetoothDevice device, int requestCode) {
@@ -277,11 +267,13 @@ public class PairedBluetoothDevices extends SettingsQCItem {
                 : R.drawable.ic_qc_bluetooth_media_unavailable;
         return createBluetoothDeviceToggle(device, requestCode, MEDIA_BUTTON,
                 Icon.createWithResource(getContext(), iconRes),
-                mediaState.mIsAvailable, mediaState.mIsEnabled, mediaState.mIsChecked);
+                mediaState.mIsAvailable, mediaState.mIsEnabled,
+                mediaState.mIsClickableWhileDisabled, mediaState.mIsChecked);
     }
 
     private QCActionItem createBluetoothDeviceToggle(CachedBluetoothDevice device, int requestCode,
-            String buttonType, Icon icon, boolean available, boolean enabled, boolean checked) {
+            String buttonType, Icon icon, boolean available, boolean enabled,
+            boolean clickableWhileDisabled, boolean checked) {
         Bundle extras = new Bundle();
         extras.putString(EXTRA_BUTTON_TYPE, buttonType);
         extras.putString(EXTRA_DEVICE_KEY, device.getAddress());
@@ -291,7 +283,10 @@ public class PairedBluetoothDevices extends SettingsQCItem {
                 .setAvailable(available)
                 .setChecked(checked)
                 .setEnabled(enabled)
+                .setClickableWhileDisabled(clickableWhileDisabled)
                 .setAction(action)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        DISALLOW_CONFIG_BLUETOOTH))
                 .setIcon(icon)
                 .build();
     }
@@ -309,20 +304,27 @@ public class PairedBluetoothDevices extends SettingsQCItem {
             int profileId) {
         LocalBluetoothProfile profile = getProfile(device, profileId);
         if (!device.isConnected() || profile == null) {
-            return new BluetoothProfileToggleState(false, false, false);
+            return new BluetoothProfileToggleState(false, false, false, false);
         }
-        return new BluetoothProfileToggleState(true, !device.isBusy(),
-                profile.isEnabled(device.getDevice()));
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                DISALLOW_CONFIG_BLUETOOTH);
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                DISALLOW_CONFIG_BLUETOOTH);
+        return new BluetoothProfileToggleState(true, !hasDpmRestrictions && !hasUmRestrictions
+                && !device.isBusy(), hasDpmRestrictions, profile.isEnabled(device.getDevice()));
     }
 
     private static class BluetoothProfileToggleState {
         final boolean mIsAvailable;
         final boolean mIsEnabled;
+        final boolean mIsClickableWhileDisabled;
         final boolean mIsChecked;
 
-        BluetoothProfileToggleState(boolean isAvailable, boolean isEnabled, boolean isChecked) {
+        BluetoothProfileToggleState(boolean isAvailable, boolean isEnabled,
+                boolean isClickableWhileDisabled, boolean isChecked) {
             mIsAvailable = isAvailable;
             mIsEnabled = isEnabled;
+            mIsClickableWhileDisabled = isClickableWhileDisabled;
             mIsChecked = isChecked;
         }
     }

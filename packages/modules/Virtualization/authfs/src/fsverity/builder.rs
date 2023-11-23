@@ -248,7 +248,7 @@ mod tests {
         let mut tree = MerkleLeaves::new();
         for (index, chunk) in test_data.chunks(CHUNK_SIZE as usize).enumerate() {
             let hash = Sha256Hasher::new()?
-                .update(&chunk)?
+                .update(chunk)?
                 .update(&vec![0u8; CHUNK_SIZE as usize - chunk.len()])?
                 .finalize()?;
 

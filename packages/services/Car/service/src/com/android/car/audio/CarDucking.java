@@ -20,12 +20,12 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 
 import android.annotation.NonNull;
 import android.media.AudioFocusInfo;
-import android.util.IndentingPrintWriter;
 import android.util.SparseArray;
 
 import com.android.car.audio.CarZonesAudioFocus.CarFocusCallback;
 import com.android.car.audio.hal.AudioControlWrapper;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 

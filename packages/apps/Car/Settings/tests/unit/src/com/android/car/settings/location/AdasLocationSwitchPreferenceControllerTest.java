@@ -29,7 +29,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -116,12 +115,11 @@ public class AdasLocationSwitchPreferenceControllerTest {
                 BroadcastReceiver.class);
         ArgumentCaptor<IntentFilter> intentFilterCaptor = ArgumentCaptor.forClass(
                 IntentFilter.class);
-        verify(mContext, times(2))
+        verify(mContext)
                 .registerReceiver(broadcastReceiverArgumentCaptor.capture(),
-                        intentFilterCaptor.capture());
+                        intentFilterCaptor.capture(), eq(Context.RECEIVER_EXPORTED_UNAUDITED));
         List<IntentFilter> actions = intentFilterCaptor.getAllValues();
         assertTrue(actions.get(0).hasAction(LocationManager.ACTION_ADAS_GNSS_ENABLED_CHANGED));
-        assertTrue(actions.get(1).hasAction(LocationManager.MODE_CHANGED_ACTION));
 
         when(mLocationManager.isAdasGnssLocationEnabled()).thenReturn(true);
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,
@@ -142,12 +140,11 @@ public class AdasLocationSwitchPreferenceControllerTest {
         ArgumentCaptor<IntentFilter> intentFilterCaptor = ArgumentCaptor.forClass(
                 IntentFilter.class);
 
-        verify(mContext, times(2))
+        verify(mContext)
                 .registerReceiver(broadcastReceiverArgumentCaptor.capture(),
                         intentFilterCaptor.capture());
         List<IntentFilter> actions = intentFilterCaptor.getAllValues();
-        assertTrue(actions.get(0).hasAction(LocationManager.ACTION_ADAS_GNSS_ENABLED_CHANGED));
-        assertTrue(actions.get(1).hasAction(LocationManager.MODE_CHANGED_ACTION));
+        assertTrue(actions.get(0).hasAction(LocationManager.MODE_CHANGED_ACTION));
 
         when(mLocationManager.isLocationEnabled()).thenReturn(true);
         broadcastReceiverArgumentCaptor.getValue().onReceive(mContext,

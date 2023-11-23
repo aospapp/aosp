@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#define DEBUG false
+#define STATSD_DEBUG false
 #include "Log.h"
 
 #include "FieldValue.h"
@@ -102,7 +102,9 @@ void getProtoData(const int64_t& rule_id, int64_t metricId, const MetricDimensio
 
     if (!uids.empty()) {
         uint64_t token = headerProto.start(FIELD_TYPE_MESSAGE | FIELD_ID_PACKAGE_INFO);
-        UidMap::getInstance()->writeUidMapSnapshot(getElapsedRealtimeNs(), true, true, uids,
+        UidMap::getInstance()->writeUidMapSnapshot(getElapsedRealtimeNs(), true, true,
+                                                   /*trucnatedCertificateHashSize*/ 0, uids,
+                                                   nullptr /*installerIndices*/,
                                                    nullptr /*string set*/, &headerProto);
         headerProto.end(token);
     }

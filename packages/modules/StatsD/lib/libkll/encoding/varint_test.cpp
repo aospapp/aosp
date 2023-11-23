@@ -15,9 +15,9 @@
  */
 #include "varint.h"
 
-#include <cstdint>
-
 #include <gtest/gtest.h>
+
+#include <cstdint>
 
 // A straightforward implementation of Length64 for testing
 inline int Varint_Length64Old(uint64_t v) {

@@ -16,15 +16,38 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_library {
-    name: "android.car.watchdoglib",
+// Used for car service module build
+filegroup {
+    name: "android.car.watchdoglib-src",
     srcs: [
         "src/**/*.java",
     ],
-    static_libs: [
-        "androidx.preference_preference",
-        "android.automotive.watchdog.internal-java",
+    visibility: [
+        "//packages/services/Car/service",
     ],
+}
+
+java_library {
+    name: "android.car.watchdoglib",
+    srcs: [
+        ":android.car.watchdoglib-src",
+    ],
+
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework"
+    ],
+    static_libs: [
+        "android.automotive.watchdog.internal-V1-java",
+    ],
+
+    libs: [
+        "android.car.builtin",
+        "framework-annotations-lib",
+    ],
+
     product_variables: {
         pdk: {
             enabled: false,

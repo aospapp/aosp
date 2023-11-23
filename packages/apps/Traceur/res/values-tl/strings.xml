@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"I-restore ang mga default na kategorya"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Na-restore ang mga default na kategorya"</string>
     <string name="default_categories" msgid="2117679794687799407">"Default"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%d ang napili</item>
-      <item quantity="other">%d ang napili</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# ang pinili}one{# ang pinili}other{# ang pinili}}"</string>
     <string name="applications" msgid="521776761270770549">"Mga Application"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Walang available na nade-debug na application"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Laki ng buffer ng Per-CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Gamitin ang Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Mga long trace"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Tuloy-tuloy na sine-save sa storage ng device"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Naka-save nang tuloy-tuloy sa storage ng device (hindi awtomatikong maa-attach sa mga ulat ng bug)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Maximum na laki ng long trace"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Maximum na tagal ng long trace"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

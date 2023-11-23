@@ -21,6 +21,8 @@ import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
 import android.net.wifi.hotspot2.pps.Policy;
 import android.net.wifi.hotspot2.pps.UpdateParameter;
+import android.os.ParcelUuid;
+import android.util.Log;
 
 import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.util.XmlUtil;
@@ -39,6 +41,7 @@ import java.util.Map;
  * Utility class for serialize and deserialize Passpoint related configurations to/from XML string.
  */
 public class PasspointXmlUtils {
+    private static final String TAG = "PasspointXmlUtils";
     // XML section header tags.
     private static final String XML_TAG_SECTION_HEADER_HOMESP = "HomeSP";
     private static final String XML_TAG_SECTION_HEADER_CREDENTIAL = "Credential";
@@ -54,6 +57,8 @@ public class PasspointXmlUtils {
     private static final String XML_TAG_SECTION_HEADER_REQUIRED_PROTO_PORT_MAP =
             "RequiredProtoPortMap";
     private static final String XML_TAG_SECTION_HEADER_PROTO_PORT = "ProtoPort";
+    private static final String XML_TAG_SECTION_HEADER_AAA_SERVER_TRUSTED_NAMES =
+            "AAAServerTrustedNames";
 
     // XML value tags.
     private static final String XML_TAG_FQDN = "FQDN";
@@ -119,6 +124,7 @@ public class PasspointXmlUtils {
     private static final String XML_TAG_IS_OEM_PAID = "IsOemPaid";
     private static final String XML_TAG_IS_OEM_PRIVATE = "IsOemPrivate";
     private static final String XML_TAG_DECORATED_IDENTITY_PREFIX = "DecoratedIdentityPrefix";
+    private static final String XML_TAG_SUBSCRIPTION_GROUP = "SubscriptionGroup";
 
     /**
      * Serialize a {@link PasspointConfiguration} to the output stream as a XML block.
@@ -164,10 +170,15 @@ public class PasspointXmlUtils {
         XmlUtil.writeNextValue(out, XML_TAG_IS_CARRIER_MERGED, config.isCarrierMerged());
         XmlUtil.writeNextValue(out, XML_TAG_IS_OEM_PAID, config.isOemPaid());
         XmlUtil.writeNextValue(out, XML_TAG_IS_OEM_PRIVATE, config.isOemPrivate());
+        if (config.getSubscriptionGroup() != null) {
+            XmlUtil.writeNextValue(out, XML_TAG_SUBSCRIPTION_GROUP,
+                    config.getSubscriptionGroup().toString());
+        }
         if (SdkLevel.isAtLeastS()) {
             XmlUtil.writeNextValue(out, XML_TAG_DECORATED_IDENTITY_PREFIX,
                     config.getDecoratedIdentityPrefix());
         }
+        serializeAaaServerTrustedNames(out, config.getAaaServerTrustedNames());
     }
 
     /**
@@ -250,9 +261,12 @@ public class PasspointXmlUtils {
                             config.setDecoratedIdentityPrefix((String) value);
                         }
                         break;
+                    case XML_TAG_SUBSCRIPTION_GROUP:
+                        config.setSubscriptionGroup(ParcelUuid.fromString((String) value));
+                        break;
                     default:
-                        throw new XmlPullParserException("Unknown value under "
-                                + "PasspointConfiguration: " + in.getName());
+                        Log.w(TAG, "Unknown value under " + "PasspointConfiguration: "
+                                + in.getName());
                 }
             } else {
                 // Section elements.
@@ -270,8 +284,12 @@ public class PasspointXmlUtils {
                         config.setSubscriptionUpdate(
                                 deserializeUpdateParameter(in, outerTagDepth + 1));
                         break;
+                    case XML_TAG_SECTION_HEADER_AAA_SERVER_TRUSTED_NAMES:
+                        config.setAaaServerTrustedNames(deserializeAaaServerTrustedNames(
+                                in, outerTagDepth + 1));
+                        break;
                     default:
-                        throw new XmlPullParserException("Unknown section under "
+                        Log.w(TAG, "Unknown section under "
                                 + "PasspointConfiguration: " + in.getName());
                 }
             }
@@ -511,6 +529,27 @@ public class PasspointXmlUtils {
     }
 
     /**
+     * Serialize a AAA server trusted name list to an output stream as a XML block.
+     *
+     * @param out The output stream to serialize data to
+     * @param aaaServerTrustedNames The name list to serialize
+     * @throws XmlPullParserException
+     * @throws IOException
+     */
+    private static void serializeAaaServerTrustedNames(
+            XmlSerializer out, String[] aaaServerTrustedNames)
+            throws XmlPullParserException, IOException {
+        if (null == aaaServerTrustedNames) return;
+        if (aaaServerTrustedNames.length == 0) return;
+
+        XmlUtil.writeNextSectionStart(out, XML_TAG_SECTION_HEADER_AAA_SERVER_TRUSTED_NAMES);
+        for (String fqdn: aaaServerTrustedNames) {
+            XmlUtil.writeNextValue(out, XML_TAG_FQDN, fqdn);
+        }
+        XmlUtil.writeNextSectionEnd(out, XML_TAG_SECTION_HEADER_AAA_SERVER_TRUSTED_NAMES);
+    }
+
+    /**
      * Deserialize a {@link HomeSp} from an input stream.
      *
      * @param in The input stream to read data from
@@ -554,7 +593,7 @@ public class PasspointXmlUtils {
                     homeSp.setOtherHomePartners((String[]) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown data under HomeSP: " + valueName[0]);
+                    Log.w(TAG, "Unknown data under HomeSP: " + valueName[0]);
             }
         }
         return homeSp;
@@ -591,7 +630,7 @@ public class PasspointXmlUtils {
                         credential.setCheckAaaServerCertStatus((boolean) value);
                         break;
                     default:
-                        throw new XmlPullParserException("Unknown value under Credential: "
+                        Log.w(TAG, "Unknown value under Credential: "
                             + name[0]);
                 }
             } else {
@@ -610,7 +649,7 @@ public class PasspointXmlUtils {
                                 deserializeSimCredential(in, outerTagDepth + 1));
                         break;
                     default:
-                        throw new XmlPullParserException("Unknown section under Credential: "
+                        Log.w(TAG, "Unknown section under Credential: "
                                 + in.getName());
                 }
             }
@@ -670,7 +709,7 @@ public class PasspointXmlUtils {
                                 deserializePreferredRoamingPartnerList(in, outerTagDepth + 1));
                         break;
                     default:
-                        throw new XmlPullParserException("Unknown section under Policy: "
+                        Log.w(TAG, "Unknown section under Policy: "
                                 + in.getName());
                 }
             }
@@ -720,7 +759,7 @@ public class PasspointXmlUtils {
                     userCredential.setNonEapInnerMethod((String) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under UserCredential: "
+                    Log.w(TAG, "Unknown value under UserCredential: "
                             + valueName[0]);
             }
         }
@@ -754,7 +793,7 @@ public class PasspointXmlUtils {
                     certCredential.setCertSha256Fingerprint((byte[]) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under CertCredential: "
+                    Log.w(TAG, "Unknown value under CertCredential: "
                             + valueName[0]);
             }
         }
@@ -788,7 +827,7 @@ public class PasspointXmlUtils {
                     simCredential.setEapType((int) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under CertCredential: "
+                    Log.w(TAG, "Unknown value under CertCredential: "
                             + valueName[0]);
             }
         }
@@ -848,7 +887,7 @@ public class PasspointXmlUtils {
                     partner.setCountries((String) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under RoamingPartner: "
+                    Log.w(TAG, "Unknown value under RoamingPartner: "
                             + valueName[0]);
             }
         }
@@ -899,7 +938,7 @@ public class PasspointXmlUtils {
                     param.setTrustRootCertSha256Fingerprint((byte[]) value);
                     break;
                 default:
-                    throw new XmlPullParserException("Unknown value under UpdateParameter: "
+                    Log.w(TAG, "Unknown value under UpdateParameter: "
                             + valueName[0]);
             }
         }
@@ -925,6 +964,37 @@ public class PasspointXmlUtils {
             protoPortMap.put(proto, ports);
         }
         return protoPortMap;
+    }
+
+    /**
+     * Deserializen a AAA server trusted name list from an input stream.
+     *
+     * @param in The input stream to read data from
+     * @param outerTagDepth The tag depth of the current XML section
+     * @return a name array
+     * @throws XmlPullParserException
+     * @throws IOException
+     */
+    private static String[] deserializeAaaServerTrustedNames(XmlPullParser in, int outerTagDepth)
+            throws XmlPullParserException, IOException {
+        ArrayList<String> list = new ArrayList<>();
+        while (!XmlUtil.isNextSectionEnd(in, outerTagDepth)) {
+            String[] valueName = new String[1];
+            Object value = XmlUtil.readCurrentValue(in, valueName);
+            if (valueName[0] == null) {
+                throw new XmlPullParserException("Missing value name");
+            }
+            switch (valueName[0]) {
+                case XML_TAG_FQDN:
+                    list.add((String) value);
+                    break;
+                default:
+                    Log.w(TAG, "Unknown data under "
+                            + XML_TAG_SECTION_HEADER_AAA_SERVER_TRUSTED_NAMES
+                            + ": " + valueName[0]);
+            }
+        }
+        return list.size() > 0 ? list.toArray(new String[0]) : null;
     }
 
     /**

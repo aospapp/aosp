@@ -482,6 +482,19 @@ public interface WallpaperPreferences {
     int getFirstWallpaperApplyDateSinceSetup();
 
     /**
+     * Sets wallpapers colors of wallpaper's id.
+     * @param storedWallpaperId wallpaper id.
+     * @param wallpaperColors Colors extracted from an image via quantization.
+     */
+    void storeWallpaperColors(String storedWallpaperId, WallpaperColors wallpaperColors);
+
+    /**
+     * Returns the wallpaper colors from wallpaper's id.
+     * @param storedWallpaperId wallpaper id.
+     */
+    WallpaperColors getWallpaperColors(String storedWallpaperId);
+
+    /**
      * Update currently set daily wallpaper info.
      *
      * @param destination  The wallpaper destination, 1: home, 2: lockscreen, 3: both.

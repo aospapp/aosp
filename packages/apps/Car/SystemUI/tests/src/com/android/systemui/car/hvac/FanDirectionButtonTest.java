@@ -28,9 +28,9 @@ import static com.android.systemui.car.hvac.referenceui.FanDirectionButtons.FAN_
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.never;
 
 import android.car.hardware.CarPropertyValue;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -98,6 +98,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FACE);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceButton.isSelected()).isTrue();
     }
@@ -111,6 +112,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FACE);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceAndFloorButton.isSelected()).isFalse();
         assertThat(mDirectionFloorButton.isSelected()).isFalse();
@@ -126,6 +128,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FACE_FLOOR);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceAndFloorButton.isSelected()).isTrue();
     }
@@ -139,6 +142,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FACE_FLOOR);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceButton.isSelected()).isFalse();
         assertThat(mDirectionFloorButton.isSelected()).isFalse();
@@ -154,6 +158,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FLOOR);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFloorButton.isSelected()).isTrue();
     }
@@ -167,6 +172,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FLOOR);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceButton.isSelected()).isFalse();
         assertThat(mDirectionFaceAndFloorButton.isSelected()).isFalse();
@@ -182,6 +188,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FLOOR_DEFROSTER);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionDefrostButton.isSelected()).isTrue();
     }
@@ -195,6 +202,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
 
         setCarPropertyValue(FAN_DIRECTION_FLOOR_DEFROSTER);
         mFanDirectionButtons.onPropertyChanged(mCarPropertyValue);
+        waitForIdleSync();
 
         assertThat(mDirectionFaceButton.isSelected()).isFalse();
         assertThat(mDirectionFaceAndFloorButton.isSelected()).isFalse();
@@ -207,6 +215,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(false);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFaceButton.performClick();
 
@@ -220,6 +229,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(false);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFaceAndFloorButton.performClick();
 
@@ -233,6 +243,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(false);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFloorButton.performClick();
 
@@ -246,6 +257,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(false);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionDefrostButton.performClick();
 
@@ -259,6 +271,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(true);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFaceButton.performClick();
 
@@ -271,6 +284,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(true);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFaceAndFloorButton.performClick();
 
@@ -283,6 +297,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(true);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionFloorButton.performClick();
 
@@ -295,6 +310,7 @@ public class FanDirectionButtonTest extends SysuiTestCase {
         mFanDirectionButtons.onPropertyChanged(mHvacPowerProperty);
         setAutoPropertyValue(true);
         mFanDirectionButtons.onPropertyChanged(mHvacAutoProperty);
+        waitForIdleSync();
 
         mDirectionDefrostButton.performClick();
 

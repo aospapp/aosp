@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_BUFFER_TRACKER_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_BUFFER_TRACKER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_BUFFER_TRACKER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_BUFFER_TRACKER_H
 
 #include <android-base/macros.h>
 #include <android-base/thread_annotations.h>
@@ -117,4 +117,4 @@ class BufferTracker : public std::enable_shared_from_this<BufferTracker> {
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_BUFFER_TRACKER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_BUFFER_TRACKER_H

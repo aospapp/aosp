@@ -467,7 +467,8 @@ public class ImageGallery extends NoSearchActivity implements
                 }
             }
         };
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         rebake(false, ImageManager.isMediaScannerScanning(
                 getContentResolver()));
     }

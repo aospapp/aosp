@@ -20,6 +20,9 @@
 
 #include <GraphDump.h>
 #include <LegacyUtils.h>
+#include <ModelUtils.h>
+#include <android-base/logging.h>
+#include <nnapi/Validation.h>
 
 #include <algorithm>
 #include <map>
@@ -30,6 +33,7 @@
 
 #include "CompilationBuilder.h"
 #include "Manager.h"
+#include "ModelArchHasher.h"
 #include "TypeManager.h"
 
 namespace android {
@@ -117,6 +121,7 @@ int ModelBuilder::addOperand(const ANeuralNetworksOperandType& type) {
 
     mOperands.push_back(std::move(operand));
     mHasOEMOperand |= isOemOperand;
+    mHasControlFlow |= (operandType == OperandType::SUBGRAPH);
     return ANEURALNETWORKS_NO_ERROR;
 }
 
@@ -312,6 +317,7 @@ int ModelBuilder::copyLargeValuesToSharedMemory() {
             memcpy(memoryPointer + operand.location.offset, l.buffer, operand.location.length);
         }
     }
+
     return ANEURALNETWORKS_NO_ERROR;
 }
 
@@ -370,7 +376,16 @@ int ModelBuilder::addOperation(ANeuralNetworksOperationType type, uint32_t input
     }
 
     if (!isExtension(operationType)) {
-        if (!validCode(kNumberOfOperationTypes, kNumberOfOperationTypesOEM, type)) {
+        bool allowExperimental = false;
+#ifdef NN_EXPERIMENTAL_FEATURE
+        if (type >= BuiltinOperationResolver::kStartOfExperimentalOperations &&
+            type < BuiltinOperationResolver::kStartOfExperimentalOperations +
+                            BuiltinOperationResolver::kNumberOfExperimentalOperationTypes) {
+            allowExperimental = true;
+        }
+#endif  // NN_EXPERIMENTAL_FEATURE
+        if (!validCode(kNumberOfOperationTypes, kNumberOfOperationTypesOEM, type) &&
+            !allowExperimental) {
             LOG(ERROR) << "ANeuralNetworksModel_addOperation invalid operation type " << type;
             return ANEURALNETWORKS_BAD_DATA;
         }
@@ -406,6 +421,8 @@ int ModelBuilder::addOperation(ANeuralNetworksOperationType type, uint32_t input
     mOperations.push_back(std::move(operation));
     mHasOEMOperation |= (operationType == OperationType::OEM_OPERATION);
     mHasExtensionOperation |= isExtension(operationType);
+    mHasControlFlow |=
+            (operationType == OperationType::IF || operationType == OperationType::WHILE);
 
     return ANEURALNETWORKS_NO_ERROR;
 }
@@ -521,8 +538,18 @@ int ModelBuilder::finish() {
     //       a CONSTANT_REFERENCE operand will not have correct .poolIndex, and
     //       validation will not work properly.
     const Model modelForValidation = makeModel();
-    if (auto result = validate(modelForValidation); !result.ok()) {
-        LOG(ERROR) << "ANeuralNetworksModel_finish called on invalid model: " << result.error();
+    const auto maybeVersion = validate(modelForValidation);
+    if (!maybeVersion.ok()) {
+        LOG(ERROR) << "ANeuralNetworksModel_finish called on invalid model: "
+                   << maybeVersion.error();
+        mInvalidModel = true;
+        return ANEURALNETWORKS_BAD_DATA;
+    }
+    if (!isCompliantVersion(maybeVersion.value(), DeviceManager::get()->getRuntimeVersion())) {
+        LOG(ERROR) << "ANeuralNetworksModel_finish called on a model that is newer what is "
+                      "allowed. Model version needed: "
+                   << maybeVersion.value() << ", current runtime version supported: "
+                   << DeviceManager::get()->getRuntimeVersion();
         mInvalidModel = true;
         return ANEURALNETWORKS_BAD_DATA;
     }
@@ -531,8 +558,11 @@ int ModelBuilder::finish() {
     }
 
     removeTrailingArgumentsWithDefaultValues();
+    simplifyModel();
 
     mCompletedModel = true;
+    CHECK(calcModelArchHash(modelForValidation, mModelArchHash))
+            << "Failed to calculate model arch hash";
     return ANEURALNETWORKS_NO_ERROR;
 }
 
@@ -850,7 +880,7 @@ bool ModelBuilder::sortIntoRunOrder() {
     }
 
     if (runOrder.size() != mOperations.size()) {
-        nnAssert(runOrder.size() < mOperations.size());
+        CHECK_LT(runOrder.size(), mOperations.size());
         // Graph must contain at least one cycle or one never-written
         // operand, because there is at least one Operation that never
         // became ready.
@@ -866,32 +896,37 @@ bool ModelBuilder::sortIntoRunOrder() {
 // A helper class to simplify state management when creating a Model.
 class ModelBuilder::ModelMaker {
    public:
-    static Model run(const ModelBuilder* model);
+    static Model run(const ModelBuilder* model, bool simplifyModel);
 
    private:
     static Model::Subgraph makeSubgraph(const ModelBuilder* model);
-    ModelMaker() {}
+    explicit ModelMaker(bool simplifyModel) : mSimplifyModel(simplifyModel) {}
     Model makeModel(const ModelBuilder* mainModel);
     uint32_t addSubgraph(const ModelBuilder* refModel);
     void updateOperandLocations(const ModelBuilder* refModel, Model::Subgraph* subgraph);
     void addExtensions(const ModelBuilder* model);
     void addExtensionWithPrefix(uint16_t prefix);
 
+    bool mSimplifyModel;
     std::vector<Model::Subgraph> mRefSubgraphs;
     Model::OperandValues mOperandValues;
     MemoryTracker mMemories;
-    std::vector<Model::ExtensionNameAndPrefix> mExtensionNameToPrefix;
+    std::vector<ExtensionNameAndPrefix> mExtensionNameToPrefix;
     std::set<uint16_t> mPrefixSet;
 };
 
-Model ModelBuilder::makeModel() const {
-    // TODO: Cache the Model to speed up subsequent calls.
-    return ModelMaker::run(this);
+void ModelBuilder::simplifyModel() {
+    mSimplifyModel = true;
 }
 
-Model ModelBuilder::ModelMaker::run(const ModelBuilder* model) {
+Model ModelBuilder::makeModel() const {
+    // TODO: Cache the Model to speed up subsequent calls.
+    return ModelMaker::run(this, mSimplifyModel);
+}
+
+Model ModelBuilder::ModelMaker::run(const ModelBuilder* model, bool simplifyModel) {
     // run() ensures the state of ModelMaker is destroyed after the call.
-    return ModelMaker().makeModel(model);
+    return ModelMaker(simplifyModel).makeModel(model);
 }
 
 Model ModelBuilder::ModelMaker::makeModel(const ModelBuilder* mainModel) {
@@ -906,6 +941,9 @@ Model ModelBuilder::ModelMaker::makeModel(const ModelBuilder* mainModel) {
                    [](const RuntimeMemory* m) { return m->getMemory(); });
     model.relaxComputationFloat32toFloat16 = mainModel->mRelaxComputationFloat32toFloat16;
     model.extensionNameToPrefix = std::move(mExtensionNameToPrefix);
+    if (mSimplifyModel) {
+        removeDeadOperands(&model);
+    }
     return model;
 }
 
@@ -975,6 +1013,11 @@ void ModelBuilder::ModelMaker::addExtensionWithPrefix(uint16_t prefix) {
             .name = extension->name,
             .prefix = prefix,
     });
+}
+
+const uint8_t* ModelBuilder::getModelArchHash() const {
+    CHECK(mCompletedModel) << "Calling getModelArchHash on non completed model";
+    return mModelArchHash;
 }
 
 #undef NN_VALIDATE_NULL_OR_SIZED

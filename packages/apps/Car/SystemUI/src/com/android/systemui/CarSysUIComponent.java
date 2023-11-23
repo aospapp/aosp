@@ -35,6 +35,7 @@ import dagger.Subcomponent;
         CarComponentBinder.class,
         DependencyProvider.class,
         SystemUIModule.class,
+        CarSystemUICoreStartableModule.class,
         CarSystemUIModule.class,
         CarSystemUIBinder.class})
 public interface CarSysUIComponent extends SysUIComponent {

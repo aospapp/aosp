@@ -34,6 +34,8 @@ import android.app.admin.DeviceAdminInfo;
 import android.content.ComponentName;
 import android.os.UserManager;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+
 import org.junit.Test;
 
 public final class EnterpriseUtilsTest extends BaseEnterpriseTestCase {
@@ -76,7 +78,8 @@ public final class EnterpriseUtilsTest extends BaseEnterpriseTestCase {
 
     @Test
     public void testIsDemoUser_notDemoMode_notDemoUser() {
-        when(UserManager.isDeviceInDemoMode(mSpiedContext)).thenReturn(false);
+        ExtendedMockito.doReturn(false)
+                .when(() -> UserManager.isDeviceInDemoMode(mSpiedContext));
         when(mUm.isDemoUser()).thenReturn(false);
 
         assertThat(isDemoUser(mSpiedContext)).isFalse();
@@ -84,7 +87,8 @@ public final class EnterpriseUtilsTest extends BaseEnterpriseTestCase {
 
     @Test
     public void testIsDemoUser_notDemoMode_demoUser() {
-        when(UserManager.isDeviceInDemoMode(mSpiedContext)).thenReturn(false);
+        ExtendedMockito.doReturn(false)
+                .when(() -> UserManager.isDeviceInDemoMode(mSpiedContext));
         when(mUm.isDemoUser()).thenReturn(true);
 
         assertThat(isDemoUser(mSpiedContext)).isFalse();
@@ -92,7 +96,8 @@ public final class EnterpriseUtilsTest extends BaseEnterpriseTestCase {
 
     @Test
     public void testIsDemoUser_demoMode_notDemoUser() {
-        when(UserManager.isDeviceInDemoMode(mSpiedContext)).thenReturn(true);
+        ExtendedMockito.doReturn(false)
+                .when(() -> UserManager.isDeviceInDemoMode(mSpiedContext));
         when(mUm.isDemoUser()).thenReturn(false);
 
         assertThat(isDemoUser(mSpiedContext)).isFalse();
@@ -100,7 +105,8 @@ public final class EnterpriseUtilsTest extends BaseEnterpriseTestCase {
 
     @Test
     public void testIsDemoUser_demoMode_demoUser() {
-        when(UserManager.isDeviceInDemoMode(mSpiedContext)).thenReturn(true);
+        ExtendedMockito.doReturn(true)
+                .when(() -> UserManager.isDeviceInDemoMode(mSpiedContext));
         when(mUm.isDemoUser()).thenReturn(true);
 
         assertThat(isDemoUser(mSpiedContext)).isTrue();

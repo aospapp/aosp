@@ -29,7 +29,7 @@ cc_library {
 
     static_libs: [
         "liblua",
-        "libbase_ndk",
+        "libbase",
     ],
 
     shared_libs: [
@@ -44,14 +44,17 @@ cc_library {
         "src/ScriptExecutorListener.cpp",
     ],
 
-    sdk_version: "current",
-
     min_sdk_version: "30",
 
     stl: "libc++_static",
 
     // Allow dependents to use the header files.
     export_include_dirs: ["src"],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework",
+    ],
 }
 
 android_app {
@@ -66,7 +69,7 @@ android_app {
 
     sdk_version: "module_current",
 
-    min_sdk_version: "30",
+    min_sdk_version: "33",
 
     privileged: false,
 
@@ -78,7 +81,15 @@ android_app {
     jni_libs: [
         "libscriptexecutorjni",
     ],
+
+    jni_uses_platform_apis: true,
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework",
+    ],
 }
+
 
 java_test_helper_library {
     name: "scriptexecutor-test-lib",
@@ -88,6 +99,5 @@ java_test_helper_library {
         "src/**/*.java",
     ],
 
-    sdk_version: "current",
+    sdk_version: "test_current",
 }
-

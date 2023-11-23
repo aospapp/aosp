@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Достъп до данните през мобилната мрежа"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Мобилна мрежа"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Използване на мобилни данни"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Изкл."</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Да се изключат ли мобилните данни?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Изборът е задължителен"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Използване на <xliff:g id="CARRIER">%1$s</xliff:g> за моб. данни?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Сканирането за Wi-Fi е включено"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Автоматично превключване към мобилни данни"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Използване на мобилни данни, когато Wi‑Fi мрежата няма достъп до интернет. Може да бъдете таксувани за пренос на данни."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Намиране на Wi‑Fi мрежи и свързване с тях"</string>
     <string name="learn_more" msgid="8214605928933358604">"Научете повече"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Име на точката за достъп"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"„<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>“ се включва..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Други устройства могат да се свързват към „<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>“"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Парола за точката за достъп"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Сигурност"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Няма"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Честота на AP"</string>
@@ -215,7 +219,7 @@
     <string name="bluetooth_pin_values_hint_16_digits" msgid="418776900816984778">"Трябва да съдържа 16 цифри"</string>
     <string name="bluetooth_pin_values_hint" msgid="1561325817559141687">"Обикновено 0000 или 1234"</string>
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"Заявка за сдвояване"</string>
-    <string name="bluetooth_notif_message" msgid="1060821000510108726">"Докоснете за сдвояване с/ъс „<xliff:g id="DEVICE_NAME">%1$s</xliff:g>“."</string>
+    <string name="bluetooth_notif_message" msgid="1060821000510108726">"Докоснете за сдвояване с(ъс) <xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"Изберете устройство с Bluetooth"</string>
     <string name="language_settings" msgid="2079258598337245546">"Езици"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"Езици и въвеждане"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Предпочитанията за приложенията са нулирани"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Изтр. на вс. данни (възст. на фабр. настр.)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Изтриване на всички данни и потребителски профили от информационно-развлекателната система"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Това ще изтрие всички данни от информационно-развлекателната система на автомобила ви, включително:\n\n"<li>"профила ви в Google;"</li>\n<li>"данни и настройки от системата и приложенията;"</li>\n<li>"изтеглените приложения."</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Това действие ще изтрие всички данни от основното устройство на превозното ви средство, включително:\n\n"<li>"профилите и потребителските ви профили;"</li>\n<li>"настройките и данните от приложенията и системата;"</li>\n<li>"изтеглените приложения."</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Понастоящем сте влезли в следните профили:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"За това превозно средство са настроени други потребителски профили."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Изтриване на всички данни"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Избиране на нов администратор"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Трябва да посочите поне един администратор. За да изтриете този, първо изберете заместник."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Избиране на администратор"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Гост"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Гост"</string>
     <string name="user_switch" msgid="6544839750534690781">"Превключване"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Вие (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Име"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Профили за <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Автоматично синхронизиране на данните"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Позволете на приложенията да опресняват автоматично данните"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Вкл. на авт. синхрон. на данни?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Всички промени, които правите в профилите си в мрежата, ще бъдат копирани автоматично в устройството ви.\n\nНякои профили могат също да копират автоматично в мрежата извършените от вас промени в телефона. Профилът в Google работи по този начин."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Изкл. на авт. синхрон. на данни?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Да се разреши ли авт. синхронизиране на данните?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Всички промени, които правите в профилите си в мрежата, ще бъдат копирани автоматично в превозното ви средство.\n\nНякои профили могат също да копират автоматично в мрежата извършените от вас промени в превозното средство."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Да се забрани ли авт. синхронизиране на данните?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Това ще спести използването на данни, но ще трябва да синхронизирате ръчно всеки профил, за да събирате скорошна информация. Също така няма да получавате известия, когато има актуализации."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Информация за профила"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Добавяне на профил"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Поверителност"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Данни от основното устройство"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Управление на достъпа на приложенията до местоположението ви"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Камера"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Управлявайте достъпа на приложението до камерите ви"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Микрофон"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Управление на достъпа на приложенията до микрофона"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Данни от основното устройство"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Отказ"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Потвърждаване"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Трябва да съдържа поне 4 знака"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Трябва да съдържа поне <xliff:g id="COUNT">%d</xliff:g> знака"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"ПИН кодът трябва да съдържа поне <xliff:g id="COUNT">%d</xliff:g> цифри"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Трябва да съдържа по-малко от <xliff:g id="NUMBER">%d</xliff:g> знака"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Трябва да съдържа по-малко от <xliff:g id="NUMBER">%d</xliff:g> цифри"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Трябва да съдържа само цифри от 0 до 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Администраторът на устройството не разрешава ползването на скорошен ПИН"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Често срещаните ПИН кодове се блокират от системния ви администратор. Опитайте с друг ПИН код."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Администраторът на устройството не разрешава ползването на скорошна парола"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Грешка при запазването на паролата"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Често срещаните пароли се блокират от системния ви администратор. Опитайте с друга парола."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Възходящите, низходящите и повтарящите се поредици от цифри не са разрешени."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Трябва да съдържа поне една буква"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Трябва да съдържа поне една цифра"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Трябва да съдържа поне един символ"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Трябва да съдържа поне # буква}other{Трябва да съдържа поне # букви}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Трябва да съдържа поне # малка буква}other{Трябва да съдържа поне # малки букви}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Трябва да съдържа поне # главна буква}other{Трябва да съдържа поне # главни букви}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Трябва да съдържа поне # цифра}other{Трябва да съдържа поне # цифри}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Трябва да съдържа поне # специален символ}other{Трябва да съдържа поне # специални символа}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Трябва да съдържа поне # небуквен знак}other{Трябва да съдържа поне # небуквени знака}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Трябва да съдържа поне # нецифрен знак}other{Трябва да съдържа поне # нецифрени знака}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Трябва да съдържа поне # знак}other{Трябва да съдържа поне # знака}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Трябва да съдържа поне # цифра}other{Трябва да съдържа поне # цифри}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Трябва да съдържа по-малко от # знак}other{Трябва да съдържа по-малко от # знака}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Трябва да съдържа по-малко от # цифра}other{Трябва да съдържа по-малко от # цифри}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Възходящите, низходящите и повтарящите се поредици от цифри не са разрешени"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Опции за заключване на екрана"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : Преди <xliff:g id="NUM_DAYS">%3$s</xliff:g> дни"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Изчистване на идентификационните данни"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Премахване"</string>
     <string name="cancel" msgid="750286395700355455">"Отказ"</string>
     <string name="allow" msgid="7519431342750394402">"Разрешаване"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Забраняване"</string>
     <string name="deny" msgid="340512788979930804">"Отказ"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Клавиш „Backspace“"</string>
     <string name="enter_key" msgid="2121394305541579468">"Въведете ключа"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Активиране на това приложение за основното устройство"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Деактивиране и деинсталиране"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Деактивиране на това приложение за основното устройство"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Още подробности"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Администраторът на организацията може да наблюдава и управлява приложенията и данните, свързани с този потребителски профил, включително настройките, разрешенията, корпоративния достъп, мрежовата активност и информацията за местоположението на превозното средство."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Администраторът на организацията може да наблюдава и управлява приложенията и данните, свързани с този потребителски профил, включително настройките, разрешенията, корпоративния достъп, мрежовата активност и информацията за местоположението на устройството."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Администраторът на организацията може да наблюдава и управлява приложенията и данните, свързани с това основно устройство, включително настройките, разрешенията, корпоративния достъп, мрежовата активност и информацията за местоположението на превозното средство."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Правила на <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> за превозните средства"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Настройки, управлявани от администратора на организацията"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Научете повече за <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Информация за управляваното превозно средство"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Настройките се управляват от администратора на превозните средства"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"С цел осигуряване на достъп до данните на това управлявано превозно средство съответният администратор може да променя настройките и да инсталира софтуер на информационно-развлекателната система.\n\nЗа повече подробности се обърнете към администратора на превозните средства."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Данни, които са видими за администратора на прев. средства"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Промени, извършени от администратора на превозните средства"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Данните, свързани с профила на управляваното превозно средство."</li>\n" "<li>"Списъкът с приложения на управляваното превозно средство."</li>\n" "<li>"Прекараното време и количеството изразходвани данни във всяко приложение."</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Вашият достъп до информационно-развлекателната система"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Списък с приложенията на превозното средство"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Броят на приложенията е приблизителен и може да не включва тези, които не са инсталирани от Google Play Магазин."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Поне <xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
+      <item quantity="one">Поне <xliff:g id="COUNT_0">%d</xliff:g> приложение</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> приложения</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> приложение</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Най-скорошният регистрационен файл за трафика в мрежата"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Най-скорошният сигнал за програмна грешка"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Най-скорошният регистрационен файл за сигурността"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Нищо"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Инсталирани са приложения"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Разрешения за достъп до местоположението"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Разрешения за достъп до микрофона"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Разрешения за камерата"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Приложения по подразбиране"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Клавиатура по подразбиране"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Зададено: <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Зададен е общ HTTP прокси сървър"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Надеждни идентификационни данни в личния ви потребителски профил"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Администраторът може да заключва информационно-развлекателната система и да задава нова парола."</li>\n" "<li>"Администраторът може да изтрива данни от информационно-развлекателната система."</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Брой неуспешни опити за въвеждане на паролата, преди данните на информационно-развлекателната система да бъдат изтрити"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Брой неуспешни опити за въвеждане на паролата, преди данните в потребителски профил да бъдат изтрити"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> опита</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> опит</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Приложения за камера</item>
+      <item quantity="one">Приложение за камера</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">Приложения за програма за електронна поща</item>
+      <item quantity="one">Приложение за програма за електронна поща</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Приложения за телефон</item>
+      <item quantity="one">Приложение за телефон</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Да се сподели ли сигналът за програмна грешка?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Администраторът на организацията на това превозно средство поиска сигнал за програмна грешка с цел отстраняване на неизправностите на това устройство. Възможно е да бъдат споделени приложения и данни."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Администраторът на организацията на това превозно средство поиска сигнал за програмна грешка с цел отстраняване на неизправностите на това устройство. Възможно е да бъдат споделени приложения и данни и работата на устройството ви временно да се забави."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Този сигнал за програмна грешка се споделя с администратора на организацията на това превозно средство. За повече информация се свържете с него."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Споделяне"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Отхвърляне"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Нулиране на основното устройство"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Системата ви получи заявка за възстановяване на фабричните настройки и изтриване на всички данни. Можете да я нулирате сега или тя ще се нулира при следващото стартиране на автомобила. След това можете да настроите нов потребителски профил."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Нулиране сега"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Нулиране по-късно"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Основното у-во ще се нулира при следващото стартиране на колата."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Колата трябва да е паркирана, за да старт. нулирането."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Тази настройка не може да бъде променена в момента"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Достъпност"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Надписи"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Черно върху бяло"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Жълто върху черно"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Жълто върху синьо"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Екранен четец"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Изкл."</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Изговаряне на елементите на екрана"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Използване на <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Опции"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Настройки"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Камера"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Използване на камерата"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Разрешаване на всички приложения да осъществяват достъп до камерата ви"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Управление на разрешенията за камерата"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Със скорошен достъп"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Няма скорошни приложения"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 приложения имат достъп"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# от {total_count} приложения има достъп}other{# от {total_count} приложения имат достъп}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Със скорошен достъп"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Преглед на всички"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Зарежда се…"</string>
 </resources>

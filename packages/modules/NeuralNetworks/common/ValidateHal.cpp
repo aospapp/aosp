@@ -136,7 +136,7 @@ static bool validateOperandExtraParams(const V1_3::Operand& operand, uint32_t in
                     << "Operand " << index << ": Operand of type "
                     << getOperandTypeName(operand.type) << " with a wrong-sized scales, "
                     << "expected " << expected << " was " << channelQuant.scales.size();
-            NN_RET_CHECK_NE(expected, 0)
+            NN_RET_CHECK_NE(expected, 0u)
                     << "Operand " << index << ": Operand of type "
                     << getOperandTypeName(operand.type) << " channel dimension "
                     << channelQuant.channelDim << " is underspecified (can't be 0)";
@@ -788,7 +788,7 @@ static bool validateRequestArguments(
                     // extension operand type.
                     if (!isExtensionOperandType(operand.type) &&
                         !nonExtensionOperandTypeIsScalar(static_cast<int>(operand.type))) {
-                        NN_RET_CHECK_GT(modelRank, 0)
+                        NN_RET_CHECK_GT(modelRank, 0u)
                                 << "Model " << type << " " << requestArgumentIndex
                                 << " has unknown rank but the request does not specify the rank.";
                     }

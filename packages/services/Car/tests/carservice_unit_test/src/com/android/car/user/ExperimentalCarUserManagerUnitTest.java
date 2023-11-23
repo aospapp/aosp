@@ -29,24 +29,22 @@ import static org.mockito.Mockito.when;
 
 import android.annotation.UserIdInt;
 import android.car.Car;
-import android.car.ICarUserService;
+import android.car.IExperimentalCarUserService;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.car.test.util.UserTestingHelper;
-import android.car.user.CarUserManager;
 import android.car.user.ExperimentalCarUserManager;
 import android.car.user.UserCreationResult;
 import android.car.user.UserSwitchResult;
-import android.content.pm.UserInfo;
+import android.car.util.concurrent.AndroidFuture;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
-
-import com.android.internal.infra.AndroidFuture;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -57,13 +55,16 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
     @Mock
     private UserManager mUserManager;
     @Mock
-    private ICarUserService mService;
+    private IExperimentalCarUserService mService;
 
     private ExperimentalCarUserManager mManager;
 
+    public ExperimentalCarUserManagerUnitTest() {
+        super(ExperimentalCarUserManager.TAG);
+    }
+
     @Before public void setFixtures() {
-        mManager =
-                ExperimentalCarUserManager.from(new CarUserManager(mCar, mService, mUserManager));
+        mManager = new ExperimentalCarUserManager(mCar, mService);
     }
 
     @Test
@@ -74,10 +75,10 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
 
         AndroidFuture<UserCreationResult> future = mManager.createDriver(name, true);
 
-        UserCreationResult result = getResult(future);
+        UserCreationResult result = getCreateDriverResult(future);
         assertThat(result.getErrorMessage()).isNull();
         assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
-        assertThat(result.getUser().id).isEqualTo(userId);
+        assertThat(result.getUser().getIdentifier()).isEqualTo(userId);
     }
 
     @Test
@@ -88,10 +89,10 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
 
         AndroidFuture<UserCreationResult> future = mManager.createDriver(name, false);
 
-        UserCreationResult result = getResult(future);
+        UserCreationResult result = getCreateDriverResult(future);
         assertThat(result.getErrorMessage()).isNull();
         assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
-        assertThat(result.getUser().id).isEqualTo(userId);
+        assertThat(result.getUser().getIdentifier()).isEqualTo(userId);
     }
 
     @Test
@@ -101,7 +102,7 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
         AndroidFuture<UserCreationResult> future = mManager.createDriver("test driver", false);
 
         assertThat(future).isNotNull();
-        UserCreationResult result = getResult(future);
+        UserCreationResult result = getCreateDriverResult(future);
         assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE);
     }
 
@@ -123,7 +124,7 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
     public void testSwitchDriver_Success() throws Exception {
         expectSwitchDriverSucceed(10);
         AndroidFuture<UserSwitchResult> future = mManager.switchDriver(10);
-        UserSwitchResult result = getResult(future);
+        UserSwitchResult result = getSwitchDriverResult(future);
         assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_SUCCESSFUL);
     }
 
@@ -132,22 +133,29 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
         expectSwitchDriverFail(20);
         AndroidFuture<UserSwitchResult> future = mManager.switchDriver(20);
         assertThat(future).isNotNull();
-        UserSwitchResult result = getResult(future);
+        UserSwitchResult result = getSwitchDriverResult(future);
         assertThat(result.getStatus()).isEqualTo(UserSwitchResult.STATUS_HAL_INTERNAL_FAILURE);
     }
 
     @Test
     public void testGetAllDrivers() throws Exception {
-        List<UserInfo> userInfos = UserTestingHelper.newUsers(10, 20, 30);
-        when(mService.getAllDrivers()).thenReturn(userInfos);
+        List<UserHandle> userHandles = new ArrayList<UserHandle>();
+        userHandles.add(UserHandle.of(10));
+        userHandles.add(UserHandle.of(20));
+        userHandles.add(UserHandle.of(30));
+        when(mService.getAllDrivers()).thenReturn(userHandles);
         List<Integer> drivers = mManager.getAllDrivers();
         assertThat(drivers).containsExactly(10, 20, 30);
     }
 
     @Test
     public void testGetAllPassengers() throws Exception {
-        List<UserInfo> userInfos = UserTestingHelper.newUsers(100, 101, 102);
-        when(mService.getPassengers(10)).thenReturn(userInfos);
+        List<UserHandle> userHandles = new ArrayList<UserHandle>();
+        userHandles.add(UserHandle.of(100));
+        userHandles.add(UserHandle.of(101));
+        userHandles.add(UserHandle.of(102));
+
+        when(mService.getPassengers(10)).thenReturn(userHandles);
         when(mService.getPassengers(20)).thenReturn(Arrays.asList());
 
         List<Integer> passengers = mManager.getPassengers(10);
@@ -188,7 +196,7 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
     private void expectCreateDriverSucceed(String name, @UserIdInt int userId) throws Exception {
         AndroidFuture<UserCreationResult> future = new AndroidFuture<>();
         future.complete(new UserCreationResult(UserCreationResult.STATUS_SUCCESSFUL,
-                UserTestingHelper.newUser(userId), null));
+                UserTestingHelper.newUser(userId).getUserHandle()));
         when(mService.createDriver(eq(name), anyBoolean())).thenReturn(future);
     }
 
@@ -198,8 +206,8 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
     }
 
     private void expectCreatePassengerSucceed() throws Exception {
-        UserInfo userInfo = UserTestingHelper.newUser(100);
-        when(mService.createPassenger("test passenger", /* driverId = */ 10)).thenReturn(userInfo);
+        when(mService.createPassenger("test passenger", /* driverId = */ 10))
+                .thenReturn(UserHandle.of(100));
     }
 
     private void expectCreatePassengerFail() throws Exception {
@@ -235,5 +243,13 @@ public final class ExperimentalCarUserManagerUnitTest extends AbstractExtendedMo
 
     private void expectStopPassengerFail() throws Exception {
         when(mService.stopPassenger(200)).thenReturn(false);
+    }
+
+    private UserCreationResult getCreateDriverResult(AndroidFuture<UserCreationResult> future) {
+        return getResult(future, "create driver");
+    }
+
+    private UserSwitchResult getSwitchDriverResult(AndroidFuture<UserSwitchResult> future) {
+        return getResult(future, "switch driver");
     }
 }

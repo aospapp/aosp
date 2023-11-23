@@ -158,6 +158,9 @@ public class IwlanDataServiceTest {
 
         @Override
         public void onApnUnthrottled(String apn) {}
+
+        @Override
+        public void onDataProfileUnthrottled(DataProfile dataProfile) {}
     }
 
     @Before

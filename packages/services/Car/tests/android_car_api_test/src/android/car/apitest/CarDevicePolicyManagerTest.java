@@ -105,7 +105,6 @@ public final class CarDevicePolicyManagerTest extends CarMultiUserTestBase {
 
         // Switch back to the starting user.
         Log.d(TAG, "switching to user " + initialUserId);
-        resetStopUserOnSwitch(); // make sure it's stopped
         switchUser(initialUserId);
 
         // User is removed once switch is complete

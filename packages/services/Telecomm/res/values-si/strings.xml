@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ගෙවුම් දුරකථන වෙතින් වන ඇමතුම් අවහිර කරන්න"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"නොදනී"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"නොහඳුනන අමතන්නන් වෙතින් වන ඇමතුම් අවහිර කරන්න"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"නොමැත"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"අංකය නොමැති ඇමතුම් අවහිර කරන්න"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ඇමතුම් අවහිර කිරීම"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"ඇමතුම් අවහිර කිරීම අබල කර ඇත"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"හදිසි ඇමතුම් ගැනීම"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"හදිසි අමතන්නන්ට ඔබව සම්බන්ධ කර ගැනීමට ඉඩ දීමට ඇමතුම් අවහිර කිරීම අබල කර ඇත."</string>
     <string name="developer_title" msgid="9146088855661672353">"ටෙලිකොම් සංවර්ධක මෙනුව"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"හදිසි ඇමතුමක් අතරතුර ඇමතුම් ගත නොහැකිය."</string>
+    <string name="cancel" msgid="6733466216239934756">"අවලංගු කරන්න"</string>
 </resources>

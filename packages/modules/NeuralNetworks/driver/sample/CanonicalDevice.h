@@ -51,12 +51,12 @@ class Device final : public IDevice {
 
     GeneralResult<std::vector<bool>> getSupportedOperations(const Model& model) const override;
 
-    GeneralResult<SharedPreparedModel> prepareModel(const Model& model,
-                                                    ExecutionPreference preference,
-                                                    Priority priority, OptionalTimePoint deadline,
-                                                    const std::vector<SharedHandle>& modelCache,
-                                                    const std::vector<SharedHandle>& dataCache,
-                                                    const CacheToken& token) const override;
+    GeneralResult<SharedPreparedModel> prepareModel(
+            const Model& model, ExecutionPreference preference, Priority priority,
+            OptionalTimePoint deadline, const std::vector<SharedHandle>& modelCache,
+            const std::vector<SharedHandle>& dataCache, const CacheToken& token,
+            const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<SharedPreparedModel> prepareModelFromCache(
             OptionalTimePoint deadline, const std::vector<SharedHandle>& modelCache,

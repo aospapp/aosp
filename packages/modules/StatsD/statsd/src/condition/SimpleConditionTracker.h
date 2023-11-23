@@ -130,6 +130,8 @@ private:
     FRIEND_TEST(SimpleConditionTrackerTest, TestSlicedCondition);
     FRIEND_TEST(SimpleConditionTrackerTest, TestSlicedWithNoOutputDim);
     FRIEND_TEST(SimpleConditionTrackerTest, TestStopAll);
+    FRIEND_TEST(SimpleConditionTrackerTest, TestGuardrailNotHitWhenDefaultFalse);
+    FRIEND_TEST(SimpleConditionTrackerTest, TestGuardrailHitWhenDefaultUnknown);
     FRIEND_TEST(ConfigUpdateTest, TestUpdateConditions);
 };
 

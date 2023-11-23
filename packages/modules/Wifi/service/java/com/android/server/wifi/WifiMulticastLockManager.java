@@ -19,7 +19,9 @@ package com.android.server.wifi;
 import android.annotation.Nullable;
 import android.os.BatteryStatsManager;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.os.WorkSource;
 import android.util.Log;
@@ -39,6 +41,7 @@ public class WifiMulticastLockManager {
     private final List<Multicaster> mMulticasters = new ArrayList<>();
     private int mMulticastEnabled = 0;
     private int mMulticastDisabled = 0;
+    private final Handler mHandler;
     private boolean mVerboseLoggingEnabled = false;
     private final BatteryStatsManager mBatteryStats;
     private final ActiveModeWarden mActiveModeWarden;
@@ -54,9 +57,11 @@ public class WifiMulticastLockManager {
 
     public WifiMulticastLockManager(
             ActiveModeWarden activeModeWarden,
-            BatteryStatsManager batteryStats) {
+            BatteryStatsManager batteryStats,
+            Looper looper) {
         mBatteryStats = batteryStats;
         mActiveModeWarden = activeModeWarden;
+        mHandler = new Handler(looper);
 
         mActiveModeWarden.registerPrimaryClientModeManagerChangedCallback(
                 new PrimaryClientModeManagerChangedCallback());
@@ -80,13 +85,15 @@ public class WifiMulticastLockManager {
 
         @Override
         public void binderDied() {
-            Log.e(TAG, "Multicaster binderDied");
-            synchronized (mMulticasters) {
-                int i = mMulticasters.indexOf(this);
-                if (i != -1) {
-                    removeMulticasterLocked(i, mUid, mTag);
+            mHandler.post(() -> {
+                Log.e(TAG, "Multicaster binderDied");
+                synchronized (mMulticasters) {
+                    int i = mMulticasters.indexOf(this);
+                    if (i != -1) {
+                        removeMulticasterLocked(i, mUid, mTag);
+                    }
                 }
-            }
+            });
         }
 
         void unlinkDeathRecipient() {
@@ -116,8 +123,8 @@ public class WifiMulticastLockManager {
         }
     }
 
-    protected void enableVerboseLogging(int verbose) {
-        mVerboseLoggingEnabled = verbose > 0;
+    protected void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
     }
 
     /** Start filtering if  no multicasters exist. */

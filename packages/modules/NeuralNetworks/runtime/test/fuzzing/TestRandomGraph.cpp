@@ -27,6 +27,7 @@
 #include "GeneratedTestUtils.h"
 #include "TestHarness.h"
 #include "TestNeuralNetworksWrapper.h"
+#include "TmpDirectoryUtils.h"
 #include "fuzzing/OperationManager.h"
 #include "fuzzing/RandomGraphGenerator.h"
 #include "fuzzing/RandomGraphGeneratorUtils.h"
@@ -34,12 +35,15 @@
 #ifndef NNTEST_CTS
 #include <HalInterfaces.h>
 #include <SampleDriverFull.h>
-#include <memunreachable/memunreachable.h>
 
 #include <vector>
 
 #include "HalUtils.h"
 #include "Manager.h"
+
+#ifdef __ANDROID__
+#include <memunreachable/memunreachable.h>
+#endif  // __ANDROID__
 
 using android::nn::sample_driver::SampleDriverFull;
 
@@ -129,10 +133,10 @@ class TestDriverV1_0 : public V1_0::IDevice {
 // * setprop debug.nn.fuzzer.dumpspec 1 : dump the randomly generated graph to a spec file.
 // * setprop debug.nn.fuzzer.dumpspec 0 : do not dump the graph.
 //
-// Logs and spec files are dumped to /data/local/tmp/${testname}.{log,mod.py},
+// Logs and spec files are dumped to {NN_TMP_DIR}/${testname}.{log,mod.py},
 // e.g. for test case TestRandomGraph/RandomGraphTest/Large/0,
-//      log : /data/local/tmp/TestRandomGraph_RandomGraphTest_Large_0.log
-//      spec: /data/local/tmp/TestRandomGraph_RandomGraphTest_Large_0.mod.py
+//      log : {NN_TMP_DIR}/TestRandomGraph_RandomGraphTest_Large_0.log
+//      spec: {NN_TMP_DIR}/TestRandomGraph_RandomGraphTest_Large_0.mod.py
 //
 class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
    public:
@@ -176,7 +180,7 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
                 ::testing::UnitTest::GetInstance()->current_test_info();
         mTestName = mTestName + testInfo->test_case_name() + "_" + testInfo->name();
         std::replace(mTestName.begin(), mTestName.end(), '/', '_');
-        if (mEnableLog) NN_FUZZER_LOG_INIT("/data/local/tmp/" + mTestName + ".log");
+        if (mEnableLog) NN_FUZZER_LOG_INIT(NN_TMP_DIR "/" + mTestName + ".log");
     }
 
     virtual void TearDown() override {
@@ -185,7 +189,7 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
         if (::testing::Test::HasFailure() || mDumpSpec) {
             dumpTestResults();
         }
-#ifndef NNTEST_CTS
+#if defined(__ANDROID__) && !defined(NNTEST_CTS)
         if (mDetectMemoryLeak) {
             ASSERT_TRUE(NoLeaks());
         }
@@ -411,7 +415,7 @@ class RandomGraphTest : public ::testing::TestWithParam<uint32_t> {
     }
 
     void dumpTestResults() {
-        std::ofstream os("/data/local/tmp/" + mTestName + ".mod.py");
+        std::ofstream os(NN_TMP_DIR "/" + mTestName + ".mod.py");
         ASSERT_TRUE(os.is_open());
         os << "# Generated from " << mTestName << ". Do not edit.\n\n";
         SpecDumper dumper(mTestModel, os);

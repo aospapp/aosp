@@ -328,6 +328,11 @@ public class NotificationPanelViewController extends OverlayPanelViewController
         });
 
         mNotificationView.setClickHandlerFactory(mNotificationClickHandlerFactory);
+        mNotificationViewController = new NotificationViewController(
+                mNotificationView,
+                PreprocessingManager.getInstance(mContext),
+                mCarNotificationListener,
+                mCarUxRestrictionManagerWrapper);
 
         mCarServiceProvider.addListener(car -> {
             CarUxRestrictionsManager carUxRestrictionsManager =
@@ -337,14 +342,8 @@ public class NotificationPanelViewController extends OverlayPanelViewController
                     carUxRestrictionsManager);
 
             PreprocessingManager preprocessingManager = PreprocessingManager.getInstance(mContext);
-
             preprocessingManager.setCarUxRestrictionManagerWrapper(mCarUxRestrictionManagerWrapper);
 
-            mNotificationViewController = new NotificationViewController(
-                    mNotificationView,
-                    preprocessingManager,
-                    mCarNotificationListener,
-                    mCarUxRestrictionManagerWrapper);
             mNotificationViewController.enable();
         });
     }

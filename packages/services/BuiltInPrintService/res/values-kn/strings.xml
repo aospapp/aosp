@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"ಸಂಪರ್ಕಗಳು"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"ಡೀಫಾಲ್ಟ್ ಪ್ರಿಂಟ್ ಸೇವೆಗೆ Wi-Fi ಡೈರೆಕ್ಟ್ ಪ್ರಿಂಟರ್‌ಗಳನ್ನು ಹುಡುಕಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi ಡೈರೆಕ್ಟ್ ಬೇಡ"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ಸಮೀಪದಲ್ಲಿರುವ ಸಾಧನಗಳನ್ನು ಹುಡುಕಲು ಡೀಫಾಲ್ಟ್ ಪ್ರಿಂಟ್ ಸೇವೆಗೆ ಸ್ಥಳದ ಅನುಮತಿಗಳ ಅಗತ್ಯವಿದೆ."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"ಸಮೀಪದಲ್ಲಿರುವ ಪ್ರಿಂಟರ್‌ಗಳನ್ನು ಪತ್ತೆ ಮಾಡಲು, ಡೀಫಾಲ್ಟ್ ಪ್ರಿಂಟ್ ಸೇವೆಗೆ ಸಮೀಪದಲ್ಲಿರುವ ಸಾಧನಗಳ ಅನುಮತಿ ಅಗತ್ಯವಿದೆ."</string>
     <string name="fix" msgid="7784394272611365393">"ಅನುಮತಿ ಪರಿಶೀಲಿಸಿ"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"ಸಮೀಪದಲ್ಲಿರುವ ಸಾಧನಗಳನ್ನು ಹುಡುಕಲು ಡೀಫಾಲ್ಟ್ ಪ್ರಿಂಟ್ ಸೇವೆಗೆ ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ಸಕ್ರಿಯಗೊಳಿಸುವ ಅಗತ್ಯವಿದೆ."</string>
-    <string name="enable_location" msgid="3627841004298863140">"ಸ್ಥಳ ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="print" msgid="7851318072404916362">"ಪ್ರಿಂಟ್"</string>
 </resources>

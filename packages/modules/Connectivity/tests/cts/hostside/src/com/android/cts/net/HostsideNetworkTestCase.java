@@ -20,6 +20,7 @@ import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
+import com.android.modules.utils.build.testing.DeviceSdkLevel;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.CollectingTestListener;
@@ -42,6 +43,7 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
     protected static final String TAG = "HostsideNetworkTests";
     protected static final String TEST_PKG = "com.android.cts.net.hostside";
     protected static final String TEST_APK = "CtsHostsideNetworkTestsApp.apk";
+    protected static final String TEST_APK_NEXT = "CtsHostsideNetworkTestsAppNext.apk";
     protected static final String TEST_APP2_PKG = "com.android.cts.net.hostside.app2";
     protected static final String TEST_APP2_APK = "CtsHostsideNetworkTestsApp2.apk";
 
@@ -65,8 +67,12 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
         assertNotNull(mAbi);
         assertNotNull(mCtsBuild);
 
+        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(getDevice());
+        String testApk = deviceSdkLevel.isDeviceAtLeastT() ? TEST_APK_NEXT
+                : TEST_APK;
+
         uninstallPackage(TEST_PKG, false);
-        installPackage(TEST_APK);
+        installPackage(testApk);
     }
 
     @Override

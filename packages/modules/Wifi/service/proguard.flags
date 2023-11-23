@@ -3,3 +3,4 @@
 # entry points and then let proguard strip out any unused code within
 # the service.
 -keep class com.android.server.wifi.** { *; }
+-keep class com.android.wifi.x.android.net.NetworkFactory* { *; }

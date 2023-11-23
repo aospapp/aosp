@@ -56,6 +56,7 @@ import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.modules.utils.BasicShellCommandHandler;
 import com.android.phone.callcomposer.CallComposerPictureManager;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -112,6 +113,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
 
     private static final String CC_GET_VALUE = "get-value";
     private static final String CC_SET_VALUE = "set-value";
+    private static final String CC_SET_VALUES_FROM_XML = "set-values-from-xml";
     private static final String CC_CLEAR_VALUES = "clear-values";
 
     private static final String GBA_SUBCOMMAND = "gba";
@@ -151,6 +153,10 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
     private static final String UCE_SET_CAPABILITY_REQUEST_TIMEOUT =
             "set-capabilities-request-timeout";
 
+    private static final String RADIO_SUBCOMMAND = "radio";
+    private static final String RADIO_SET_MODEM_SERVICE = "set-modem-service";
+    private static final String RADIO_GET_MODEM_SERVICE = "get-modem-service";
+
     // Check if a package has carrier privileges on any SIM, regardless of subId/phoneId.
     private static final String HAS_CARRIER_PRIVILEGES_COMMAND = "has-carrier-privileges";
 
@@ -165,6 +171,10 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             "get-allowed-network-types-for-users";
     private static final String SET_ALLOWED_NETWORK_TYPES_FOR_USER =
             "set-allowed-network-types-for-users";
+    // Check if telephony new data stack is enabled.
+    private static final String GET_DATA_MODE = "get-data-mode";
+    private static final String GET_IMEI = "get-imei";
+    private static final String GET_SIM_SLOTS_MAPPING = "get-sim-slots-mapping";
     // Take advantage of existing methods that already contain permissions checks when possible.
     private final ITelephony mInterface;
 
@@ -175,7 +185,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
 
     private enum CcType {
         BOOLEAN, DOUBLE, DOUBLE_ARRAY, INT, INT_ARRAY, LONG, LONG_ARRAY, STRING,
-                STRING_ARRAY, UNKNOWN
+                STRING_ARRAY, PERSISTABLE_BUNDLE, UNKNOWN
     }
 
     private class CcOptionParseResult {
@@ -246,13 +256,13 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
                 FeatureTags.FEATURE_TAG_CHATBOT_VERSION_SUPPORTED)));
         map.put("chatbot_v2", new ArraySet<>(Arrays.asList(
                 FeatureTags.FEATURE_TAG_CHATBOT_COMMUNICATION_USING_SESSION,
-                FeatureTags.FEATURE_TAG_CHATBOT_VERSION_SUPPORTED)));
+                FeatureTags.FEATURE_TAG_CHATBOT_VERSION_V2_SUPPORTED)));
         map.put("chatbot_sa", new ArraySet<>(Arrays.asList(
                 FeatureTags.FEATURE_TAG_CHATBOT_COMMUNICATION_USING_STANDALONE_MSG,
                 FeatureTags.FEATURE_TAG_CHATBOT_VERSION_SUPPORTED)));
         map.put("chatbot_sa_v2", new ArraySet<>(Arrays.asList(
                 FeatureTags.FEATURE_TAG_CHATBOT_COMMUNICATION_USING_STANDALONE_MSG,
-                FeatureTags.FEATURE_TAG_CHATBOT_VERSION_SUPPORTED)));
+                FeatureTags.FEATURE_TAG_CHATBOT_VERSION_V2_SUPPORTED)));
         map.put("chatbot_role", Collections.singleton(FeatureTags.FEATURE_TAG_CHATBOT_ROLE));
         TEST_FEATURE_TAG_MAP = Collections.unmodifiableMap(map);
     }
@@ -319,6 +329,14 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             case GET_ALLOWED_NETWORK_TYPES_FOR_USER:
             case SET_ALLOWED_NETWORK_TYPES_FOR_USER:
                 return handleAllowedNetworkTypesCommand(cmd);
+            case GET_DATA_MODE:
+                return handleGetDataMode();
+            case GET_IMEI:
+                return handleGetImei();
+            case GET_SIM_SLOTS_MAPPING:
+                return handleGetSimSlotsMapping();
+            case RADIO_SUBCOMMAND:
+                return handleRadioCommand();
             default: {
                 return handleDefaultCommands(cmd);
             }
@@ -357,6 +375,8 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         pw.println("    Get the Allowed Network Types.");
         pw.println("  set-allowed-network-types-for-users");
         pw.println("    Set the Allowed Network Types.");
+        pw.println("  radio");
+        pw.println("    Radio Commands.");
         onHelpIms();
         onHelpUce();
         onHelpEmergencyNumber();
@@ -368,6 +388,8 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         onHelpD2D();
         onHelpDisableOrEnablePhysicalSubscription();
         onHelpAllowedNetworkTypes();
+        onHelpRadio();
+        onHelpImei();
     }
 
     private void onHelpD2D() {
@@ -561,9 +583,17 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         pw.println("      used if NEW_VALUE is not set. Strings should be encapsulated with");
         pw.println("      quotation marks. Spaces needs to be escaped. Example: \"Hello\\ World\"");
         pw.println("      Separate items in arrays with space . Example: \"item1\" \"item2\"");
+        pw.println("  cc set-values-from-xml [-s SLOT_ID] [-p] < XML_FILE_PATH");
+        pw.println("    Set carrier config based on the contents of the XML_FILE. File must be");
+        pw.println("    provided through standard input and follow CarrierConfig XML format.");
+        pw.println("    Example: packages/apps/CarrierConfig/assets/*.xml");
+        pw.println("    Options are:");
+        pw.println("      -s: The SIM slot ID to set carrier config value for. If no option");
+        pw.println("          is specified, it will choose the default voice SIM slot.");
+        pw.println("      -p: Value will be stored persistent");
         pw.println("  cc clear-values [-s SLOT_ID]");
         pw.println("    Clear all carrier override values that has previously been set");
-        pw.println("    with set-value");
+        pw.println("    with set-value or set-values-from-xml");
         pw.println("    Options are:");
         pw.println("      -s: The SIM slot ID to clear carrier config values for. If no option");
         pw.println("          is specified, it will choose the default voice SIM slot.");
@@ -656,6 +686,30 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         pw.println("        LTE only                   : 01000001000000000000");
     }
 
+    private void onHelpRadio() {
+        PrintWriter pw = getOutPrintWriter();
+        pw.println("Radio Commands:");
+        pw.println("  radio set-modem-service [-s SERVICE_NAME]");
+        pw.println("    Sets the class name of modem service defined in SERVICE_NAME");
+        pw.println("    to be the bound. Options are:");
+        pw.println("      -s: the service name that the modem service should be bound for.");
+        pw.println("          If no option is specified, it will bind to the default.");
+        pw.println("  radio get-modem-service");
+        pw.println("    Gets the service name of the currently defined modem service.");
+        pw.println("    If it is binding to default, 'default' returns.");
+        pw.println("    If it doesn't bind to any modem service for some reasons,");
+        pw.println("    the result would be 'unknown'.");
+    }
+
+    private void onHelpImei() {
+        PrintWriter pw = getOutPrintWriter();
+        pw.println("IMEI Commands:");
+        pw.println("  get-imei [-s SLOT_ID]");
+        pw.println("    Gets the device IMEI. Options are:");
+        pw.println("      -s: the slot ID to get the IMEI. If no option");
+        pw.println("          is specified, it will choose the default voice SIM slot.");
+    }
+
     private int handleImsCommand() {
         String arg = getNextArg();
         if (arg == null) {
@@ -697,7 +751,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         switch (arg) {
             case ENABLE: {
                 try {
-                    mInterface.enableDataConnectivity();
+                    mInterface.enableDataConnectivity(mContext.getOpPackageName());
                 } catch (RemoteException ex) {
                     Log.w(LOG_TAG, "data enable, error " + ex.getMessage());
                     errPw.println("Exception: " + ex.getMessage());
@@ -707,7 +761,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             }
             case DISABLE: {
                 try {
-                    mInterface.disableDataConnectivity();
+                    mInterface.disableDataConnectivity(mContext.getOpPackageName());
                 } catch (RemoteException ex) {
                     Log.w(LOG_TAG, "data disable, error " + ex.getMessage());
                     errPw.println("Exception: " + ex.getMessage());
@@ -1458,6 +1512,9 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             case CC_SET_VALUE: {
                 return handleCcSetValue();
             }
+            case CC_SET_VALUES_FROM_XML: {
+                return handleCcSetValuesFromXml();
+            }
             case CC_CLEAR_VALUES: {
                 return handleCcClearValues();
             }
@@ -1475,7 +1532,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         String key = null;
 
         // Parse all options
-        CcOptionParseResult options =  parseCcOptions(tag, false);
+        CcOptionParseResult options = parseCcOptions(tag, false);
         if (options == null) {
             return -1;
         }
@@ -1515,7 +1572,7 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         String tag = CARRIER_CONFIG_SUBCOMMAND + " " + CC_SET_VALUE + ": ";
 
         // Parse all options
-        CcOptionParseResult options =  parseCcOptions(tag, true);
+        CcOptionParseResult options = parseCcOptions(tag, true);
         if (options == null) {
             return -1;
         }
@@ -1552,6 +1609,11 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             errPw.println(tag + "ERROR: Not possible to override key with unknown type.");
             return -1;
         }
+        if (type == CcType.PERSISTABLE_BUNDLE) {
+            errPw.println(tag + "ERROR: Overriding of persistable bundle type is not supported. "
+                    + "Use set-values-from-xml instead.");
+            return -1;
+        }
 
         // Create an override bundle containing the key and value that should be overriden.
         PersistableBundle overrideBundle = getOverrideBundle(tag, type, key, valueList);
@@ -1578,13 +1640,79 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         return 0;
     }
 
+    // cc set-values-from-xml
+    private int handleCcSetValuesFromXml() {
+        PrintWriter errPw = getErrPrintWriter();
+        String tag = CARRIER_CONFIG_SUBCOMMAND + " " + CC_SET_VALUES_FROM_XML + ": ";
+
+        // Parse all options
+        CcOptionParseResult options = parseCcOptions(tag, false);
+        if (options == null) {
+            return -1;
+        }
+
+        // Get bundle containing all current carrier configuration values.
+        PersistableBundle originalValues = mCarrierConfigManager.getConfigForSubId(options.mSubId);
+        if (originalValues == null) {
+            errPw.println(tag + "No carrier config values found for subId " + options.mSubId + ".");
+            return -1;
+        }
+
+        PersistableBundle overrideBundle = readPersistableBundleFromXml(tag);
+        if (overrideBundle == null) {
+            return -1;
+        }
+
+        // Verify all values are valid types
+        for (String key : overrideBundle.keySet()) {
+            CcType type = getType(tag, key, originalValues);
+            if (type == CcType.UNKNOWN) {
+                errPw.println(tag + "ERROR: Not possible to override key with unknown type.");
+                return -1;
+            }
+        }
+
+        // Override the value
+        mCarrierConfigManager.overrideConfig(options.mSubId, overrideBundle, options.mPersistent);
+
+        // Find bundle containing all new carrier configuration values after the override.
+        PersistableBundle newValues = mCarrierConfigManager.getConfigForSubId(options.mSubId);
+        if (newValues == null) {
+            errPw.println(tag + "No carrier config values found for subId " + options.mSubId + ".");
+            return -1;
+        }
+
+        // Print the original and new values
+        overrideBundle.keySet().forEach(key -> {
+            CcType type = getType(tag, key, originalValues);
+            String originalValueString = ccValueToString(key, type, originalValues);
+            String newValueString = ccValueToString(key, type, newValues);
+            getOutPrintWriter().println("Previous value: \n" + originalValueString);
+            getOutPrintWriter().println("New value: \n" + newValueString);
+        });
+
+        return 0;
+    }
+
+    private PersistableBundle readPersistableBundleFromXml(String tag) {
+        PersistableBundle subIdBundles;
+        try {
+            subIdBundles = PersistableBundle.readFromStream(getRawInputStream());
+        } catch (IOException | RuntimeException e) {
+            PrintWriter errPw = getErrPrintWriter();
+            errPw.println(tag + e);
+            return null;
+        }
+
+        return subIdBundles;
+    }
+
     // cc clear-values
     private int handleCcClearValues() {
-        PrintWriter errPw = getErrPrintWriter();
         String tag = CARRIER_CONFIG_SUBCOMMAND + " " + CC_CLEAR_VALUES + ": ";
 
         // Parse all options
-        CcOptionParseResult options =  parseCcOptions(tag, false);
+        CcOptionParseResult options = parseCcOptions(tag, false);
         if (options == null) {
             return -1;
         }
@@ -1605,22 +1733,33 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         } else if (value != null) {
             if (value instanceof Boolean) {
                 return CcType.BOOLEAN;
-            } else if (value instanceof Double) {
+            }
+            if (value instanceof Double) {
                 return CcType.DOUBLE;
-            } else if (value instanceof double[]) {
+            }
+            if (value instanceof double[]) {
                 return CcType.DOUBLE_ARRAY;
-            } else if (value instanceof Integer) {
+            }
+            if (value instanceof Integer) {
                 return CcType.INT;
-            } else if (value instanceof int[]) {
+            }
+            if (value instanceof int[]) {
                 return CcType.INT_ARRAY;
-            } else if (value instanceof Long) {
+            }
+            if (value instanceof Long) {
                 return CcType.LONG;
-            } else if (value instanceof long[]) {
+            }
+            if (value instanceof long[]) {
                 return CcType.LONG_ARRAY;
-            } else if (value instanceof String) {
+            }
+            if (value instanceof String) {
                 return CcType.STRING;
-            } else if (value instanceof String[]) {
+            }
+            if (value instanceof String[]) {
                 return CcType.STRING_ARRAY;
+            }
+            if (value instanceof PersistableBundle) {
+                return CcType.PERSISTABLE_BUNDLE;
             }
         } else {
             // Current value was null and can therefore not be used in order to find the type.
@@ -1640,6 +1779,9 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             }
             if (key.endsWith("string_array") || key.endsWith("strings")) {
                 return CcType.STRING_ARRAY;
+            }
+            if (key.endsWith("bundle")) {
+                return CcType.PERSISTABLE_BUNDLE;
             }
         }
 
@@ -1890,6 +2032,37 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         return result ? 0 : -1;
     }
 
+    private int handleGetImei() {
+        // Verify that the user is allowed to run the command. Only allowed in rooted device in a
+        // non user build.
+        if (Binder.getCallingUid() != Process.ROOT_UID || TelephonyUtils.IS_USER) {
+            getErrPrintWriter().println("Device IMEI: Permission denied.");
+            return -1;
+        }
+
+        final long identity = Binder.clearCallingIdentity();
+
+        String imei = null;
+        String arg = getNextArg();
+        if (arg != null) {
+            try {
+                int specifiedSlotIndex = Integer.parseInt(arg);
+                imei = TelephonyManager.from(mContext).getImei(specifiedSlotIndex);
+            } catch (NumberFormatException exception) {
+                PrintWriter errPw = getErrPrintWriter();
+                errPw.println("-s requires an integer as slot index.");
+                return -1;
+            }
+
+        } else {
+            imei = TelephonyManager.from(mContext).getImei();
+        }
+        getOutPrintWriter().println("Device IMEI: " + imei);
+
+        Binder.restoreCallingIdentity(identity);
+        return 0;
+    }
+
     private int handleUnattendedReboot() {
         // Verify that the user is allowed to run the command. Only allowed in rooted device in a
         // non user build.
@@ -1902,6 +2075,20 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
         getOutPrintWriter().println("result: " + result);
 
         return result != TelephonyManager.PREPARE_UNATTENDED_REBOOT_ERROR ? 0 : -1;
+    }
+
+    private int handleGetSimSlotsMapping() {
+        // Verify that the user is allowed to run the command. Only allowed in rooted device in a
+        // non user build.
+        if (Binder.getCallingUid() != Process.ROOT_UID || TelephonyUtils.IS_USER) {
+            getErrPrintWriter().println("GetSimSlotsMapping: Permission denied.");
+            return -1;
+        }
+        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
+        String result = telephonyManager.getSimSlotMapping().toString();
+        getOutPrintWriter().println("simSlotsMapping: " + result);
+
+        return 0;
     }
 
     private int handleGbaCommand() {
@@ -2724,5 +2911,88 @@ public class TelephonyShellCommand extends BasicShellCommandHandler {
             Log.e(LOG_TAG, "AllowedNetworkTypes: " + e);
             return -1;
         }
+    }
+
+    private int handleGetDataMode() {
+        if (!checkShellUid()) {
+            return -1;
+        }
+
+        boolean newDataStackEnabled = false;
+        try {
+            newDataStackEnabled = mInterface.isUsingNewDataStack();
+        } catch (RemoteException e) {
+            getOutPrintWriter().println("Something went wrong. " + e);
+            return -1;
+        }
+
+        getOutPrintWriter().println("Telephony is running with the "
+                + (newDataStackEnabled ? "new" : "old") + " data stack.");
+        return 0;
+    }
+
+    private int handleRadioSetModemServiceCommand() {
+        PrintWriter errPw = getErrPrintWriter();
+        String serviceName = null;
+
+        String opt;
+        while ((opt = getNextOption()) != null) {
+            switch (opt) {
+                case "-s": {
+                    serviceName = getNextArgRequired();
+                    break;
+                }
+            }
+        }
+
+        try {
+            boolean result = mInterface.setModemService(serviceName);
+            if (VDBG) {
+                Log.v(LOG_TAG,
+                        "RadioSetModemService " + serviceName + ", result = " + result);
+            }
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            Log.w(LOG_TAG,
+                    "RadioSetModemService: " + serviceName + ", error = " + e.getMessage());
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleRadioGetModemServiceCommand() {
+        PrintWriter errPw = getErrPrintWriter();
+        String result;
+
+        try {
+            result = mInterface.getModemService();
+            getOutPrintWriter().println(result);
+        } catch (RemoteException e) {
+            errPw.println("Exception: " + e.getMessage());
+            return -1;
+        }
+        if (VDBG) {
+            Log.v(LOG_TAG, "RadioGetModemService, result = " + result);
+        }
+        return 0;
+    }
+
+    private int handleRadioCommand() {
+        String arg = getNextArg();
+        if (arg == null) {
+            onHelpRadio();
+            return 0;
+        }
+
+        switch (arg) {
+            case RADIO_SET_MODEM_SERVICE:
+                return handleRadioSetModemServiceCommand();
+
+            case RADIO_GET_MODEM_SERVICE:
+                return handleRadioGetModemServiceCommand();
+        }
+
+        return -1;
     }
 }

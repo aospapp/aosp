@@ -23,12 +23,12 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.net.wifi.WifiScanner;
 import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.Process;
 import android.provider.Settings;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.modules.utils.HandlerExecutor;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -328,8 +328,8 @@ public class WakeupController {
     }
 
     /** Sets verbose logging flag based on verbose level. */
-    public void enableVerboseLogging(int verbose) {
-        mVerboseLoggingEnabled = verbose > 0;
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
         mWakeupLock.enableVerboseLogging(mVerboseLoggingEnabled);
     }
 

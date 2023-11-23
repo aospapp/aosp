@@ -31,7 +31,7 @@ class CarrierPrivilegedStatusLiveData private constructor(
     private val packageName: String
 ) : SmartUpdateMediatorLiveData<Int>() {
 
-    val telephonyManager = app.getSystemService(TelephonyManager::class.java)!!
+    private val telephonyManager = app.getSystemService(TelephonyManager::class.java)!!
 
     override fun onUpdate() {
         value = telephonyManager.checkCarrierPrivilegesForPackageAnyPhone(packageName)

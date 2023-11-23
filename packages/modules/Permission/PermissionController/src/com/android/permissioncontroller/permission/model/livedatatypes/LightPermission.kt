@@ -113,6 +113,7 @@ data class LightPermission(
         if (isSystemFixed) append(", SystemFixed")
         if (isUserFixed) append(", UserFixed")
         if (isUserSet) append(", UserSet")
+        if (isRevokeWhenRequested) append(", RevokeWhenRequested")
         if (isCompatRevoked) append(", CompatRevoked")
         if (isReviewRequired) append(", ReviewRequired")
         if (isOneTime) append(", OneTime")

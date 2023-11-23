@@ -31,6 +31,7 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.R;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -83,19 +84,29 @@ public final class UserRestrictionsFragment extends Fragment {
             UserManager userManager = getUserManager();
 
             // Iterate through all of the user restrictions and set their values
+            List<String> restrictions = new ArrayList<>(count);
             for (int i = 0; i < count; i++) {
                 UserRestrictionListItem item = (UserRestrictionListItem) adapter.getItem(i);
-                userManager.setUserRestriction(item.getKey(), item.getIsChecked());
+                String restriction = item.getKey();
+                boolean added = item.getIsChecked();
+                userManager.setUserRestriction(restriction, added);
+                if (added) {
+                    restrictions.add(restriction);
+                }
             }
-
-            Toast.makeText(
-                    getContext(), "User restrictions have been set!", Toast.LENGTH_SHORT)
-                    .show();
+            toast("%d restrictions (%s) have been set on user %d!", restrictions.size(),
+                    restrictions, getContext().getUserId());
         });
     }
 
+    private void toast(String format, Object...args) {
+        String msg = String.format(format, args);
+        Log.i(TAG, msg);
+        Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+    }
+
     private List<UserRestrictionListItem> createUserRestrictionItems() {
-        int userId = getContext().getUserId();
+        int userId = getContext().getUser().getIdentifier();
         UserHandle user = UserHandle.of(userId);
         UserManager userManager = getUserManager();
 

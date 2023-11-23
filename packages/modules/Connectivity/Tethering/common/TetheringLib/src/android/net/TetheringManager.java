@@ -22,6 +22,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.content.Context;
 import android.os.Bundle;
@@ -37,6 +38,7 @@ import com.android.internal.annotations.GuardedBy;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -181,6 +183,12 @@ public class TetheringManager {
      */
     public static final int TETHERING_WIGIG = 6;
 
+    /**
+     * The int value of last tethering type.
+     * @hide
+     */
+    public static final int MAX_TETHERING_TYPE = TETHERING_WIGIG;
+
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(value = {
@@ -265,7 +273,7 @@ public class TetheringManager {
     public TetheringManager(@NonNull final Context context,
             @NonNull Supplier<IBinder> connectorSupplier) {
         mContext = context;
-        mCallback = new TetheringCallbackInternal();
+        mCallback = new TetheringCallbackInternal(this);
         mConnectorSupplier = connectorSupplier;
 
         final String pkgName = mContext.getOpPackageName();
@@ -287,6 +295,23 @@ public class TetheringManager {
 
         Log.i(TAG, "registerTetheringEventCallback:" + pkgName);
         getConnector(c -> c.registerTetheringEventCallback(mCallback, pkgName));
+    }
+
+    /** @hide */
+    @Override
+    protected void finalize() throws Throwable {
+        final String pkgName = mContext.getOpPackageName();
+        Log.i(TAG, "unregisterTetheringEventCallback:" + pkgName);
+        // 1. It's generally not recommended to perform long operations in finalize, but while
+        // unregisterTetheringEventCallback does an IPC, it's a oneway IPC so should not block.
+        // 2. If the connector is not yet connected, TetheringManager is impossible to finalize
+        // because the connector polling thread strong reference the TetheringManager object. So
+        // it's guaranteed that registerTetheringEventCallback was already called before calling
+        // unregisterTetheringEventCallback in finalize.
+        if (mConnector == null) Log.wtf(TAG, "null connector in finalize!");
+        getConnector(c -> c.unregisterTetheringEventCallback(mCallback, pkgName));
+
+        super.finalize();
     }
 
     private void startPollingForConnector() {
@@ -415,7 +440,7 @@ public class TetheringManager {
         }
     }
 
-    private void throwIfPermissionFailure(final int errorCode) {
+    private static void throwIfPermissionFailure(final int errorCode) {
         switch (errorCode) {
             case TETHER_ERROR_NO_CHANGE_TETHERING_PERMISSION:
                 throw new SecurityException("No android.permission.TETHER_PRIVILEGED"
@@ -426,34 +451,96 @@ public class TetheringManager {
         }
     }
 
-    private class TetheringCallbackInternal extends ITetheringEventCallback.Stub {
+    /**
+     * A request for a tethered interface.
+     *
+     * There are two reasons why this doesn't implement CLoseable:
+     * 1. To consistency with the existing EthernetManager.TetheredInterfaceRequest, which is
+     * already released.
+     * 2. This is not synchronous, so it's not useful to use try-with-resources.
+     *
+     * {@hide}
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @SuppressLint("NotCloseable")
+    public interface TetheredInterfaceRequest {
+        /**
+         * Release the request to tear down tethered interface.
+         */
+        void release();
+    }
+
+    /**
+     * Callback for requestTetheredInterface.
+     *
+     * {@hide}
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    public interface TetheredInterfaceCallback {
+        /**
+         * Called when the tethered interface is available.
+         * @param iface The name of the interface.
+         */
+        void onAvailable(@NonNull String iface);
+
+        /**
+         * Called when the tethered interface is now unavailable.
+         */
+        void onUnavailable();
+    }
+
+    private static class TetheringCallbackInternal extends ITetheringEventCallback.Stub {
         private volatile int mError = TETHER_ERROR_NO_ERROR;
         private final ConditionVariable mWaitForCallback = new ConditionVariable();
+        // This object is never garbage collected because the Tethering code running in
+        // the system server always maintains a reference to it for as long as
+        // mCallback is registered.
+        //
+        // Don't keep a strong reference to TetheringManager because otherwise
+        // TetheringManager cannot be garbage collected, and because TetheringManager
+        // stores the Context that it was created from, this will prevent the calling
+        // Activity from being garbage collected as well.
+        private final WeakReference<TetheringManager> mTetheringMgrRef;
+
+        TetheringCallbackInternal(final TetheringManager tm) {
+            mTetheringMgrRef = new WeakReference<>(tm);
+        }
 
         @Override
         public void onCallbackStarted(TetheringCallbackStartedParcel parcel) {
-            mTetheringConfiguration = parcel.config;
-            mTetherStatesParcel = parcel.states;
-            mWaitForCallback.open();
+            TetheringManager tetheringMgr = mTetheringMgrRef.get();
+            if (tetheringMgr != null) {
+                tetheringMgr.mTetheringConfiguration = parcel.config;
+                tetheringMgr.mTetherStatesParcel = parcel.states;
+                mWaitForCallback.open();
+            }
         }
 
         @Override
         public void onCallbackStopped(int errorCode) {
-            mError = errorCode;
-            mWaitForCallback.open();
+            TetheringManager tetheringMgr = mTetheringMgrRef.get();
+            if (tetheringMgr != null) {
+                mError = errorCode;
+                mWaitForCallback.open();
+            }
         }
+
+        @Override
+        public void onSupportedTetheringTypes(long supportedBitmap) { }
 
         @Override
         public void onUpstreamChanged(Network network) { }
 
         @Override
         public void onConfigurationChanged(TetheringConfigurationParcel config) {
-            mTetheringConfiguration = config;
+            TetheringManager tetheringMgr = mTetheringMgrRef.get();
+            if (tetheringMgr != null) tetheringMgr.mTetheringConfiguration = config;
         }
 
         @Override
         public void onTetherStatesChanged(TetherStatesParcel states) {
-            mTetherStatesParcel = states;
+            TetheringManager tetheringMgr = mTetheringMgrRef.get();
+            if (tetheringMgr != null) tetheringMgr.mTetherStatesParcel = states;
         }
 
         @Override
@@ -955,15 +1042,29 @@ public class TetheringManager {
         /**
          * Called when tethering supported status changed.
          *
+         * <p>This callback will be called immediately after the callback is
+         * registered, and never be called if there is changes afterward.
+         *
+         * <p>Tethering may be disabled via system properties, device configuration, or device
+         * policy restrictions.
+         *
+         * @param supported whether any tethering type is supported.
+         */
+        default void onTetheringSupported(boolean supported) {}
+
+        /**
+         * Called when tethering supported status changed.
+         *
          * <p>This will be called immediately after the callback is registered, and may be called
          * multiple times later upon changes.
          *
          * <p>Tethering may be disabled via system properties, device configuration, or device
          * policy restrictions.
          *
-         * @param supported The new supported status
+         * @param supportedTypes a set of @TetheringType which is supported.
+         * @hide
          */
-        default void onTetheringSupported(boolean supported) {}
+        default void onSupportedTetheringTypes(@NonNull Set<Integer> supportedTypes) {}
 
         /**
          * Called when tethering upstream changed.
@@ -1261,7 +1362,8 @@ public class TetheringManager {
                 @Override
                 public void onCallbackStarted(TetheringCallbackStartedParcel parcel) {
                     executor.execute(() -> {
-                        callback.onTetheringSupported(parcel.tetheringSupported);
+                        callback.onSupportedTetheringTypes(unpackBits(parcel.supportedTypes));
+                        callback.onTetheringSupported(parcel.supportedTypes != 0);
                         callback.onUpstreamChanged(parcel.upstreamNetwork);
                         sendErrorCallbacks(parcel.states);
                         sendRegexpsChanged(parcel.config);
@@ -1277,6 +1379,13 @@ public class TetheringManager {
                 public void onCallbackStopped(int errorCode) {
                     executor.execute(() -> {
                         throwIfPermissionFailure(errorCode);
+                    });
+                }
+
+                @Override
+                public void onSupportedTetheringTypes(long supportedBitmap) {
+                    executor.execute(() -> {
+                        callback.onSupportedTetheringTypes(unpackBits(supportedBitmap));
                     });
                 }
 
@@ -1315,6 +1424,23 @@ public class TetheringManager {
             getConnector(c -> c.registerTetheringEventCallback(remoteCallback, callerPkg));
             mTetheringEventCallbacks.put(callback, remoteCallback);
         }
+    }
+
+    /**
+     * Unpack bitmap to a set of bit position intergers.
+     * @hide
+     */
+    public static ArraySet<Integer> unpackBits(long val) {
+        final ArraySet<Integer> result = new ArraySet<>(Long.bitCount(val));
+        int bitPos = 0;
+        while (val != 0) {
+            if ((val & 1) == 1) result.add(bitPos);
+
+            val = val >>> 1;
+            bitPos++;
+        }
+
+        return result;
     }
 
     /**
@@ -1537,5 +1663,26 @@ public class TetheringManager {
                         // is if the call results in a TETHER_STATE_CHANGE broadcast.
                     }
                 }));
+    }
+
+    /**
+     * Whether to treat networks that have TRANSPORT_TEST as Tethering upstreams. The effects of
+     * this method apply to any test networks that are already present on the system.
+     *
+     * @throws SecurityException If the caller doesn't have the NETWORK_SETTINGS permission.
+     * @hide
+     */
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
+    public void setPreferTestNetworks(final boolean prefer) {
+        Log.i(TAG, "setPreferTestNetworks caller: " + mContext.getOpPackageName());
+
+        final RequestDispatcher dispatcher = new RequestDispatcher();
+        final int ret = dispatcher.waitForResult((connector, listener) -> {
+            try {
+                connector.setPreferTestNetworks(prefer, listener);
+            } catch (RemoteException e) {
+                throw new IllegalStateException(e);
+            }
+        });
     }
 }

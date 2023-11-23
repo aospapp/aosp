@@ -42,7 +42,7 @@ public class LocationListeners {
 
     private class SensorHelper implements SensorEventListener {
         private static final String TAG = "CAR.SENSOR.KS";
-        private static final String LOC_SENSOR_FORMAT = "%12.8f, %12.8f, %12.8f";
+        private static final String LOC_SENSOR_FORMAT = "%12.8f";
 
         private final SensorManager mSensorMgr;
         private final int mSensorType;
@@ -102,9 +102,12 @@ public class LocationListeners {
                 return;
             }
 
-            final String es = String.format("%s %s: (" + LOC_SENSOR_FORMAT + ")",
-                    mSensorName, mSensorUnits,
-                    event.values[0], event.values[1], event.values[2]);
+            String es = String.format("%s %s: (" + LOC_SENSOR_FORMAT,
+                    mSensorName, mSensorUnits, event.values[0]);
+            for (int i = 1; i < event.values.length; i++) {
+                es = es + String.format(", " + LOC_SENSOR_FORMAT, event.values[i]);
+            }
+            es = es + ")";
 
             mUpdate.accept(es);
         }
@@ -125,10 +128,32 @@ public class LocationListeners {
 
         mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_ACCELEROMETER,
                 "m/s2", "Accelerometer", mTextUpdateHandler::setAccelField));
-        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_MAGNETIC_FIELD,
-                "uT", "Magnetometer", mTextUpdateHandler::setMagField));
         mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_GYROSCOPE,
                 "Rad/s", "Gyroscope", mTextUpdateHandler::setGyroField));
+        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_MAGNETIC_FIELD,
+                "uT", "Magnetometer", mTextUpdateHandler::setMagField));
+        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_ACCELEROMETER_UNCALIBRATED,
+                "m/s2", "Accel Uncal", mTextUpdateHandler::setAccelUncalField));
+        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_GYROSCOPE_UNCALIBRATED,
+                "Rad/s", "Gyro Uncal", mTextUpdateHandler::setGyroUncalField));
+        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_ACCELEROMETER_LIMITED_AXES,
+                "m/s2", "Accel Limited Axes", mTextUpdateHandler::setAccelLimitedAxesField));
+        mSensors.add(new SensorHelper(mSensorMgr, Sensor.TYPE_GYROSCOPE_LIMITED_AXES,
+                "Rad/s", "Gyro Limited Axes", mTextUpdateHandler::setGyroLimitedAxesField));
+        mSensors.add(
+                new SensorHelper(
+                        mSensorMgr,
+                        Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
+                        "m/s2",
+                        "Accel Limited Axes Uncal",
+                        mTextUpdateHandler::setAccelLimitedAxesUncalField));
+        mSensors.add(
+                new SensorHelper(
+                        mSensorMgr,
+                        Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
+                        "Rad/s",
+                        "Gyro Limited Axes Uncal",
+                        mTextUpdateHandler::setGyroLimitedAxesUncalField));
     }
 
     public void startListening() {
@@ -136,7 +161,8 @@ public class LocationListeners {
             if (mLocationMgr.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 mLocationMgr.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0,
                         mLocationListener);
-                mTextUpdateHandler.setLocationField("waiting to hear from GPS");
+                mTextUpdateHandler.setLocationField(
+                        "GPS_PROVIDER available. Waiting to hear from GPS...");
             } else {
                 mTextUpdateHandler.setLocationField("GPS_PROVIDER not available");
             }

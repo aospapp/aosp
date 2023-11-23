@@ -17,7 +17,6 @@ package com.android.cts.net.hostside.app2;
 
 import static com.android.cts.net.hostside.app2.Common.ACTION_FINISH_ACTIVITY;
 import static com.android.cts.net.hostside.app2.Common.TAG;
-import static com.android.cts.net.hostside.app2.Common.TEST_PKG;
 import static com.android.cts.net.hostside.app2.Common.TYPE_COMPONENT_ACTIVTY;
 
 import android.app.Activity;
@@ -25,39 +24,36 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.RemoteException;
+import android.os.RemoteCallback;
 import android.util.Log;
+import android.view.WindowManager;
 
-import com.android.cts.net.hostside.INetworkStateObserver;
+import androidx.annotation.GuardedBy;
 
 /**
  * Activity used to bring process to foreground.
  */
 public class MyActivity extends Activity {
 
+    @GuardedBy("this")
     private BroadcastReceiver finishCommandReceiver = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "MyActivity.onCreate()");
-        Common.notifyNetworkStateObserver(this, getIntent(), TYPE_COMPONENT_ACTIVTY);
-        finishCommandReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                Log.d(TAG, "Finishing MyActivity");
-                MyActivity.this.finish();
-            }
-        };
-        registerReceiver(finishCommandReceiver, new IntentFilter(ACTION_FINISH_ACTIVITY));
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
     public void finish() {
-        if (finishCommandReceiver != null) {
-            unregisterReceiver(finishCommandReceiver);
+        synchronized (this) {
+            if (finishCommandReceiver != null) {
+                unregisterReceiver(finishCommandReceiver);
+                finishCommandReceiver = null;
+            }
         }
         super.finish();
     }
@@ -66,6 +62,36 @@ public class MyActivity extends Activity {
     protected void onStart() {
         super.onStart();
         Log.d(TAG, "MyActivity.onStart()");
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.d(TAG, "MyActivity.onNewIntent()");
+        setIntent(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "MyActivity.onResume(): " + getIntent());
+        Common.notifyNetworkStateObserver(this, getIntent(), TYPE_COMPONENT_ACTIVTY);
+        synchronized (this) {
+            finishCommandReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    Log.d(TAG, "Finishing MyActivity");
+                    MyActivity.this.finish();
+                }
+            };
+            registerReceiver(finishCommandReceiver, new IntentFilter(ACTION_FINISH_ACTIVITY),
+                    Context.RECEIVER_EXPORTED);
+        }
+        final RemoteCallback callback = getIntent().getParcelableExtra(
+                Intent.EXTRA_REMOTE_CALLBACK);
+        if (callback != null) {
+            callback.sendResult(null);
+        }
     }
 
     @Override

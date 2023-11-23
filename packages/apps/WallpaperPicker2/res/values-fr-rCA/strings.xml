@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Définir comme fond d\'écran"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Écran d\'accueil"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Écran de verrouillage"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Écran d\'accueil et écran de verrouillage"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Écrans d\'accueil et de verrouillage"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Rotation de l\'image de fond d\'écran"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Pour afficher le fond d\'écran actuel ici, <xliff:g id="APP_NAME">%1$s</xliff:g> a besoin d\'accéder au répertoire de stockage de votre appareil."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Pour afficher le fond d\'écran actuel ici, l\'application Fonds d\'écran doit pouvoir accéder au répertoire de stockage de l\'appareil.\n\nPour modifier ce réglage, accédez à la section Autorisations de l\'application."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Aperçu"</string>
     <string name="tab_info" msgid="818614080690111416">"Info"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Personnaliser"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Effets"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Mes photos"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Paramètres…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Supprimer"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Supprimer ce fond d\'écran de votre téléphone?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Fond d\'écran"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Aperçu du fond d\'écran"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"La collection n\'existe pas"</string>
+    <string name="cancel" msgid="4970902691067201584">"Annuler"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Masquer l\'aperçu de l\'IU"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Aperçu : IU masquée. Touchez 2 fois pour afficher"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Afficher l\'aperçu de l\'IU"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Personnalisez le contenu affiché"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Renseignements masqués"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Renseignements affichés"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Veuillez activer les fichiers et les contenus multimédia dans les paramètres."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Activer"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Ouvrir mes photos"</string>
 </resources>

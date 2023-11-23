@@ -181,6 +181,16 @@ public class WifiThreadRunner {
         mHandler.removeCallbacks(r);
     }
 
+    /**
+     * Check if there are any pending posts of messages with callback r in the message queue.
+     *
+     * @param r The Runnable that will be used to query.
+     * @return true if exists, otherwise false.
+     */
+    public final boolean hasCallbacks(@NonNull Runnable r) {
+        return mHandler.hasCallbacks(r);
+    }
+
     // Note: @hide methods copied from android.os.Handler
     /**
      * Runs the specified task synchronously.

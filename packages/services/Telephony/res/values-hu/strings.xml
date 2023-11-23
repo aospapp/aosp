@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Segélykérő visszahívása mód"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Adatkapcsolat letiltva"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Nincs adatkapcsolat eddig: <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">A telefon <xliff:g id="COUNT_1">%s</xliff:g> percig lesz Segélykérő visszahívása módban. Ebben az üzemmódban nem használhatók olyan alkalmazások, amelyeknél adatkapcsolatra van szükség. Szeretne kilépni most?</item>
-      <item quantity="one">A telefon <xliff:g id="COUNT_0">%s</xliff:g> percig lesz Segélykérő visszahívása módban. Ebben az üzemmódban nem használhatók olyan alkalmazások, amelyeknél adatkapcsolatra van szükség. Szeretne kilépni most?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">A választott művelet nem érhető el Segélykérő visszahívása módban. A telefon <xliff:g id="COUNT_1">%s</xliff:g> percig lesz ebben a módban. Szeretne kilépni most?</item>
-      <item quantity="one">A választott művelet nem érhető el Segélykérő visszahívása módban. A telefon <xliff:g id="COUNT_0">%s</xliff:g> percig lesz ebben a módban. Szeretne kilépni most?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{A telefon egy percig Sürgősségi visszahívás módban lesz. Ebben az üzemmódban nem használhatók az adatkapcsolatot igénylő alkalmazások. Kilép?}other{A telefon %s percig Sürgősségi visszahívás módban lesz. Ebben az üzemmódban nem használhatók az adatkapcsolatot igénylő alkalmazások. Kilép?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{A kiválasztott művelet nem áll rendelkezésre Sürgősségi visszahívás módban. A telefon egy percig lesz ebben a módban. Kilép?}other{A kiválasztott művelet nem áll rendelkezésre Sürgősségi visszahívás módban. A telefon %s percig lesz ebben a módban. Kilép?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"A választott művelet nem érhető el segélyhívás során."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Kilépés a Sürgősségi visszahívás módból"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Igen"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Elvetés"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"A telefon sürgősségi visszahívás módban van."</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Eddig: <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">A telefon <xliff:g id="COUNT_1">%s</xliff:g> percig sürgősségi visszahívás módban lesz.\nKilép?</item>
-      <item quantity="one">A telefon <xliff:g id="COUNT_0">%s</xliff:g> percig sürgősségi visszahívás módban lesz.\nKilép?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{A telefon egy percig sürgősségi visszahívás módban lesz.\nKilép?}other{A telefon %s percig sürgősségi visszahívás módban lesz.\nKilép?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Szolgáltatás"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Beállítás"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Nincs megadva&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Kisegítő lehetőségek"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi-hívás tőle:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi-hívás"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Koppintson rá ismét a megnyitáshoz"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Hiba történt az üzenet dekódolása közben."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Egy SIM kártya aktiválta a szolgáltatást, valamint frissítette a telefon barangolási képességeit."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Túl sok aktív hívás van. Új hívás indítása előtt fejezzen be vagy vonjon össze meglévő hívásokat."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Nem kezdeményezhet hívást, mert folyamatban van egy másik kimenő hívás indítása."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Nem kezdeményezhet hívást, mert folyamatban van egy megválaszolatlan bejövő hívás. Mielőtt új hívást indítana, vegye fel, vagy utasítsa el a bejövő hívást."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Nem kezdeményezhet hívást, mivel a hívás le van tiltva ro.telephony.disable-call rendszertulajdonsággal."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Nem kezdeményezhet hívást, mivel már két hívás van folyamatban. Mielőtt új hívást indítana, tegye le az egyiket, vagy egyesítse őket egy konferenciahívásban."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Nem kezdeményezhet hívást, mert már két hívás van folyamatban. Mielőtt új hívást indítana, tegye le az egyiket, vagy egyesítse őket egy konferenciahívásban."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"A(z) <xliff:g id="SUPP_SERVICE">%s</xliff:g> használatához győződjön meg róla, hogy a mobiladat-kapcsolat be van kapcsolva. Ezt a mobilhálózat beállításainál módosíthatja."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"A(z) <xliff:g id="SUPP_SERVICE">%s</xliff:g> használatához győződjön meg róla, hogy a mobiladat-kapcsolat és az adatbarangolás be van kapcsolva. Ezt a mobilhálózat beállításainál módosíthatja."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"A(z) <xliff:g id="SUPP_SERVICE">%1$s</xliff:g> használatához győződjön meg róla, hogy a mobiladat-kapcsolat be van kapcsolva a SIM-kártyán (<xliff:g id="SIM_NUMBER">%2$d</xliff:g>). Ezt a mobilhálózat beállításainál módosíthatja."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"A beállítás módosításához újra kell indítania az eszközt."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Újraindítás"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Mégse"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Cserélhető eSIM beállítása alapértelmezettként"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobil rádióadó teljesítménye"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM-kártya telefonkönyvének megtekintése"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Fix hívószámok megtekintése"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Rádióhullámsáv kiválasztása"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Hanghálózat típusa:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Adathálózat típusa:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Hálózattípus felülbírálata:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Telefonkönyv kiválasztása"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Preferált hálózattípus beállítása:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Pingelt gazdagépnév (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Frissítés"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS-ellenőrzés váltása"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-specifikus adatok és beállítások:"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC rendelkezésre áll:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR korlátozva:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR rendelkezésre áll:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-állapot:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC rendelkezésre áll (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR korlátozva (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR rendelkezésre áll (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR állapota (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-frekvencia:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Rádióhullámsáv mód beállítása"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Sávlista betöltése…"</string>

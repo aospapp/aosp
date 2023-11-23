@@ -17,6 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.networkstack"
           android:sharedUserId="android.uid.networkstack"
-          android:versionCode="320000000"
-          android:versionName="T-next">
+          android:versionCode="330090000"
+          android:versionName="T-next"
+          coreApp="true">
 </manifest>

@@ -57,9 +57,26 @@
             android:theme="@style/CustomizationTheme.NoActionBar"
             android:exported="false"/>
 
+        <activity
+            tools:node="replace"
+            android:name="com.android.wallpaper.picker.PassThroughCustomizationPickerActivity"
+            android:label="@string/app_name"
+            android:resizeableActivity="false"
+            android:theme="@style/CustomizationTheme.NoActionBar"
+            android:exported="false"/>
+
+        <activity
+            tools:node="replace"
+            android:name="com.android.wallpaper.picker.TrampolinePickerActivity"
+            android:label="@string/app_name"
+            android:relinquishTaskIdentity="true"
+            android:resizeableActivity="false"
+            android:theme="@style/CustomizationTheme.NoActionBar"
+            android:exported="false"/>
+
         <activity-alias
             android:name="com.android.customization.picker.CustomizationPickerActivity"
-            android:targetActivity="com.android.wallpaper.picker.CustomizationPickerActivity"
+            android:targetActivity="com.android.wallpaper.picker.TrampolinePickerActivity"
             android:label="@string/app_name"
             android:exported="true">
              <intent-filter>

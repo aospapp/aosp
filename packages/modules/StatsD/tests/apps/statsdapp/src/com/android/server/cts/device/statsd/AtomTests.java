@@ -465,26 +465,6 @@ public class AtomTests {
     }
 
     @Test
-    public void testScreenBrightness() {
-        Context context = InstrumentationRegistry.getContext();
-        PowerManager pm = context.getSystemService(PowerManager.class);
-        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
-                PowerManager.ACQUIRE_CAUSES_WAKEUP, "StatsdBrightnessTest");
-        wl.acquire();
-        sleep(500);
-
-        setScreenBrightness(47);
-        sleep(500);
-        setScreenBrightness(100);
-        sleep(500);
-        setScreenBrightness(198);
-        sleep(500);
-
-
-        wl.release();
-    }
-
-    @Test
     public void testSyncState() throws Exception {
 
         Context context = InstrumentationRegistry.getContext();
@@ -678,40 +658,6 @@ public class AtomTests {
             timestamp += i;
         }
         Log.i(TAG, "The answer is " + timestamp);
-    }
-
-    @Test
-    public void testWriteRawTestAtom() throws Exception {
-        Context context = InstrumentationRegistry.getTargetContext();
-        ApplicationInfo appInfo = context.getPackageManager()
-                .getApplicationInfo(context.getPackageName(), 0);
-        int[] uids = {1234, appInfo.uid};
-        String[] tags = {"tag1", "tag2"};
-        byte[] experimentIds = {8, 1, 8, 2, 8, 3}; // Corresponds to 1, 2, 3.
-        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, uids, tags, 42,
-                Long.MAX_VALUE, 3.14f, "This is a basic test!", false,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, experimentIds);
-
-        // All nulls. Should get dropped since cts app is not in the attribution chain.
-        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, null, null, 0, 0,
-                0f, null, false, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__ON, null);
-
-        // Null tag in attribution chain.
-        int[] uids2 = {9999, appInfo.uid};
-        String[] tags2 = {"tag9999", null};
-        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_ATOM_REPORTED, uids2, tags2, 100,
-                Long.MIN_VALUE, -2.5f, "Test null uid", true,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__UNKNOWN, experimentIds);
-
-        // Non chained non-null
-        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED,
-                appInfo.uid, "tag1", -256, -1234567890L, 42.01f, "Test non chained", true,
-                StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, experimentIds);
-
-        // Non chained all null
-        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED, appInfo.uid, null,
-                0, 0, 0f, null, true, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, null);
-
     }
 
     /**

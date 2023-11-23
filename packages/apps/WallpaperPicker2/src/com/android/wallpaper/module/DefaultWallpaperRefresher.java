@@ -22,12 +22,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.BitmapUtils;
-import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.compat.WallpaperManagerCompat;
 import com.android.wallpaper.model.WallpaperMetadata;
 
@@ -103,7 +103,9 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
             boolean isLockScreenWallpaperCurrentlySet = mWallpaperStatusChecker.isLockWallpaperSet(
                     mAppContext);
 
-            if (!BuildCompat.isAtLeastN() || !isLockScreenWallpaperCurrentlySet) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N
+                    || !isLockScreenWallpaperCurrentlySet) {
+
                 // Return only home metadata if pre-N device or lock screen wallpaper is not explicitly set.
                 wallpaperMetadatas.add(new WallpaperMetadata(
                         mWallpaperPreferences.getHomeWallpaperAttributions(),
@@ -166,7 +168,7 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
                         Arrays.asList(mAppContext.getResources().getString(R.string.fallback_wallpaper_title)));
 
                 // Set wallpaper ID if at least N or set a hash code if an earlier version of Android.
-                if (BuildCompat.isAtLeastN()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     mWallpaperPreferences.setHomeWallpaperManagerId(mWallpaperManagerCompat.getWallpaperId(
                             WallpaperManagerCompat.FLAG_SYSTEM));
                 } else {
@@ -279,7 +281,7 @@ public class DefaultWallpaperRefresher implements WallpaperRefresher {
             // Use WallpaperManager IDs to check same-ness of image wallpaper on N+ versions of Android
             // only when there is no saved bitmap hash code (which could be leftover from a previous build
             // of the app that did not use wallpaper IDs).
-            if (BuildCompat.isAtLeastN() && savedBitmapHash == 0) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && savedBitmapHash == 0) {
                 return mWallpaperPreferences.getHomeWallpaperManagerId()
                         == mWallpaperManagerCompat.getWallpaperId(WallpaperManagerCompat.FLAG_SYSTEM);
             }

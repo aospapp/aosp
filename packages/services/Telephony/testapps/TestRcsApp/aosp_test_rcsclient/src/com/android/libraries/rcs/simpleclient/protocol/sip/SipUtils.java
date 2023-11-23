@@ -183,8 +183,8 @@ public final class SipUtils {
         // Set a Security-Verify header if exist.
         String securityVerify = configuration.getSecurityVerifyHeader();
         if (!TextUtils.isEmpty(securityVerify)) {
-            request.setHeader(
-                    sHeaderFactory.createHeader(SecurityVerifyHeader.NAME, securityVerify));
+            request.setHeaders(sHeaderFactory.createHeaders(SecurityVerifyHeader.NAME
+                    + ":" + securityVerify.trim()));
         }
 
         // Add Route headers.

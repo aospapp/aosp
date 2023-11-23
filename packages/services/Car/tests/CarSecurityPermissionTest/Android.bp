@@ -26,7 +26,7 @@ android_test {
     libs: [
         "android.car",
         "android.frameworks.automotive.powerpolicy-V1-java",
-        "android.hardware.automotive.vehicle-V2.0-java",
+        "android.hardware.automotive.vehicle-V1-java",
         "android.test.runner",
         "android.test.base",
         "android.test.mock",
@@ -36,7 +36,6 @@ android_test {
         "androidx.test.core",
         "androidx.test.ext.junit",
         "androidx.test.rules",
-        "car-frameworks-service",
         "compatibility-device-util-axt",
         "mockito-target-minus-junit4",
         "testng",
@@ -46,4 +45,6 @@ android_test {
     platform_apis: true,
 
     certificate: "platform",
+
+    min_sdk_version: "33",
 }

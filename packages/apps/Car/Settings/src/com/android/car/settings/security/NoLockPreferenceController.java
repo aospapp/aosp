@@ -17,6 +17,7 @@
 package com.android.car.settings.security;
 
 import android.app.admin.DevicePolicyManager;
+import android.app.admin.PasswordMetrics;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -37,6 +38,8 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
     private static final int[] ALLOWED_PASSWORD_QUALITIES =
             new int[]{DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED};
 
+    private final LockPatternUtils mLockPatternUtils;
+
     @VisibleForTesting
     final ConfirmationDialogFragment.ConfirmListener mConfirmListener = arguments -> {
         int userId = UserHandle.myUserId();
@@ -48,6 +51,7 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
     public NoLockPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mLockPatternUtils = new LockPatternUtils(context);
     }
 
 
@@ -92,6 +96,15 @@ public class NoLockPreferenceController extends LockTypeBasePreferenceController
     @Override
     protected int[] allowedPasswordQualities() {
         return ALLOWED_PASSWORD_QUALITIES;
+    }
+
+    @Override
+    protected void updateState(Preference preference) {
+        super.updateState(preference);
+
+        PasswordMetrics metrics = mLockPatternUtils.getRequestedPasswordMetrics(
+                UserHandle.myUserId(), /* deviceWideOnly= */ false);
+        preference.setEnabled(metrics.credType == LockPatternUtils.CREDENTIAL_TYPE_NONE);
     }
 
     private ConfirmationDialogFragment getConfirmRemoveScreenLockDialogFragment() {

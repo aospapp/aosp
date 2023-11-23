@@ -17,23 +17,33 @@
 package com.android.tv.settings.privacy;
 
 import static android.hardware.SensorPrivacyManager.Sources.SETTINGS;
+import static android.hardware.SensorPrivacyManager.TOGGLE_TYPE_HARDWARE;
+import static android.hardware.SensorPrivacyManager.TOGGLE_TYPE_SOFTWARE;
+
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
 
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.SensorPrivacyManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewTreeObserver;
 
 import androidx.annotation.Keep;
+import androidx.leanback.widget.VerticalGridView;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceGroupAdapter;
+import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.apps.AppManagementFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.library.privacy.RecentlyAccessedByUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,14 +66,11 @@ public class SensorFragment extends SettingsPreferenceFragment {
     private static final String SENSOR_TOGGLE_KEY = "sensor_toggle";
     private PrivacyToggle mToggle;
     private SwitchPreference mSensorToggle;
+    private Preference mPhysicalPrivacyEnabledInfo;
 
     private SensorPrivacyManager mSensorPrivacyManager;
     private final SensorPrivacyManager.OnSensorPrivacyChangedListener mPrivacyChangedListener =
-            (sensor, enabled) -> {
-                if (mSensorToggle != null) {
-                    mSensorToggle.setChecked(!enabled);
-                }
-            };
+            (sensor, enabled) -> updateSensorPrivacyState();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -75,9 +82,17 @@ public class SensorFragment extends SettingsPreferenceFragment {
             throw new IllegalArgumentException("PrivacyToggle extra missing");
         }
 
-        // Calling super at the end, otherwise mSensorPrivacyManager and mToggle are not initialized
-        // during onCreatePreferences.
         super.onCreate(savedInstanceState);
+        getPreferenceManager().setPreferenceComparisonCallback(
+                new PreferenceManager.SimplePreferenceComparisonCallback());
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        mSensorPrivacyManager.addSensorPrivacyListener(mToggle.sensor,
+                mPrivacyChangedListener);
+        updateSensorPrivacyState();
     }
 
     @Override
@@ -87,11 +102,37 @@ public class SensorFragment extends SettingsPreferenceFragment {
 
         screen.setTitle(mToggle.screenTitle);
 
+        addPhysicalPrivacyEnabledInfo(screen, themedContext);
         addSensorToggleWithInfo(screen, themedContext);
         addRecentAppsGroup(screen, themedContext);
         addPermissionControllerPreference(screen, themedContext);
+        updateSensorPrivacyState();
 
         setPreferenceScreen(screen);
+    }
+
+    private void addPhysicalPrivacyEnabledInfo(PreferenceScreen screen, Context themedContext) {
+        mPhysicalPrivacyEnabledInfo = new Preference(themedContext);
+        mPhysicalPrivacyEnabledInfo.setLayoutResource(
+                R.layout.sensor_physical_privacy_enabled_info);
+        mPhysicalPrivacyEnabledInfo.setSelectable(true);
+        mPhysicalPrivacyEnabledInfo.setTitle(mToggle.physicalPrivacyEnabledInfoTitle);
+        mPhysicalPrivacyEnabledInfo.setSummary(mToggle.physicalPrivacyEnabledInfoText);
+        mPhysicalPrivacyEnabledInfo.setIcon(mToggle.physicalPrivacyEnabledIcon);
+
+        // Use InfoFragment when using 2-panel settings
+        if (FlavorUtils.getFlavor(getContext()) == FLAVOR_CLASSIC) {
+            mPhysicalPrivacyEnabledInfo.setFragment(PhysicalPrivacyUnblockFragment.class.getName());
+            mPhysicalPrivacyEnabledInfo.getExtras().putObject(
+                    PhysicalPrivacyUnblockFragment.TOGGLE_EXTRA, mToggle);
+        } else {
+            mPhysicalPrivacyEnabledInfo.setFragment(
+                    PhysicalPrivacyUnblockInfoFragment.class.getName());
+            mPhysicalPrivacyEnabledInfo.getExtras().putObject(
+                    PhysicalPrivacyUnblockInfoFragment.TOGGLE_EXTRA, mToggle);
+        }
+
+        screen.addPreference(mPhysicalPrivacyEnabledInfo);
     }
 
     /**
@@ -107,19 +148,55 @@ public class SensorFragment extends SettingsPreferenceFragment {
         mSensorToggle.setFragment(SensorToggleInfoFragment.class.getName());
         mSensorToggle.getExtras().putObject(SensorToggleInfoFragment.TOGGLE_EXTRA, mToggle);
 
-        // If privacy is enabled, the sensor access is turned off
-        mSensorToggle.setChecked(
-                !mSensorPrivacyManager.isSensorPrivacyEnabled(mToggle.sensor));
-        mSensorPrivacyManager.addSensorPrivacyListener(mToggle.sensor,
-                mPrivacyChangedListener);
-
         if (!FlavorUtils.isTwoPanel(themedContext)) {
             // Show the toggle info text beneath instead.
             Preference toggleInfo = new Preference(themedContext);
-            toggleInfo.setLayoutResource(R.xml.sensor_toggle_info);
+            toggleInfo.setLayoutResource(R.layout.sensor_toggle_info);
             toggleInfo.setSummary(mToggle.toggleInfoText);
             toggleInfo.setSelectable(false);
             screen.addPreference(toggleInfo);
+        }
+    }
+
+    private void updateSensorPrivacyState() {
+        boolean softwarePrivacyEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled(
+                TOGGLE_TYPE_SOFTWARE, mToggle.sensor);
+        boolean physicalPrivacyEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled(
+                TOGGLE_TYPE_HARDWARE, mToggle.sensor);
+
+        if (DEBUG) {
+            Log.v(TAG,
+                    "softwarePrivacyEnabled=" + softwarePrivacyEnabled + ", physicalPrivacyEnabled="
+                            + physicalPrivacyEnabled);
+        }
+        // If privacy is enabled, the sensor access is turned off
+        mSensorToggle.setChecked(!softwarePrivacyEnabled && !physicalPrivacyEnabled);
+        mSensorToggle.setEnabled(!physicalPrivacyEnabled);
+        mPhysicalPrivacyEnabledInfo.setVisible(physicalPrivacyEnabled);
+
+        if (physicalPrivacyEnabled) {
+            selectPreference(mPhysicalPrivacyEnabledInfo);
+        }
+    }
+
+    private void selectPreference(Preference preference) {
+        scrollToPreference(preference);
+        if (getListView() instanceof VerticalGridView) {
+            VerticalGridView listView = (VerticalGridView) getListView();
+            PreferenceGroupAdapter adapter = (PreferenceGroupAdapter) (listView.getAdapter());
+
+            ViewTreeObserver.OnPreDrawListener listener = new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    listView.post(() -> {
+                        int position = adapter.getPreferenceAdapterPosition(preference);
+                        listView.setSelectedPositionSmooth(position);
+                    });
+                    listView.getViewTreeObserver().removeOnPreDrawListener(this);
+                    return true;
+                }
+            };
+            listView.getViewTreeObserver().addOnPreDrawListener(listener);
         }
     }
 
@@ -189,16 +266,21 @@ public class SensorFragment extends SettingsPreferenceFragment {
     }
 
     @Override
-    public void onDestroy() {
+    public void onDestroyView() {
         mSensorPrivacyManager.removeSensorPrivacyListener(mToggle.sensor, mPrivacyChangedListener);
-        super.onDestroy();
+        super.onDestroyView();
     }
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         if (SENSOR_TOGGLE_KEY.equals(preference.getKey())) {
-            mSensorPrivacyManager.setSensorPrivacy(SETTINGS, mToggle.sensor,
-                    !mSensorToggle.isChecked());
+            boolean physicalPrivacyEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled(
+                    TOGGLE_TYPE_HARDWARE, mToggle.sensor);
+            if (!physicalPrivacyEnabled) {
+                mSensorPrivacyManager.setSensorPrivacy(SETTINGS, mToggle.sensor,
+                        !mSensorToggle.isChecked());
+            }
+            updateSensorPrivacyState();
             return true;
         }
         return super.onPreferenceTreeClick(preference);

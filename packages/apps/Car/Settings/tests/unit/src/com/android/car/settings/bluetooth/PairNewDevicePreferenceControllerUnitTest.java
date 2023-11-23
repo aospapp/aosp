@@ -40,7 +40,6 @@ import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
-import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -55,7 +54,6 @@ public final class PairNewDevicePreferenceControllerUnitTest {
     private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private SwitchPreference mSwitchPreference;
     private PairNewDevicePreferenceController mPreferenceController;
-    private LocalBluetoothManager mLocalBluetoothManager;
     private CarUxRestrictions mCarUxRestrictions;
 
     @Mock

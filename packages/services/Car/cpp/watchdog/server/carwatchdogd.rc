@@ -36,7 +36,7 @@ on early-init && property:ro.build.type=user
     setprop ro.carwatchdog.periodic_collection_interval 120
     setprop ro.carwatchdog.periodic_monitor_interval 5
 
-on early-init
+on init
     # Number of top stats per category
     setprop ro.carwatchdog.top_n_stats_per_category 10
 

@@ -23,6 +23,8 @@ package com.android.server
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.pm.PackageManager.FEATURE_ETHERNET
+import android.content.pm.PackageManager.FEATURE_USB_HOST
 import android.content.pm.PackageManager.FEATURE_WIFI
 import android.content.pm.PackageManager.FEATURE_WIFI_DIRECT
 import android.net.ConnectivityManager.TYPE_ETHERNET
@@ -40,7 +42,6 @@ import android.net.ConnectivityManager.TYPE_VPN
 import android.net.ConnectivityManager.TYPE_WIFI
 import android.net.ConnectivityManager.TYPE_WIFI_P2P
 import android.net.ConnectivityManager.TYPE_WIMAX
-import android.net.EthernetManager
 import android.net.NetworkInfo.DetailedState.CONNECTED
 import android.net.NetworkInfo.DetailedState.DISCONNECTED
 import android.os.Build
@@ -82,9 +83,8 @@ class LegacyTypeTrackerTest {
     private val mContext = mock(Context::class.java).apply {
         doReturn(true).`when`(mPm).hasSystemFeature(FEATURE_WIFI)
         doReturn(true).`when`(mPm).hasSystemFeature(FEATURE_WIFI_DIRECT)
+        doReturn(true).`when`(mPm).hasSystemFeature(FEATURE_ETHERNET)
         doReturn(mPm).`when`(this).packageManager
-        doReturn(mock(EthernetManager::class.java)).`when`(this).getSystemService(
-                Context.ETHERNET_SERVICE)
     }
     private val mTm = mock(TelephonyManager::class.java).apply {
         doReturn(true).`when`(this).isDataCapable
@@ -105,7 +105,8 @@ class LegacyTypeTrackerTest {
 
     @Test
     fun testSupportedTypes_NoEthernet() {
-        doReturn(null).`when`(mContext).getSystemService(Context.ETHERNET_SERVICE)
+        doReturn(false).`when`(mPm).hasSystemFeature(FEATURE_ETHERNET)
+        doReturn(false).`when`(mPm).hasSystemFeature(FEATURE_USB_HOST)
         assertFalse(makeTracker().isTypeSupported(TYPE_ETHERNET))
     }
 

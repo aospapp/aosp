@@ -23,6 +23,8 @@ import java.lang.annotation.Target;
 
 /**
  * Annotation used to mark code to be excluded from coverage report.
+ *
+ * @hide
  */
 @Target({ElementType.TYPE, ElementType.CONSTRUCTOR, ElementType.METHOD})
 public @interface ExcludeFromCodeCoverageGeneratedReport {

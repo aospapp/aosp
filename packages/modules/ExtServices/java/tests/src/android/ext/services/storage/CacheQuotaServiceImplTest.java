@@ -33,6 +33,8 @@ import android.test.ServiceTestCase;
 
 import androidx.test.filters.SdkSuppress;
 
+import com.android.modules.utils.build.SdkLevel;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Answers;
@@ -68,7 +70,11 @@ public class CacheQuotaServiceImplTest extends ServiceTestCase<CacheQuotaService
 
         when(mContext.getSystemService(Context.STORAGE_SERVICE)).thenReturn(mStorageManager);
         when(mStorageManager.getStorageVolumes()).thenReturn(mStorageVolumes);
-        when(mFile.getUsableSpace()).thenReturn(10000L);
+        if (SdkLevel.isAtLeastT()) {
+            when(mStorageManager.computeStorageCacheBytes(mFile)).thenReturn(1500L);
+        } else {
+            when(mFile.getUsableSpace()).thenReturn(10000L);
+        }
 
         Intent intent = new Intent(getContext(), CacheQuotaServiceImpl.class);
         startService(intent);

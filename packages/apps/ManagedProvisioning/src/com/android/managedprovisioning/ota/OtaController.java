@@ -135,7 +135,7 @@ public class OtaController {
         }
 
         // Build a set of fake params to be able to run the tasks
-        ProvisioningParams fakeParams = new ProvisioningParams.Builder()
+        ProvisioningParams fakeParams = new ProvisioningParams.Builder(/* skipValidation= */ false)
                 .setDeviceAdminComponentName(deviceOwner)
                 .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
                 .build();
@@ -164,7 +164,7 @@ public class OtaController {
         }
 
         // Build a set of fake params to be able to run the tasks
-        ProvisioningParams fakeParams = new ProvisioningParams.Builder()
+        ProvisioningParams fakeParams = new ProvisioningParams.Builder(/* skipValidation= */ false)
                 .setDeviceAdminComponentName(profileOwner)
                 .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
                 .build();
@@ -187,7 +187,7 @@ public class OtaController {
         }
 
         // Build a set of fake params to be able to run the tasks
-        ProvisioningParams fakeParams = new ProvisioningParams.Builder()
+        ProvisioningParams fakeParams = new ProvisioningParams.Builder(/* skipValidation= */ false)
                 .setDeviceAdminComponentName(profileOwner)
                 .setProvisioningAction(ACTION_PROVISION_MANAGED_USER)
                 .build();

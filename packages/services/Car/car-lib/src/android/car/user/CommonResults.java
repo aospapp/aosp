@@ -16,6 +16,12 @@
 
 package android.car.user;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
+import android.car.annotation.AddedInOrBefore;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+
 /**
  * Defines status for common result objects.
  */
@@ -24,38 +30,46 @@ final class CommonResults {
     /**
      * Operation was is successful for both HAL and Android.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_SUCCESSFUL = 1;
 
     /**
      * Operation failed on Android.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_ANDROID_FAILURE = 2;
 
     /**
      * Operation failed on HAL.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_HAL_FAILURE = 3;
 
     /**
      * Operation failed due to an error communication with HAL (like timeout).
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_HAL_INTERNAL_FAILURE = 4;
 
     /**
      * Operation failed due to invalid request.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_INVALID_REQUEST = 5;
 
     /**
      * Operation failed because of driving safety UX restrictions.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_UX_RESTRICTION_FAILURE = 6;
 
     /**
      * Reference for common status - anything higher than this can be used for custom status
      */
+    @AddedInOrBefore(majorVersion = 33)
     static final int LAST_COMMON_STATUS = 100;
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     private CommonResults() {
         throw new UnsupportedOperationException();
     }

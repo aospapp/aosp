@@ -53,9 +53,6 @@ abstract class BaseAdminActionReporterPreferenceController<P extends Preference>
 
     @Override
     protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) return superStatus;
-
         return isEnabled() ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 

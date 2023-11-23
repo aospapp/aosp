@@ -43,7 +43,7 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
 import android.util.ArraySet;
-import android.util.Pair;
+import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -55,10 +55,10 @@ import com.android.internal.telephony.uicc.IccConstants;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -333,19 +333,25 @@ public class SimPhonebookProvider extends ContentProvider {
         if (recordsSize == null || getRecordCount(recordsSize) == 0) {
             return;
         }
+        int efid = efIdForEfType(efType);
+        // Have to load the existing records to get the size because there may be more than one
+        // phonebook set in which case the total capacity is the sum of the capacity of EF_ADN for
+        // all the phonebook sets whereas the recordsSize is just the size for a single EF.
+        List<AdnRecord> existingRecords = mIccPhoneBookSupplier.get()
+                .getAdnRecordsInEfForSubscriber(subscriptionInfo.getSubscriptionId(), efid);
+        if (existingRecords == null) {
+            existingRecords = ImmutableList.of();
+        }
         MatrixCursor.RowBuilder row = result.newRow()
                 .add(ElementaryFiles.SLOT_INDEX, subscriptionInfo.getSimSlotIndex())
                 .add(ElementaryFiles.SUBSCRIPTION_ID, subscriptionInfo.getSubscriptionId())
                 .add(ElementaryFiles.EF_TYPE, efType)
-                .add(ElementaryFiles.MAX_RECORDS, getRecordCount(recordsSize))
+                .add(ElementaryFiles.MAX_RECORDS, existingRecords.size())
                 .add(ElementaryFiles.NAME_MAX_LENGTH,
                         AdnRecord.getMaxAlphaTagBytes(getRecordSize(recordsSize)))
                 .add(ElementaryFiles.PHONE_NUMBER_MAX_LENGTH,
                         AdnRecord.getMaxPhoneNumberDigits());
         if (result.getColumnIndex(ElementaryFiles.RECORD_COUNT) != -1) {
-            int efid = efIdForEfType(efType);
-            List<AdnRecord> existingRecords = mIccPhoneBookSupplier.get()
-                    .getAdnRecordsInEfForSubscriber(subscriptionInfo.getSubscriptionId(), efid);
             int nonEmptyCount = 0;
             for (AdnRecord record : existingRecords) {
                 if (!record.isEmpty()) {
@@ -368,39 +374,46 @@ public class SimPhonebookProvider extends ContentProvider {
             return new MatrixCursor(projection, 0);
         }
         MatrixCursor result = new MatrixCursor(projection, records.size());
-        List<Pair<AdnRecord, MatrixCursor.RowBuilder>> rowBuilders = new ArrayList<>(
-                records.size());
-        for (AdnRecord record : records) {
+        SparseArray<MatrixCursor.RowBuilder> rowBuilders = new SparseArray<>(records.size());
+        for (int i = 0; i < records.size(); i++) {
+            AdnRecord record = records.get(i);
             if (!record.isEmpty()) {
-                rowBuilders.add(Pair.create(record, result.newRow()));
+                rowBuilders.put(i, result.newRow());
             }
         }
         // This is kind of ugly but avoids looking up columns in an inner loop.
         for (String column : projection) {
             switch (column) {
                 case SimRecords.SUBSCRIPTION_ID:
-                    for (Pair<AdnRecord, MatrixCursor.RowBuilder> row : rowBuilders) {
-                        row.second.add(args.subscriptionId);
+                    for (int i = 0; i < rowBuilders.size(); i++) {
+                        rowBuilders.valueAt(i).add(args.subscriptionId);
                     }
                     break;
                 case SimRecords.ELEMENTARY_FILE_TYPE:
-                    for (Pair<AdnRecord, MatrixCursor.RowBuilder> row : rowBuilders) {
-                        row.second.add(args.efType);
+                    for (int i = 0; i < rowBuilders.size(); i++) {
+                        rowBuilders.valueAt(i).add(args.efType);
                     }
                     break;
                 case SimRecords.RECORD_NUMBER:
-                    for (Pair<AdnRecord, MatrixCursor.RowBuilder> row : rowBuilders) {
-                        row.second.add(row.first.getRecId());
+                    for (int i = 0; i < rowBuilders.size(); i++) {
+                        int index = rowBuilders.keyAt(i);
+                        MatrixCursor.RowBuilder rowBuilder = rowBuilders.valueAt(i);
+                        // See b/201685690. The logical record number, i.e. the 1-based index in the
+                        // list, is used the rather than AdnRecord.getRecId() because getRecId is
+                        // not offset when a single logical EF is made up of multiple physical EFs.
+                        rowBuilder.add(index + 1);
                     }
                     break;
                 case SimRecords.NAME:
-                    for (Pair<AdnRecord, MatrixCursor.RowBuilder> row : rowBuilders) {
-                        row.second.add(row.first.getAlphaTag());
+                    for (int i = 0; i < rowBuilders.size(); i++) {
+                        AdnRecord record = records.get(rowBuilders.keyAt(i));
+                        rowBuilders.valueAt(i).add(record.getAlphaTag());
                     }
                     break;
                 case SimRecords.PHONE_NUMBER:
-                    for (Pair<AdnRecord, MatrixCursor.RowBuilder> row : rowBuilders) {
-                        row.second.add(row.first.getNumber());
+                    for (int i = 0; i < rowBuilders.size(); i++) {
+                        AdnRecord record = records.get(rowBuilders.keyAt(i));
+                        rowBuilders.valueAt(i).add(record.getNumber());
                     }
                     break;
                 default:
@@ -765,19 +778,8 @@ public class SimPhonebookProvider extends ContentProvider {
         if (records == null || args.recordNumber > records.size()) {
             return null;
         }
-        AdnRecord result = records.get(args.recordNumber - 1);
-        // This should be true but the service could have a different implementation.
-        if (result.getRecId() == args.recordNumber) {
-            return result;
-        }
-        for (AdnRecord record : records) {
-            if (record.getRecId() == args.recordNumber) {
-                return result;
-            }
-        }
-        return null;
+        return records.get(args.recordNumber - 1);
     }
-
 
     private int[] getRecordsSizeForEf(PhonebookArgs args) {
         try {

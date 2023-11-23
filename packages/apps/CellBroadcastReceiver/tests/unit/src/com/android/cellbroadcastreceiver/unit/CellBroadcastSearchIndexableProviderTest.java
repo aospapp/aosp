@@ -25,12 +25,14 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.database.Cursor;
+import android.os.Vibrator;
 
 import com.android.cellbroadcastreceiver.CellBroadcastSearchIndexableProvider;
 import com.android.cellbroadcastreceiver.R;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 
 public class CellBroadcastSearchIndexableProviderTest extends CellBroadcastTest {
     CellBroadcastSearchIndexableProvider mSearchIndexableProvider;
@@ -64,10 +66,17 @@ public class CellBroadcastSearchIndexableProviderTest extends CellBroadcastTest 
         assertThat(cursor.getCount()).isEqualTo(1);
     }
 
+    @Mock
+    Vibrator mVibrator;
+
     @Test
     public void testQueryNonIndexableKeys() {
         doReturn(false).when(mSearchIndexableProvider).isTestAlertsToggleVisible();
         doReturn(false).when(mResources).getBoolean(anyInt());
+        doReturn("").when(mResources).getString(anyInt());
+        doReturn("test").when(mContext).getSystemServiceName(Vibrator.class);
+        doReturn(mVibrator).when(mContext).getSystemService("test");
+        doReturn(true).when(mVibrator).hasVibrator();
         Cursor cursor = mSearchIndexableProvider.queryNonIndexableKeys(new String[]{""});
 
         //KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE
@@ -82,6 +91,16 @@ public class CellBroadcastSearchIndexableProviderTest extends CellBroadcastTest 
         //KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS
         //KEY_ENABLE_ALERT_SPEECH
         //KEY_ENABLE_CMAS_PRESIDENTIAL_ALERTS
-        assertThat(cursor.getCount()).isEqualTo(10);
+        assertThat(cursor.getCount()).isEqualTo(12);
+
+        doReturn(false).when(mVibrator).hasVibrator();
+        //KEY_ENABLE_ALERT_VIBRATE
+        cursor = mSearchIndexableProvider.queryNonIndexableKeys(new String[]{""});
+        assertThat(cursor.getCount()).isEqualTo(13);
+
+        doReturn(true).when(mSearchIndexableProvider).isTestAlertsToggleVisible();
+        //KEY_ENABLE_TEST_ALERTS
+        cursor = mSearchIndexableProvider.queryNonIndexableKeys(new String[]{""});
+        assertThat(cursor.getCount()).isEqualTo(12);
     }
 }

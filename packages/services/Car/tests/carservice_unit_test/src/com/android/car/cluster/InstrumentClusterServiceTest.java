@@ -23,12 +23,17 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.car.CarAppFocusManager;
+import android.car.cluster.navigation.NavigationState.Maneuver;
+import android.car.cluster.navigation.NavigationState.Maneuver.TypeV2;
+import android.car.cluster.navigation.NavigationState.NavigationStateProto;
+import android.car.cluster.navigation.NavigationState.Step;
 import android.car.cluster.renderer.IInstrumentCluster;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.car.navigation.CarNavigationInstrumentCluster;
@@ -55,10 +60,11 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.stubbing.Answer;
 
-public class InstrumentClusterServiceTest extends AbstractExtendedMockitoTestCase {
+public final class InstrumentClusterServiceTest extends AbstractExtendedMockitoTestCase {
 
     private static final String DEFAULT_RENDERER_SERVICE =
             "com.android.car.carservice_unittest/.FakeService";
+    private static final String NAV_STATE_PROTO_BUNDLE_KEY = "navstate2";
 
     private InstrumentClusterService mService;
     private ClusterNavigationService mNavigationService;
@@ -90,6 +96,10 @@ public class InstrumentClusterServiceTest extends AbstractExtendedMockitoTestCas
         public void onKeyEvent(KeyEvent keyEvent) {
         }
     };
+
+    public InstrumentClusterServiceTest() {
+        super(InstrumentClusterService.TAG, ClusterNavigationService.TAG);
+    }
 
     @Before
     public void setUp() {
@@ -171,10 +181,56 @@ public class InstrumentClusterServiceTest extends AbstractExtendedMockitoTestCas
         verify(mContext, times(0)).bindServiceAsUser(any(), any(), anyInt(), any());
     }
 
+    @Test
+    public void sendNavigationState_navStateProtoNull_throwsException() throws Exception {
+        initService(/* connect= */ true);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mNavigationService.onNavigationStateChanged(new Bundle()));
+    }
+
+    @Test
+    public void sendNavigationState_navStateProtoNotPopulatedCorrectly_throwsException()
+            throws Exception {
+        initService(/* connect= */ true);
+
+        // Create a non valid NavigationStateProto instance where Maneuver#typeV2 is populated but
+        // Maneuver#type is not.
+        Bundle bundle = new Bundle();
+        Maneuver.Builder maneuverBuilder =
+                Maneuver.newBuilder().setTypeV2(TypeV2.ROUNDABOUT_ENTER_CW);
+        Step.Builder stepBuilder = Step.newBuilder().setManeuver(maneuverBuilder);
+        NavigationStateProto.Builder navigationStateProtoBuilder =
+                NavigationStateProto.newBuilder().addSteps(stepBuilder);
+        bundle.putByteArray(
+                NAV_STATE_PROTO_BUNDLE_KEY,
+                navigationStateProtoBuilder.build().toByteArray());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mNavigationService.onNavigationStateChanged(bundle));
+    }
+
+    @Test
+    public void sendNavigationState_navStateProtoInvalid_throwsException() throws Exception {
+        initService(/* connect= */ true);
+
+        Bundle bundle = new Bundle();
+        bundle.putByteArray(
+                NAV_STATE_PROTO_BUNDLE_KEY,
+                new byte[] {0});
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mNavigationService.onNavigationStateChanged(bundle));
+    }
+
     private void checkValidClusterNavigation() throws Exception {
         assertThat(mNavigationService.getInstrumentClusterInfo()).isEqualTo(
                 mInstrumentClusterNavigation.mClusterInfo);
         Bundle bundle = new Bundle();
+        bundle.putByteArray(
+                NAV_STATE_PROTO_BUNDLE_KEY,
+                NavigationStateProto.getDefaultInstance().toByteArray());
         mNavigationService.onNavigationStateChanged(bundle);
         assertThat(bundle).isEqualTo(mInstrumentClusterNavigation.mLastBundle);
     }

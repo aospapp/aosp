@@ -15,15 +15,12 @@
  */
 package com.android.car.rotary;
 
-import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
-
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.util.dump.DualDumpOutputStream;
 
 import java.util.HashMap;
@@ -122,7 +119,6 @@ class WindowCache {
         return mNodeCopier.copy(node);
     }
 
-    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(@NonNull DualDumpOutputStream dumpOutputStream, boolean dumpAsProto,
             @NonNull String fieldName, long fieldId) {
         long fieldToken = dumpOutputStream.start(fieldName, fieldId);

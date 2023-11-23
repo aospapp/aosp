@@ -14,19 +14,29 @@ rust_defaults {
         "libandroid_logger",
         "libanyhow",
         "libauthfs_crypto_bindgen",
+        "libauthfs_fsverity_metadata",
+        "libbinder_rpc_unstable_bindgen",
+        "libbinder_rs",
         "libcfg_if",
+        "libfsverity_digests_proto_rust",
         "libfuse_rust",
         "liblibc",
         "liblog_rust",
+        "libnix",
+        "libprotobuf",
         "libstructopt",
         "libthiserror",
     ],
+    prefer_rlib: true,
     target: {
         darwin: {
             enabled: false,
         },
     },
-    shared_libs: ["libcrypto"],
+    shared_libs: [
+        "libcrypto",
+        "libbinder_rpc_unstable",
+    ],
     defaults: ["crosvm_defaults"],
 }
 
@@ -53,7 +63,7 @@ rust_binary {
 rust_test {
     name: "authfs_device_test_src_lib",
     defaults: ["authfs_defaults"],
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
     data: [":authfs_test_files"],
 }
 
@@ -62,14 +72,21 @@ filegroup {
     srcs: [
         "testdata/cert.der",
         "testdata/input.4k",
-        "testdata/input.4k.fsv_sig",
-        "testdata/input.4k.merkle_dump",
+        "testdata/input.4k.fsv_meta",
         "testdata/input.4k1",
-        "testdata/input.4k1.fsv_sig",
-        "testdata/input.4k1.merkle_dump",
+        "testdata/input.4k1.fsv_meta",
         "testdata/input.4m",
-        "testdata/input.4m.fsv_sig",
-        "testdata/input.4m.merkle_dump",
-        "testdata/input.4m.merkle_dump.bad",
+        "testdata/input.4m.fsv_meta",
+        "testdata/input.4m.fsv_meta.bad_merkle",
     ],
+}
+
+rust_test {
+    name: "libauthfs_crypto_bindgen_test",
+    srcs: [":libauthfs_crypto_bindgen"],
+    crate_name: "authfs_crypto_bindgen_test",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    clippy_lints: "none",
+    lints: "none",
 }

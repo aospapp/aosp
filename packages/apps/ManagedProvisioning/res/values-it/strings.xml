@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"La seguente app gestirà il tuo dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Avanti"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurazione profilo di lavoro…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Il tuo amministratore IT ha la possibilità di monitorare e gestire le impostazioni, l\'accesso aziendale, le app, le autorizzazioni e i dati associati a questo profilo, tra cui le tue attività in rete, oltre alla posizione del dispositivo, la cronologia delle chiamate e la cronologia delle ricerche dei contatti.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Contatta l\'amministratore IT per ulteriori informazioni, comprese le norme sulla privacy della tua organizzazione."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"L\'amministratore IT può monitorare e gestire impostazioni, accesso aziendale, app, autorizzazioni, dati e attività di rete associati a questo profilo, incluse la cronologia chiamate e la cronologia delle ricerche dei contatti. Contatta l\'amministratore IT per avere ulteriori informazioni e scoprire di più sulle norme sulla privacy della tua organizzazione."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Il tuo amministratore IT ha la possibilità di monitorare e gestire le impostazioni, l\'accesso aziendale, le app, le autorizzazioni e i dati associati a questo dispositivo, tra cui le tue attività in rete, oltre alla posizione del dispositivo, la cronologia delle chiamate e la cronologia delle ricerche dei contatti.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Contatta l\'amministratore IT per ulteriori informazioni, comprese le norme sulla privacy della tua organizzazione."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> può installare l\'app <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> per consentirti di effettuare pagamenti per questo dispositivo."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Questo dispositivo potrebbe essere limitato"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> può limitare l\'accesso a questo dispositivo se non effettui pagamenti."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Impossibile configurare il dispositivo. Contatta l\'amministratore IT e comunica l\'errore \"Checksum non valido\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Riprova più tardi o chiedi assistenza all\'amministratore IT"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Impossibile configurare il dispositivo. Contatta l\'amministratore IT e comunica l\'errore \"Componenti mancanti o danneggiati\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configurazione in corso…"</string>
 </resources>

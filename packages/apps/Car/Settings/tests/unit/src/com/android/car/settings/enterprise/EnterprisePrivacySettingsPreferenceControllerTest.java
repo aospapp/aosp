@@ -15,16 +15,20 @@
  */
 package com.android.car.settings.enterprise;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
+
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 
 public final class EnterprisePrivacySettingsPreferenceControllerTest
-        extends BasePreferenceControllerTestCase {
+        extends BaseEnterprisePrivacyPreferenceControllerTestCase {
 
     private EnterprisePrivacySettingsPreferenceController mController;
 
@@ -35,6 +39,36 @@ public final class EnterprisePrivacySettingsPreferenceControllerTest
     public void setController() {
         mController = new EnterprisePrivacySettingsPreferenceController(mSpiedContext,
                 mPreferenceKey, mFragmentController, mUxRestrictions);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_noFeature() {
+        mockNoDeviceAdminFeature();
+
+        // Must use new controller as availability is set on constructor
+        EnterprisePrivacySettingsPreferenceController controller =
+                new EnterprisePrivacySettingsPreferenceController(mSpiedContext, mPreferenceKey,
+                        mFragmentController, mUxRestrictions);
+
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+
+    @Test
+    public void testGetAvailabilityStatus_noDeviceOwner() {
+        mockNoDeviceOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                UNSUPPORTED_ON_DEVICE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_withDeviceOwner() {
+        mockDeviceOwner();
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                AVAILABLE);
     }
 
     @Test

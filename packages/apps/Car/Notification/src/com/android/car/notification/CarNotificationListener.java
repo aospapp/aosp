@@ -126,8 +126,8 @@ public class CarNotificationListener extends NotificationListenerService impleme
             return;
         }
 
-        Log.d(TAG, "onNotificationPosted: " + sbn);
         if (DEBUG) {
+            Log.d(TAG, "onNotificationPosted: " + sbn);
             Log.d(TAG, "Is incoming notification a group summary?: "
                     + sbn.getNotification().isGroupSummary());
         }
@@ -151,7 +151,10 @@ public class CarNotificationListener extends NotificationListenerService impleme
             return;
         }
 
-        Log.d(TAG, "onNotificationRemoved: " + sbn);
+        if (DEBUG) {
+            Log.d(TAG, "onNotificationRemoved: " + sbn);
+        }
+
         AlertEntry alertEntry = mActiveNotifications.get(sbn.getKey());
 
         if (alertEntry != null) {

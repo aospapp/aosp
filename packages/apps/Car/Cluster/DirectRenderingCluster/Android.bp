@@ -43,7 +43,6 @@ android_app {
         "car-media-common",
         "car-telephony-common",
         "car-apps-common",
-        "com.android.car.internal.common",
     ],
 
     libs: ["android.car"],

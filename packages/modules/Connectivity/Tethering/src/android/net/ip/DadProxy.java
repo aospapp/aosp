@@ -16,10 +16,11 @@
 
 package android.net.ip;
 
-import android.net.util.InterfaceParams;
 import android.os.Handler;
 
 import androidx.annotation.VisibleForTesting;
+
+import com.android.net.module.util.InterfaceParams;
 
 /**
  * Basic Duplicate address detection proxy.

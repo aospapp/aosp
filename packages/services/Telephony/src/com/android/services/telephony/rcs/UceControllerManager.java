@@ -206,10 +206,11 @@ public class UceControllerManager implements RcsFeatureController.Feature {
      *
      * @throws ImsException if the ImsService connected to this controller is currently down.
      */
-    public @PublishState int getUcePublishState() throws ImsException {
+    public @PublishState int getUcePublishState(boolean isSupportPublishingState)
+            throws ImsException {
         Future<Integer> future = mExecutorService.submit(() -> {
             checkUceControllerState();
-            return mUceController.getUcePublishState();
+            return mUceController.getUcePublishState(isSupportPublishingState);
         });
 
         try {
@@ -390,10 +391,11 @@ public class UceControllerManager implements RcsFeatureController.Feature {
      *
      * @throws ImsException if the ImsService connected to this controller is currently down.
      */
-    public void registerPublishStateCallback(IRcsUcePublishStateCallback c) throws ImsException {
+    public void registerPublishStateCallback(IRcsUcePublishStateCallback c,
+            boolean supportPublishingState) throws ImsException {
         Future future = mExecutorService.submit(() -> {
             checkUceControllerState();
-            mUceController.registerPublishStateCallback(c);
+            mUceController.registerPublishStateCallback(c, supportPublishingState);
             return true;
         });
 

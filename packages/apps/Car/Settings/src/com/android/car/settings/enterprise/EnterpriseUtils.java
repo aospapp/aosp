@@ -15,6 +15,7 @@
  */
 package com.android.car.settings.enterprise;
 
+import android.Manifest;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.admin.DeviceAdminInfo;
@@ -46,6 +47,17 @@ public final class EnterpriseUtils {
     // TODO: ideally, we should not create a special user restriction other than what are
     // defined in UserManager.
     public static final String DISABLED_INPUT_METHOD = "disabled-input-method";
+
+    static final String[] CAMERA_PERMISSIONS = new String[] {
+            Manifest.permission.CAMERA
+    };
+    static final String[] LOCATION_PERMISSIONS = new String[] {
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    };
+    static final String[] MICROPHONE_PERMISSIONS = new String[] {
+            Manifest.permission.RECORD_AUDIO
+    };
 
     /**
      * Gets the active admin for the given package.
@@ -122,6 +134,14 @@ public final class EnterpriseUtils {
     public static boolean hasUserRestrictionByUm(Context context, String restriction) {
         return getUserManager(context)
                 .hasBaseUserRestriction(restriction, UserHandle.of(context.getUserId()));
+    }
+
+    /**
+     * Checks whether the device is managed.
+     */
+    public static boolean isDeviceManaged(Context context) {
+        DevicePolicyManager dpm = getDevicePolicyManager(context);
+        return dpm.isDeviceManaged();
     }
 
     /**

@@ -179,6 +179,12 @@ public class WifiEntryListPreferenceController extends
             wifiEntryPreference.setSecondaryActionVisible(true);
         }
 
+        // Since this preference is dynamically created, it doesn't have the dpm behaviors set
+        wifiEntryPreference.setEnabled(getPreference().isEnabled());
+        wifiEntryPreference.setClickableWhileDisabled(true);
+        wifiEntryPreference.setDisabledClickListener(p ->
+                WifiUtil.runClickableWhileDisabled(getContext(), getFragmentController()));
+
         return wifiEntryPreference;
     }
 

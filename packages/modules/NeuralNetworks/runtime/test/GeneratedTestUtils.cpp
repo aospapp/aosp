@@ -16,7 +16,11 @@
 
 #include "GeneratedTestUtils.h"
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/mapped_file.h>
+#include <android-base/unique_fd.h>
+#include <android/sharedmem.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -28,7 +32,6 @@
 #include "TestHarness.h"
 
 #ifdef NNTEST_SLTS
-#include <android/hardware_buffer.h>
 #include "SupportLibraryWrapper.h"
 #else
 #include "TestNeuralNetworksWrapper.h"
@@ -52,62 +55,61 @@ static OperandType getOperandType(const TestOperand& op, bool testDynamicOutputS
     }
 }
 
-// A Memory object that owns AHardwareBuffer
-class MemoryAHWB : public Memory {
+// A Memory object with a memory mapping
+class MemoryWithPointer : public Memory {
    public:
 #ifdef NNTEST_SLTS
-    static std::unique_ptr<MemoryAHWB> create(const NnApiSupportLibrary* nnapi, uint32_t size) {
-#else
-    static std::unique_ptr<MemoryAHWB> create(uint32_t size) {
-#endif
-        const uint64_t usage =
-                AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
-        AHardwareBuffer_Desc desc = {
-                .width = size,
-                .height = 1,
-                .layers = 1,
-                .format = AHARDWAREBUFFER_FORMAT_BLOB,
-                .usage = usage,
-        };
-        AHardwareBuffer* ahwb = nullptr;
-        EXPECT_EQ(AHardwareBuffer_allocate(&desc, &ahwb), 0);
-        EXPECT_NE(ahwb, nullptr);
+    static std::unique_ptr<MemoryWithPointer> create(const NnApiSupportLibrary* nnapi,
+                                                     uint32_t size) {
+#else   // NNTEST_SLTS
+    static std::unique_ptr<MemoryWithPointer> create(uint32_t size) {
+#endif  // NNTEST_SLTS
 
-        void* buffer = nullptr;
-        EXPECT_EQ(AHardwareBuffer_lock(ahwb, usage, -1, nullptr, &buffer), 0);
-        EXPECT_NE(buffer, nullptr);
+        CHECK_GT(size, 0u);
+#ifdef __ANDROID__
+        auto fd = base::unique_fd(ASharedMemory_create(nullptr, size));
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        base::unique_fd fd(tmpFile.release());
+        CHECK_EQ(ftruncate(fd.get(), size), 0);
+#endif  // __ANDROID__
+        EXPECT_TRUE(fd.ok());
+        const int protect = PROT_READ | PROT_WRITE;
+        const size_t offset = 0;
+        auto mapping = base::MappedFile::FromFd(fd.get(), offset, size, protect);
+        EXPECT_NE(mapping, nullptr);
 
 #ifdef NNTEST_SLTS
-        return std::unique_ptr<MemoryAHWB>(new MemoryAHWB(nnapi, ahwb, buffer));
-#else
-        return std::unique_ptr<MemoryAHWB>(new MemoryAHWB(ahwb, buffer));
-#endif
+        return std::unique_ptr<MemoryWithPointer>(
+                new MemoryWithPointer(nnapi, size, protect, fd.get(), offset, std::move(mapping)));
+#else   // NNTEST_SLTS
+        return std::unique_ptr<MemoryWithPointer>(
+                new MemoryWithPointer(size, protect, fd.get(), offset, std::move(mapping)));
+#endif  // NNTEST_SLTS
     }
 
-    ~MemoryAHWB() override {
-        EXPECT_EQ(AHardwareBuffer_unlock(mAhwb, nullptr), 0);
-        AHardwareBuffer_release(mAhwb);
-    }
-
-    void* getPointer() const { return mBuffer; }
+    uint8_t* getPointer() const { return reinterpret_cast<uint8_t*>(mMapping->data()); }
 
    private:
 #ifdef NNTEST_SLTS
-    MemoryAHWB(const NnApiSupportLibrary* nnapi, AHardwareBuffer* ahwb, void* buffer)
-        : Memory(nnapi, ahwb, false, {}), mAhwb(ahwb), mBuffer(buffer) {}
+    MemoryWithPointer(const NnApiSupportLibrary* nnapi, size_t size, int protect, int fd,
+                      size_t offset, std::unique_ptr<base::MappedFile> mapping)
+        : Memory(nnapi, size, protect, fd, offset), mMapping(std::move(mapping)) {}
 #else
-    MemoryAHWB(AHardwareBuffer* ahwb, void* buffer) : Memory(ahwb), mAhwb(ahwb), mBuffer(buffer) {}
+    MemoryWithPointer(size_t size, int protect, int fd, size_t offset,
+                      std::unique_ptr<base::MappedFile> mapping)
+        : Memory(size, protect, fd, offset), mMapping(std::move(mapping)) {}
 #endif
 
-    AHardwareBuffer* mAhwb;
-    void* mBuffer;
+    std::unique_ptr<base::MappedFile> mMapping;
 };
 
 #ifdef NNTEST_SLTS
-static std::unique_ptr<MemoryAHWB> createConstantReferenceMemory(const NnApiSupportLibrary* nnapi,
-                                                                 const TestModel& testModel) {
+static std::unique_ptr<MemoryWithPointer> createConstantReferenceMemory(
+        const NnApiSupportLibrary* nnapi, const TestModel& testModel) {
 #else
-static std::unique_ptr<MemoryAHWB> createConstantReferenceMemory(const TestModel& testModel) {
+static std::unique_ptr<MemoryWithPointer> createConstantReferenceMemory(
+        const TestModel& testModel) {
 #endif
     uint32_t size = 0;
 
@@ -124,15 +126,15 @@ static std::unique_ptr<MemoryAHWB> createConstantReferenceMemory(const TestModel
         processSubgraph(subgraph);
     }
 #ifdef NNTEST_SLTS
-    return size == 0 ? nullptr : MemoryAHWB::create(nnapi, size);
+    return size == 0 ? nullptr : MemoryWithPointer::create(nnapi, size);
 #else
-    return size == 0 ? nullptr : MemoryAHWB::create(size);
+    return size == 0 ? nullptr : MemoryWithPointer::create(size);
 #endif
 }
 
 static void createModelFromSubgraph(const TestSubgraph& subgraph, bool testDynamicOutputShape,
                                     const std::vector<TestSubgraph>& refSubgraphs,
-                                    const std::unique_ptr<MemoryAHWB>& memory,
+                                    const std::unique_ptr<MemoryWithPointer>& memory,
                                     uint32_t* memoryOffset, Model* model, Model* refModels) {
     // Operands.
     for (const auto& operand : subgraph.operands) {
@@ -145,8 +147,7 @@ static void createModelFromSubgraph(const TestSubgraph& subgraph, bool testDynam
             } break;
             case TestOperandLifeTime::CONSTANT_REFERENCE: {
                 const uint32_t length = operand.data.size();
-                std::memcpy(static_cast<uint8_t*>(memory->getPointer()) + *memoryOffset,
-                            operand.data.get<void>(), length);
+                std::memcpy(memory->getPointer() + *memoryOffset, operand.data.get<void>(), length);
                 model->setOperandValueFromMemory(index, memory.get(), *memoryOffset, length);
                 *memoryOffset += operand.data.alignedSize();
             } break;
@@ -193,9 +194,9 @@ void createModel(const TestModel& testModel, bool testDynamicOutputShape, Genera
     ASSERT_NE(nullptr, model);
 
 #ifdef NNTEST_SLTS
-    std::unique_ptr<MemoryAHWB> memory = createConstantReferenceMemory(nnapi, testModel);
+    std::unique_ptr<MemoryWithPointer> memory = createConstantReferenceMemory(nnapi, testModel);
 #else
-    std::unique_ptr<MemoryAHWB> memory = createConstantReferenceMemory(testModel);
+    std::unique_ptr<MemoryWithPointer> memory = createConstantReferenceMemory(testModel);
 #endif
     uint32_t memoryOffset = 0;
 #ifdef NNTEST_SLTS

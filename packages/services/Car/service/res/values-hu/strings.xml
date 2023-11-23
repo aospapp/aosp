@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Hozzáférhet az autó kameráihoz."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"hozzáférhet az autó energiafelhasználására vonatkozó adatokhoz"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Hozzáférhet az autó energiafelhasználására vonatkozó adatokhoz."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Vezérelheti az autó EJ-meghajtásának töltési beállításait."</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Vezérelheti autója EJ-meghajtásának töltési beállításait."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"az autó fennmaradó hatótávolságának módosítása"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Az autó fennmaradó hatótávolságának módosítása."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"hozzáférhet az autó HVAC-adataihoz"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Engedélyezheti az alkalmazásnak a műszerfalon megjelenítendő tevékenységek bejelentését"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"A műszerfal vezérlése"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Az alkalmazások műszerfalon való indítása"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Műszerfal navigációs állapota"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"A műszerfal navigációs állapota változásainak figyelése"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Műszerfalon való megjelenítés"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Műszerfaladatok fogadása"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Felhasználói élményre vonatkozó korlátozások beállítása"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Engedélyezi az Occupant Awareness System észlelési grafikonjának indítását és leállítását"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Az autó beviteli szolgáltatása"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Kezelheti a beviteli eseményeket"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"A CAN-busz hibát észlelt"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"A CAN-busz nem válaszol. Csatlakoztassa újra a fejegységet, és indítsa újra az autót."</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Vezetés közben nem használhatja ezt a funkciót"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Ha biztonságos alkalmazásfunkciókkal szeretné újrakezdeni, válassza a következő gombot: <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Vissza"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Alkalmazás bezárása"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Vissza"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"olvashatja a diagnosztikai adatokat"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Olvashatja az autó diagnosztikai adatait."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"törölheti a diagnosztikai adatokat"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Vezérelheti az autó üléseit."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"hozzáférhet az autó alapvető adataihoz"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Hozzáférhet az autó alapvető adataihoz."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"hozzáférés az autó korlátozott hozzáférésű információihoz"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Hozzáférés az autó korlátozott hozzáférésű információihoz."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"hozzáférhet az autó gyártóengedélyeivel kapcsolatos adataihoz"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Hozzáférhet az autó gyártóengedélyeivel kapcsolatos adataihoz."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"olvashatja az autó külső világításának állapotáról szóló adatokat"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Olvashatja az autó energiaellátási házirendjét."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"vezérelheti az autó energiaellátási házirendjét"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Vezérelheti az autó energiaellátási házirendjét."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"leállítási folyamat módosítása"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Leállítási folyamat módosítása."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"sablonok renderelése"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Sablonok renderelése."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"alkalmazásindítás vezérlése"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Alkalmazásindítás vezérlése."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"A CAN-busz hibát észlelt"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"A CAN-busz nem válaszol. Csatlakoztassa újra a fejegységet, és indítsa újra az autót."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Saját eszköz"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Vendég"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Alapértelmezett fontosságú"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Fontos"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"A gyári beállítások visszaállítása szükséges"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Az infotainmentrendszer minden adata törlésre kerül. A visszaállítás után új profilt állíthat be."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Több"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Infotainmentrendszer visszaállítása"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"A rendszer a gyári beállítások visszaállítására és az összes adat törlésére vonatkozó kérést kapott. Visszaállíthatja a beállításokat most, vagy az autó következő elindításakor automatikusan megtörténik a visszaállítás. Ezt követően új profilt állíthat be."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Visszaállítás most"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Visszaállítás később"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"A rendszer a következő indításkor áll vissza."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"A visszaállításhoz le kell parkolni az autót."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"A(z) <xliff:g id="ID_1">^1</xliff:g> befolyásolja a rendszer teljesítményét"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Az alkalmazás letiltásával javíthatja a rendszer teljesítményét. Az alkalmazást a Beállítások között engedélyezheti újra."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Adjon prioritást az alkalmazásnak, hogy továbbra is használhassa."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Az alkalmazás eltávolításával javíthatja a rendszer teljesítményét."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Alkalmazás letiltása"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Alkalmazás rangsorolása"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Alkalmazás eltávolítása"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"A(z) <xliff:g id="ID_1">^1</xliff:g> le lett tiltva. A Beállítások között ismét bekapcsolhatja."</string>
 </resources>

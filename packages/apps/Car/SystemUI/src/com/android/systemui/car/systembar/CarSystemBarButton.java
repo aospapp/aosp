@@ -16,6 +16,9 @@
 
 package com.android.systemui.car.systembar;
 
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.ActivityTaskManager;
@@ -25,6 +28,7 @@ import android.content.Intent;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -40,7 +44,6 @@ import com.android.systemui.R;
 import com.android.systemui.statusbar.AlphaOptimizedImageView;
 
 import java.net.URISyntaxException;
-import java.util.List;
 
 /**
  * CarSystemBarButton is an image button that allows for a bit more configuration at the
@@ -58,7 +61,6 @@ public class CarSystemBarButton extends LinearLayout {
     private static final float DISABLED_ALPHA = 0.25f;
 
     private final Context mContext;
-    private final ActivityTaskManager mActivityTaskManager;
     private final ActivityManager mActivityManager;
     private AlphaOptimizedImageView mIcon;
     private AlphaOptimizedImageView mMoreIcon;
@@ -66,6 +68,7 @@ public class CarSystemBarButton extends LinearLayout {
     private String mIntent;
     private String mLongIntent;
     private boolean mBroadcastIntent;
+    /** Whether to clear the backstack (i.e. put the home activity directly behind) when pressed */
     private boolean mClearBackStack;
     private boolean mHasUnseen = false;
     private boolean mSelected = false;
@@ -91,7 +94,6 @@ public class CarSystemBarButton extends LinearLayout {
     public CarSystemBarButton(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
-        mActivityTaskManager = ActivityTaskManager.getInstance();
         mActivityManager = mContext.getSystemService(ActivityManager.class);
         View.inflate(mContext, R.layout.car_system_bar_button, /* root= */ this);
         // CarSystemBarButton attrs
@@ -115,9 +117,7 @@ public class CarSystemBarButton extends LinearLayout {
         super.setSelected(selected);
         mSelected = selected;
 
-        if (mHighlightWhenSelected) {
-            mIcon.setAlpha(mSelected ? mSelectedAlpha : mUnselectedAlpha);
-        }
+        refreshIconAlpha();
 
         if (mShowMoreWhenSelected && mMoreIcon != null) {
             mMoreIcon.setVisibility(selected ? VISIBLE : GONE);
@@ -317,6 +317,8 @@ public class CarSystemBarButton extends LinearLayout {
             boolean startState = mSelected;
             mContext.sendBroadcastAsUser(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS),
                     UserHandle.CURRENT);
+
+            boolean intentLaunched = false;
             try {
                 if (mBroadcastIntent) {
                     mContext.sendBroadcastAsUser(toSend, UserHandle.CURRENT);
@@ -326,19 +328,24 @@ public class CarSystemBarButton extends LinearLayout {
                 options.setLaunchDisplayId(mContext.getDisplayId());
                 mContext.startActivityAsUser(toSend, options.toBundle(),
                         UserHandle.CURRENT);
-
-                if (mClearBackStack) {
-                    List<ActivityManager.RunningTaskInfo> runningTasks =
-                            mActivityTaskManager.getTasks(1);
-                    if (!runningTasks.isEmpty()) {
-                        mActivityManager.moveTaskToFront(runningTasks.get(0).taskId,
-                                ActivityManager.MOVE_TASK_WITH_HOME);
-                    } else {
-                        Log.e(TAG, "No backstack to clear");
-                    }
-                }
+                intentLaunched = true;
             } catch (Exception e) {
                 Log.e(TAG, "Failed to launch intent", e);
+            }
+
+            if (intentLaunched && mClearBackStack) {
+                try {
+                    ActivityTaskManager.RootTaskInfo rootTaskInfo =
+                            ActivityTaskManager.getService().getRootTaskInfoOnDisplay(
+                                    WINDOWING_MODE_FULLSCREEN, ACTIVITY_TYPE_UNDEFINED,
+                                    mContext.getDisplayId());
+                    if (rootTaskInfo != null) {
+                        mActivityManager.moveTaskToFront(rootTaskInfo.taskId,
+                                ActivityManager.MOVE_TASK_WITH_HOME);
+                    }
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Failed getting root task info", e);
+                }
             }
 
             if (mToggleSelectedState && (startState == mSelected)) {
@@ -408,9 +415,7 @@ public class CarSystemBarButton extends LinearLayout {
         if (mDisabled) {
             mIcon.setAlpha(DISABLED_ALPHA);
         } else {
-            // Apply un-selected alpha regardless of if the button toggles alpha based on
-            // selection state.
-            mIcon.setAlpha(mHighlightWhenSelected ? mUnselectedAlpha : mSelectedAlpha);
+            mIcon.setAlpha(mHighlightWhenSelected && mSelected ? mSelectedAlpha : mUnselectedAlpha);
         }
     }
 }

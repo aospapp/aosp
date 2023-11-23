@@ -24,6 +24,7 @@ import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 
 import androidx.annotation.CallSuper;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
@@ -43,7 +44,8 @@ public abstract class ProfilesBasePreferenceController extends
     private ProfilesPreferenceProvider mPreferenceProvider;
     private List<Preference> mProfilesToDisplay = new ArrayList<>();
 
-    private final BroadcastReceiver mProfileUpdateReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mProfileUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             /** Update screen when profiles list is updated. */

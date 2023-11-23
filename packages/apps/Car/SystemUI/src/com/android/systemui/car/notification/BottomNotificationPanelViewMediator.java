@@ -54,8 +54,7 @@ public class BottomNotificationPanelViewMediator extends NotificationPanelViewMe
     }
 
     @Override
-    public void registerListeners() {
-        super.registerListeners();
+    protected void registerBottomBarTouchListener() {
         getCarSystemBarController().registerBottomBarTouchListener(
                 getNotificationPanelViewController().getDragOpenTouchListener());
     }

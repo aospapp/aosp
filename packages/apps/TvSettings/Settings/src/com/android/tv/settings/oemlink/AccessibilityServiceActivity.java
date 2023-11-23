@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.oemlink;
 
-import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Bundle;
@@ -27,7 +27,6 @@ import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
 import com.android.tv.settings.accessibility.AccessibilityServiceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.List;
 
@@ -38,7 +37,7 @@ public class AccessibilityServiceActivity extends TvSettingsActivity {
     private static final String A11Y_SERVICE_INFO_EXTRA = "accessibilityServiceInfo";
 
     @Override
-    protected Fragment createSettingsFragment()  {
+    protected Fragment createSettingsFragment() {
         if (getIntent() == null || getIntent().getExtras() == null
                 || getIntent().getExtras().getParcelable(A11Y_SERVICE_INFO_EXTRA) == null) {
             Log.e(TAG, "No accessibility info extras, returning null");
@@ -61,7 +60,8 @@ public class AccessibilityServiceActivity extends TvSettingsActivity {
                 a11yServiceInfo.getResolveInfo().serviceInfo.name,
                 a11yServiceInfo.getSettingsActivityName(),
                 a11yServiceInfo.getResolveInfo().loadLabel(this.getPackageManager()).toString());
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(AccessibilityServiceFragment.class.getName(), args);
     }
 

@@ -17,7 +17,9 @@
 #include <android-base/logging.h>
 #include <nnapi/OperandTypes.h>
 #include <nnapi/OperationTypes.h>
+#include <nnapi/Result.h>
 #include <nnapi/SharedMemory.h>
+#include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
 
 #include <algorithm>
@@ -32,7 +34,6 @@
 namespace android::nn::test {
 namespace {
 
-using ::test_helper::TestBuffer;
 using ::test_helper::TestModel;
 using ::test_helper::TestOperand;
 using ::test_helper::TestOperandLifeTime;
@@ -40,13 +41,13 @@ using ::test_helper::TestOperandType;
 using ::test_helper::TestOperation;
 using ::test_helper::TestSubgraph;
 
-Operand createOperand(const TestOperand& operand, Model::OperandValues* operandValues,
-                      ConstantMemoryBuilder* memoryBuilder) {
+Result<Operand> createOperand(const TestOperand& operand, Model::OperandValues* operandValues,
+                              ConstantMemoryBuilder* memoryBuilder) {
     CHECK(operandValues != nullptr);
     CHECK(memoryBuilder != nullptr);
 
     const OperandType type = static_cast<OperandType>(operand.type);
-    const Operand::LifeTime lifetime = static_cast<Operand::LifeTime>(operand.lifetime);
+    Operand::LifeTime lifetime = static_cast<Operand::LifeTime>(operand.lifetime);
 
     DataLocation location;
     switch (operand.lifetime) {
@@ -56,12 +57,20 @@ Operand createOperand(const TestOperand& operand, Model::OperandValues* operandV
         case TestOperandLifeTime::NO_VALUE:
             break;
         case TestOperandLifeTime::CONSTANT_COPY:
-            location = operandValues->append(operand.data.get<uint8_t>(), operand.data.size());
+        case TestOperandLifeTime::CONSTANT_REFERENCE: {
+            const auto size = operand.data.size();
+            if (size == 0) {
+                lifetime = Operand::LifeTime::NO_VALUE;
+            } else {
+                location = (operand.lifetime == TestOperandLifeTime::CONSTANT_COPY)
+                                   ? operandValues->append(operand.data.get<uint8_t>(), size)
+                                   : memoryBuilder->append(operand.data.get<void>(), size);
+            }
             break;
-        case TestOperandLifeTime::CONSTANT_REFERENCE:
-            location = memoryBuilder->append(operand.data.get<void>(), operand.data.size());
-            break;
+        }
         case TestOperandLifeTime::SUBGRAPH:
+            NN_RET_CHECK(operand.data.get<uint32_t>() != nullptr);
+            NN_RET_CHECK_GE(operand.data.size(), sizeof(uint32_t));
             location = {.offset = *operand.data.get<uint32_t>()};
             break;
     }
@@ -73,7 +82,7 @@ Operand createOperand(const TestOperand& operand, Model::OperandValues* operandV
                                                    .channelDim = operand.channelQuant.channelDim};
     }
 
-    return {
+    return Operand{
             .type = type,
             .dimensions = operand.dimensions,
             .scale = operand.scale,
@@ -84,17 +93,15 @@ Operand createOperand(const TestOperand& operand, Model::OperandValues* operandV
     };
 }
 
-Model::Subgraph createSubgraph(const TestSubgraph& testSubgraph,
-                               Model::OperandValues* operandValues,
-                               ConstantMemoryBuilder* memoryBuilder) {
+Result<Model::Subgraph> createSubgraph(const TestSubgraph& testSubgraph,
+                                       Model::OperandValues* operandValues,
+                                       ConstantMemoryBuilder* memoryBuilder) {
     // Operands.
     std::vector<Operand> operands;
     operands.reserve(testSubgraph.operands.size());
-    std::transform(testSubgraph.operands.begin(), testSubgraph.operands.end(),
-                   std::back_inserter(operands),
-                   [operandValues, memoryBuilder](const TestOperand& operand) {
-                       return createOperand(operand, operandValues, memoryBuilder);
-                   });
+    for (const auto& operand : testSubgraph.operands) {
+        operands.push_back(NN_TRY(createOperand(operand, operandValues, memoryBuilder)));
+    }
 
     // Operations.
     std::vector<Operation> operations;
@@ -106,57 +113,58 @@ Model::Subgraph createSubgraph(const TestSubgraph& testSubgraph,
                                .outputs = op.outputs};
                    });
 
-    return {.operands = std::move(operands),
-            .operations = std::move(operations),
-            .inputIndexes = testSubgraph.inputIndexes,
-            .outputIndexes = testSubgraph.outputIndexes};
+    return Model::Subgraph{.operands = std::move(operands),
+                           .operations = std::move(operations),
+                           .inputIndexes = testSubgraph.inputIndexes,
+                           .outputIndexes = testSubgraph.outputIndexes};
 }
 
 }  // namespace
 
-Model createModel(const TestModel& testModel) {
+GeneralResult<Model> createModel(const TestModel& testModel) {
     Model::OperandValues operandValues;
     ConstantMemoryBuilder memoryBuilder(0);
 
-    Model::Subgraph mainSubgraph = createSubgraph(testModel.main, &operandValues, &memoryBuilder);
+    Model::Subgraph mainSubgraph =
+            NN_TRY(createSubgraph(testModel.main, &operandValues, &memoryBuilder));
     std::vector<Model::Subgraph> refSubgraphs;
     refSubgraphs.reserve(testModel.referenced.size());
-    std::transform(testModel.referenced.begin(), testModel.referenced.end(),
-                   std::back_inserter(refSubgraphs),
-                   [&operandValues, &memoryBuilder](const TestSubgraph& testSubgraph) {
-                       return createSubgraph(testSubgraph, &operandValues, &memoryBuilder);
-                   });
+    for (const auto& testSubgraph : testModel.referenced) {
+        refSubgraphs.push_back(
+                NN_TRY(createSubgraph(testSubgraph, &operandValues, &memoryBuilder)));
+    }
 
     // Shared memory.
     std::vector<SharedMemory> pools;
     if (!memoryBuilder.empty()) {
-        pools.push_back(memoryBuilder.finish().value());
+        pools.push_back(NN_TRY(memoryBuilder.finish()));
     }
 
-    return {.main = std::move(mainSubgraph),
-            .referenced = std::move(refSubgraphs),
-            .operandValues = std::move(operandValues),
-            .pools = std::move(pools),
-            .relaxComputationFloat32toFloat16 = testModel.isRelaxed};
+    return Model{.main = std::move(mainSubgraph),
+                 .referenced = std::move(refSubgraphs),
+                 .operandValues = std::move(operandValues),
+                 .pools = std::move(pools),
+                 .relaxComputationFloat32toFloat16 = testModel.isRelaxed};
 }
 
-Request createRequest(const TestModel& testModel) {
-    constexpr uint32_t kInputPoolIndex = 0;
-    constexpr uint32_t kOutputPoolIndex = 1;
-
+GeneralResult<Request> createRequest(const TestModel& testModel) {
     // Model inputs.
     std::vector<Request::Argument> inputs;
     inputs.reserve(testModel.main.inputIndexes.size());
-    ConstantMemoryBuilder inputBuilder(kInputPoolIndex);
     for (uint32_t operandIndex : testModel.main.inputIndexes) {
+        NN_RET_CHECK_LT(operandIndex, testModel.main.operands.size())
+                << "createRequest failed because inputIndex of operand " << operandIndex
+                << " exceeds number of operands " << testModel.main.operands.size();
+
         const auto& op = testModel.main.operands[operandIndex];
         Request::Argument requestArgument;
         if (op.data.size() == 0) {
             // Omitted input.
             requestArgument = {.lifetime = Request::Argument::LifeTime::NO_VALUE};
         } else {
-            const DataLocation location = inputBuilder.append(op.data.get<void>(), op.data.size());
-            requestArgument = {.lifetime = Request::Argument::LifeTime::POOL,
+            const auto location = DataLocation{.pointer = op.data.get<void>(),
+                                               .length = static_cast<uint32_t>(op.data.size())};
+            requestArgument = {.lifetime = Request::Argument::LifeTime::POINTER,
                                .location = location,
                                .dimensions = op.dimensions};
         }
@@ -166,8 +174,12 @@ Request createRequest(const TestModel& testModel) {
     // Model outputs.
     std::vector<Request::Argument> outputs;
     outputs.reserve(testModel.main.outputIndexes.size());
-    MutableMemoryBuilder outputBuilder(kOutputPoolIndex);
+    MutableMemoryBuilder outputBuilder(0);
     for (uint32_t operandIndex : testModel.main.outputIndexes) {
+        NN_RET_CHECK_LT(operandIndex, testModel.main.operands.size())
+                << "createRequest failed because outputIndex of operand " << operandIndex
+                << " exceeds number of operands " << testModel.main.operands.size();
+
         const auto& op = testModel.main.operands[operandIndex];
 
         // In the case of zero-sized output, we should at least provide a one-byte buffer.
@@ -185,11 +197,13 @@ Request createRequest(const TestModel& testModel) {
     }
 
     // Model pools.
-    auto inputMemory = inputBuilder.finish().value();
-    auto outputMemory = outputBuilder.finish().value();
-    std::vector<Request::MemoryPool> pools = {std::move(inputMemory), std::move(outputMemory)};
+    std::vector<Request::MemoryPool> pools;
+    if (!outputBuilder.empty()) {
+        pools.push_back(NN_TRY(outputBuilder.finish()));
+    }
 
-    return {.inputs = std::move(inputs), .outputs = std::move(outputs), .pools = std::move(pools)};
+    return Request{
+            .inputs = std::move(inputs), .outputs = std::move(outputs), .pools = std::move(pools)};
 }
 
 }  // namespace android::nn::test

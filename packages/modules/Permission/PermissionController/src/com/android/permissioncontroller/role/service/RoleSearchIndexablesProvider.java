@@ -75,7 +75,9 @@ public class RoleSearchIndexablesProvider extends BaseSearchIndexablesProvider {
                     .add(SearchIndexablesContract.RawData.COLUMN_KEY, createRawDataKey(
                             role.getName(), context))
                     .add(SearchIndexablesContract.RawData.COLUMN_INTENT_ACTION, isExclusive
-                            ? ACTION_MANAGE_DEFAULT_APP : ACTION_MANAGE_SPECIAL_APP_ACCESS);
+                            ? ACTION_MANAGE_DEFAULT_APP : ACTION_MANAGE_SPECIAL_APP_ACCESS)
+                    .add(SearchIndexablesContract.RawData.COLUMN_SCREEN_TITLE,
+                            context.getString(R.string.default_apps));
         }
         return cursor;
     }

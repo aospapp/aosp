@@ -15,6 +15,7 @@
  */
 package android.car.test;
 
+import android.car.annotation.AddedInOrBefore;
 import android.content.Context;
 import android.location.Location;
 import android.location.LocationManager;
@@ -32,6 +33,7 @@ public class CarLocationTestHelper {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static boolean injectLocation(Location location, Context context) {
         LocationManager locationManager =
                 (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);

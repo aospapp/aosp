@@ -178,7 +178,7 @@ public class OsuNetworkConnection {
             return false;
         }
         WifiConfiguration config = new WifiConfiguration();
-        config.SSID = "\"" + ssid.toString() + "\"";
+        config.SSID = ssid.toString();
 
         // To suppress Wi-Fi has no internet access notification.
         config.noInternetAccessExpected = true;

@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"Pictograme tematice"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Schimbați grila de aplicații"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Culori de fundal"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Culoarea imaginii de fundal"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Culori de bază"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Culoare modificată"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Dinamic"</string>
 </resources>

@@ -637,16 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Ārkārtas atzvana režīms"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Datu savienojums ir atspējots."</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Datu savienojums nebūs pieejams līdz plkst. <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="zero">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūtes būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
-      <item quantity="one">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūti būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
-      <item quantity="other">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūtes būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="zero">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūtes. Vai vēlaties to aizvērt tūlīt?</item>
-      <item quantity="one">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūti. Vai vēlaties to aizvērt tūlīt?</item>
-      <item quantity="other">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūtes. Vai vēlaties to aizvērt tūlīt?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Atlasītā darbība nav pieejama, veicot ārkārtas izsaukumu."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Notiek iziešana no ārkārtas atzvana režīma"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Jā"</string>
@@ -654,11 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Noraidīt"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Tālrunis atrodas ārkārtas atzvana režīmā."</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Līdz plkst. <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="zero">Tālrunis atradīsies ārkārtas atzvana režīmā <xliff:g id="COUNT_1">%s</xliff:g> minūtes.\nVai vēlaties iziet tūlīt?</item>
-      <item quantity="one">Tālrunis atradīsies ārkārtas atzvana režīmā <xliff:g id="COUNT_1">%s</xliff:g> minūti.\nVai vēlaties iziet tūlīt?</item>
-      <item quantity="other">Tālrunis atradīsies ārkārtas atzvana režīmā <xliff:g id="COUNT_1">%s</xliff:g> minūtes.\nVai vēlaties iziet tūlīt?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Pakalpojums"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Iestatīšana"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Nav iestatīts&gt;"</string>
@@ -686,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Pieejamība"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi zvans no:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi zvans"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Pieskarieties vēlreiz, lai atvērtu."</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Atšifrējot ziņojumu, radās kļūda."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM kartē ir aktivizēts jūsu pakalpojums un atjauninātas tālruņa viesabonēšanas iespējas."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Ir pārāk daudz aktīvu zvanu. Pirms jauna zvana veikšanas pabeidziet vai apvienojiet esošos zvanus."</string>
@@ -830,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Nevar veikt zvanu, jo jau tiek sastādīts numurs citam izejošajam zvanam."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Nevar veikt zvanu, jo ir neatbildēts ienākošais zvans. Pirms jauna zvana veikšanas atbildiet uz ienākošo zvanu vai noraidiet to."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Nevar veikt zvanu, jo zvanīšana ir atspējota, izmantojot sistēmas rekvizītu ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Nevar veikt zvanu, jo pašlaik jau notiek divi zvani. Pirms jauna zvana veikšanas pārtrauciet vienu no pašreizējiem zvaniem vai apvienojiet tos konferences zvanā."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Nevar veikt zvanu, jo pašlaik jau notiek divi zvani. Pirms jauna zvana veikšanas pārtrauciet vienu no pašreizējiem zvaniem vai apvienojiet tos konferences zvanā."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Lai izmantotu pakalpojumu <xliff:g id="SUPP_SERVICE">%s</xliff:g>, jāieslēdz mobilie dati. Tos var ieslēgt mobilā tīkla iestatījumos."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Lai izmantotu pakalpojumu <xliff:g id="SUPP_SERVICE">%s</xliff:g>, jāieslēdz mobilie dati un datu viesabonēšana. Tos var ieslēgt mobilā tīkla iestatījumos."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Lai izmantotu pakalpojumu <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, jāieslēdz mobilie dati SIM kartei <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Tos var ieslēgt mobilā tīkla iestatījumos."</string>
@@ -848,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Lai mainītu šo iestatījumu, jums jārestartē ierīce."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Restartēt"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Atcelt"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Iestatīt noņemamu eSIM kā noklusējumu"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobilā tālruņa radio signāla stiprums"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Skatīt SIM adrešu grāmatu"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Skatīt ierobežotā zvanu saraksta numurus"</string>
@@ -902,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Atlasīt radio frekvenču joslu"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Balss pakalpojumu tīkla veids:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Datu tīkla veids:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Tīkla veida ignorēšana:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Atlasīt tālruņa kodu"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Iestatiet ieteicamo tīkla veidu:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ehotestēšanas saimniekdatora nosaukuma (www.google.com) IPv4:"</string>
@@ -913,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Atsvaidzināt"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Pārslēgt DNS pārbaudi"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM raksturīga informācija/iestatījumi"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC pieejamība:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ierobežojums:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR pieejamība:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR statuss:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC pieejamība (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR ierobežojums (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR pieejamība (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR stāvoklis (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR biežums:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Radio frekvenču joslu režīma iestatīšana"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Notiek joslu saraksta ielāde…"</string>

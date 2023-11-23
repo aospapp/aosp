@@ -15,11 +15,11 @@
  */
 #include "encoder.h"
 
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <limits>
 #include <string>
-
-#include <gtest/gtest.h>
 
 namespace dist_proc {
 namespace aggregation {

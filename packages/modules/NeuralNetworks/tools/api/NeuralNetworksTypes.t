@@ -25,8 +25,8 @@
  * @file NeuralNetworksTypes.h
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
 
 /******************************************************************
  *
@@ -44,11 +44,14 @@
  *   - DO NOT CHANGE THE LAYOUT OR SIZE OF STRUCTURES
  */
 
-#include <android/hardware_buffer.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/cdefs.h>
+
+#ifdef __ANDROID__
+#include <android/hardware_buffer.h>
+#endif  // __ANDROID__
 
 __BEGIN_DECLS
 
@@ -76,6 +79,14 @@ typedef enum {
     // Operations below are available since NNAPI feature level 4.
 
 %insert Operation_1.3
+
+    // Operations below are available since NNAPI feature level 6.
+
+%insert Operation_fl6
+
+    // Operations below are available since NNAPI feature level 7.
+
+%insert Operation_fl7
 } OperationCode;
 
 %insert FusedActivationFunc
@@ -149,6 +160,12 @@ typedef enum {
      * API releases.
      */
     ANEURALNETWORKS_FEATURE_LEVEL_5 = 31,
+    /** Android NNAPI feature level 6 */
+    ANEURALNETWORKS_FEATURE_LEVEL_6 = 1000006,
+    /** Android NNAPI feature level 7 */
+    ANEURALNETWORKS_FEATURE_LEVEL_7 = 1000007,
+    /** Android NNAPI feature level 8 */
+    ANEURALNETWORKS_FEATURE_LEVEL_8 = 1000008,
 } FeatureLevelCode;
 
 /**
@@ -723,6 +740,6 @@ typedef struct ANeuralNetworksMemoryDesc ANeuralNetworksMemoryDesc;
 
 __END_DECLS
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_NEURAL_NETWORKS_TYPES_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_NEURAL_NETWORKS_TYPES_H
 
 /** @} */

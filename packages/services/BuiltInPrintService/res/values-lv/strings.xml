@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Savienojumi"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Noklusējuma drukāšanas pakalpojums nevar atrast Wi-Fi Direct printerus."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Atspējot Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Noklusējuma drukāšanas pakalpojumam nepieciešama atrašanās vietas atļauja, lai noteiktu tuvumā esošas ierīces."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Lai varētu atrast tuvumā esošus printerus, noklusējuma drukāšanas pakalpojumam ir vajadzīga atļauja “Tuvumā esošas ierīces”."</string>
     <string name="fix" msgid="7784394272611365393">"Pārskatīt atļauju"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Noklusējuma drukāšanas pakalpojumam nepieciešami iespējoti atrašanās vietu pakalpojumi, lai noteiktu tuvumā esošas ierīces."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Iespējot atrašanās vietu"</string>
     <string name="print" msgid="7851318072404916362">"Drukāt"</string>
 </resources>

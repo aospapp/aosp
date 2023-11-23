@@ -107,7 +107,7 @@ public class MyServiceClient {
         mService.unregisterNetworkCallback();
     }
 
-    public void scheduleJob(JobInfo jobInfo) throws RemoteException {
-        mService.scheduleJob(jobInfo);
+    public int scheduleJob(JobInfo jobInfo) throws RemoteException {
+        return mService.scheduleJob(jobInfo);
     }
 }

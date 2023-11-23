@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"기본 카테고리 복원"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"기본 카테고리 복원됨"</string>
     <string name="default_categories" msgid="2117679794687799407">"기본"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d개 선택됨</item>
-      <item quantity="one">%d개 선택됨</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{#개 선택됨}other{#개 선택됨}}"</string>
     <string name="applications" msgid="521776761270770549">"애플리케이션"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"디버그 가능한 애플리케이션이 없습니다."</string>
     <string name="buffer_size" msgid="3944311026715111454">"CPU별 버퍼 크기"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto(베타) 사용"</string>
     <string name="long_traces" msgid="5110949471775966329">"장기 추적"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"기기 저장용량에 계속 저장됨"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"계속해서 기기 저장용량에 저장됨(버그 신고서에 자동으로 첨부되지 않음)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"최대 장기 추적 크기"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"최대 장기 추적 기간"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200MB"</string>

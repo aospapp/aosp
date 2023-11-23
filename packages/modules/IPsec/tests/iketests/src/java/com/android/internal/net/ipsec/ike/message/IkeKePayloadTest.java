@@ -116,6 +116,24 @@ public final class IkeKePayloadTest {
     }
 
     @Test
+    public void testDecodeIkeKePayloadWithUnrecognizedDh() throws Exception {
+        int expectedDhGroup = 0x0fff;
+        String unrecognizedKePayload =
+                "0fff0000b4a2faf4bb54878ae21d638512ece55d9236fc50"
+                        + "46ab6cef82220f421f3ce6361faf36564ecb6d28798a94aa"
+                        + "d7b2b4b603ddeaaa5630adb9ece8ac37534036040610ebdd"
+                        + "92f46bef84f0be7db860351843858f8acf87056e272377f7"
+                        + "0c9f2d81e29c7b0ce4f291a3a72476bb0b278fd4b7b0a4c2"
+                        + "6bbeb08214c7071376079587";
+        byte[] inputPacket = TestUtils.hexStringToByteArray(unrecognizedKePayload);
+
+        IkeKePayload payload = new IkeKePayload(CRITICAL_BIT, inputPacket);
+
+        assertFalse(payload.isOutbound);
+        assertEquals(expectedDhGroup, payload.dhGroup);
+    }
+
+    @Test
     public void testDecodeIkeKePayloadWithInvalidKeData() throws Exception {
         // Cut bytes of KE data from original KE payload
         String badKeyPayloadPacket =

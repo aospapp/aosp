@@ -16,11 +16,12 @@
 
 package com.android.car.carlauncher.homescreen.audio;
 
+import static android.car.media.CarMediaIntents.EXTRA_MEDIA_COMPONENT;
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
 
 import android.app.ActivityOptions;
 import android.app.Application;
-import android.car.Car;
+import android.car.media.CarMediaIntents;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
@@ -120,9 +121,15 @@ public class MediaViewModel extends AndroidViewModel implements HomeCardInterfac
         // If not set, activity launches in the calling TDA.
         ActivityOptions options = ActivityOptions.makeBasic();
         options.setLaunchDisplayId(Display.DEFAULT_DISPLAY);
-        v.getContext().startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE),
-                options.toBundle());
+        MediaSource mediaSource = mSourceViewModel.getPrimaryMediaSource().getValue();
+        Intent intent = new Intent(CarMediaIntents.ACTION_MEDIA_TEMPLATE);
+        if (mediaSource != null) {
+            intent.putExtra(EXTRA_MEDIA_COMPONENT,
+                    mediaSource.getBrowseServiceComponentName().flattenToString());
+        }
+        v.getContext().startActivity(intent, options.toBundle());
     }
+
 
     /**
      * Sets the Presenter, which will handle updating the UI

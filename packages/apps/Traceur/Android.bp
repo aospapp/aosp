@@ -5,8 +5,7 @@ package {
 android_app {
     name: "Traceur",
     platform_apis: true,
-    certificate: "shared",
-    privileged: true,
+    certificate: "platform",
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },
@@ -18,6 +17,7 @@ android_app {
         "androidx.preference_preference",
         "androidx.recyclerview_recyclerview",
         "androidx.legacy_legacy-support-v4",
+        "perfetto_trace_java_protos",
     ],
     resource_dirs: ["res"],
     srcs: ["src/**/*.java"],

@@ -24,19 +24,17 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.icu.text.MessageFormat;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import androidx.preference.MultiSelectListPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragment;
 import androidx.preference.PreferenceManager;
-import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -48,10 +46,9 @@ import android.widget.Toast;
 import com.android.settingslib.HelpUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
@@ -305,10 +302,14 @@ public class MainFragment extends PreferenceFragment {
 
         // Update subtitles on this screen.
         Set<String> categories = mTags.getValues();
+        MessageFormat msgFormat = new MessageFormat(
+                getResources().getString(R.string.num_categories_selected),
+                Locale.getDefault());
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("count", categories.size());
         mTags.setSummary(Receiver.getDefaultTagList().equals(categories)
                          ? context.getString(R.string.default_categories)
-                         : context.getResources().getQuantityString(R.plurals.num_categories_selected,
-                              categories.size(), categories.size()));
+                         : msgFormat.format(arguments));
 
         ListPreference bufferSize = (ListPreference)findPreference(
                 context.getString(R.string.pref_key_buffer_size));
@@ -338,14 +339,18 @@ public class MainFragment extends PreferenceFragment {
                     PackageManager.MATCH_SYSTEM_ONLY);
             findPreference(getString(R.string.pref_key_attach_to_bugreport)).setVisible(true);
             findPreference(getString(R.string.pref_key_stop_on_bugreport)).setVisible(false);
-            // TODO(b/188898919): Update summary with a warning that long traces are not
-            // automatically attached to bug reports.
+            // Changes the long traces summary to add that they cannot be attached to bugreports.
+            findPreference(getString(R.string.pref_key_long_traces))
+                    .setSummary(getString(R.string.long_traces_summary_betterbug));
         } catch (PackageManager.NameNotFoundException e) {
             // attach_to_bugreport must be disabled here because it's true by default.
             mPrefs.edit().putBoolean(
                     getString(R.string.pref_key_attach_to_bugreport), false).commit();
             findPreference(getString(R.string.pref_key_attach_to_bugreport)).setVisible(false);
             findPreference(getString(R.string.pref_key_stop_on_bugreport)).setVisible(true);
+            // Sets long traces summary to the default in case Betterbug was removed.
+            findPreference(getString(R.string.pref_key_long_traces))
+                    .setSummary(getString(R.string.long_traces_summary));
         }
 
         // Check if an activity exists to handle the trace_link_button intent. If not, hide the UI

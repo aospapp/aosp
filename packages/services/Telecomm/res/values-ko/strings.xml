@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"공중전화에서 걸려 온 통화 차단"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"알 수 없는 발신자"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"신원을 확인할 수 없는 발신자로부터 걸려 온 통화 차단"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"확인할 수 없음"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"확인할 수 없는 번호로 걸려온 전화를 차단합니다."</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"통화 차단"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"통화 차단이 사용 중지됨"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"긴급 통화가 사용됨"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"응급 구조 요원이 연락할 수 있도록 통화 차단이 사용 중지되었습니다."</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecom 개발자 메뉴"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"긴급 전화 중에는 전화를 받을 수 없습니다."</string>
+    <string name="cancel" msgid="6733466216239934756">"취소"</string>
 </resources>

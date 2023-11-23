@@ -356,6 +356,10 @@
     <string name="phone_settings_unknown_txt">Unknown</string>
     <!-- Explanatory text under the call type "phone_settings_unknown_txt". This occurs when no caller ID information unavailable (e.g., international calls, IP phones that operators cannot identify the caller) -->
     <string name="phone_settings_unknown_summary_txt">Block calls from unidentified callers</string>
+    <!-- Call type to be blocked. See the explanatory text "phone_settings_unavailable_summary_txt".  -->
+    <string name="phone_settings_unavailable_txt">Unavailable</string>
+    <!-- Explanatory text under the call type "phone_settings_unavailable_txt". -->
+    <string name="phone_settings_unavailable_summary_txt">Block calls where the number is unavailable</string>
     <!-- Notification. Make this translation consistent with "phone_settings_call_blocking_txt". -->
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt">Call Blocking</string>
     <!-- Notification that appears when the feature Call Blocking has been disabled. -->
@@ -375,4 +379,6 @@
          blocking functionality (for test purposes).
          DO NOT TRANSLATE -->
     <string name="developer_enhanced_call_blocking" translatable="false">Enhanced Call Blocking</string>
+    <!-- Button label for generic cancel action [CHAR LIMIT=20] -->
+    <string name="cancel">Cancel</string>
 </resources>

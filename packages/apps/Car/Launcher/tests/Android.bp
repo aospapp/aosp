@@ -27,17 +27,18 @@ android_test {
 
   libs: [
       "android.test.base",
-      "android.car",
+      "android.car-system-stubs",
   ],
 
   static_libs: [
+      "android.car.test.utils",
       "androidx.test.core",
       "androidx.test.runner",
       "androidx.test.espresso.core",
       "androidx.test.espresso.intents",
       "androidx.test.ext.junit",
       "hamcrest-library",
-      "mockito-target-minus-junit4",
+      "mockito-target-extended",
       "testables",
       "CarLauncher-core"
   ],
@@ -53,4 +54,10 @@ android_test {
   dex_preopt: {
       enabled: false,
   },
+
+  jni_libs: [
+      // For mockito extended
+      "libdexmakerjvmtiagent",
+      "libstaticjvmtiagent",
+  ],
 }

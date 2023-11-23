@@ -40,9 +40,9 @@
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"USSD eskaerara aldatu da deia"</string>
     <string name="callFailed_dialToSs" msgid="6749473185855000519">"SS eskaerara aldatu da deia"</string>
     <string name="callFailed_dialToDial" msgid="391531243214210803">"Beste zenbaki batera aldatu da"</string>
-    <string name="callFailed_dialToDialVideo" msgid="1405537953282276350">"Bideo-deira aldatu da"</string>
-    <string name="callFailed_dialVideoToSs" msgid="4187072851496468440">"SS eskaerara aldatu da bideo-deia"</string>
-    <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"USSD eskaerara aldatu da bideo-deia"</string>
+    <string name="callFailed_dialToDialVideo" msgid="1405537953282276350">"Bideodeira aldatu da"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4187072851496468440">"SS eskaerara aldatu da bideodeia"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"USSD eskaerara aldatu da bideodeia"</string>
     <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"Ohiko deira aldatu da"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"Beste zenbaki batera aldatu da"</string>
     <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Ezin da deitu deien debekuak aktibatuta dauden bitartean."</string>
@@ -51,7 +51,7 @@
     <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"Dei arruntak sarbide-kontrolaren bidez daude mugatuta."</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"Zenbakiak ez du balio"</string>
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"Erantzungailuaren zenbakia ezezaguna da."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Ezin da egin bideo-deirik TTY gaituta dagoenean."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Ezin da egin bideodeirik TTY gaituta dagoenean."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"Beste gailu batera transferitu da deia."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"Bat ere ez"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"Tonu ezezaguna"</string>

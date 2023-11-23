@@ -18,16 +18,16 @@
 <MotionScene xmlns:android="http://schemas.android.com/apk/res/android"
              xmlns:motion="http://schemas.android.com/apk/res-auto">
     <Transition
-        android:id="@+id/micOffFromInvisible"
+        android:id="@+id/sensorOffFromInvisible"
         motion:constraintSetStart="@id/invisible"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromInvisible"
+        android:id="@+id/sensorOffSelectedFromInvisible"
         motion:constraintSetStart="@id/invisible"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
@@ -39,16 +39,16 @@
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffFromActiveInit"
+        android:id="@+id/sensorOffFromActiveInit"
         motion:constraintSetStart="@id/active_init"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromActiveInit"
+        android:id="@+id/sensorOffSelectedFromActiveInit"
         motion:constraintSetStart="@id/active_init"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
@@ -88,30 +88,30 @@
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffFromActive"
+        android:id="@+id/sensorOffFromActive"
         motion:constraintSetStart="@id/active"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromActive"
+        android:id="@+id/sensorOffSelectedFromActive"
         motion:constraintSetStart="@id/active"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffFromActiveSelected"
+        android:id="@+id/sensorOffFromActiveSelected"
         motion:constraintSetStart="@id/active_selected"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromActiveSelected"
+        android:id="@+id/sensorOffSelectedFromActiveSelected"
         motion:constraintSetStart="@id/active_selected"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
@@ -130,50 +130,50 @@
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
 
     <Transition
-        android:id="@+id/micOffFromInactive"
+        android:id="@+id/sensorOffFromInactive"
         motion:constraintSetStart="@id/inactive"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffFromInactiveSelected"
+        android:id="@+id/sensorOffFromInactiveSelected"
         motion:constraintSetStart="@id/inactive_selected"
-        motion:constraintSetEnd="@id/mic_off"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromInactive"
+        android:id="@+id/sensorOffSelectedFromInactive"
         motion:constraintSetStart="@id/inactive"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromInactiveSelected"
+        android:id="@+id/sensorOffSelectedFromInactiveSelected"
         motion:constraintSetStart="@id/inactive_selected"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffSelectedFromMicOff"
-        motion:constraintSetStart="@id/mic_off"
-        motion:constraintSetEnd="@id/mic_off_selected"
+        android:id="@+id/sensorOffSelectedFromSensorOff"
+        motion:constraintSetStart="@id/sensor_off"
+        motion:constraintSetEnd="@id/sensor_off_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/micOffFromMicOffSelected"
-        motion:constraintSetStart="@id/mic_off_selected"
-        motion:constraintSetEnd="@id/mic_off"
+        android:id="@+id/sensorOffFromSensorOffSelected"
+        motion:constraintSetStart="@id/sensor_off_selected"
+        motion:constraintSetEnd="@id/sensor_off"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration"/>
 
     <Transition
-        android:id="@+id/invisibleFromMicOff"
-        motion:constraintSetStart="@id/mic_off"
+        android:id="@+id/invisibleFromSensorOff"
+        motion:constraintSetStart="@id/sensor_off"
         motion:constraintSetEnd="@id/invisible"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
@@ -221,22 +221,22 @@
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
 
     <Transition
-        android:id="@+id/activeInitFromMicOff"
-        motion:constraintSetStart="@id/mic_off"
+        android:id="@+id/activeInitFromSensorOff"
+        motion:constraintSetStart="@id/sensor_off"
         motion:constraintSetEnd="@id/active_init"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
 
     <Transition
-        android:id="@+id/activeInitFromMicOffSelected"
-        motion:constraintSetStart="@id/mic_off_selected"
+        android:id="@+id/activeInitFromSensorOffSelected"
+        motion:constraintSetStart="@id/sensor_off_selected"
         motion:constraintSetEnd="@id/active_init"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
 
     <Transition
-        android:id="@+id/inactiveSelectedFromMicOffSelected"
-        motion:constraintSetStart="@id/mic_off_selected"
+        android:id="@+id/inactiveSelectedFromSensorOffSelected"
+        motion:constraintSetStart="@id/sensor_off_selected"
         motion:constraintSetEnd="@id/inactive_selected"
         motion:motionInterpolator="decelerate"
         motion:duration="@integer/privacy_chip_animation_transition_duration" />
@@ -765,7 +765,7 @@
             motion:layout_constraintTop_toTopOf="parent" />
     </ConstraintSet>
 
-    <ConstraintSet android:id="@+id/mic_off">
+    <ConstraintSet android:id="@+id/sensor_off">
         <Constraint
             android:id="@id/inactive_background"
             android:alpha="1.0"
@@ -850,7 +850,7 @@
             motion:layout_constraintTop_toTopOf="parent" />
     </ConstraintSet>
 
-    <ConstraintSet android:id="@+id/mic_off_selected">
+    <ConstraintSet android:id="@+id/sensor_off_selected">
         <Constraint
             android:id="@id/inactive_background"
             android:alpha="0.0"

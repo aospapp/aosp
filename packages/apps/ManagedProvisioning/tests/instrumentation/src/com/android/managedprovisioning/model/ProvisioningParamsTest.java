@@ -110,6 +110,17 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                     .setSignatureChecksum(TEST_SIGNATURE_CHECKSUM)
                     .setMinVersion(TEST_MIN_SUPPORT_VERSION)
                     .build();
+    private static final PackageDownloadInfo ROLE_HOLDER_DOWNLOAD_INFO_LOCATION_AND_SIGNATURE =
+            PackageDownloadInfo.Builder.builder()
+                    .setLocation(TEST_DOWNLOAD_LOCATION)
+                    .setSignatureChecksum(TEST_SIGNATURE_CHECKSUM)
+                    .build();
+    private static final PackageDownloadInfo ROLE_HOLDER_DOWNLOAD_INFO =
+            PackageDownloadInfo.Builder.builder()
+                    .setLocation(TEST_DOWNLOAD_LOCATION)
+                    .setSignatureChecksum(TEST_SIGNATURE_CHECKSUM)
+                    .setCookieHeader(TEST_COOKIE_HEADER)
+                    .build();
 
     @Mock
     private Utils mUtils;
@@ -495,6 +506,125 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                         .build();
 
         assertThat(provisioningParams.allowProvisioningAfterUserSetupComplete).isFalse();
+    }
+
+    @SmallTest
+    public void testKeepScreenOn_notSet_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .build();
+
+        assertThat(params.keepScreenOn).isFalse();
+    }
+
+    @SmallTest
+    public void testKeepScreenOn_setTrue_isTrue() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setKeepScreenOn(true)
+                .build();
+
+        assertThat(params.keepScreenOn).isTrue();
+    }
+
+    @SmallTest
+    public void testKeepScreenOn_setFalse_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setKeepScreenOn(false)
+                .build();
+
+        assertThat(params.keepScreenOn).isFalse();
+    }
+
+    @SmallTest
+    public void testAllowOffline_notSet_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .build();
+
+        assertThat(params.allowOffline).isFalse();
+    }
+
+    @SmallTest
+    public void testAllowOffline_setTrue_isTrue() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setAllowOffline(true)
+                .build();
+
+        assertThat(params.allowOffline).isTrue();
+    }
+
+    @SmallTest
+    public void testAllowOffline_setFalse_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setAllowOffline(false)
+                .build();
+
+        assertThat(params.allowOffline).isFalse();
+    }
+
+    @SmallTest
+    public void testProvisioningShouldLaunchResultIntent_notSet_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .build();
+
+        assertThat(params.provisioningShouldLaunchResultIntent).isFalse();
+    }
+
+    @SmallTest
+    public void testProvisioningShouldLaunchResultIntent_setTrue_isTrue() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setProvisioningShouldLaunchResultIntent(true)
+                .build();
+
+        assertThat(params.provisioningShouldLaunchResultIntent).isTrue();
+    }
+
+    @SmallTest
+    public void testProvisioningShouldLaunchResultIntent_setFalse_isFalse() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setProvisioningShouldLaunchResultIntent(false)
+                .build();
+
+        assertThat(params.provisioningShouldLaunchResultIntent).isFalse();
+    }
+
+    @SmallTest
+    public void testRoleHolderDownload_roleHolderDownloadInfoSet_notNull() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setRoleHolderDownloadInfo(ROLE_HOLDER_DOWNLOAD_INFO)
+                .build();
+
+        assertThat(params.roleHolderDownloadInfo).isNotNull();
+    }
+
+    @SmallTest
+    public void testRoleHolderDownload_roleHolderDownloadInfoWithLocationAndSignature_works() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setRoleHolderDownloadInfo(ROLE_HOLDER_DOWNLOAD_INFO_LOCATION_AND_SIGNATURE)
+                .build();
+
+        assertThat(params.roleHolderDownloadInfo.location).isEqualTo(TEST_DOWNLOAD_LOCATION);
+        assertThat(params.roleHolderDownloadInfo.signatureChecksum).isEqualTo(
+                TEST_SIGNATURE_CHECKSUM);
+    }
+
+    @SmallTest
+    public void testRoleHolderDownload_roleHolderDownloadInfo_works() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setRoleHolderDownloadInfo(ROLE_HOLDER_DOWNLOAD_INFO)
+                .build();
+
+        assertThat(params.roleHolderDownloadInfo.location).isEqualTo(TEST_DOWNLOAD_LOCATION);
+        assertThat(params.roleHolderDownloadInfo.signatureChecksum).isEqualTo(
+                TEST_SIGNATURE_CHECKSUM);
+        assertThat(params.roleHolderDownloadInfo.cookieHeader).isEqualTo(TEST_COOKIE_HEADER);
+    }
+
+    @SmallTest
+    public void testRoleHolderDownload_defaultCookieHeaderNull() {
+        ProvisioningParams params = createDefaultProvisioningParamsBuilder()
+                .setRoleHolderDownloadInfo(ROLE_HOLDER_DOWNLOAD_INFO_LOCATION_AND_SIGNATURE)
+                .build();
+
+        assertThat(params.roleHolderDownloadInfo.cookieHeader).isNull();
     }
 
     private ProvisioningParams.Builder createDefaultProvisioningParamsBuilder() {

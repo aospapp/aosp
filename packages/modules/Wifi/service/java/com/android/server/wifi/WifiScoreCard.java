@@ -127,7 +127,6 @@ public class WifiScoreCard {
     private final String mL2KeySeed;
     private MemoryStore mMemoryStore;
     private final DeviceConfigFacade mDeviceConfigFacade;
-    private final FrameworkFacade mFrameworkFacade;
     private final Context mContext;
     private final LocalLog mLocalLog = new LocalLog(256);
     private final long[][][] mL2ErrorAccPercent =
@@ -275,14 +274,13 @@ public class WifiScoreCard {
      * @param l2KeySeed is for making our L2Keys usable only on this device
      */
     public WifiScoreCard(Clock clock, String l2KeySeed, DeviceConfigFacade deviceConfigFacade,
-            FrameworkFacade frameworkFacade, Context context) {
+            Context context) {
         mClock = clock;
         mContext = context;
         mL2KeySeed = l2KeySeed;
         mPlaceholderPerBssid = new PerBssid("", MacAddress.fromString(DEFAULT_MAC_ADDRESS));
         mPlaceholderPerNetwork = new PerNetwork("");
         mDeviceConfigFacade = deviceConfigFacade;
-        mFrameworkFacade = frameworkFacade;
     }
 
     /**
@@ -1133,8 +1131,10 @@ public class WifiScoreCard {
                             case WifiBlocklistMonitor.REASON_NONLOCAL_DISCONNECT_CONNECTING:
                                 mRecentStats.incrementCount(CNT_DISCONNECTION_NONLOCAL_CONNECTING);
                                 break;
-                            case WifiBlocklistMonitor.REASON_AP_UNABLE_TO_HANDLE_NEW_STA:
                             case WifiBlocklistMonitor.REASON_WRONG_PASSWORD:
+                                mRecentStats.incrementCount(CNT_CONSECUTIVE_WRONG_PASSWORD_FAILURE);
+                                break;
+                            case WifiBlocklistMonitor.REASON_AP_UNABLE_TO_HANDLE_NEW_STA:
                             case WifiBlocklistMonitor.REASON_DHCP_FAILURE:
                             default:
                                 break;
@@ -1145,6 +1145,7 @@ public class WifiScoreCard {
                 case IP_CONFIGURATION_SUCCESS:
                     // Reset CNT_CONSECUTIVE_CONNECTION_FAILURE since L3 is also connected
                     mRecentStats.clearCount(CNT_CONSECUTIVE_CONNECTION_FAILURE);
+                    mRecentStats.clearCount(CNT_CONSECUTIVE_WRONG_PASSWORD_FAILURE);
                     changed = true;
                     logd(this.toString());
                     break;
@@ -1280,11 +1281,9 @@ public class WifiScoreCard {
          * Update link bandwidth estimates based on TrafficStats byte counts and radio on time
          */
         void updateLinkBandwidth(WifiLinkLayerStats oldStats, WifiLinkLayerStats newStats,
-                ExtendedWifiInfo wifiInfo) {
+                ExtendedWifiInfo wifiInfo, long txBytes, long rxBytes) {
             mBandwidthSampleValid[LINK_TX] = false;
             mBandwidthSampleValid[LINK_RX] = false;
-            long txBytes = mFrameworkFacade.getTotalTxBytes() - mFrameworkFacade.getMobileTxBytes();
-            long rxBytes = mFrameworkFacade.getTotalRxBytes() - mFrameworkFacade.getMobileRxBytes();
             // Sometimes TrafficStats byte counts return invalid values
             // Ignore next two polls if it happens
             boolean trafficValid = txBytes >= mLastTxBytes && rxBytes >= mLastRxBytes;
@@ -1340,13 +1339,19 @@ public class WifiScoreCard {
 
             long txBytesDelta = txBytes - mLastTxBytes;
             long rxBytesDelta = rxBytes - mLastRxBytes;
+            int txLinkSpeedMbps = wifiInfo.getTxLinkSpeedMbps();
+            int txBandwidthCapMbps =  (txLinkSpeedMbps == LINK_SPEED_UNKNOWN)
+                    ? wifiInfo.getMaxSupportedTxLinkSpeedMbps() : txLinkSpeedMbps;
             if (txBytesDelta * RX_OVER_TX_BYTE_RATIO_MAX >= rxBytesDelta) {
-                updateBandwidthSample(txBytesDelta, LINK_TX, onTimeMs,
-                        wifiInfo.getMaxSupportedTxLinkSpeedMbps());
+                updateBandwidthSample(txBytesDelta, LINK_TX, onTimeMs, txBandwidthCapMbps);
             }
 
-            updateBandwidthSample(rxBytesDelta, LINK_RX, onTimeMs,
-                    wifiInfo.getMaxSupportedRxLinkSpeedMbps());
+            int rxLinkSpeedMbps = wifiInfo.getRxLinkSpeedMbps();
+            // Rx link speed is not available in many devices. In these cases, fall back to Tx link
+            // speed which is available in most devices.
+            int rxBandwidthCapMbps = (rxLinkSpeedMbps == LINK_SPEED_UNKNOWN)
+                    ? txBandwidthCapMbps : rxLinkSpeedMbps;
+            updateBandwidthSample(rxBytesDelta, LINK_RX, onTimeMs, rxBandwidthCapMbps);
 
             if (!mBandwidthSampleValid[LINK_RX] && !mBandwidthSampleValid[LINK_TX]) {
                 return;
@@ -1380,13 +1385,12 @@ public class WifiScoreCard {
         }
 
         private void updateBandwidthSample(long bytesDelta, int link, int onTimeMs,
-                int maxSupportedLinkSpeedMbps) {
-            checkAndPossiblyResetBandwidthStats(link, maxSupportedLinkSpeedMbps);
+                int bandwidthCapMbps) {
             if (bytesDelta < mByteDeltaAccThr[link]) {
                 return;
             }
             long speedKbps = bytesDelta / onTimeMs * 8;
-            if (speedKbps > (maxSupportedLinkSpeedMbps * 1000)) {
+            if (speedKbps > (bandwidthCapMbps * 1000)) {
                 return;
             }
             int linkBandwidthKbps = (int) speedKbps;
@@ -1402,26 +1406,6 @@ public class WifiScoreCard {
                 perBssid.changed = true;
                 perBssid.bandwidthStatsValue[mBandIdx][link][mSignalLevel] += linkBandwidthKbps;
                 perBssid.bandwidthStatsCount[mBandIdx][link][mSignalLevel]++;
-            }
-        }
-
-        private void checkAndPossiblyResetBandwidthStats(int link, int maxSupportedLinkSpeedMbps) {
-            if (getAvgUsedLinkBandwidthKbps(link) > (maxSupportedLinkSpeedMbps * 1000)) {
-                resetBandwidthStats(link);
-            }
-        }
-
-        private void resetBandwidthStats(int link) {
-            changed = true;
-            // Reset SSID level stats
-            mBandwidthStatsValue[mBandIdx][link][mSignalLevel] = 0;
-            mBandwidthStatsCount[mBandIdx][link][mSignalLevel] = 0;
-            // Reset BSSID level stats
-            PerBssid perBssid = lookupBssid(ssid, mBssid);
-            if (perBssid != mPlaceholderPerBssid) {
-                perBssid.changed = true;
-                perBssid.bandwidthStatsValue[mBandIdx][link][mSignalLevel] = 0;
-                perBssid.bandwidthStatsCount[mBandIdx][link][mSignalLevel] = 0;
             }
         }
 
@@ -1926,8 +1910,9 @@ public class WifiScoreCard {
     public static final int CNT_DISCONNECTION = 8;
     public static final int CNT_CONSECUTIVE_CONNECTION_FAILURE = 9;
     public static final int CNT_DISCONNECTION_NONLOCAL_CONNECTING = 10;
+    public static final int CNT_CONSECUTIVE_WRONG_PASSWORD_FAILURE = 11;
     // Constant being used to keep track of how many counter there are.
-    public static final int NUMBER_CONNECTION_CNT_CODE = 11;
+    public static final int NUMBER_CONNECTION_CNT_CODE = 12;
     private static final String[] CONNECTION_CNT_NAME = {
         " ConnectAttempt: ",
         " ConnectFailure: ",
@@ -1939,7 +1924,8 @@ public class WifiScoreCard {
         " DisconnectNonlocal: ",
         " Disconnect: ",
         " ConsecutiveConnectFailure: ",
-        " ConnectFailureDiscon: "
+        " ConnectFailureDiscon: ",
+        " ConsecutiveWrongPassword: "
     };
 
     @IntDef(prefix = { "CNT_" }, value = {
@@ -1953,7 +1939,8 @@ public class WifiScoreCard {
         CNT_DISCONNECTION_NONLOCAL,
         CNT_DISCONNECTION,
         CNT_CONSECUTIVE_CONNECTION_FAILURE,
-        CNT_DISCONNECTION_NONLOCAL_CONNECTING
+        CNT_DISCONNECTION_NONLOCAL_CONNECTING,
+        CNT_CONSECUTIVE_WRONG_PASSWORD_FAILURE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ConnectionCountCode {}

@@ -1,1 +1,0 @@
-rule com.android.modules.utils.build.SdkLevel android.os.ext.util.SdkLevel

@@ -18,9 +18,6 @@
 #include <SampleDriver.h>
 #include <ValidateHal.h>
 #include <android-base/logging.h>
-#include <android/hardware/neuralnetworks/1.0/ADevice.h>
-#include <android/hardware/neuralnetworks/1.1/ADevice.h>
-#include <android/hardware/neuralnetworks/1.2/ADevice.h>
 #include <gtest/gtest.h>
 #include <unistd.h>
 
@@ -618,35 +615,21 @@ class TestDriver : public SampleDriver {
     const std::set<Signature> mSignatures;
 };
 
-class TestDriverV1_2 : public V1_2::ADevice {
-   public:
-    TestDriverV1_2(const char* name, std::set<Signature> signatures)
-        : V1_2::ADevice(new TestDriver(name, std::move(signatures))) {}
-};
-
-class TestDriverV1_1 : public V1_1::ADevice {
-   public:
-    TestDriverV1_1(const char* name, std::set<Signature> signatures)
-        : V1_1::ADevice(new TestDriver(name, std::move(signatures))) {}
-};
-
-class TestDriverV1_0 : public V1_0::ADevice {
-   public:
-    TestDriverV1_0(const char* name, std::set<Signature> signatures)
-        : V1_0::ADevice(new TestDriver(name, std::move(signatures))) {}
-};
-
 SharedDevice RandomPartitioningTest::makeTestDriver(HalVersion version, const char* name,
                                                     std::set<Signature> signatures) {
     switch (version) {
         case HalVersion::V1_0:
-            return nn::makeSharedDevice(name, new TestDriverV1_0(name, std::move(signatures)));
+            return V1_0::utils::Device::create(name, new TestDriver(name, std::move(signatures)))
+                    .value();
         case HalVersion::V1_1:
-            return nn::makeSharedDevice(name, new TestDriverV1_1(name, std::move(signatures)));
+            return V1_1::utils::Device::create(name, new TestDriver(name, std::move(signatures)))
+                    .value();
         case HalVersion::V1_2:
-            return nn::makeSharedDevice(name, new TestDriverV1_2(name, std::move(signatures)));
+            return V1_2::utils::Device::create(name, new TestDriver(name, std::move(signatures)))
+                    .value();
         case HalVersion::V1_3:
-            return nn::makeSharedDevice(name, new TestDriver(name, std::move(signatures)));
+            return V1_3::utils::Device::create(name, new TestDriver(name, std::move(signatures)))
+                    .value();
         default:
             ADD_FAILURE() << "Unexpected HalVersion " << static_cast<int32_t>(version);
             return nullptr;
@@ -1139,7 +1122,8 @@ TEST_P(RandomPartitioningTest, Test) {
             compilationResult == Result::OP_FAILED && hasUnknownDimensions &&
             cNoFallback.getExecutionPlan().hasDynamicTemporaries() &&
             std::any_of(devices.begin(), devices.end(), [](const std::shared_ptr<Device>& device) {
-                return device->getFeatureLevel() < nn::kHalVersionV1_2ToApi.featureLevel;
+                return !isCompliantVersion(nn::kHalVersionV1_2ToApi.canonical,
+                                           device->getFeatureLevel());
             });
     const bool fallbackNeededForStepModelWithNoInputsOrNoOutputs =
             cNoFallback.getExecutionPlan().forTest_hasStepModelWithNoInputsOrNoOutputs();

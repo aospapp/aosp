@@ -19,9 +19,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.android.networkstack"
   android:sharedUserId="android.uid.networkstack"
-  android:versionCode="319999900"
-  android:versionName="s_aml_319999900"
+  android:versionCode="339990000"
+  android:versionName="339990000"
+  coreApp="true"
 >
+    <!--- Defines the MAINLINE_NETWORK_STACK permission used by the networkstack process. -->
+    <permission android:name="android.permission.MAINLINE_NETWORK_STACK"
+                android:protectionLevel="signature"/>
     <!-- Permissions must be defined here, and not in the base manifest, as the network stack
          running in the system server process does not need any permission, and having privileged
          permissions added would cause crashes on startup unless they are also added to the

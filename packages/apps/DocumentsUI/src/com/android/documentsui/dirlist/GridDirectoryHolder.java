@@ -16,10 +16,15 @@
 
 package com.android.documentsui.dirlist;
 
+import static com.android.documentsui.DevicePolicyResources.Drawables.Style.SOLID_COLORED;
+import static com.android.documentsui.DevicePolicyResources.Drawables.WORK_PROFILE_ICON;
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.view.MotionEvent;
@@ -28,10 +33,13 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.RequiresApi;
+
 import com.android.documentsui.IconUtils;
 import com.android.documentsui.R;
 import com.android.documentsui.base.State;
 import com.android.documentsui.ui.Views;
+import com.android.modules.utils.build.SdkLevel;
 
 final class GridDirectoryHolder extends DocumentHolder {
 
@@ -52,6 +60,18 @@ final class GridDirectoryHolder extends DocumentHolder {
         mIconBriefcase = (ImageView) itemView.findViewById(R.id.icon_briefcase);
         mIconMime.setImageDrawable(
                 IconUtils.loadMimeIcon(context, DocumentsContract.Document.MIME_TYPE_DIR));
+
+        if (SdkLevel.isAtLeastT()) {
+            setUpdatableWorkProfileIcon(context);
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private void setUpdatableWorkProfileIcon(Context context) {
+        DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
+        Drawable drawable = dpm.getResources().getDrawable(WORK_PROFILE_ICON, SOLID_COLORED, () ->
+                context.getDrawable(R.drawable.ic_briefcase));
+        mIconBriefcase.setImageDrawable(drawable);
     }
 
     @Override

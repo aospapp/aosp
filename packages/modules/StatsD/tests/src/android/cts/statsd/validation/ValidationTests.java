@@ -142,6 +142,7 @@ public class ValidationTests extends DeviceAtomTestCase {
         resetBatteryStats();
         unplugDevice();
         turnScreenOff();
+        flushBatteryStatsHandlers();
 
         Thread.sleep(WAIT_TIME_SHORT);
 

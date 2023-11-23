@@ -39,8 +39,8 @@
     <integer name="privacy_chip_animation_transition_duration">500</integer>
     <!-- Privacy chip pill to circle animation delay -->
     <integer name="privacy_chip_pill_to_circle_delay">2000</integer>
-    <!-- Privacy chip no mic usage animation delay -->
-    <integer name="privacy_chip_no_mic_usage_delay">15000</integer>
+    <!-- Privacy chip no sensor usage animation delay -->
+    <integer name="privacy_chip_no_sensor_usage_delay">15000</integer>
     <!-- HVAC area ID that represents the associated property affecting the entire vehicle
       (e.g. HVAC Power On/Off affects the entire vehicle.) -->
     <integer name="hvac_global_area_id">117</integer>

@@ -17,14 +17,18 @@ package com.android.car.settings.enterprise;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.os.UserHandle;
 
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 
+import java.util.List;
+
 /**
-* Controller to show whether the device owner created CA Certificates for the user.
-*/
+ * Controller to show whether the device owner created CA Certificates for the user.
+ */
 public final class CaCertsCurrentUserPreferenceController
         extends BaseEnterprisePreferenceController<Preference> {
 
@@ -38,7 +42,25 @@ public final class CaCertsCurrentUserPreferenceController
         int superStatus = super.getAvailabilityStatus();
         if (superStatus != AVAILABLE) return superStatus;
 
-        // TODO(b/206155848): implement / add unit test
-        return DISABLED_FOR_PROFILE;
+        return getNumberOfOwnerInstalledCaCertsForCurrentUser() > 0 ? AVAILABLE
+                : DISABLED_FOR_PROFILE;
+    }
+
+    @Override
+    public void updateState(Preference preference) {
+        int certs = getNumberOfOwnerInstalledCaCertsForCurrentUser();
+        preference.setSummary(getContext().getResources().getQuantityString(
+                R.plurals.enterprise_privacy_number_ca_certs, certs, certs));
+        preference.setTitle(isInCompMode()
+                ? R.string.enterprise_privacy_ca_certs_personal
+                : R.string.enterprise_privacy_ca_certs_device);
+    }
+
+    private int getNumberOfOwnerInstalledCaCertsForCurrentUser() {
+        List<String> certs = mDpm.getOwnerInstalledCaCerts(new UserHandle(UserHandle.myUserId()));
+        if (certs == null) {
+            return 0;
+        }
+        return certs.size();
     }
 }

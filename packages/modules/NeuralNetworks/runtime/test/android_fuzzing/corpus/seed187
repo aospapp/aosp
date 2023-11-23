@@ -1,64 +1,82 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_FLOAT16
-      dimensions {
-        dimension: 1
-        dimension: 2
-        dimension: 3
-        dimension: 4
-        dimension: 5
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_FLOAT16
+        dimensions {
+          dimension: 3
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 3949350773
-      }
-    }
-    operand {
-      type: TENSOR_FLOAT16
-      dimensions {
-        dimension: 1
-        dimension: 2
-        dimension: 3
-        dimension: 4
-        dimension: 5
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
         }
-        channel_dim: 0
+        data {
+          random_seed: 2378666352
+        }
       }
-      data {
-        random_seed: 3808087100
+      operand {
+        type: INT32
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 0
+        }
+      }
+      operand {
+        type: TENSOR_INT32
+        dimensions {
+          dimension: 1
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 1
+        }
+      }
+      operand {
+        type: TENSOR_FLOAT16
+        dimensions {
+          dimension: 1
+        }
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 1988244267
+        }
       }
     }
-  }
-  operations {
-    operation {
-      type: ABS
-      inputs {
-        index: 0
-      }
-      outputs {
-        index: 1
+    operations {
+      operation {
+        type: GATHER
+        inputs {
+          index: 0
+          index: 1
+          index: 2
+        }
+        outputs {
+          index: 3
+        }
       }
     }
+    input_indexes {
+      index: 0
+    }
+    output_indexes {
+      index: 3
+    }
   }
-  input_indexes {
-    index: 0
+  referenced {
   }
-  output_indexes {
-    index: 1
-  }
-  is_relaxed: false
 }

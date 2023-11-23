@@ -16,6 +16,7 @@
 
 package android.car.app;
 
+import android.app.ActivityManager.RunningTaskInfo;
 import android.content.ComponentName;
 
 /** @hide */
@@ -25,5 +26,32 @@ interface ICarActivityService {
      * {@code featureId} in the display of {@code displayId}.
      */
     int setPersistentActivity(in ComponentName activity, int displayId, int featureId) = 0;
+
+    /**
+     * Registers the caller as TaskMonitor, which can provide Task lifecycle events to CarService.
+     * The caller should provide a binder token, which is used to check if the given TaskMonitor is
+     * live and the reported events are from the legitimate TaskMonitor.
+     */
+    void registerTaskMonitor(in IBinder token) = 1;
+
+    /**
+     * Reports that a Task is created.
+     */
+    void onTaskAppeared(in IBinder token, in RunningTaskInfo taskInfo) = 2;
+
+    /**
+     * Reports that a Task is vanished.
+     */
+    void onTaskVanished(in IBinder token, in RunningTaskInfo taskInfo) = 3;
+
+    /**
+     * Reports that some Task's states are changed.
+     */
+    void onTaskInfoChanged(in IBinder token, in RunningTaskInfo taskInfo) = 4;
+
+    /**
+     * Unregisters the caller from TaskMonitor.
+     */
+    void unregisterTaskMonitor(in IBinder token) = 5;
 }
 

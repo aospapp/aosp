@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"モバイル ネットワーク経由でデータにアクセス"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"モバイル ネットワーク"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"モバイルデータの使用"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"OFF"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"モバイルデータを OFF にしますか？"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"選択してください"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"モバイルデータに <xliff:g id="CARRIER">%1$s</xliff:g> を使用？"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi のスキャンを ON にしました"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"モバイルデータへの自動切り替え"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi-Fi でインターネットにアクセスできない場合にモバイルデータを使用します。データ通信料が発生する可能性があります。"</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi-Fi ネットワークを探して自動で接続"</string>
     <string name="learn_more" msgid="8214605928933358604">"詳細"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"アクセス ポイント名"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> をON にしています…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"他のデバイスが <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> に接続できます"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"アクセス ポイントのパスワード"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"セキュリティ"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"なし"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP 周波数帯"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"アプリの設定をリセットしました"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"全データを消去（出荷時リセット）"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"インフォテインメント システムからデータとプロファイルをすべて消去します"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"この操作を行うと、以下のデータを含め、車のインフォテインメント システムから全データが消去されます。\n\n"<li>"Google アカウント"</li>\n<li>"システムやアプリのデータと設定"</li>\n<li>"ダウンロードしたアプリ"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"この操作を行うと、以下のデータを含め、車のインフォテインメント システムからすべてのデータが消去されます。\n\n"<li>"アカウントとプロファイル"</li>\n<li>"システムやアプリのデータと設定"</li>\n<li>"ダウンロードしたアプリ"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"以下のアカウントにログインしています。"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"この車には他のプロファイルがすでに設定されています。"</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"すべてのデータを消去"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"新しい管理者の選択"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"管理者は少なくとも 1 人必要です。この管理者を削除するには、まず代わりの管理者を選択してください。"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"管理者を選択"</string>
-    <string name="user_guest" msgid="3465399481257448601">"ゲスト"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"ゲスト"</string>
     <string name="user_switch" msgid="6544839750534690781">"切り替える"</string>
     <string name="current_user_name" msgid="3813671533249316823">"自分（%1$s）"</string>
     <string name="user_name_label" msgid="3210832645046206845">"名前"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> のアカウント"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"データの自動同期"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"データの自動更新をアプリに許可します"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"データ自動同期をONにしますか？"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"ウェブでアカウントに変更を加えると自動的にデバイスに反映されます。\n\nGoogle アカウントなど、アカウントによっては、スマートフォンで変更を加えた場合も自動的にウェブに反映されます。"</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"データ自動同期をOFFにしますか？"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"データの自動同期を有効にしますか？"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"ウェブでアカウントに変更を加えると自動的に車に反映されます。\n\nGoogle アカウントなど、アカウントによっては、車で変更を加えた場合も自動的にウェブに反映されます。"</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"データの自動同期を無効にしますか？"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"OFF にすると、データの使用を節約できますが、最新情報を取得するには手動で各アカウントを同期する必要があります。また、更新があったときに通知を受け取れません。"</string>
     <string name="account_details_title" msgid="7529571432258448573">"アカウント情報"</string>
     <string name="add_account_title" msgid="5988746086885210040">"アカウントの追加"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"プライバシー"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"インフォテインメント システム データ"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"アプリの位置情報アクセスを管理"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"カメラ"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"カメラへのアプリのアクセスを管理します"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"マイク"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"アプリのマイクアクセスを管理します"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"インフォテインメント データ"</string>
@@ -658,7 +662,7 @@
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"パスワードの入力"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"セキュリティ強化のために PIN を設定"</string>
     <string name="confirm_your_pin_header" msgid="9096581288537156102">"PIN の再入力"</string>
-    <string name="choose_lock_pin_hints" msgid="7362906249992020844">"PIN は 4 桁以上で作成してください"</string>
+    <string name="choose_lock_pin_hints" msgid="7362906249992020844">"PIN は 4 桁以上で設定してください"</string>
     <string name="lockpin_invalid_pin" msgid="2149191577096327424">"PIN が無効です。4 桁以上にしてください。"</string>
     <string name="confirm_pins_dont_match" msgid="4607110139373520720">"PIN が一致しません"</string>
     <string name="error_saving_lockpin" msgid="9011960139736000393">"PIN の保存中にエラーが発生しました"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"キャンセル"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"確認"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"4 文字以上で入力してください"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"<xliff:g id="COUNT">%d</xliff:g> 文字以上にしてください"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN は <xliff:g id="COUNT">%d</xliff:g> 桁以上で作成してください"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"<xliff:g id="NUMBER">%d</xliff:g> 文字未満にしてください"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g> 桁未満にしてください"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"使用できるのは 0～9 の数字のみです。"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"デバイス管理により、最近使用した PIN は使用できません"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"一般的な PIN は IT 管理者によってブロックされています。別の PIN をお試しください。"</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"デバイス管理により、最近使用したパスワードは使用できません"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"パスワードの保存中にエラーが発生しました"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"一般的なパスワードは IT 管理者によってブロックされています。別のパスワードをお試しください。"</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"一連の数字を昇順や降順にしたり、繰り返したりすることはできません。"</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"英字が 1 個以上必要です"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"数字が 1 個以上必要です"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"記号が 1 個以上必要です"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{英字が # 個以上必要です}other{英字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{小文字の英字が # 個以上必要です}other{小文字の英字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{大文字の英字が # 個以上必要です}other{大文字の英字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{数字が # 個以上必要です}other{数字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{記号が # 個以上必要です}other{記号が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{記号または数字が # 個以上必要です}other{記号または数字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{数字以外の文字が 1 個以上必要です}other{数字以外の文字が # 個以上必要です}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{# 文字以上にしてください}other{# 文字以上にしてください}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{# 桁以上にしてください}other{# 桁以上にしてください}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{# 文字未満にしてください}other{# 文字未満にしてください}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# 桁未満にしてください}other{# 桁未満にしてください}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"一連の数字を昇順や降順にしたり、繰り返したりすることはできません"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"画面ロックの方法"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g> 日前"</string>
     <string name="credentials_reset" msgid="873900550885788639">"認証情報の消去"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"削除"</string>
     <string name="cancel" msgid="750286395700355455">"キャンセル"</string>
     <string name="allow" msgid="7519431342750394402">"許可"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"有効にしない"</string>
     <string name="deny" msgid="340512788979930804">"許可しない"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace キー"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter キー"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"このインフォテインメント システム アプリを有効にする"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"無効にしてアンインストール"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"このインフォテインメント システム アプリを無効にする"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"詳細"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"組織の管理者は、設定、権限、コーポレート アクセス、ネットワーク アクティビティ、車両の位置情報など、このプロファイルに関連付けられたアプリやデータの監視、管理を行えます。"</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"組織の管理者は、設定、権限、コーポレート アクセス、ネットワーク アクティビティ、デバイスの位置情報など、このプロファイルに関連付けられたアプリやデータの監視、管理を行えます。"</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"組織の管理者は、設定、権限、コーポレート アクセス、ネットワーク アクティビティ、車両の位置情報など、このインフォテインメント システムに関連付けられたアプリやデータの監視、管理を行えます。"</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> の車両に関するポリシー"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"設定は組織の管理者によって管理されています"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"「<xliff:g id="SERVICE">%1$s</xliff:g>」の詳細"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"管理対象車両の情報"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"フリート管理者が管理している設定"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"この管理対象車両上のデータへのアクセスを提供するために、フリート管理者はインフォテインメント システムの設定の変更およびシステムへのソフトウェアのインストールを行う場合があります。\n\n詳しくは、担当のフリート管理者にお問い合わせください。"</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"フリート管理者が確認できる情報"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"フリート管理者が行った変更"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"管理対象車両のアカウントに関する情報"</li>\n" "<li>"管理対象車両のアプリの一覧"</li>\n" "<li>"各アプリの使用時間とデータ使用量"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"インフォテインメント システムへのアクセス"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"車両上のアプリの一覧"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"アプリの数は推定値です。Play ストア以外からインストールしたアプリが含まれていないことがあります。"</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">アプリ <xliff:g id="COUNT_1">%d</xliff:g> 個以上</item>
+      <item quantity="one">アプリ <xliff:g id="COUNT_0">%d</xliff:g> 個以上</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 個のアプリ</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 個のアプリ</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"最新のネットワーク トラフィック ログ"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"最新のバグレポート"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"最新のセキュリティ ログ"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"なし"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"アプリをインストールしました"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"位置情報の権限"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"マイクの権限"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"カメラの権限"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"デフォルトのアプリ"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"デフォルト キーボード"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> に設定"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"グローバル HTTP プロキシが設定されています"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"個人用プロファイル内の信頼できる認証情報"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"管理者はインフォテインメント システムのロックおよびパスワードの再設定を行えます"</li>\n" "<li>"管理者はインフォテインメント システム上のデータを削除できます"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"インフォテインメント システム上の全データが削除されるまでのパスワード入力回数"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"プロファイル データが削除されるまでのパスワード入力回数"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other">入力回数: <xliff:g id="COUNT_1">%d</xliff:g> 回</item>
+      <item quantity="one">入力回数: <xliff:g id="COUNT_0">%d</xliff:g> 回</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">カメラアプリ</item>
+      <item quantity="one">カメラアプリ</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">メール クライアント アプリ</item>
+      <item quantity="one">メール クライアント アプリ</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">電話アプリ</item>
+      <item quantity="one">電話アプリ</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"バグレポートを共有しますか？"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"この車両の組織の管理者から、このデバイスのトラブルシューティングに役立てるためのバグレポートを共有するようリクエストがありました。アプリやデータが共有される場合があります。"</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"この車両の組織の管理者から、このデバイスのトラブルシューティングに役立てるためのバグレポートを共有するようリクエストがありました。アプリやデータが共有され、デバイスの動作が一時的に遅くなる場合があります。"</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"このバグレポートは、この車両の組織の管理者と共有しています。詳しくは、該当する管理者にお問い合わせください。"</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"共有"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"同意しない"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"インフォテインメント システムのリセット"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"システムが、出荷時の設定にリセットしてすべてのデータを消去するリクエストを受信しました。今すぐリセットできます。すぐにリセットしない場合は、次回車が始動したときに自動的にリセットされます。リセット後、新しいプロファイルを設定できます。"</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"今すぐリセット"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"後でリセット"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"インフォテインメント システムは、車の次回始動時にリセットされます。"</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"リセットを開始するには、車を駐車してください。"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"現在、この設定は変更できません"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"ユーザー補助"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"字幕"</string>
@@ -770,7 +839,7 @@
     <string name="captions_settings_off" msgid="7568096968016015626">"OFF"</string>
     <string name="captions_settings_on" msgid="5374984113566914978">"ON"</string>
     <string name="screen_reader_settings_title" msgid="4012734340987826872">"スクリーン リーダー"</string>
-    <string name="show_captions_toggle_title" msgid="710582308974826311">"字幕の表示"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"字幕を表示"</string>
     <string name="captions_text_size_title" msgid="1960814652560877963">"文字のサイズ"</string>
     <string name="captions_settings_style_header" msgid="944591388386054372">"字幕のサイズとスタイル"</string>
     <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"極小"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"白地に黒"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"黒地に黄色"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"青地に黄色"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"スクリーン リーダー"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"OFF"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"画面上の項目を読み上げます"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"「<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>」の使用"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"オプション"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"設定"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"カメラ"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"カメラを使う"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"すべてのアプリにカメラへのアクセスを許可します"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"カメラの権限の管理"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"最近アクセスしたもの"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"最近使ったアプリはありません"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"権限が付与されているアプリはありません"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{#/{total_count} 個のアプリに権限が付与されています}other{#/{total_count} 個のアプリに権限が付与されています}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"最近アクセスしたもの"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"すべて表示"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"読み込んでいます…"</string>
 </resources>

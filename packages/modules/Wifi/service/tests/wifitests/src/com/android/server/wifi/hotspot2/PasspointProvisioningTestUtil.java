@@ -45,7 +45,7 @@ public class PasspointProvisioningTestUtil {
      * These are constants used to generate predefined OsuProvider.
      */
     public static final WifiSsid TEST_SSID =
-            WifiSsid.createFromByteArray("TEST SSID".getBytes(StandardCharsets.UTF_8));
+            WifiSsid.fromBytes("TEST SSID".getBytes(StandardCharsets.UTF_8));
     public static final String TEST_FRIENDLY_NAME = "Friendly Name";
     public static final String TEST_SERVICE_DESCRIPTION = "Dummy Service";
     public static final Uri TEST_SERVER_URI = Uri.parse("https://test.com");

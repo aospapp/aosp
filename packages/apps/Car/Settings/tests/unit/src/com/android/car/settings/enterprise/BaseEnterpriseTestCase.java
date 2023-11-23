@@ -28,6 +28,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.annotation.UserIdInt;
 import android.app.AppOpsManager;
 import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManager;
@@ -37,7 +38,9 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.UserInfo;
 import android.os.IBinder;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -57,6 +60,8 @@ import java.util.Arrays;
 
 @RunWith(AndroidJUnit4.class)
 public abstract class BaseEnterpriseTestCase {
+
+    protected static final UserHandle MY_USER_ID = UserHandle.of(UserHandle.myUserId());
 
     protected final Context mRealContext = ApplicationProvider.getApplicationContext();
     protected final Context mSpiedContext = spy(mRealContext);
@@ -95,7 +100,7 @@ public abstract class BaseEnterpriseTestCase {
         }
         mSession = ExtendedMockito.mockitoSession()
                 .initMocks(this)
-                .mockStatic(UserManager.class)
+                .spyStatic(UserManager.class)
                 .mockStatic(RestrictedLockUtilsInternal.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
@@ -134,6 +139,16 @@ public abstract class BaseEnterpriseTestCase {
     protected final void mockProfileOwner() {
         mockActiveAdmin(mDefaultAdmin);
         when(mDpm.getProfileOwner()).thenReturn(mDefaultAdmin);
+    }
+
+    protected final void mockProfileOwnerAsUser() {
+        when(mDpm.getProfileOwnerAsUser(MY_USER_ID)).thenReturn(mDefaultAdmin);
+        when(mDpm.getProfileOwnerAsUser(MY_USER_ID.getIdentifier())).thenReturn(mDefaultAdmin);
+    }
+
+    protected final void mockNoProfileOwnerAsUser() {
+        when(mDpm.getProfileOwnerAsUser(MY_USER_ID)).thenReturn(null);
+        when(mDpm.getProfileOwnerAsUser(MY_USER_ID.getIdentifier())).thenReturn(null);
     }
 
     protected final void mockDeviceOwner() {
@@ -220,6 +235,13 @@ public abstract class BaseEnterpriseTestCase {
         when(mDpm.getLastBugReportRequestTime()).thenReturn(time);
     }
 
+    protected final void mockCompMode() {
+        mockDeviceOwner();
+        UserInfo userInfo = new UserInfo(10, "UserAbc", null, 0,
+                UserManager.USER_TYPE_PROFILE_MANAGED);
+        when(mUm.getProfiles(anyInt())).thenReturn(Arrays.asList(userInfo));
+    }
+
     protected final void mockGetLastNetworkLogRetrievalTime(long time) {
         when(mDpm.getLastNetworkLogRetrievalTime()).thenReturn(time);
     }
@@ -230,6 +252,10 @@ public abstract class BaseEnterpriseTestCase {
 
     protected final void mockIsCurrentInputMethodSetByOwner(boolean value) {
         when(mDpm.isCurrentInputMethodSetByOwner()).thenReturn(value);
+    }
+
+    protected final void mockGetMaximumFailedPasswordsForWipe(@UserIdInt int userId, int max) {
+        when(mDpm.getMaximumFailedPasswordsForWipe(mDefaultAdmin, userId)).thenReturn(max);
     }
 
     protected final void verifyAdminActivated() {

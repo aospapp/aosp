@@ -47,7 +47,7 @@ StreamHandler::StreamHandler(android::sp <IEvsCamera> pCamera,
         const auto usage = GRALLOC_USAGE_HW_TEXTURE |
                            GRALLOC_USAGE_SW_READ_RARELY |
                            GRALLOC_USAGE_SW_WRITE_OFTEN;
-        for (auto i = 0; i < numBuffers; ++i) {
+        for (size_t i = 0; i < numBuffers; ++i) {
             unsigned pixelsPerLine;
             android::status_t result = alloc.allocate(width,
                                                       height,

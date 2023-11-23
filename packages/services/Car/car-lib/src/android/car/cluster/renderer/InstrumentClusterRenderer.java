@@ -20,6 +20,7 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DE
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UiThread;
+import android.car.annotation.AddedInOrBefore;
 import android.content.Context;
 
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
@@ -44,22 +45,27 @@ public abstract class InstrumentClusterRenderer {
     /**
      * Called when instrument cluster renderer is created.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public abstract void onCreate(Context context);
 
     /**
      * Called when instrument cluster renderer is started.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public abstract void onStart();
 
     /**
      * Called when instrument cluster renderer is stopped.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public abstract void onStop();
 
+    @AddedInOrBefore(majorVersion = 33)
     protected abstract NavigationRenderer createNavigationRenderer();
 
     /** The method is thread-safe, callers should cache returned object. */
     @Nullable
+    @AddedInOrBefore(majorVersion = 33)
     public NavigationRenderer getNavigationRenderer() {
         synchronized (mLock) {
             return mNavigationRenderer;
@@ -71,6 +77,7 @@ public abstract class InstrumentClusterRenderer {
      * method should not be overridden by subclasses.
      */
     @UiThread
+    @AddedInOrBefore(majorVersion = 33)
     public final void initialize() {
         synchronized (mLock) {
             mNavigationRenderer = createNavigationRenderer();

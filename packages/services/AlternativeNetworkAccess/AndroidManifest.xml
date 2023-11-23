@@ -21,7 +21,11 @@
           android:process="com.android.phone"
           android:sharedUserId="android.uid.phone">
 
+    <protected-broadcast android:name="com.android.ons.action.DOWNLOAD" />
+    <protected-broadcast android:name="com.android.ons.action.CONFIG" />
+
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <application
         android:process="com.android.phone"
         android:persistent="true">
@@ -40,5 +44,21 @@
                  android:directBootAware="true"
                  android:singleUser="true" />
 
+        <receiver android:name=".ONSProfileResultReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.action.MULTI_SIM_CONFIG_CHANGED"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.ons.action.ESIM_DOWNLOAD"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.ons.action.ESIM_CONFIG"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

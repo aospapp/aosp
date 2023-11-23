@@ -31,6 +31,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
@@ -152,7 +153,7 @@ public final class AvailableVirtualKeyboardFragment extends SettingsPreferenceFr
             final boolean isAllowedByOrganization = permittedList == null
                     || permittedList.contains(imi.getPackageName());
             final InputMethodPreference pref = new InputMethodPreference(
-                    context, imi, true, isAllowedByOrganization, this);
+                    context, imi, isAllowedByOrganization, this, UserHandle.myUserId());
             // TODO: Update the icon container in leanback_preference.xml to use LinearLayout.
             // This is a workaround to avoid the crash. b/146654624
             pref.setIconSize(0);

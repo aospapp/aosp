@@ -26,6 +26,7 @@
                 android:layout_height="match_parent"
                 android:drawSelectorOnTop="false"
                 android:scrollbarStyle="insideOverlay"
+                android:nestedScrollingEnabled="true"
                 android:divider="@null"
                 android:dividerHeight="0dp"
                 />

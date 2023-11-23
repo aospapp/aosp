@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"חיבורים"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"‏לא ניתן היה למצוא מדפסות Wi-Fi ישיר במסגרת שירות ההדפסה המוגדר כברירת מחדל"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"‏השבתת Wi-Fi ישיר"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"לשירות ההדפסה המוגדר כברירת מחדל נדרשת הרשאת מיקום כדי למצוא מכשירים בקרבת מקום."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"לשירות ההדפסה המוגדר כברירת מחדל נדרשת ההרשאה \'מכשירים בקרבת מקום\' כדי למצוא מדפסות בקרבת מקום."</string>
     <string name="fix" msgid="7784394272611365393">"בדיקת ההרשאות"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"לשירות ההדפסה המוגדר כברירת מחדל נדרשת הפעלה של שירותי המיקום כדי למצוא מכשירים בקרבת מקום."</string>
-    <string name="enable_location" msgid="3627841004298863140">"הפעלת המיקום"</string>
     <string name="print" msgid="7851318072404916362">"הדפסה"</string>
 </resources>

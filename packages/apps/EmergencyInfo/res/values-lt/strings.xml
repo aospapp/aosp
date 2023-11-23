@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"Gerai"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Nėra informacijos apie telefono savininką"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Jei tai jūsų telefonas, palieskite pieštuko piktogramą, kad pridėtumėte informaciją, kuri čia bus rodoma esant kritinei situacijai"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Atrakinę telefoną, palieskite pieštuko piktogramą, kad pridėtumėte informaciją, kuri čia bus pateikta esant kritinei situacijai"</string>
     <string name="clear_all" msgid="8899013032870561633">"Išvalyti viską"</string>
     <string name="clear" msgid="3648880442502887163">"Išvalyti"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Išvalyti visą informaciją ir kontaktus?"</string>

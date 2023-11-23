@@ -479,6 +479,7 @@ public class NetworkSuggestionStoreData implements WifiConfigStore.StoreData {
         if (enterpriseConfig != null) {
             wifiConfiguration.enterpriseConfig = enterpriseConfig;
         }
+        WifiConfigurationUtil.addUpgradableSecurityTypeIfNecessary(wifiConfiguration);
         ExtendedWifiNetworkSuggestion ewns = ExtendedWifiNetworkSuggestion
                 .fromWns(new WifiNetworkSuggestion(wifiConfiguration, passpointConfiguration,
                         isAppInteractionRequired, isUserInteractionRequired,

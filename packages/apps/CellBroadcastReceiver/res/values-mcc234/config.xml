@@ -48,8 +48,9 @@
     <!-- additional language -->
     <item>0x112A:rat=gsm, emergency=true</item>
   </string-array>
-  <!-- Disabled channels -->
+  <!-- 4382 -->
   <string-array name="operator_defined_alert_range_strings" translatable="false">
+    <item>0x111E:rat=gsm, emergency=true</item>
   </string-array>
   <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
   </string-array>

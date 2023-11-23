@@ -63,6 +63,7 @@ public class RoleParser {
     private static final String TAG_ACTION = "action";
     private static final String TAG_CATEGORY = "category";
     private static final String TAG_DATA = "data";
+    private static final String TAG_META_DATA = "meta-data";
     private static final String TAG_PERMISSIONS = "permissions";
     private static final String TAG_APP_OP_PERMISSIONS = "app-op-permissions";
     private static final String TAG_APP_OP_PERMISSION = "app-op-permission";
@@ -91,7 +92,10 @@ public class RoleParser {
     private static final String ATTRIBUTE_STATIC = "static";
     private static final String ATTRIBUTE_SYSTEM_ONLY = "systemOnly";
     private static final String ATTRIBUTE_VISIBLE = "visible";
+    private static final String ATTRIBUTE_MIN_TARGET_SDK_VERSION = "minTargetSdkVersion";
     private static final String ATTRIBUTE_PERMISSION = "permission";
+    private static final String ATTRIBUTE_PROHIBITED = "prohibited";
+    private static final String ATTRIBUTE_VALUE = "value";
     private static final String ATTRIBUTE_SCHEME = "scheme";
     private static final String ATTRIBUTE_MIME_TYPE = "mimeType";
     private static final String ATTRIBUTE_MAX_TARGET_SDK_VERSION = "maxTargetSdkVersion";
@@ -120,7 +124,8 @@ public class RoleParser {
         this(context, false);
     }
 
-    RoleParser(@NonNull Context context, boolean validationEnabled) {
+    @VisibleForTesting
+    public RoleParser(@NonNull Context context, boolean validationEnabled) {
         mContext = context;
         mValidationEnabled = validationEnabled;
     }
@@ -521,9 +526,13 @@ public class RoleParser {
     @Nullable
     private RequiredComponent parseRequiredComponent(@NonNull XmlResourceParser parser,
             @NonNull String name) throws IOException, XmlPullParserException {
+        int minTargetSdkVersion = getAttributeIntValue(parser, ATTRIBUTE_MIN_TARGET_SDK_VERSION,
+                Build.VERSION_CODES.BASE);
         String permission = getAttributeValue(parser, ATTRIBUTE_PERMISSION);
         int queryFlags = getAttributeIntValue(parser, ATTRIBUTE_QUERY_FLAGS, 0);
         IntentFilterData intentFilterData = null;
+        List<RequiredMetaData> metaData = new ArrayList<>();
+        List<String> validationMetaDataNames = mValidationEnabled ? new ArrayList<>() : null;
 
         int type;
         int depth;
@@ -544,6 +553,33 @@ public class RoleParser {
                     }
                     intentFilterData = parseIntentFilterData(parser);
                     break;
+                case TAG_META_DATA:
+                    String metaDataName = requireAttributeValue(parser, ATTRIBUTE_NAME,
+                            TAG_META_DATA);
+                    if (metaDataName == null) {
+                        continue;
+                    }
+                    if (mValidationEnabled) {
+                        validateNoDuplicateElement(metaDataName, validationMetaDataNames,
+                                "meta data");
+                    }
+                    // HACK: Only support boolean for now.
+                    // TODO(b/211568084): Support android:resource and other types of android:value,
+                    // maybe by switching to TypedArray and styleables.
+                    Boolean metaDataValue = requireAttributeBooleanValue(parser, ATTRIBUTE_VALUE,
+                            false, TAG_META_DATA);
+                    if (metaDataValue == null) {
+                        continue;
+                    }
+                    boolean metaDataProhibited = getAttributeBooleanValue(parser,
+                            ATTRIBUTE_PROHIBITED, false);
+                    RequiredMetaData requiredMetaData = new RequiredMetaData(metaDataName,
+                            metaDataValue, metaDataProhibited);
+                    metaData.add(requiredMetaData);
+                    if (mValidationEnabled) {
+                        validationMetaDataNames.add(metaDataName);
+                    }
+                    break;
                 default:
                     throwOrLogForUnknownTag(parser);
                     skipCurrentTag(parser);
@@ -556,13 +592,17 @@ public class RoleParser {
         }
         switch (name) {
             case TAG_ACTIVITY:
-                return new RequiredActivity(intentFilterData, permission, queryFlags);
+                return new RequiredActivity(intentFilterData, minTargetSdkVersion, permission,
+                        queryFlags, metaData);
             case TAG_PROVIDER:
-                return new RequiredContentProvider(intentFilterData, permission, queryFlags);
+                return new RequiredContentProvider(intentFilterData, minTargetSdkVersion,
+                        permission, queryFlags, metaData);
             case TAG_RECEIVER:
-                return new RequiredBroadcastReceiver(intentFilterData, permission, queryFlags);
+                return new RequiredBroadcastReceiver(intentFilterData, minTargetSdkVersion,
+                        permission, queryFlags, metaData);
             case TAG_SERVICE:
-                return new RequiredService(intentFilterData, permission, queryFlags);
+                return new RequiredService(intentFilterData, minTargetSdkVersion, permission,
+                        queryFlags, metaData);
             default:
                 throwOrLogMessage("Unknown tag <" + name + ">");
                 return null;

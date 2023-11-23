@@ -16,10 +16,15 @@
 
 package android.car.drivingstate;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.annotation.IntDef;
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Parcel;
 import android.os.Parcelable;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -37,18 +42,22 @@ public final class CarDrivingStateEvent implements Parcelable {
     /**
      * This is when we don't have enough information to infer the car's driving state.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DRIVING_STATE_UNKNOWN = -1;
     /**
      * Car is parked - Gear is in Parked mode.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DRIVING_STATE_PARKED = 0;
     /**
      * Car is idling.  Gear is not in Parked mode and Speed of the vehicle is zero.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DRIVING_STATE_IDLING = 1;
     /**
      * Car is moving.  Gear is not in parked mode and speed of the vehicle is non zero.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DRIVING_STATE_MOVING = 2;
 
     /** @hide */
@@ -64,26 +73,32 @@ public final class CarDrivingStateEvent implements Parcelable {
      * Time at which this driving state was inferred based on the car's sensors.
      * It is the elapsed time in nanoseconds since system boot.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public final long timeStamp;
 
     /**
      * The Car's driving state.
      */
     @CarDrivingState
+    @AddedInOrBefore(majorVersion = 33)
     public final int eventValue;
 
 
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() {
         return 0;
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(eventValue);
         dest.writeLong(timeStamp);
     }
 
+    @AddedInOrBefore(majorVersion = 33)
     public static final Parcelable.Creator<CarDrivingStateEvent> CREATOR =
             new Parcelable.Creator<CarDrivingStateEvent>() {
 
@@ -109,6 +124,7 @@ public final class CarDrivingStateEvent implements Parcelable {
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public String toString() {
         return eventValue + " " + timeStamp;
     }

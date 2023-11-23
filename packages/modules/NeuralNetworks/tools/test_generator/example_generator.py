@@ -31,6 +31,9 @@ import traceback
 
 import test_generator as tg
 
+MIN_PYTHON_VERSION = (3, 7)
+assert sys.version_info >= MIN_PYTHON_VERSION, "requires Python 3.7 or newer"
+
 # See ToCpp()
 COMMENT_KEY = "__COMMENT__"
 
@@ -49,7 +52,7 @@ def InitializeFiles(example_fd):
 // DO NOT EDIT
 // clang-format off
 #include "TestHarness.h"
-using namespace test_helper;
+using namespace test_helper;  // NOLINT(google-build-using-namespace)
 """
     if example_fd is not None:
         print(fileHeader.format(spec_file=specFileBase), file=example_fd)
@@ -80,7 +83,7 @@ def ToCpp(var, indent=0):
         str_pair = lambda k, v: "    .%s = %s" % (k, ToCpp(v, indent + 4))
         agg_init = "{%s\n%s\n}" % (comment,
                                    ",\n".join(str_pair(k, var[k])
-                                              for k in sorted(var.keys())
+                                              for k in var.keys()
                                               if k != COMMENT_KEY))
         return IndentedStr(agg_init, indent)
     elif isinstance(var, (list, tuple)):
@@ -105,9 +108,9 @@ def GetOperandStruct(operand):
         COMMENT_KEY: operand.name,
         "type": "TestOperandType::" + operand.type.type,
         "dimensions": operand.type.dimensions,
+        "numberOfConsumers": len(operand.outs),
         "scale": operand.type.scale,
         "zeroPoint": operand.type.zeroPoint,
-        "numberOfConsumers": len(operand.outs),
         "lifetime": "TestOperandLifeTime::" + operand.lifetime,
         "channelQuant": GetSymmPerChannelQuantParams(operand.type.extraParams),
         "isIgnored": isinstance(operand, tg.IgnoredOutput),

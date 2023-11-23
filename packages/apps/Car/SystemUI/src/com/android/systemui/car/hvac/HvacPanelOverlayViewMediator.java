@@ -34,10 +34,6 @@ import com.android.systemui.dagger.SysUISingleton;
 
 import javax.inject.Inject;
 
-/**
- *  Registers events that cause the HvacPanelOverlayView to appear or disappear and determines the
- *  direction of its animations.
- */
 @SysUISingleton
 public class HvacPanelOverlayViewMediator implements OverlayViewMediator {
     private static final boolean DEBUG = false;

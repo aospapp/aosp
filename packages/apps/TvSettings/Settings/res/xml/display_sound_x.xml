@@ -47,6 +47,11 @@
         android:key="match_content_frame_rate"
         android:title="@string/match_content_frame_rate_title"/>
     <Preference
+        android:fragment="com.android.tv.settings.device.displaysound.ResolutionSelectionFragment"
+        android:key="resolution_selection"
+        android:persistent="true"
+        android:title="@string/resolution_selection_title"/>
+    <Preference
         android:key="advanced_display_settings"
         android:title="@string/advanced_display_settings_title"
         android:fragment="com.android.tv.settings.device.displaysound.AdvancedDisplayFragment" />
@@ -57,6 +62,12 @@
         android:key="sound_effects"
         android:persistent="true"
         android:title="@string/device_sound_effects"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:key="default_audio_output_settings"
+        android:title="@string/default_audio_output_settings_title"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:uri="@string/default_audio_output_settings_slice_uri"
+        custom:isPreferenceVisible="false" />
     <Preference
         android:key="advanced_sound_settings"
         android:title="@string/advanced_sound_settings_title"

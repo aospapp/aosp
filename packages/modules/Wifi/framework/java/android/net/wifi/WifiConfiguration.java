@@ -19,6 +19,7 @@ package android.net.wifi;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
@@ -32,6 +33,7 @@ import android.net.StaticIpConfiguration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Parcel;
+import android.os.ParcelUuid;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -54,7 +56,9 @@ import java.util.BitSet;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -134,7 +138,8 @@ public class WifiConfiguration implements Parcelable {
                 WAPI_PSK,
                 WAPI_CERT,
                 FILS_SHA256,
-                FILS_SHA384})
+                FILS_SHA384,
+                DPP})
         public @interface KeyMgmtScheme {}
 
         /** WPA is not used; plaintext or static WEP could be used. */
@@ -226,12 +231,20 @@ public class WifiConfiguration implements Parcelable {
          */
         public static final int FILS_SHA384 = 16;
 
+        /**
+         * Easy Connect - AKA Device Provisioning Protocol (DPP)
+         * For more details, visit <a href="https://www.wi-fi.org/">https://www.wi-fi.org/</a> and
+         * search for "Easy Connect" or "Device Provisioning Protocol specification".
+         * @hide
+         */
+        public static final int DPP = 17;
+
         public static final String varName = "key_mgmt";
 
         public static final String[] strings = { "NONE", "WPA_PSK", "WPA_EAP",
                 "IEEE8021X", "WPA2_PSK", "OSEN", "FT_PSK", "FT_EAP",
                 "SAE", "OWE", "SUITE_B_192", "WPA_PSK_SHA256", "WPA_EAP_SHA256",
-                "WAPI_PSK", "WAPI_CERT", "FILS_SHA256", "FILS_SHA384" };
+                "WAPI_PSK", "WAPI_CERT", "FILS_SHA256", "FILS_SHA384", "DPP" };
     }
 
     /**
@@ -520,11 +533,14 @@ public class WifiConfiguration implements Parcelable {
      */
     public static final int SECURITY_TYPE_PASSPOINT_R3 = 12;
 
+    /** Security type for Easy Connect (DPP) network */
+    public static final int SECURITY_TYPE_DPP = 13;
+
     /**
      * This is used for the boundary check and should be the same as the last type.
      * @hide
      */
-    public static final int SECURITY_TYPE_NUM = SECURITY_TYPE_PASSPOINT_R3;
+    public static final int SECURITY_TYPE_NUM = SECURITY_TYPE_DPP;
 
     /**
      * Security types we support.
@@ -545,6 +561,7 @@ public class WifiConfiguration implements Parcelable {
             SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
             SECURITY_TYPE_PASSPOINT_R1_R2,
             SECURITY_TYPE_PASSPOINT_R3,
+            SECURITY_TYPE_DPP,
     })
     public @interface SecurityType {}
 
@@ -553,7 +570,7 @@ public class WifiConfiguration implements Parcelable {
         "wpa3-sae", "wpa3 enterprise 192-bit", "owe",
         "wapi-psk", "wapi-cert", "wpa3 enterprise",
         "wpa3 enterprise 192-bit", "passpoint r1/r2",
-        "passpoint r3"};
+        "passpoint r3", "dpp"};
 
     private List<SecurityParams> mSecurityParamsList = new ArrayList<>();
 
@@ -568,6 +585,10 @@ public class WifiConfiguration implements Parcelable {
      * <br>
      * This API would clear existing security types and add a default one.
      *
+     * Before calling this API with {@link #SECURITY_TYPE_DPP} as securityType,
+     * call {@link WifiManager#isEasyConnectDppAkmSupported() to know whether this security type is
+     * supported or not.
+     *
      * @param securityType One of the following security types:
      * {@link #SECURITY_TYPE_OPEN},
      * {@link #SECURITY_TYPE_WEP},
@@ -579,6 +600,7 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_WAPI_CERT},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link #SECURITY_TYPE_DPP},
      */
     public void setSecurityParams(@SecurityType int securityType) {
         // Clear existing data.
@@ -647,6 +669,7 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_WAPI_CERT},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link #SECURITY_TYPE_DPP},
      *
      * @hide
      */
@@ -689,6 +712,21 @@ public class WifiConfiguration implements Parcelable {
         updateLegacySecurityParams();
     }
 
+    private boolean isWpa3EnterpriseConfiguration() {
+        if (!allowedKeyManagement.get(KeyMgmt.WPA_EAP)
+                && !allowedKeyManagement.get(KeyMgmt.IEEE8021X)) {
+            return false;
+        }
+        if (!requirePmf) return false;
+        // Only RSN protocol is set.
+        if (allowedProtocols.cardinality() > 1) return false;
+        if (!allowedProtocols.get(Protocol.RSN)) return false;
+        // TKIP is not allowed.
+        if (allowedPairwiseCiphers.get(PairwiseCipher.TKIP)) return false;
+        if (allowedGroupCiphers.get(GroupCipher.TKIP)) return false;
+        return true;
+    }
+
     /**
      * If there is no security params, generate one according to legacy fields.
      * @hide
@@ -702,6 +740,8 @@ public class WifiConfiguration implements Parcelable {
             setSecurityParams(SECURITY_TYPE_WAPI_PSK);
         } else if (allowedKeyManagement.get(KeyMgmt.SUITE_B_192)) {
             setSecurityParams(SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT);
+        } else if (allowedKeyManagement.get(KeyMgmt.DPP)) {
+            setSecurityParams(SECURITY_TYPE_DPP);
         } else if (allowedKeyManagement.get(KeyMgmt.OWE)) {
             setSecurityParams(SECURITY_TYPE_OWE);
         } else if (allowedKeyManagement.get(KeyMgmt.SAE)) {
@@ -711,7 +751,7 @@ public class WifiConfiguration implements Parcelable {
         } else if (allowedKeyManagement.get(KeyMgmt.WPA2_PSK)) {
             setSecurityParams(SECURITY_TYPE_PSK);
         } else if (allowedKeyManagement.get(KeyMgmt.WPA_EAP)) {
-            if (requirePmf) {
+            if (isWpa3EnterpriseConfiguration()) {
                 setSecurityParams(SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
             } else {
                 setSecurityParams(SECURITY_TYPE_EAP);
@@ -744,6 +784,7 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_WAPI_CERT},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link #SECURITY_TYPE_DPP},
      *
      * @hide
      */
@@ -793,6 +834,7 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_WAPI_CERT},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link #SECURITY_TYPE_DPP},
      *
      * @return the copy of specific security params if found; otherwise null.
      * @hide
@@ -819,6 +861,7 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_WAPI_CERT},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link #SECURITY_TYPE_DPP},
      *
      * @return true if there is a security params matches the type.
      * @hide
@@ -986,6 +1029,55 @@ public class WifiConfiguration implements Parcelable {
      * <code>XX:XX:XX:XX:XX:XX</code> where each <code>X</code> is a hex digit.
      */
     public String BSSID;
+
+    private List<MacAddress> mBssidAllowlist;
+
+    /**
+     * Set a list of BSSIDs to control if this network configuration entry should be used to
+     * associate an AP.
+     * <ul>
+     * <li>If set with {@code null}, then there are no restrictions on the connection. The
+     * configuration will associate to any AP.</li>
+     * <li>If set to an empty list then the configuration will not associate to any AP.</li>
+     * <li>If set to a non-empty list then the configuration will only associate to APs whose BSSID
+     * is on the list.</li>
+     * </ul>
+     * @param bssidAllowlist A list of {@link MacAddress} representing the BSSID of APs,
+     * {@code null} to allow all BSSIDs (no restriction).
+     * @hide
+     */
+    @SystemApi
+    public void setBssidAllowlist(@Nullable List<MacAddress> bssidAllowlist) {
+        if (bssidAllowlist == null) {
+            mBssidAllowlist = null;
+            return;
+        }
+        mBssidAllowlist = new ArrayList<>(bssidAllowlist);
+    }
+
+    /**
+     * Get a list of BSSIDs specified on this network configuration entry, set by
+     * {@link #setBssidAllowlist(List)}.
+     * @return A list of {@link MacAddress} representing BSSID to allow associate, {@code null} for
+     * allowing all BSSIDs (no restriction).
+     * @hide
+     */
+    @SuppressLint("NullableCollection")
+    @SystemApi
+    @Nullable
+    public List<MacAddress> getBssidAllowlist() {
+        if (mBssidAllowlist == null) {
+            return null;
+        }
+        return new ArrayList<>(mBssidAllowlist);
+    }
+
+    /**
+     * @hide
+     */
+    public List<MacAddress> getBssidAllowlistInternal() {
+        return mBssidAllowlist;
+    }
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -1324,6 +1416,9 @@ public class WifiConfiguration implements Parcelable {
     @SystemApi
     public int subscriptionId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
 
+    @Nullable
+    private ParcelUuid mSubscriptionGroup = null;
+
     /**
      * Auto-join is allowed by user for this network.
      * Default true.
@@ -1471,6 +1566,14 @@ public class WifiConfiguration implements Parcelable {
     public boolean oemPrivate;
 
     /**
+     * Indicate whether or not the network is a secondary network with internet, associated with
+     * a DBS AP same as the primary network on a different band.
+     * This bit is set when this Wifi configuration is created from {@link WifiConnectivityManager}.
+     * @hide
+     */
+    public boolean dbsSecondaryInternet;
+
+    /**
      * Indicate whether or not the network is a carrier merged network.
      * This bit can only be used by suggestion network, see
      * {@link WifiNetworkSuggestion.Builder#setCarrierMerged(boolean)}
@@ -1507,6 +1610,49 @@ public class WifiConfiguration implements Parcelable {
      */
     @SystemApi
     public boolean meteredHint;
+
+    /**
+     * True if this configuration is intended to be repeater enabled to expand coverage.
+     */
+    private boolean mIsRepeaterEnabled;
+
+    /**
+     * Sets if this configuration is intended to be repeater enabled for expanded coverage.
+     *
+     * @param isRepeaterEnabled true if this network is intended to be repeater enabled,
+     *        false otherwise.
+     *
+     * This request is only accepted if the caller is holding
+     * {@link android.Manifest.permission#NETWORK_SETTINGS}.
+     *
+     * @hide
+     */
+    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
+    @SystemApi
+    public void setRepeaterEnabled(boolean isRepeaterEnabled) {
+        mIsRepeaterEnabled = isRepeaterEnabled;
+    }
+
+    /**
+     * Returns if this configuration is intended to be repeater enabled for expanded coverage.
+     *
+     * @return true if this network is intended to be repeater enabled, false otherwise.
+     *
+     * @hide
+     */
+    @SystemApi
+    public boolean isRepeaterEnabled() {
+        return mIsRepeaterEnabled;
+    }
+
+    /**
+     * Indicate whether the network is restricted or not.
+     *
+     * This bit can only be used by suggestion network, see
+     * {@link WifiNetworkSuggestion.Builder#setRestricted(boolean)}
+     * @hide
+     */
+    public boolean restricted;
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -1646,30 +1792,23 @@ public class WifiConfiguration implements Parcelable {
 
     /**
      * Use factory MAC when connecting to this network
-     * @hide
      */
-    @SystemApi
     public static final int RANDOMIZATION_NONE = 0;
+
     /**
      * Generate a randomized MAC once and reuse it for all connections to this network
-     * @hide
      */
-    @SystemApi
     public static final int RANDOMIZATION_PERSISTENT = 1;
 
     /**
      * Use a randomly generated MAC address for connections to this network.
      * This option does not persist the randomized MAC address.
-     * @hide
      */
-    @SystemApi
     public static final int RANDOMIZATION_NON_PERSISTENT = 2;
 
     /**
      * Let the wifi framework automatically decide the MAC randomization strategy.
-     * @hide
      */
-    @SystemApi
     public static final int RANDOMIZATION_AUTO = 3;
 
     /**
@@ -1684,6 +1823,30 @@ public class WifiConfiguration implements Parcelable {
     public int macRandomizationSetting = RANDOMIZATION_AUTO;
 
     /**
+     * Set the MAC randomization setting for this network.
+     * <p>
+     * Caller must satify one of the following conditions:
+     * </p>
+     * <ul>
+     * <li>Have {@code android.Manifest.permission#NETWORK_SETTINGS} permission.</li>
+     * <li>Have {@code android.Manifest.permission#NETWORK_SETUP_WIZARD} permission.</li>
+     * <li>Be in Demo Mode.</li>
+     * <li>Be the creator adding or updating a passpoint network.</li>
+     * <li>Be an admin updating their own network.</li>
+     * </ul>
+     */
+    public void setMacRandomizationSetting(@MacRandomizationSetting int macRandomizationSetting) {
+        this.macRandomizationSetting = macRandomizationSetting;
+    }
+
+    /**
+     * Get the MAC randomization setting for this network.
+     */
+    public @MacRandomizationSetting int getMacRandomizationSetting() {
+        return this.macRandomizationSetting;
+    }
+
+    /**
      * Randomized MAC address to use with this particular network
      * @hide
      */
@@ -1691,7 +1854,7 @@ public class WifiConfiguration implements Parcelable {
     private MacAddress mRandomizedMacAddress;
 
     /**
-     * The wall clock time of when |mRandomizedMacAddress| should be re-randomized in enhanced
+     * The wall clock time of when |mRandomizedMacAddress| should be re-randomized in non-persistent
      * MAC randomization mode.
      * @hide
      */
@@ -1738,6 +1901,116 @@ public class WifiConfiguration implements Parcelable {
             return;
         }
         mRandomizedMacAddress = mac;
+    }
+
+    /**
+     * This network supports DPP AKM and the device is configured to
+     * onboard peer enrollee devices with {@link #SECURITY_TYPE_DPP}
+     * @hide
+     */
+    private boolean mIsDppConfigurator;
+
+    /**
+     * Private elliptic curve key used by DPP Configurator to generate other DPP Keys
+     * for DPP-AKM based network configuration.
+     * @hide
+     */
+    private byte[] mDppPrivateEcKey;
+
+    /**
+     * Signed DPP connector. The connector is used by a pair of Enrollee devices to establish
+     * a security association using the DPP Introduction Protocol.
+     * @hide
+     */
+    private byte[] mDppConnector;
+
+    /**
+     * The public signing key of the DPP configurator.
+     * @hide
+     */
+    private byte[] mDppCSignKey;
+
+    /**
+     * DPP network access key (own private key)
+     * @hide
+     */
+    private byte[] mDppNetAccessKey;
+
+    /**
+     * Set DPP Connection keys which are used for network access.
+     * This is required for SECURITY_TYPE_DPP network connection.
+     * @hide
+     */
+    public void setDppConnectionKeys(byte[] connector, byte[] cSignKey, byte[] netAccessKey) {
+        if (connector == null || cSignKey == null || netAccessKey == null) {
+            Log.e(TAG, "One of DPP key is null");
+            return;
+        }
+        mDppConnector = connector.clone();
+        mDppCSignKey = cSignKey.clone();
+        mDppNetAccessKey = netAccessKey.clone();
+    }
+
+    /**
+     * Allow this profile as configurable DPP profile.
+     * This is required to allow SECURITY_TYPE_DPP profile to be eligible for Configuration
+     * of DPP-Enrollees.
+     * @hide
+     */
+    public void setDppConfigurator(byte[] ecKey) {
+        if (ecKey != null) {
+            mDppPrivateEcKey = ecKey.clone();
+            mIsDppConfigurator = true;
+        }
+    }
+
+    /**
+     * To check if this WifiConfiguration supports configuring a peer Enrollee device with
+     * SECURITY_TYPE_DPP
+     */
+    public boolean isDppConfigurator() {
+        return mIsDppConfigurator;
+    }
+
+    /**
+     * Get private elliptic curve key used by DPP Configurator to generate other DPP Keys
+     * for DPP-AKM based network configuration.
+     * @hide
+     */
+    @SystemApi
+    @NonNull public byte[] getDppPrivateEcKey() {
+        return mDppPrivateEcKey.clone();
+    }
+
+    /**
+     * Get DPP signed connector. The connector is used by a pair of Enrollee devices to establish
+     * a security association using the DPP Introduction Protocol.
+     * @hide
+     */
+    @SystemApi
+    @NonNull public byte[] getDppConnector() {
+        return mDppConnector.clone();
+    }
+
+    /**
+     * Get public signing key of the DPP configurator. This key is used by provisioned devices
+     * to verify Connectors of other devices are signed by the same Configurator. The configurator
+     * derives and sets the C-sign-key in each DPP Configuration object.
+     *
+     * @hide
+     */
+    @SystemApi
+    @NonNull public byte[] getDppCSignKey() {
+        return mDppCSignKey.clone();
+    }
+
+    /**
+     * Get DPP network access key. Own private key used to generate common secret, PMK.
+     * @hide
+     */
+    @SystemApi
+    @NonNull public byte[] getDppNetAccessKey() {
+        return mDppNetAccessKey.clone();
     }
 
     /** @hide
@@ -2121,6 +2394,11 @@ public class WifiConfiguration implements Parcelable {
         private SecurityParams mCandidateSecurityParams;
 
         /**
+         * Used to cache the last used security params for the candidate.
+         */
+        private SecurityParams mLastUsedSecurityParams;
+
+        /**
          * Indicate whether this network is visible in latest Qualified Network Selection. This
          * means there is scan result found related to this Configuration and meet the minimum
          * requirement. The saved network need not join latest Qualified Network Selection. For
@@ -2217,6 +2495,24 @@ public class WifiConfiguration implements Parcelable {
          */
         public SecurityParams getCandidateSecurityParams() {
             return mCandidateSecurityParams;
+        }
+
+        /**
+         * set the last used security type of the network
+         * @param params value to set to mLastUsedSecurityParams
+         * @hide
+         */
+        public void setLastUsedSecurityParams(SecurityParams params) {
+            mLastUsedSecurityParams = params;
+        }
+
+        /**
+         * get the last used security type of the network
+         * @return return the security params
+         * @hide
+         */
+        public SecurityParams getLastUsedSecurityParams() {
+            return mLastUsedSecurityParams;
         }
 
         /**
@@ -2557,6 +2853,7 @@ public class WifiConfiguration implements Parcelable {
             setCandidate(source.getCandidate());
             setCandidateScore(source.getCandidateScore());
             setCandidateSecurityParams(source.getCandidateSecurityParams());
+            setLastUsedSecurityParams(source.getLastUsedSecurityParams());
             setConnectChoice(source.getConnectChoice());
             setConnectChoiceRssi(source.getConnectChoiceRssi());
             setHasEverConnected(source.hasEverConnected());
@@ -2564,7 +2861,7 @@ public class WifiConfiguration implements Parcelable {
         }
 
         /** @hide */
-        public void writeToParcel(Parcel dest) {
+        public void writeToParcel(Parcel dest, int flags) {
             dest.writeInt(getNetworkSelectionStatus());
             dest.writeInt(getNetworkSelectionDisableReason());
             for (int index = DISABLED_NONE; index < NETWORK_SELECTION_DISABLED_MAX;
@@ -2582,6 +2879,8 @@ public class WifiConfiguration implements Parcelable {
             }
             dest.writeInt(hasEverConnected() ? 1 : 0);
             dest.writeInt(hasNeverDetectedCaptivePortal() ? 1 : 0);
+            dest.writeParcelable(getCandidateSecurityParams(), flags);
+            dest.writeParcelable(getLastUsedSecurityParams(), flags);
         }
 
         /** @hide */
@@ -2602,6 +2901,8 @@ public class WifiConfiguration implements Parcelable {
             }
             setHasEverConnected(in.readInt() != 0);
             setHasNeverDetectedCaptivePortal(in.readInt() != 0);
+            setCandidateSecurityParams((SecurityParams) in.readParcelable(null));
+            setLastUsedSecurityParams((SecurityParams) in.readParcelable(null));
         }
     }
 
@@ -2873,7 +3174,9 @@ public class WifiConfiguration implements Parcelable {
         carrierMerged = false;
         fromWifiNetworkSuggestion = false;
         fromWifiNetworkSpecifier = false;
+        dbsSecondaryInternet = false;
         meteredHint = false;
+        mIsRepeaterEnabled = false;
         meteredOverride = METERED_OVERRIDE_NONE;
         useExternalScores = false;
         validatedInternetAccess = false;
@@ -2884,6 +3187,13 @@ public class WifiConfiguration implements Parcelable {
         dtimInterval = 0;
         mRandomizedMacAddress = MacAddress.fromString(WifiInfo.DEFAULT_MAC_ADDRESS);
         numRebootsSinceLastUse = 0;
+        restricted = false;
+        mBssidAllowlist = null;
+        mIsDppConfigurator = false;
+        mDppPrivateEcKey = new byte[0];
+        mDppConnector = new byte[0];
+        mDppCSignKey = new byte[0];
+        mDppNetAccessKey = new byte[0];
     }
 
     /**
@@ -2951,8 +3261,9 @@ public class WifiConfiguration implements Parcelable {
                 .append(" PRIO: ").append(this.priority)
                 .append(" HIDDEN: ").append(this.hiddenSSID)
                 .append(" PMF: ").append(this.requirePmf)
-                .append("CarrierId: ").append(this.carrierId)
-                .append("SubscriptionId").append(this.subscriptionId)
+                .append(" CarrierId: ").append(this.carrierId)
+                .append(" SubscriptionId: ").append(this.subscriptionId)
+                .append(" SubscriptionGroup: ").append(this.mSubscriptionGroup)
                 .append('\n');
 
 
@@ -2984,6 +3295,10 @@ public class WifiConfiguration implements Parcelable {
                 .append(mNetworkSelectionStatus.hasEverConnected()).append("\n");
         sbuf.append(" hasNeverDetectedCaptivePortal: ")
                 .append(mNetworkSelectionStatus.hasNeverDetectedCaptivePortal()).append("\n");
+        sbuf.append(" mCandidateSecurityParams: ")
+                .append(mNetworkSelectionStatus.getCandidateSecurityParams());
+        sbuf.append(" mLastUsedSecurityParams: ")
+                .append(mNetworkSelectionStatus.getLastUsedSecurityParams());
 
         if (this.numAssociation > 0) {
             sbuf.append(" numAssociation ").append(this.numAssociation).append("\n");
@@ -3001,16 +3316,20 @@ public class WifiConfiguration implements Parcelable {
         if (this.ephemeral) sbuf.append(" ephemeral");
         if (this.osu) sbuf.append(" osu");
         if (this.trusted) sbuf.append(" trusted");
+        if (this.restricted) sbuf.append(" restricted");
         if (this.oemPaid) sbuf.append(" oemPaid");
         if (this.oemPrivate) sbuf.append(" oemPrivate");
         if (this.carrierMerged) sbuf.append(" carrierMerged");
         if (this.fromWifiNetworkSuggestion) sbuf.append(" fromWifiNetworkSuggestion");
         if (this.fromWifiNetworkSpecifier) sbuf.append(" fromWifiNetworkSpecifier");
+        if (this.dbsSecondaryInternet) sbuf.append(" dbsSecondaryInternet");
         if (this.meteredHint) sbuf.append(" meteredHint");
+        if (this.mIsRepeaterEnabled) sbuf.append(" repeaterEnabled");
         if (this.useExternalScores) sbuf.append(" useExternalScores");
         if (this.validatedInternetAccess || this.ephemeral || this.trusted || this.oemPaid
                 || this.oemPrivate || this.carrierMerged || this.fromWifiNetworkSuggestion
-                || this.fromWifiNetworkSpecifier || this.meteredHint || this.useExternalScores) {
+                || this.fromWifiNetworkSpecifier || this.meteredHint || this.useExternalScores
+                || this.restricted || this.dbsSecondaryInternet) {
             sbuf.append("\n");
         }
         if (this.meteredOverride != METERED_OVERRIDE_NONE) {
@@ -3171,6 +3490,17 @@ public class WifiConfiguration implements Parcelable {
         sbuf.append("recentFailure: ").append("Association Rejection code: ")
                 .append(recentFailure.getAssociationStatus()).append(", last update time: ")
                 .append(recentFailure.getLastUpdateTimeSinceBootMillis()).append("\n");
+        if (mBssidAllowlist != null) {
+            sbuf.append("bssidAllowList: [");
+            for (MacAddress bssid : mBssidAllowlist) {
+                sbuf.append(bssid + ", ");
+            }
+            sbuf.append("]");
+        } else {
+            sbuf.append("bssidAllowlist unset");
+        }
+        sbuf.append("\n");
+        sbuf.append("IsDppConfigurator: ").append(this.mIsDppConfigurator).append("\n");
         return sbuf.toString();
     }
 
@@ -3182,23 +3512,8 @@ public class WifiConfiguration implements Parcelable {
     @NonNull
     @SystemApi
     public String getPrintableSsid() {
-        if (SSID == null) return "";
-        final int length = SSID.length();
-        if (length > 2 && (SSID.charAt(0) == '"') && SSID.charAt(length - 1) == '"') {
-            return SSID.substring(1, length - 1);
-        }
-
-        /* The ascii-encoded string format is P"<ascii-encoded-string>"
-         * The decoding is implemented in the supplicant for a newly configured
-         * network.
-         */
-        if (length > 3 && (SSID.charAt(0) == 'P') && (SSID.charAt(1) == '"') &&
-                (SSID.charAt(length-1) == '"')) {
-            WifiSsid wifiSsid = WifiSsid.createFromAsciiEncoded(
-                    SSID.substring(2, length - 1));
-            return wifiSsid.toString();
-        }
-        return SSID;
+        // TODO(b/136480579): Handle SSIDs with non-UTF-8 encodings.
+        return WifiInfo.removeDoubleQuotes(SSID);
     }
 
     /**
@@ -3319,6 +3634,8 @@ public class WifiConfiguration implements Parcelable {
             return KeyMgmt.WAPI_PSK;
         } else if (allowedKeyManagement.get(KeyMgmt.WAPI_CERT)) {
             return KeyMgmt.WAPI_CERT;
+        } else if (allowedKeyManagement.get(KeyMgmt.DPP)) {
+            return KeyMgmt.DPP;
         }
         return KeyMgmt.NONE;
     }
@@ -3368,35 +3685,7 @@ public class WifiConfiguration implements Parcelable {
      *  return the SSID + security type in String format.
      */
     public String getSsidAndSecurityTypeString() {
-        String key;
-        if (allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.WPA_PSK];
-        } else if (allowedKeyManagement.get(KeyMgmt.WPA_EAP)
-                || allowedKeyManagement.get(KeyMgmt.IEEE8021X)) {
-            if (!requirePmf) {
-                key = SSID + KeyMgmt.strings[KeyMgmt.WPA_EAP];
-            } else {
-                key = SSID + "WPA3_EAP";
-            }
-        } else if (wepTxKeyIndex >= 0 && wepTxKeyIndex < wepKeys.length
-                && wepKeys[wepTxKeyIndex] != null) {
-            key = SSID + "WEP";
-        } else if (allowedKeyManagement.get(KeyMgmt.OWE)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.OWE];
-        } else if (allowedKeyManagement.get(KeyMgmt.SAE)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.SAE];
-        } else if (allowedKeyManagement.get(KeyMgmt.SUITE_B_192)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.SUITE_B_192];
-        } else if (allowedKeyManagement.get(KeyMgmt.WAPI_PSK)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.WAPI_PSK];
-        } else if (allowedKeyManagement.get(KeyMgmt.WAPI_CERT)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.WAPI_CERT];
-        } else if (allowedKeyManagement.get(KeyMgmt.OSEN)) {
-            key = SSID + KeyMgmt.strings[KeyMgmt.OSEN];
-        } else {
-            key = SSID + KeyMgmt.strings[KeyMgmt.NONE];
-        }
-        return key;
+        return SSID + getDefaultSecurityType();
     }
 
     /**
@@ -3411,11 +3700,10 @@ public class WifiConfiguration implements Parcelable {
 
     /**
      * Set the {@link IpConfiguration} for this network.
-     * @param ipConfiguration the {@link IpConfiguration} to set, or null to use the default
-     *                        constructor {@link IpConfiguration#IpConfiguration()}.
-     * @hide
+     *
+     * @param ipConfiguration a {@link IpConfiguration} to use for this Wi-Fi configuration, or
+     *                        {@code null} to use the default configuration.
      */
-    @SystemApi
     public void setIpConfiguration(@Nullable IpConfiguration ipConfiguration) {
         if (ipConfiguration == null) ipConfiguration = new IpConfiguration();
         mIpConfiguration = ipConfiguration;
@@ -3508,8 +3796,12 @@ public class WifiConfiguration implements Parcelable {
         } else {
             proxySettingCopy = IpConfiguration.ProxySettings.STATIC;
             // Construct a new HTTP Proxy
+            String[] exclusionList = httpProxy.getExclusionList();
+            if (exclusionList == null) {
+                exclusionList = new String[0];
+            }
             httpProxyCopy = ProxyInfo.buildDirectProxy(httpProxy.getHost(), httpProxy.getPort(),
-                    Arrays.asList(httpProxy.getExclusionList()));
+                    Arrays.asList(exclusionList));
         }
         if (!httpProxyCopy.isValid()) {
             throw new IllegalArgumentException("Invalid ProxyInfo: " + httpProxyCopy.toString());
@@ -3594,12 +3886,15 @@ public class WifiConfiguration implements Parcelable {
             ephemeral = source.ephemeral;
             osu = source.osu;
             trusted = source.trusted;
+            restricted = source.restricted;
             oemPaid = source.oemPaid;
             oemPrivate = source.oemPrivate;
             carrierMerged = source.carrierMerged;
             fromWifiNetworkSuggestion = source.fromWifiNetworkSuggestion;
             fromWifiNetworkSpecifier = source.fromWifiNetworkSpecifier;
+            dbsSecondaryInternet = source.dbsSecondaryInternet;
             meteredHint = source.meteredHint;
+            mIsRepeaterEnabled = source.mIsRepeaterEnabled;
             meteredOverride = source.meteredOverride;
             useExternalScores = source.useExternalScores;
 
@@ -3632,6 +3927,17 @@ public class WifiConfiguration implements Parcelable {
             carrierId = source.carrierId;
             subscriptionId = source.subscriptionId;
             mPasspointUniqueId = source.mPasspointUniqueId;
+            mSubscriptionGroup = source.mSubscriptionGroup;
+            if (source.mBssidAllowlist != null) {
+                mBssidAllowlist = new ArrayList<>(source.mBssidAllowlist);
+            } else {
+                mBssidAllowlist = null;
+            }
+            mIsDppConfigurator = source.mIsDppConfigurator;
+            mDppPrivateEcKey = source.mDppPrivateEcKey.clone();
+            mDppConnector = source.mDppConnector.clone();
+            mDppCSignKey = source.mDppCSignKey.clone();
+            mDppNetAccessKey = source.mDppNetAccessKey.clone();
         }
     }
 
@@ -3640,7 +3946,7 @@ public class WifiConfiguration implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(networkId);
         dest.writeInt(status);
-        mNetworkSelectionStatus.writeToParcel(dest);
+        mNetworkSelectionStatus.writeToParcel(dest, flags);
         dest.writeString(SSID);
         dest.writeString(BSSID);
         dest.writeInt(apBand);
@@ -3673,7 +3979,7 @@ public class WifiConfiguration implements Parcelable {
 
         dest.writeInt(mSecurityParamsList.size());
         mSecurityParamsList.stream()
-                .forEach(params -> params.writeToParcel(dest, flags));
+                .forEach(params -> dest.writeParcelable(params, flags));
 
         dest.writeParcelable(enterpriseConfig, flags);
 
@@ -3689,7 +3995,9 @@ public class WifiConfiguration implements Parcelable {
         dest.writeInt(carrierMerged ? 1 : 0);
         dest.writeInt(fromWifiNetworkSuggestion ? 1 : 0);
         dest.writeInt(fromWifiNetworkSpecifier ? 1 : 0);
+        dest.writeInt(dbsSecondaryInternet ? 1 : 0);
         dest.writeInt(meteredHint ? 1 : 0);
+        dest.writeBoolean(mIsRepeaterEnabled);
         dest.writeInt(meteredOverride);
         dest.writeInt(useExternalScores ? 1 : 0);
         dest.writeInt(creatorUid);
@@ -3715,6 +4023,14 @@ public class WifiConfiguration implements Parcelable {
         dest.writeInt(carrierId);
         dest.writeString(mPasspointUniqueId);
         dest.writeInt(subscriptionId);
+        dest.writeBoolean(restricted);
+        dest.writeParcelable(mSubscriptionGroup, flags);
+        dest.writeList(mBssidAllowlist);
+        dest.writeBoolean(mIsDppConfigurator);
+        dest.writeByteArray(mDppPrivateEcKey);
+        dest.writeByteArray(mDppConnector);
+        dest.writeByteArray(mDppCSignKey);
+        dest.writeByteArray(mDppNetAccessKey);
     }
 
     /** Implement the Parcelable interface {@hide} */
@@ -3759,7 +4075,7 @@ public class WifiConfiguration implements Parcelable {
 
                 int numSecurityParams = in.readInt();
                 for (int i = 0; i < numSecurityParams; i++) {
-                    config.mSecurityParamsList.add(SecurityParams.createFromParcel(in));
+                    config.mSecurityParamsList.add(in.readParcelable(null));
                 }
 
                 config.enterpriseConfig = in.readParcelable(null);
@@ -3773,9 +4089,11 @@ public class WifiConfiguration implements Parcelable {
                 config.oemPaid = in.readInt() != 0;
                 config.oemPrivate = in.readInt() != 0;
                 config.carrierMerged = in.readInt() != 0;
-                config.fromWifiNetworkSuggestion =  in.readInt() != 0;
-                config.fromWifiNetworkSpecifier =  in.readInt() != 0;
+                config.fromWifiNetworkSuggestion = in.readInt() != 0;
+                config.fromWifiNetworkSpecifier = in.readInt() != 0;
+                config.dbsSecondaryInternet = in.readInt() != 0;
                 config.meteredHint = in.readInt() != 0;
+                config.mIsRepeaterEnabled = in.readBoolean();
                 config.meteredOverride = in.readInt();
                 config.useExternalScores = in.readInt() != 0;
                 config.creatorUid = in.readInt();
@@ -3800,6 +4118,14 @@ public class WifiConfiguration implements Parcelable {
                 config.carrierId = in.readInt();
                 config.mPasspointUniqueId = in.readString();
                 config.subscriptionId = in.readInt();
+                config.restricted = in.readBoolean();
+                config.mSubscriptionGroup = in.readParcelable(null);
+                config.mBssidAllowlist = in.readArrayList(MacAddress.class.getClassLoader());
+                config.mIsDppConfigurator = in.readBoolean();
+                config.mDppPrivateEcKey = in.createByteArray();
+                config.mDppConnector = in.createByteArray();
+                config.mDppCSignKey = in.createByteArray();
+                config.mDppNetAccessKey = in.createByteArray();
                 return config;
             }
 
@@ -3887,10 +4213,10 @@ public class WifiConfiguration implements Parcelable {
             key = KeyMgmt.strings[KeyMgmt.WPA_PSK];
         } else if (allowedKeyManagement.get(KeyMgmt.WPA_EAP)
                 || allowedKeyManagement.get(KeyMgmt.IEEE8021X)) {
-            if (!requirePmf) {
-                key = KeyMgmt.strings[KeyMgmt.WPA_EAP];
-            } else {
+            if (isWpa3EnterpriseConfiguration()) {
                 key = "WPA3_EAP";
+            } else {
+                key = KeyMgmt.strings[KeyMgmt.WPA_EAP];
             }
         } else if (wepTxKeyIndex >= 0 && wepTxKeyIndex < wepKeys.length
                 && wepKeys[wepTxKeyIndex] != null) {
@@ -3907,6 +4233,8 @@ public class WifiConfiguration implements Parcelable {
             key = KeyMgmt.strings[KeyMgmt.WAPI_CERT];
         } else if (allowedKeyManagement.get(KeyMgmt.OSEN)) {
             key = KeyMgmt.strings[KeyMgmt.OSEN];
+        } else if (allowedKeyManagement.get(KeyMgmt.DPP)) {
+            key = KeyMgmt.strings[KeyMgmt.DPP];
         } else {
             key = KeyMgmt.strings[KeyMgmt.NONE];
         }
@@ -3928,7 +4256,8 @@ public class WifiConfiguration implements Parcelable {
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link #SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
      * {@link #SECURITY_TYPE_PASSPOINT_R1_R2},
-     * or {@link #SECURITY_TYPE_PASSPOINT_R3}.
+     * {@link #SECURITY_TYPE_PASSPOINT_R3},
+     * or {@link #SECURITY_TYPE_DPP}.
      * @return the name of the given type.
      * @hide
      */
@@ -3939,4 +4268,71 @@ public class WifiConfiguration implements Parcelable {
         return SECURITY_TYPE_NAMES[securityType];
     }
 
+    /**
+     * Returns the key for storing the data usage bucket.
+     *
+     * Note: DO NOT change this function. It is used to be a key to store Wi-Fi data usage data.
+     * Create a new function if we plan to change the key for Wi-Fi data usage and add the new key
+     * to {@link #getAllNetworkKeys()}.
+     *
+     * @param securityType the security type corresponding to the target network.
+     * @hide
+     */
+    public String getNetworkKeyFromSecurityType(@SecurityType int securityType) {
+        if (mPasspointUniqueId != null) {
+            // It might happen that there are two connections which use the same passpoint
+            // coniguration but different sim card (maybe same carriers?). Add subscriptionId to be
+            // the part of key to separate data in usage bucket.
+            // But now we only show one WifiConfiguration entry in Wifi picker for this case.
+            // It means that user only have a way to query usage with configuration on default SIM.
+            // (We always connect to network with default SIM). So returns the key with associated
+            // subscriptionId (the default one) first.
+            return subscriptionId + "-" + mPasspointUniqueId;
+        } else {
+            String key = SSID + getSecurityTypeName(securityType);
+            if (!shared) {
+                key += "-" + UserHandle.getUserHandleForUid(creatorUid).getIdentifier();
+            }
+            if (fromWifiNetworkSuggestion) {
+                key += "_" + creatorName + "-" + carrierId + "-" + subscriptionId;
+            }
+            return key;
+        }
+    }
+
+    /**
+     * Returns a list of all persistable network keys corresponding to this configuration.
+     * There may be multiple keys since they are security-type specific and a configuration may
+     * support multiple security types. The persistable key of a specific network connection may
+     * be obtained from {@link WifiInfo#getNetworkKey()}.
+     * An example of usage of such persistable network keys is to query the Wi-Fi data usage
+     * corresponding to this configuration. See {@code NetworkTemplate} to know the detail.
+     *
+     * @hide
+     */
+    @SystemApi
+    @NonNull
+    public Set<String> getAllNetworkKeys() {
+        Set<String> keys = new HashSet<>();
+        for (SecurityParams securityParam : mSecurityParamsList) {
+            keys.add(getNetworkKeyFromSecurityType(securityParam.getSecurityType()));
+        }
+        return keys;
+    }
+
+    /**
+     * Set the subscription group uuid associated with current configuration.
+     * @hide
+     */
+    public void setSubscriptionGroup(@Nullable ParcelUuid subscriptionGroup) {
+        this.mSubscriptionGroup = subscriptionGroup;
+    }
+
+    /**
+     * Get the subscription group uuid associated with current configuration.
+     * @hide
+     */
+    public @Nullable ParcelUuid getSubscriptionGroup() {
+        return this.mSubscriptionGroup;
+    }
 }

@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"የሚከተለው መተግበሪያ መሣሪያዎን ያስተዳድረዋል፦"</string>
     <string name="next" msgid="1004321437324424398">"ቀጣይ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"የሥራ መገለጫን በማቀናበር ላይ…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መገለጫ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">
-
-</xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት የአይቲ አስተዳዳሪዎን ያነጋግሩ።"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"የእርስዎ የአይቲ አስተዳዳሪ ከዚህ መገለጫ ጋር የተያያዙ ቅንብሮችን፣ የድርጅት መዳረሻን፣ መተግበሪያዎችን፣ ፈቃዶችን፣ ውሂብን እና የአውታረ መረብ እንቅስቃሴንና እንዲሁም የጥሪ ታሪክዎን እና የእውቂያ ፍለጋ ታሪክዎን መከታተል እና ማቀናበር ይችላሉ። ተጨማሪ መረጃ ለማግኘት እና ስለድርጅትዎ የግላዊነት መመሪያዎች የበለጠ ለመረዳት አይቲ አስተዳዳሪዎን ያነግጋሩ።"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"የእርስዎ አስተዳዳሪ የአውታረ መረብ እንቅስቃሴዎንና እንዲሁም የመሣሪያዎን አካባቢ፣ የጥሪ ታሪክና የእውቂያ ፍለጋ ታሪክ ጨምሮ ከዚህ መሣሪያ ጋር የተጎዳኙ ቅንብሮችን፣ የኮርፖሬት መዳረሻ፣ መተግበሪያዎችን፣ ፈቃዶችን እና ውሂብን የመከታተል እና የማቀናበር ችሎታ አላቸው።<xliff:g id="LINE_BREAK">
 
 </xliff:g>ስለድርጅትዎ ግላዊነት መመሪያዎች ጨምሮ ተጨማሪ መረጃ ለማግኘት የእርስዎን አይቲ አስተዳዳሪ ያነጋግሩ።"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ለዚህ መሣሪያ ግዢዎችን መፈጸም እንዲችሉ የ<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> መተግበሪያውን ይጫኑት።"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ይህ መሣሪያ ሊገደብ ይችላል"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"ክፍያዎችን የማይፈጽሙ ከሆነ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> የዚህ መሣሪያ መዳረሻን ሊገድብ ይችላል።"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"መሣሪያን ማዋቀር አይቻልም። የእርስዎን የአይቲ አስተዳዳሪ ያነጋግሩ እና «ልክ ያልሆነ የፍተሻ ክፍያ»ን ያጣቅሱ።"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"ቆይተው እንደገና ይሞክሩ ወይም የአይቲ አስተዳዳሪዎን ለእገዛ ይጠይቁ"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"መሣሪያን ማዋቀር አይቻልም። የእርስዎን የአይቲ አስተዳዳሪ ያነጋግሩ እና «የጎደሉ ወይም የተበላሹ ክፍለ-አካላት»ን ያጣቅሱ።"</string>
+    <string name="setting_up" msgid="1478847967385506664">"በማዋቀር ላይ…"</string>
 </resources>

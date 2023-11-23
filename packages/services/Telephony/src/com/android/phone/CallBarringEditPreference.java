@@ -101,9 +101,8 @@ public class CallBarringEditPreference extends EditPinPreference {
     }
 
     void init(TimeConsumingPreferenceListener listener, boolean skipReading, Phone phone) {
-        if (DBG) {
-            Log.d(LOG_TAG, "init: phone id = " + phone.getPhoneId());
-        }
+        Log.d(LOG_TAG, "init: phone id = " + phone.getPhoneId());
+
         mPhone = phone;
 
         mTcpListener = listener;
@@ -184,10 +183,9 @@ public class CallBarringEditPreference extends EditPinPreference {
     @Override
     protected void onDialogClosed(boolean positiveResult) {
         super.onDialogClosed(positiveResult);
-        if (DBG) {
-            Log.d(LOG_TAG, "onDialogClosed: mButtonClicked=" + mButtonClicked + ", positiveResult="
-                    + positiveResult);
-        }
+        Log.d(LOG_TAG, "onDialogClosed: mButtonClicked=" + mButtonClicked + ", positiveResult="
+                + positiveResult);
+
         if (mButtonClicked != DialogInterface.BUTTON_NEGATIVE) {
             String password = getEditText().getText().toString();
 
@@ -199,9 +197,8 @@ public class CallBarringEditPreference extends EditPinPreference {
                 return;
             }
 
-            if (DBG) {
-                Log.d(LOG_TAG, "onDialogClosed: password=" + password);
-            }
+            Log.d(LOG_TAG, "onDialogClosed");
+
             // Send set call barring message to RIL layer.
             mPhone.setCallBarring(mFacility, !mIsActivated, password,
                     mHandler.obtainMessage(MyHandler.MESSAGE_SET_CALL_BARRING),
@@ -214,9 +211,7 @@ public class CallBarringEditPreference extends EditPinPreference {
 
     void handleCallBarringResult(boolean status) {
         mIsActivated = status;
-        if (DBG) {
-            Log.d(LOG_TAG, "handleCallBarringResult: mIsActivated=" + mIsActivated);
-        }
+        Log.i(LOG_TAG, "handleCallBarringResult: mIsActivated=" + mIsActivated);
     }
 
     private static int getServiceClassForCallBarring(Phone phone) {
@@ -277,9 +272,7 @@ public class CallBarringEditPreference extends EditPinPreference {
                 return;
             }
 
-            if (DBG) {
-                Log.d(LOG_TAG, "handleGetCallBarringResponse: done");
-            }
+            Log.i(LOG_TAG, "handleGetCallBarringResponse: done");
 
             AsyncResult ar = (AsyncResult) msg.obj;
 
@@ -291,9 +284,7 @@ public class CallBarringEditPreference extends EditPinPreference {
 
             // Unsuccessful query for call barring.
             if (ar.exception != null) {
-                if (DBG) {
-                    Log.d(LOG_TAG, "handleGetCallBarringResponse: ar.exception=" + ar.exception);
-                }
+                Log.i(LOG_TAG, "handleGetCallBarringResponse: ar.exception=" + ar.exception);
                 pref.mTcpListener.onException(pref, (CommandException) ar.exception);
             } else {
                 if (ar.userObj instanceof Throwable) {
@@ -301,18 +292,14 @@ public class CallBarringEditPreference extends EditPinPreference {
                 }
                 int[] ints = (int[]) ar.result;
                 if (ints.length == 0) {
-                    if (DBG) {
-                        Log.d(LOG_TAG, "handleGetCallBarringResponse: ar.result.length==0");
-                    }
+                    Log.i(LOG_TAG, "handleGetCallBarringResponse: ar.result.length==0");
                     pref.setEnabled(false);
                     pref.mTcpListener.onError(pref, RESPONSE_ERROR);
                 } else {
                     pref.handleCallBarringResult(ints[0] != 0);
-                    if (DBG) {
-                        Log.d(LOG_TAG,
-                                "handleGetCallBarringResponse: CB state successfully queried: "
-                                        + ints[0]);
-                    }
+                    Log.i(LOG_TAG,
+                            "handleGetCallBarringResponse: CB state successfully queried: "
+                                    + ints[0]);
                 }
             }
             // Update call barring status.
@@ -329,13 +316,9 @@ public class CallBarringEditPreference extends EditPinPreference {
             AsyncResult ar = (AsyncResult) msg.obj;
 
             if (ar.exception != null || ar.userObj instanceof Throwable) {
-                if (DBG) {
-                    Log.d(LOG_TAG, "handleSetCallBarringResponse: ar.exception=" + ar.exception);
-                }
+                Log.i(LOG_TAG, "handleSetCallBarringResponse: ar.exception=" + ar.exception);
             }
-            if (DBG) {
-                Log.d(LOG_TAG, "handleSetCallBarringResponse: re-get call barring option");
-            }
+            Log.i(LOG_TAG, "handleSetCallBarringResponse: re-get call barring option");
             pref.mPhone.getCallBarring(
                     pref.mFacility,
                     "",

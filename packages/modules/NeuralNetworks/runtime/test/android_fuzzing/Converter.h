@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H
 
 #include "Model.pb.h"
 #include "TestHarness.h"
 
 namespace android::nn::fuzz {
 
-test_helper::TestModel convertToTestModel(const android_nn_fuzz::Test& model);
+test_helper::TestModel convertToTestModel(const Test& model);
 
 }  // namespace android::nn::fuzz
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_ANDROID_FUZZING_CONVERTER_H

@@ -100,6 +100,7 @@ public class WifiDiagnostics {
     public static final int REPORT_REASON_WIFINATIVE_FAILURE        = 8;
     public static final int REPORT_REASON_REACHABILITY_LOST         = 9;
     public static final int REPORT_REASON_FATAL_FW_ALERT            = 10;
+    public static final int REPORT_REASON_REACHABILITY_FAILURE      = 11;
 
     /** number of bug reports to hold */
     public static final int MAX_BUG_REPORTS                         = 4;
@@ -142,7 +143,7 @@ public class WifiDiagnostics {
     private final Clock mClock;
     private final Handler mWorkerThreadHandler;
 
-    private int mLogLevel = VERBOSE_NO_LOG;
+    private int mHalLogLevel = VERBOSE_NO_LOG;
     private boolean mIsLoggingEventHandlerRegistered;
     private WifiNative.RingBufferStatus[] mRingBuffers;
     private WifiNative.RingBufferStatus mPerPacketRingBuffer;
@@ -240,7 +241,7 @@ public class WifiDiagnostics {
         if (!mActiveInterfaces.isEmpty()) {
             return;
         }
-        if (mLogLevel != VERBOSE_NO_LOG) {
+        if (mHalLogLevel != VERBOSE_NO_LOG) {
             stopLoggingAllBuffers();
             mRingBuffers = null;
         }
@@ -278,7 +279,7 @@ public class WifiDiagnostics {
     public void captureBugReportData(int reason) {
         final boolean verbose;
         synchronized (this) {
-            verbose = isVerboseLoggingEnabled();
+            verbose = isHalVerboseLoggingEnabled();
         }
         BugReport report = captureBugreport(reason, verbose);
         synchronized (this) {
@@ -302,7 +303,7 @@ public class WifiDiagnostics {
         mWorkerThreadHandler.post(() -> {
             final boolean verbose;
             synchronized (this) {
-                verbose = isVerboseLoggingEnabled();
+                verbose = isHalVerboseLoggingEnabled();
             }
             // This is very slow, don't put this inside `synchronized(this)`!
             BugReport report = captureBugreport(errorCode, verbose);
@@ -400,8 +401,13 @@ public class WifiDiagnostics {
 
             Calendar c = Calendar.getInstance();
             c.setTimeInMillis(systemTimeMs);
-            builder.append("system time = ").append(
-                    String.format("%tm-%td %tH:%tM:%tS.%tL", c, c, c, c, c, c)).append("\n");
+            builder.append("system time = ")
+                    .append(c.get(Calendar.MONTH)).append("-")
+                    .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                    .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                    .append(c.get(Calendar.MINUTE)).append(":")
+                    .append(c.get(Calendar.SECOND)).append(".")
+                    .append(c.get(Calendar.MILLISECOND)).append("\n");
 
             long kernelTimeMs = kernelTimeNanos/(1000*1000);
             builder.append("kernel time = ").append(kernelTimeMs/1000).append(".").append
@@ -538,16 +544,17 @@ public class WifiDiagnostics {
      *
      * @param verbose - with the obvious interpretation
      */
-    public synchronized void enableVerboseLogging(boolean verboseEnabled) {
+    public synchronized void enableVerboseLogging(boolean verboseEnabled,
+            boolean halVerboseEnabled) {
         final int ringBufferByteLimitSmall = mContext.getResources().getInteger(
                 R.integer.config_wifi_logger_ring_buffer_default_size_limit_kb) * 1024;
         final int ringBufferByteLimitLarge = mContext.getResources().getInteger(
                 R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb) * 1024;
-        if (verboseEnabled) {
-            mLogLevel = VERBOSE_LOG_WITH_WAKEUP;
+        if (halVerboseEnabled) {
+            mHalLogLevel = VERBOSE_LOG_WITH_WAKEUP;
             mMaxRingBufferSizeBytes = ringBufferByteLimitLarge;
         } else {
-            mLogLevel = VERBOSE_NORMAL_LOG;
+            mHalLogLevel = VERBOSE_NORMAL_LOG;
             mMaxRingBufferSizeBytes = enableVerboseLoggingForDogfood()
                     ? ringBufferByteLimitLarge : ringBufferByteLimitSmall;
         }
@@ -558,8 +565,8 @@ public class WifiDiagnostics {
         }
     }
 
-    private boolean isVerboseLoggingEnabled() {
-        return mLogLevel > VERBOSE_NORMAL_LOG;
+    private boolean isHalVerboseLoggingEnabled() {
+        return mHalLogLevel > VERBOSE_NORMAL_LOG;
     }
 
     private void clearVerboseLogs() {
@@ -601,7 +608,7 @@ public class WifiDiagnostics {
     }
 
     private void startLoggingRingBuffers() {
-        if (!isVerboseLoggingEnabled()) {
+        if (!isHalVerboseLoggingEnabled()) {
             clearVerboseLogs();
         }
         if (mRingBuffers == null) {
@@ -638,11 +645,11 @@ public class WifiDiagnostics {
 
     private boolean startLoggingRingBuffer(WifiNative.RingBufferStatus buffer) {
 
-        int minInterval = MinWakeupIntervals[mLogLevel];
-        int minDataSize = MinBufferSizes[mLogLevel];
+        int minInterval = MinWakeupIntervals[mHalLogLevel];
+        int minDataSize = MinBufferSizes[mHalLogLevel];
 
-        if (mWifiNative.startLoggingRingBuffer(
-                mLogLevel, 0, minInterval, minDataSize, buffer.name) == false) {
+        if (!mWifiNative.startLoggingRingBuffer(
+                mHalLogLevel, 0, minInterval, minDataSize, buffer.name)) {
             if (DBG) mLog.warn("Could not start logging ring %").c(buffer.name).flush();
             return false;
         }
@@ -651,7 +658,7 @@ public class WifiDiagnostics {
     }
 
     private boolean stopLoggingRingBuffer(WifiNative.RingBufferStatus buffer) {
-        if (mWifiNative.startLoggingRingBuffer(0, 0, 0, 0, buffer.name) == false) {
+        if (!mWifiNative.startLoggingRingBuffer(0, 0, 0, 0, buffer.name)) {
             if (DBG) mLog.warn("Could not stop logging ring %").c(buffer.name).flush();
         }
         return true;
@@ -788,9 +795,9 @@ public class WifiDiagnostics {
     /** This method is thread safe */
     private ArrayList<String> getLogcat(String logcatSections, int maxLines) {
         ArrayList<String> lines = new ArrayList<>(maxLines);
+        Process process = null;
         try {
-            Process process = mJavaRuntime.exec(
-                    String.format("logcat -b %s -t %d", logcatSections, maxLines));
+            process = mJavaRuntime.exec("logcat -b " + logcatSections + " -t " + maxLines);
             readLogcatStreamLinesWithTimeout(
                     new BufferedReader(new InputStreamReader(process.getInputStream())), lines);
             readLogcatStreamLinesWithTimeout(
@@ -798,6 +805,10 @@ public class WifiDiagnostics {
             process.waitFor(LOGCAT_PROC_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException|IOException e) {
             mLog.dump("Exception while capturing logcat: %").c(e.toString()).flush();
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
         }
         return lines;
     }
@@ -840,9 +851,9 @@ public class WifiDiagnostics {
 
     private void dumpPacketFates(PrintWriter pw) {
         dumpPacketFatesInternal(pw, "Last failed connection fates", mPacketFatesForLastFailure,
-                isVerboseLoggingEnabled());
+                isHalVerboseLoggingEnabled());
         for (PacketFates fates : fetchPacketFatesForAllClientIfaces()) {
-            dumpPacketFatesInternal(pw, "Latest fates", fates, isVerboseLoggingEnabled());
+            dumpPacketFatesInternal(pw, "Latest fates", fates, isHalVerboseLoggingEnabled());
         }
     }
 

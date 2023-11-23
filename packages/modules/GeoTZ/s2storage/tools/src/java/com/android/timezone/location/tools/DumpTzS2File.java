@@ -16,8 +16,8 @@
 
 package com.android.timezone.location.tools;
 
-import com.android.timezone.location.tools.dump.TzS2RangeFileDumper;
 import com.android.timezone.location.storage.tzs2range.read.TzS2RangeFileReader;
+import com.android.timezone.location.tools.dump.TzS2RangeFileDumper;
 
 import java.io.File;
 
@@ -27,7 +27,7 @@ import java.io.File;
  */
 public final class DumpTzS2File {
 
-    /*
+    /**
      * Usage:
      * DumpTzS2File <[input] tz s2 file name> <[output] output directory name>
      */

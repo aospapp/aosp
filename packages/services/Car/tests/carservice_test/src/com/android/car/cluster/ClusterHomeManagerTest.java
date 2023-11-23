@@ -31,24 +31,29 @@ import android.app.ActivityOptions;
 import android.car.Car;
 import android.car.cluster.ClusterHomeManager;
 import android.car.cluster.ClusterState;
+import android.car.hardware.property.VehicleHalStatusCode;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
+import android.hardware.automotive.vehicle.RawPropValues;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehiclePropertyAccess;
+import android.hardware.automotive.vehicle.VehiclePropertyChangeMode;
 import android.hardware.display.DisplayManager;
+import android.os.ServiceSpecificException;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 import android.view.Display;
 import android.view.DisplayAddress;
 
 import com.android.car.CarLocalServices;
+import com.android.car.ICarImpl;
 import com.android.car.MockedCarTestBase;
 import com.android.car.am.FixedActivityService;
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-import com.android.car.vehiclehal.test.MockedVehicleHal;
+import com.android.car.hal.test.AidlMockedVehicleHal;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.Rule;
@@ -110,27 +115,26 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     }
 
     @Override
-    protected synchronized void configureMockedHal() {
+    protected void configureMockedHal() {
         if (isNoHalPropertyTest()) return;
 
-        addProperty(VehicleProperty.CLUSTER_SWITCH_UI)
+        addAidlProperty(VehicleProperty.CLUSTER_SWITCH_UI)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
-        addProperty(VehicleProperty.CLUSTER_DISPLAY_STATE)
+        addAidlProperty(VehicleProperty.CLUSTER_DISPLAY_STATE)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
-        addProperty(VehicleProperty.CLUSTER_REPORT_STATE, mPropertyHandler)
+        addAidlProperty(VehicleProperty.CLUSTER_REPORT_STATE, mPropertyHandler)
                 .setAccess(VehiclePropertyAccess.WRITE)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
-        addProperty(VehicleProperty.CLUSTER_REQUEST_DISPLAY, mPropertyHandler)
+        addAidlProperty(VehicleProperty.CLUSTER_REQUEST_DISPLAY, mPropertyHandler)
                 .setAccess(VehiclePropertyAccess.WRITE)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
-        addProperty(VehicleProperty.CLUSTER_NAVIGATION_STATE, mPropertyHandler)
+        addAidlProperty(VehicleProperty.CLUSTER_NAVIGATION_STATE, mPropertyHandler)
                 .setAccess(VehiclePropertyAccess.WRITE)
                 .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
     }
 
     @Override
-    protected synchronized void configureResourceOverrides(
-            MockedCarTestBase.MockResources resources) {
+    protected void configureResourceOverrides(MockedCarTestBase.MockResources resources) {
         super.configureResourceOverrides(resources);
         StringBuilder occupantDisplayMapping = new StringBuilder();
         occupantDisplayMapping.append("displayPort=");
@@ -167,7 +171,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     }
 
     @Override
-    protected synchronized void spyOnBeforeCarImplInit() {
+    protected void spyOnBeforeCarImplInit(ICarImpl carImpl) {
         mFixedActivityService = CarLocalServices.getService(FixedActivityService.class);
         ExtendedMockito.spyOn(mFixedActivityService);
 
@@ -188,7 +192,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
 
     @Test
     public void testClusterSwitchUi() throws InterruptedException {
-        getMockedVehicleHal().injectEvent(createSwitchUiEvent(UI_TYPE_2));
+        getAidlMockedVehicleHal().injectEvent(createSwitchUiEvent(UI_TYPE_2));
         mClusterStateListenerCalled.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         assertThat(mState).isNotNull();
@@ -197,8 +201,18 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     }
 
     @Test
+    public void testClusterSwitchUi_InvalidProp() throws InterruptedException {
+        VehiclePropValue event = new VehiclePropValue();
+        event.prop = CLUSTER_SWITCH_UI;
+        event.value = new RawPropValues();
+        event.value.floatValues = new float[]{0f};
+        getAidlMockedVehicleHal().injectEvent(event);
+        assertThat(mClusterStateListenerCalled.getCount()).isEqualTo(1);
+    }
+
+    @Test
     public void testClusterState() throws InterruptedException {
-        getMockedVehicleHal().injectEvent(createDisplayStateEvent(
+        getAidlMockedVehicleHal().injectEvent(createDisplayStateEvent(
                 DISPLAY_ON, BOUNDS_LEFT, BOUNDS_TOP, BOUNDS_RIGHT, BOUNDS_BOTTOM,
                 INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM));
         mClusterStateListenerCalled.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -226,15 +240,39 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     }
 
     @Test
+    public void testClusterState_InvalidProp() throws InterruptedException {
+        VehiclePropValue event = new VehiclePropValue();
+        event.prop = CLUSTER_DISPLAY_STATE;
+        event.value = new RawPropValues();
+        // Only one int value is set while 9 is expected. This should be handled properly.
+        event.value.int32Values = new int[]{DISPLAY_ON};
+        getAidlMockedVehicleHal().injectEvent(event);
+        assertThat(mClusterStateListenerCalled.getCount()).isEqualTo(1);
+
+        event = createDisplayStateEvent(
+                DISPLAY_ON, BOUNDS_LEFT, BOUNDS_TOP, BOUNDS_RIGHT, BOUNDS_BOTTOM,
+                INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM);
+        // Remove the last value so we have one value missing.
+        int[] newValues = new int[8];
+        for (int i = 0; i < 8; i++) {
+            newValues[i] = event.value.int32Values[i];
+        }
+        event.value.int32Values = newValues;
+        getAidlMockedVehicleHal().injectEvent(event);
+        assertThat(mClusterStateListenerCalled.getCount()).isEqualTo(1);
+    }
+
+    @Test
     public void testClusterReportState() throws InterruptedException {
         mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
         mPropertySetReady.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         VehiclePropValue value = mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE);
         assertThat(value.prop).isEqualTo(VehicleProperty.CLUSTER_REPORT_STATE);
-        assertThat(value.value.int32Values.subList(9, 11)).containsExactly(UI_TYPE_1, UI_TYPE_2);
-        assertThat(value.value.bytes).containsExactly(
-                (Byte) UI_AVAILABILITY[0], (Byte) UI_AVAILABILITY[1], (Byte) UI_AVAILABILITY[2]);
+        assertThat(value.value.int32Values[9]).isEqualTo(UI_TYPE_1);
+        assertThat(value.value.int32Values[10]).isEqualTo(UI_TYPE_2);
+        assertThat(value.value.byteValues).isEqualTo(new byte[]{
+                (byte) UI_AVAILABILITY[0], (byte) UI_AVAILABILITY[1], (byte) UI_AVAILABILITY[2]});
     }
 
     @Test
@@ -244,7 +282,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
 
         VehiclePropValue value = mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY);
         assertThat(value.prop).isEqualTo(VehicleProperty.CLUSTER_REQUEST_DISPLAY);
-        assertThat(value.value.int32Values).containsExactly(UI_TYPE_1);
+        assertThat(value.value.int32Values).isEqualTo(new int[]{UI_TYPE_1});
     }
 
     @Test
@@ -264,6 +302,76 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         assertThrows(IllegalStateException.class,
                 () -> mClusterHomeManager
                         .unregisterClusterNavigationStateListener(mClusterNavigationStateListener));
+    }
+
+    @Test
+    public void testClusterRequestDisplayErrorStatusFromHal() {
+        // All exceptions are handled in ClusterHalService.
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_TRY_AGAIN);
+        mClusterHomeManager.requestDisplay(UI_TYPE_1);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_INVALID_ARG);
+        mClusterHomeManager.requestDisplay(UI_TYPE_1);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_NOT_AVAILABLE);
+        mClusterHomeManager.requestDisplay(UI_TYPE_1);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_ACCESS_DENIED);
+        mClusterHomeManager.requestDisplay(UI_TYPE_1);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                VehicleHalStatusCode.STATUS_INTERNAL_ERROR);
+        mClusterHomeManager.requestDisplay(UI_TYPE_1);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REQUEST_DISPLAY)).isNull();
+
+        // Clear the status.
+        mPropertyHandler.setStatus(
+                    VehicleProperty.CLUSTER_REQUEST_DISPLAY,
+                    VehicleHalStatusCode.STATUS_OK);
+    }
+
+    @Test
+    public void testClusterReportStateErrorStatusFromHal() {
+        // All exceptions are handled in ClusterHalService.
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_TRY_AGAIN);
+        mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_INVALID_ARG);
+        mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_NOT_AVAILABLE);
+        mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_ACCESS_DENIED);
+        mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE)).isNull();
+        mPropertyHandler.setStatus(
+                VehicleProperty.CLUSTER_REPORT_STATE,
+                VehicleHalStatusCode.STATUS_INTERNAL_ERROR);
+        mClusterHomeManager.reportState(UI_TYPE_1, UI_TYPE_2, UI_AVAILABILITY);
+        assertThat(mPropertyHandler.peek(VehicleProperty.CLUSTER_REPORT_STATE)).isNull();
+
+        // Clear the status.
+        mPropertyHandler.setStatus(
+                    VehicleProperty.CLUSTER_REPORT_STATE,
+                    VehicleHalStatusCode.STATUS_OK);
     }
 
     @Test
@@ -292,44 +400,60 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         assertThat(mDisplayIdCaptor.getValue()).isEqualTo(CLUSTER_DISPLAY_ID);
     }
 
-    private class ClusterPropertyHandler implements MockedVehicleHal.VehicleHalPropertyHandler {
-        SparseArray<VehiclePropValue> mMap = new SparseArray<>();
+    private class ClusterPropertyHandler implements AidlMockedVehicleHal.VehicleHalPropertyHandler {
+        SparseArray<VehiclePropValue> mPropValueMap = new SparseArray<>();
+
+        SparseIntArray mPropStatusMap = new SparseIntArray();
 
         @Override
         public synchronized void onPropertySet(VehiclePropValue value) {
-            mMap.put(value.prop, value);
+            int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
+            if (status != VehicleHalStatusCode.STATUS_OK) {
+                // This would turn into returned status code.
+                throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+            }
+            mPropValueMap.put(value.prop, value);
             mPropertySetReady.countDown();
         }
 
         @Override
         public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
-            VehiclePropValue currentValue = mMap.get(value.prop);
+            int status = mPropStatusMap.get(value.prop, VehicleHalStatusCode.STATUS_OK);
+            if (status != VehicleHalStatusCode.STATUS_OK) {
+                // This would turn into returned status code.
+                throw new ServiceSpecificException(mPropStatusMap.get(value.prop));
+            }
+            VehiclePropValue currentValue = mPropValueMap.get(value.prop);
             // VNS will call get method when subscribe is called, just return empty value.
             return currentValue != null ? currentValue : value;
         }
 
         public synchronized VehiclePropValue peek(int property) {
-            return mMap.get(property);
+            return mPropValueMap.get(property);
         }
 
         @Override
         public synchronized void onPropertySubscribe(int property, float sampleRate) {
             Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
-            if (mMap.get(property) == null) {
+            if (mPropValueMap.get(property) == null) {
                 Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
-                VehiclePropValue placeholderValue = VehiclePropValueBuilder.newBuilder(property)
+                VehiclePropValue placeholderValue = AidlVehiclePropValueBuilder.newBuilder(property)
                         .setAreaId(0)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
-                        .addIntValue(1)
-                        .addFloatValue(1)
+                        .addIntValues(1)
+                        .addFloatValues(1)
                         .build();
-                mMap.put(property, placeholderValue);
+                mPropValueMap.put(property, placeholderValue);
             }
         }
 
         @Override
         public synchronized void onPropertyUnsubscribe(int property) {
             Log.d(TAG, "onPropertyUnSubscribe property " + property);
+        }
+
+        public synchronized void setStatus(int prop, int status) {
+            mPropStatusMap.put(prop, status);
         }
     }
 
@@ -352,7 +476,8 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     private static VehiclePropValue createSwitchUiEvent(int uiType) {
         VehiclePropValue event = new VehiclePropValue();
         event.prop = CLUSTER_SWITCH_UI;
-        event.value.int32Values.add(uiType);
+        event.value = new RawPropValues();
+        event.value.int32Values = new int[]{uiType};
         return event;
     }
 
@@ -361,15 +486,9 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
             int insetsLeft, int insetsTop, int insetSRight, int insetSBottom) {
         VehiclePropValue event = new VehiclePropValue();
         event.prop = CLUSTER_DISPLAY_STATE;
-        event.value.int32Values.add(onOff);
-        event.value.int32Values.add(boundsLeft);
-        event.value.int32Values.add(boundsTop);
-        event.value.int32Values.add(boundsRight);
-        event.value.int32Values.add(boundsBottom);
-        event.value.int32Values.add(insetsLeft);
-        event.value.int32Values.add(insetsTop);
-        event.value.int32Values.add(insetSRight);
-        event.value.int32Values.add(insetSBottom);
+        event.value = new RawPropValues();
+        event.value.int32Values = new int[] {onOff, boundsLeft, boundsTop, boundsRight,
+                boundsBottom, insetsLeft, insetsTop, insetSRight, insetSBottom};
         return event;
     }
 }

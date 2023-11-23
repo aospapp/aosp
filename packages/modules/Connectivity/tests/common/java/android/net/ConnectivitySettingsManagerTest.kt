@@ -39,6 +39,7 @@ import android.net.ConnectivitySettingsManager.getConnectivityKeepPendingIntentD
 import android.net.ConnectivitySettingsManager.getDnsResolverSampleRanges
 import android.net.ConnectivitySettingsManager.getDnsResolverSampleValidityDuration
 import android.net.ConnectivitySettingsManager.getDnsResolverSuccessThresholdPercent
+import android.net.ConnectivitySettingsManager.getIngressRateLimitInBytesPerSecond
 import android.net.ConnectivitySettingsManager.getMobileDataActivityTimeout
 import android.net.ConnectivitySettingsManager.getMobileDataAlwaysOn
 import android.net.ConnectivitySettingsManager.getNetworkSwitchNotificationMaximumDailyCount
@@ -51,6 +52,7 @@ import android.net.ConnectivitySettingsManager.setConnectivityKeepPendingIntentD
 import android.net.ConnectivitySettingsManager.setDnsResolverSampleRanges
 import android.net.ConnectivitySettingsManager.setDnsResolverSampleValidityDuration
 import android.net.ConnectivitySettingsManager.setDnsResolverSuccessThresholdPercent
+import android.net.ConnectivitySettingsManager.setIngressRateLimitInBytesPerSecond
 import android.net.ConnectivitySettingsManager.setMobileDataActivityTimeout
 import android.net.ConnectivitySettingsManager.setMobileDataAlwaysOn
 import android.net.ConnectivitySettingsManager.setNetworkSwitchNotificationMaximumDailyCount
@@ -65,6 +67,7 @@ import android.util.Range
 import androidx.test.InstrumentationRegistry
 import androidx.test.filters.SmallTest
 import com.android.net.module.util.ConnectivitySettingsUtils.getPrivateDnsModeAsString
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import com.android.testutils.DevSdkIgnoreRunner
 import junit.framework.Assert.assertEquals
@@ -291,5 +294,21 @@ class ConnectivitySettingsManagerTest {
                 getter = { getWifiAlwaysRequested(context, true /* def */) },
                 setter = { setWifiAlwaysRequested(context, it) },
                 testIntValues = intArrayOf(0))
+    }
+
+    @ConnectivityModuleTest // get/setIngressRateLimitInBytesPerSecond was added via module update
+    @Test
+    fun testInternetNetworkRateLimitInBytesPerSecond() {
+        val defaultRate = getIngressRateLimitInBytesPerSecond(context)
+        val testRate = 1000L
+        setIngressRateLimitInBytesPerSecond(context, testRate)
+        assertEquals(testRate, getIngressRateLimitInBytesPerSecond(context))
+
+        setIngressRateLimitInBytesPerSecond(context, defaultRate)
+        assertEquals(defaultRate, getIngressRateLimitInBytesPerSecond(context))
+
+        assertFailsWith<IllegalArgumentException>("Expected failure, but setting accepted") {
+            setIngressRateLimitInBytesPerSecond(context, -10)
+        }
     }
 }

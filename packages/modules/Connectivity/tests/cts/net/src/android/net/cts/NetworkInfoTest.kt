@@ -26,16 +26,19 @@ import android.telephony.TelephonyManager
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
+import com.android.modules.utils.build.SdkLevel
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.junit.Test
+import kotlin.reflect.jvm.isAccessible
+import kotlin.test.assertFails
+import kotlin.test.assertFailsWith
 
 const val TYPE_MOBILE = ConnectivityManager.TYPE_MOBILE
 const val TYPE_WIFI = ConnectivityManager.TYPE_WIFI
@@ -97,12 +100,16 @@ class NetworkInfoTest {
         assertNull(networkInfo.reason)
         assertNull(networkInfo.extraInfo)
 
-        try {
+        assertFailsWith<IllegalArgumentException> {
             NetworkInfo(ConnectivityManager.MAX_NETWORK_TYPE + 1,
                     TelephonyManager.NETWORK_TYPE_LTE, MOBILE_TYPE_NAME, LTE_SUBTYPE_NAME)
-            fail("Unexpected behavior. Network type is invalid.")
-        } catch (e: IllegalArgumentException) {
-            // Expected behavior.
+        }
+
+        if (SdkLevel.isAtLeastT()) {
+            assertFailsWith<NullPointerException> { NetworkInfo(null) }
+        } else {
+            // Doesn't immediately crash on S-
+            NetworkInfo(null)
         }
     }
 
@@ -118,5 +125,29 @@ class NetworkInfoTest {
         assertEquals(State.CONNECTED, networkInfo.state)
         assertEquals(reason, networkInfo.reason)
         assertEquals(extraReason, networkInfo.extraInfo)
+
+        // Create an incorrect enum value by calling the default constructor of the enum
+        val constructor = DetailedState::class.java.declaredConstructors.first {
+            it.parameters.size == 2
+        }
+        constructor.isAccessible = true
+        val incorrectDetailedState = constructor.newInstance("any", 200) as DetailedState
+        if (SdkLevel.isAtLeastT()) {
+            assertFailsWith<NullPointerException> {
+                NetworkInfo(null)
+            }
+            assertFailsWith<NullPointerException> {
+                networkInfo.setDetailedState(null, "reason", "extraInfo")
+            }
+            // This actually throws ArrayOutOfBoundsException because of the implementation of
+            // EnumMap, but that's an implementation detail so accept any crash.
+            assertFails {
+                networkInfo.setDetailedState(incorrectDetailedState, "reason", "extraInfo")
+            }
+        } else {
+            // Doesn't immediately crash on S-
+            NetworkInfo(null)
+            networkInfo.setDetailedState(null, "reason", "extraInfo")
+        }
     }
 }

@@ -98,6 +98,10 @@ public final class AudioControlWrapperAidlTest extends AbstractExtendedMockitoTe
     private MutingInfo mPrimaryZoneMutingInfo;
     private MutingInfo mSecondaryZoneMutingInfo;
 
+    public AudioControlWrapperAidlTest() {
+        super(AudioControlWrapperAidl.TAG);
+    }
+
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder session) {
         session.spyStatic(AudioControlWrapperAidl.class);

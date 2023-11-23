@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ପେ-ଫୋନ୍‌ରୁ କଲ୍‌କୁ ଅବରୋଧ କରନ୍ତୁ"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"ଅଜଣା"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"ଅଜଣା କଲରର କଲ୍‌କୁ ବ୍ଲକ୍ କରନ୍ତୁ"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"ଉପଲବ୍ଧ ନାହିଁ"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ନମ୍ଵର ଉପଲବ୍ଧ ନଥିବା କ୍ଷେତ୍ରରେ କଲଗୁଡ଼ିକୁ ବ୍ଲକ କରନ୍ତୁ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"କଲ୍‌ ବ୍ଲକିଂ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"କଲ୍ ବ୍ଲକିଂକୁ ଅକ୍ଷମ କରାଯାଇଛି"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"ଜରୁରିକାଳୀନ କଲ୍ କରାଗଲା"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ଜରୁରିକାଳୀନ ସହାୟତା କର୍ମଚାରୀମାନେ ଆପଣଙ୍କୁ ଯୋଗଯୋଗ କରିବା ପାଇଁ କଲ୍ ଅବରୋଧକୁ ଅକ୍ଷମ କରାଯାଇଛି।"</string>
     <string name="developer_title" msgid="9146088855661672353">"ଟେଲେକମ୍ ଡେଭେଲପର୍ ମେନୁ"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ଜରୁରୀକାଳୀନ କଲ୍ ବେଳେ ଅନ୍ୟ କଲ୍ ଉଠାଇ ପାରିବେ ନାହିଁ।"</string>
+    <string name="cancel" msgid="6733466216239934756">"ବାତିଲ୍ କରନ୍ତୁ"</string>
 </resources>

@@ -287,6 +287,10 @@ public class ActivityMusic extends Activity implements OnSeekBarChangeListener {
 
         ControlPanelEffect.initEffectsPreferences(mContext, mCallingPackageName, audioSession);
 
+        // Make sure the package name and the audio session are saved, since MusicFX might be killed
+        // after receiving the AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION intent.
+        ControlPanelEffect.openSession(mContext, mCallingPackageName, audioSession);
+
         // query available effects
         final Descriptor[] effects = AudioEffect.queryEffects();
 

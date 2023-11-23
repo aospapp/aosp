@@ -21,6 +21,6 @@
     <string name="emergency_action_title" msgid="4329795972111990414">"SOS emergenze"</string>
     <string name="emergency_action_subtitle" msgid="5667616628096114616">"Preparazione di una chiamata al numero <xliff:g id="EMERGENCY_NUMBER">%1$s</xliff:g> in corso…"</string>
     <string name="count_down_unit" msgid="7461042666268976220">"s"</string>
-    <string name="countdown_text_content_description" msgid="322778383478285712">"{seconds_left,plural, =1{1 secondo}one{# secondo}other{# secondi}}"</string>
+    <string name="countdown_text_content_description" msgid="322778383478285712">"{seconds_left,plural, =1{1 secondo}other{# secondi}}"</string>
     <string name="slider_seek_bar_content_description" msgid="811285658152645524">"Fai scorrere con due dita per attivare"</string>
 </resources>

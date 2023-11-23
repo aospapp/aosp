@@ -21,23 +21,37 @@
 
 #include <gtest/gtest.h>
 
+#include "android-modules-utils/sdk_level.h"
+
 #include "libbpf_android.h"
 
 using namespace android::bpf;
-
-namespace android {
 
 void doBpfStructSizeTest(const char *elfPath) {
   std::ifstream elfFile(elfPath, std::ios::in | std::ios::binary);
   ASSERT_TRUE(elfFile.is_open());
 
-  EXPECT_EQ(48, readSectionUint("size_of_bpf_map_def", elfFile, 0));
-  EXPECT_EQ(28, readSectionUint("size_of_bpf_prog_def", elfFile, 0));
+  if (android::modules::sdklevel::IsAtLeastT()) {
+    EXPECT_EQ(116, readSectionUint("size_of_bpf_map_def", elfFile, 0));
+    EXPECT_EQ(92, readSectionUint("size_of_bpf_prog_def", elfFile, 0));
+  } else {
+    EXPECT_EQ(48, readSectionUint("size_of_bpf_map_def", elfFile, 0));
+    EXPECT_EQ(28, readSectionUint("size_of_bpf_prog_def", elfFile, 0));
+  }
 }
 
-TEST(BpfTest, bpfStructSizeTest) {
+TEST(BpfTest, bpfStructSizeTestPreT) {
+  if (android::modules::sdklevel::IsAtLeastT()) GTEST_SKIP() << "T+ device.";
   doBpfStructSizeTest("/system/etc/bpf/netd.o");
   doBpfStructSizeTest("/system/etc/bpf/clatd.o");
 }
 
-}  // namespace android
+TEST(BpfTest, bpfStructSizeTest) {
+  doBpfStructSizeTest("/system/etc/bpf/gpu_mem.o");
+  doBpfStructSizeTest("/system/etc/bpf/time_in_state.o");
+}
+
+int main(int argc, char **argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

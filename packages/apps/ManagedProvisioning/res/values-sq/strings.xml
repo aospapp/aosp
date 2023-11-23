@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Aplikacioni i mëposhtëm do të menaxhojë pajisjen tënde:"</string>
     <string name="next" msgid="1004321437324424398">"Para"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Profili i punës po konfigurohet…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë profil, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Administratori yt i teknologjisë së informacionit mund të monitorojë dhe të menaxhojë cilësimet, qasjen e korporatës, të dhënat dhe aktivitetin e rrjetit të shoqëruar me këtë profil, si dhe historikun tënd të telefonatave dhe historikun e kërkimit të kontakteve. Kontakto administratorin tënd të teknologjisë së informacionit për më shumë informacione dhe për të mësuar më shumë për politikat e privatësisë së organizatës sate."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administratori i teknologjisë së informacionit ka aftësinë e monitorimit dhe menaxhimit të cilësimeve, të qasjes së korporatës, të aplikacioneve, të autorizimeve dhe të të dhënave të lidhura me këtë pajisje, duke përfshirë aktivitetin e rrjetit si dhe vendndodhjen e pajisjes, historikun e telefonatave dhe historikun e kërkimit të kontakteve.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Kontakto me administratorin e teknologjisë së informacionit për më shumë informacione, duke përfshirë politikat e privatësisë së organizatës sate."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> mund të instalojë aplikacionin <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> që të mund të kryesh pagesat për këtë pajisje."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Kjo pajisje mund të kufizohet"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> mund ta kufizojë qasjen në këtë pajisje nëse nuk bën pagesa."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Pajisja nuk mund të konfigurohet. Kontakto me administratorin e teknologjisë së informacionit dhe jep si referencë \"Kontrolli i shumës është i pavlefshëm\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Provo përsëri më vonë ose kërkoji ndihmë administratorit të teknologjisë së informacionit"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Pajisja nuk mund të konfigurohet. Kontakto me administratorin e teknologjisë së informacionit dhe jep si referencë \"Komponentët mungojnë ose janë dëmtuar\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Po konfigurohet…"</string>
 </resources>

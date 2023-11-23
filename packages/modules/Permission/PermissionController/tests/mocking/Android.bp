@@ -34,6 +34,7 @@ android_test {
 
     resource_dirs: [
         "main_res",
+        "test_res",
     ],
 
     srcs: [
@@ -43,8 +44,6 @@ android_test {
     ],
 
     libs: [
-        "android.car-stubs",
-
         "android.test.base",
         "android.test.runner",
     ],
@@ -84,10 +83,23 @@ android_test {
         "SettingsLibCollapsingToolbarBaseActivity",
         "SettingsLibSettingsTheme",
         "SettingsLibFooterPreference",
-        "SettingsLibRadioButtonPreference",
+        "SettingsLibSelectorWithWidgetPreference",
         "SettingsLibTwoTargetPreference",
         "androidx.annotation_annotation",
         "permissioncontroller-statsd",
+        // The PermissionController build file includes android.car-stubs in its libs dependency
+        // and that works since the phone code does not initialize any classes with a android.car
+        // dependency at runtime. If it did, the class loading would throw an exception. The "libs"
+        // usage in the main module means that the dependency is loaded from the device, instead of
+        // being statically included, which helps avoid apk bloat and conflicting dependencies.
+        // To use just one test target, without any form-factor-specific configuration, we need to
+        // statically include this car dependency. Otherwise running these unit tests against a
+        // phone will cause the tests to fail due to an initialization exception for unfound car
+        // dependency classes. Here we use the android.car target instead of android.car-stubs so
+        // that we can utilize some data classes within the car dependency. If all dependencies were
+        // mocked, then the stubs dependency would be suitable. Note that on Auto device the boot
+        // class path will always override the static dependency.
+        "android.car",
         "car-ui-lib",
         "libprotobuf-java-lite",
         "SettingsLibUtils",
@@ -96,6 +108,7 @@ android_test {
         "androidx.test.rules",
         "androidx.test.ext.truth",
         "androidx.test.ext.junit",
+        "kotlinx_coroutines_test",
         "mockito-target-extended-minus-junit4",
     ],
 
@@ -109,6 +122,8 @@ android_test {
 
     test_suites: [
         "device-tests",
-        "mts",
+        "mts-permission",
     ],
+
+    kotlincflags: ["-Xjvm-default=enable"],
 }

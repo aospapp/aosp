@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Достъп до камерата или съответно камерите на автомобила ви."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"достъп до информацията за енергията на автомобила"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Достъп до информацията за енергията на автомобила."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Управление на настройките за зареждане на ЕПС"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Управлявайте настройките за зареждане на вашето ЕПС."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"корекция на отсечката, която трябва да измине автомобилът"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Коригирайте стойността за отсечката, която трябва да измине автомобилът."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"достъп до ОВК системата на автомобила"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Разрешаване на приложение да декларира активности, които да се показват в арматурното табло"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Контролиране на арматурното табло"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Стартиране на приложения в арматурното табло"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Състояние на навигационната система на арматурното табло"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Регистриране на промените в състоянието на навигационната система на арматурното табло"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Изобразяване в арматурното табло"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Получаване на данни за арматурното табло"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Конфигуриране на ограничения за ПРП"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Разрешава управлението на стартирането и спирането на графиката за установяване на системата за информираност на пътниците"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Автомобилна услуга за входящи данни"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Обработване на входящи събития"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"Грешка в CAN шината"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN шината не реагира. Изключете и включете отново захранването на основното устройство и рестартирайте автомобила"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Не можете да използвате тази функция по време на шофиране"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"За да рестартирате приложението и безопасните му функции, изберете „<xliff:g id="EXIT_BUTTON">%s</xliff:g>“."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Назад"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Затваряне"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Назад"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"четене на диагностични данни"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Четене на диагностични данни от автомобила."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"изчистване на диагностичните данни"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Контролиране на седалките на автомобила."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"достъп до основна информация за автомобила"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Достъп до основна информация за автомобила."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"достъп до привилегированата информация на автомобила"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Достъп до привилегированата информация на автомобила."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"достъп до информацията за разрешенията на автомобилния производител"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Достъп до информацията за разрешенията на автомобилния производител"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"четене на състоянието на външните светлини на автомобила"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Четене на правилата за захранването на автомобила."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"управление на правилата за захранването на автомобила"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Управление на правилата за захранването на автомобила."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"коригиране на процеса на изключване"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Коригиране на процеса на изключване."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"рендериране на шаблони"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Рендериране на шаблони."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"управление на приложенията, които се стартират"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Управление на приложенията, които се стартират."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"Грешка в CAN шината"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN шината не реагира. Изключете и включете отново захранването на основното устройство и рестартирайте автомобила"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Моето устройство"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Гост"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Важност по подразбиране"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Голяма важност"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Изисква се възстановяване на фабричните настройки"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Всички данни в основното устройство ще бъдат изтрити. След нулирането можете да настроите нов потребителски профил."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Още"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Нулиране на основното устройство"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Системата ви получи заявка за възстановяване на фабричните настройки и изтриване на всички данни. Можете да я нулирате сега или тя ще се нулира при следващото стартиране на автомобила. След това можете да настроите нов потребителски профил."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Нулиране сега"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Нулиране по-късно"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Основното у-во ще се нулира при следващото стартиране на колата."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Колата трябва да е паркирана, за да старт. нулирането."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> засяга ефективността на системата ви."</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Деактивирайте приложението с цел подобряване на ефективността на системата. Можете да го активирате отново от настройките."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Приоритизирайте приложението, за да продължите да го използвате."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Деинсталирайте приложение с цел подобряване на ефективността на системата."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Деактивиране на приложението"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Приоритизиране на приложението"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Деинсталиране на приложението"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Приложението <xliff:g id="ID_1">^1</xliff:g> е деактивирано. Можете да го активирате отново от настройките."</string>
 </resources>

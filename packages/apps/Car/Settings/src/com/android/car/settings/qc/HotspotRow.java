@@ -18,6 +18,7 @@ package com.android.car.settings.qc;
 
 import static com.android.car.qc.QCItem.QC_ACTION_TOGGLE_STATE;
 import static com.android.car.qc.QCItem.QC_TYPE_ACTION_SWITCH;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 import static com.android.car.settings.qc.SettingsQCRegistry.HOTSPOT_ROW_URI;
 
 import android.content.Context;
@@ -25,15 +26,16 @@ import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.TetheringManager;
 import android.net.Uri;
-import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
-import android.text.TextUtils;
+import android.os.UserManager;
 
 import com.android.car.qc.QCActionItem;
 import com.android.car.qc.QCItem;
 import com.android.car.qc.QCList;
 import com.android.car.qc.QCRow;
 import com.android.car.settings.R;
+import com.android.car.settings.enterprise.EnterpriseUtils;
+import com.android.car.settings.wifi.WifiTetherUtil;
 
 /**
  * QCItem for showing a hotspot row element.
@@ -56,11 +58,21 @@ public class HotspotRow extends SettingsQCItem {
     QCItem getQCItem() {
         Icon icon = Icon.createWithResource(getContext(), R.drawable.ic_qc_hotspot);
 
+        String userRestriction = UserManager.DISALLOW_CONFIG_TETHERING;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCActionItem hotpotToggle = new QCActionItem.Builder(QC_TYPE_ACTION_SWITCH)
                 .setChecked(HotspotQCUtils.isHotspotEnabled(mWifiManager))
-                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager))
+                .setEnabled(!HotspotQCUtils.isHotspotBusy(mWifiManager)
+                        && !hasUmRestrictions && !hasDpmRestrictions)
                 .setAvailable(mIsSupported)
                 .setAction(getBroadcastIntent())
+                .setClickableWhileDisabled(hasDpmRestrictions)
+                .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                        userRestriction))
                 .build();
 
         QCRow hotspotRow = new QCRow.Builder()
@@ -97,10 +109,10 @@ public class HotspotRow extends SettingsQCItem {
         boolean newState = intent.getBooleanExtra(QC_ACTION_TOGGLE_STATE,
                 !mWifiManager.isWifiApEnabled());
         if (newState) {
-            HotspotQCUtils.enableHotspot(mTetheringManager,
+            WifiTetherUtil.startTethering(mTetheringManager,
                     HotspotQCUtils.getDefaultStartTetheringCallback(getContext(), getUri()));
         } else {
-            HotspotQCUtils.disableHotspot(mTetheringManager);
+            WifiTetherUtil.stopTethering(mTetheringManager);
         }
     }
 
@@ -109,42 +121,9 @@ public class HotspotRow extends SettingsQCItem {
         return HotspotRowWorker.class;
     }
 
-    /** Returns the subtitle to be shown for the hotspot quick controls item.
-     * There are three different states that can be shown:
-     * - If tethering is disabled, return the off string.
-     * - If tethering is enabled but no devices are connected, return the ssid + password string.
-     * - If tethering is enabled and devices are connected, return the devices connected string.
-     */
     private String getSubtitle() {
-        if (!HotspotQCUtils.isHotspotEnabled(mWifiManager)) {
-            return getContext().getString(R.string.wifi_hotspot_state_off);
-        }
-        if (mConnectedDevicesCount > 0) {
-            return getContext().getResources().getQuantityString(
-                    R.plurals.wifi_tether_connected_summary, mConnectedDevicesCount,
-                    mConnectedDevicesCount);
-        }
-        String subtitle = getHotspotSSID();
-        if (TextUtils.isEmpty(subtitle)) {
-            // If there currently is no SSID to show, use a default "On" string
-            return getContext().getString(R.string.car_ui_preference_switch_on);
-        }
-        String password = getHotspotPassword();
-        if (!TextUtils.isEmpty(password)) {
-            subtitle += " / " + password;
-        }
-        return subtitle;
-    }
-
-    private String getHotspotSSID() {
-        return mWifiManager.getSoftApConfiguration().getSsid();
-    }
-
-    private String getHotspotPassword() {
-        int securityType = mWifiManager.getSoftApConfiguration().getSecurityType();
-        if (securityType == SoftApConfiguration.SECURITY_TYPE_OPEN) {
-            return null;
-        }
-        return mWifiManager.getSoftApConfiguration().getPassphrase();
+        return WifiTetherUtil.getHotspotSubtitle(getContext(),
+                mWifiManager.getSoftApConfiguration(),
+                HotspotQCUtils.isHotspotEnabled(mWifiManager), mConnectedDevicesCount);
     }
 }

@@ -153,7 +153,7 @@ public class ResetNetworkConfirmFragmentTest {
     @UiThreadTest
     public void testResetButtonClick_bluetoothAdapterReset() {
         mResetButton.performClick();
-        verify(mMockBluetoothAdapter).factoryReset();
+        verify(mMockBluetoothAdapter).clearBluetooth();
     }
 
     @Test

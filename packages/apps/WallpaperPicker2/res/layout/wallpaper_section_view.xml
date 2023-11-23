@@ -16,42 +16,43 @@
 -->
 <com.android.wallpaper.picker.WallpaperSectionView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:paddingBottom="@dimen/section_bottom_padding"
-    android:paddingHorizontal="@dimen/section_horizontal_padding"
+    android:paddingHorizontal="@dimen/wallpaper_section_horizontal_padding"
     android:orientation="vertical">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/wallpaper_section_background"
-        android:contentDescription="@string/wallpaper_preview_card_content_description">
+        android:contentDescription="@string/wallpaper_preview_card_content_description"
+        android:paddingHorizontal="@dimen/wallpaper_preview_horizontal_padding">
 
-        <!-- Width percent = 146(preview width in spec) / 364(parent width in spec) = 0.4 -->
         <!-- The height will be determined programmatically -->
         <include
             android:id="@+id/lock_preview"
             layout="@layout/wallpaper_preview_card"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:layout_marginEnd="@dimen/wallpaper_preview_home_and_lock_margin"
             android:layout_marginTop="@dimen/wallpaper_preview_margin_top"
             app:layout_constraintEnd_toStartOf="@id/home_preview"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_percent="0.4" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <include
             android:id="@+id/home_preview"
             layout="@layout/wallpaper_preview_card"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:layout_marginStart="@dimen/wallpaper_preview_home_and_lock_margin"
             android:layout_marginTop="@dimen/wallpaper_preview_margin_top"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@id/lock_preview"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintWidth_percent="0.4" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <include
             android:id="@+id/permission_needed"
@@ -70,10 +71,10 @@
             android:layout_marginVertical="@dimen/wallpaper_picker_entry_margin_vertical"
             android:paddingHorizontal="@dimen/wallpaper_picker_entry_horizontal_padding"
             android:background="@drawable/btn_transparent_background"
-            android:textColor="?android:attr/colorAccent"
+            android:textColor="?androidprv:attr/colorAccentPrimaryVariant"
             android:drawablePadding="@dimen/wallpaper_picker_entry_drawable_padding"
             android:drawableStart="@drawable/ic_nav_wallpaper"
-            android:drawableTint="?android:attr/colorAccent"
+            android:drawableTint="?androidprv:attr/colorAccentPrimaryVariant"
             android:text="@string/wallpaper_picker_entry_title"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

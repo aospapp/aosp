@@ -16,6 +16,7 @@
   -->
 
 <resources>
+    <color name="card_background">#202124</color>
     <color name="action_button_background_color">#2e3134</color>
     <color name="primary_text_color">@android:color/system_neutral1_50</color>
     <color name="secondary_text_color">@android:color/system_neutral2_400</color>

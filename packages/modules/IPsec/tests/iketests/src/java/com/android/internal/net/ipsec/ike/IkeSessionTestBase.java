@@ -18,36 +18,47 @@ package com.android.internal.net.ipsec.test.ike;
 
 import static com.android.internal.net.ipsec.test.ike.IkeLocalRequestScheduler.LOCAL_REQUEST_WAKE_LOCK_TAG;
 import static com.android.internal.net.ipsec.test.ike.IkeSessionStateMachine.BUSY_WAKE_LOCK_TAG;
+import static com.android.internal.net.ipsec.test.ike.IkeSocket.SERVER_PORT_NON_UDP_ENCAPSULATED;
+import static com.android.internal.net.ipsec.test.ike.IkeSocket.SERVER_PORT_UDP_ENCAPSULATED;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.InetAddresses;
 import android.net.IpSecManager;
-import android.net.IpSecManager.UdpEncapsulationSocket;
+import android.net.LinkAddress;
+import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.SocketKeepalive;
 import android.os.Handler;
 import android.os.PowerManager;
 
+import com.android.internal.net.ipsec.test.ike.net.IkeLocalAddressGenerator;
 import com.android.internal.net.ipsec.test.ike.testutils.MockIpSecTestUtils;
 import com.android.internal.net.ipsec.test.ike.utils.IkeAlarmReceiver;
 import com.android.internal.net.ipsec.test.ike.utils.RandomnessFactory;
 
 import org.junit.Before;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -80,6 +91,7 @@ public abstract class IkeSessionTestBase {
     protected Network mMockDefaultNetwork;
     protected SocketKeepalive mMockSocketKeepalive;
     protected NetworkCapabilities mMockNetworkCapabilities;
+    protected IkeLocalAddressGenerator mMockIkeLocalAddressGenerator;
 
     @Before
     public void setUp() throws Exception {
@@ -93,7 +105,8 @@ public abstract class IkeSessionTestBase {
                         any(IkeAlarmReceiver.class),
                         any(IntentFilter.class),
                         any(),
-                        any(Handler.class));
+                        any(Handler.class),
+                        anyInt());
         doNothing().when(mSpyContext).unregisterReceiver(any(IkeAlarmReceiver.class));
 
         mPowerManager = mock(PowerManager.class);
@@ -124,6 +137,8 @@ public abstract class IkeSessionTestBase {
                 .when(mSpyContext)
                 .getSystemService(Context.CONNECTIVITY_SERVICE);
         resetMockConnectManager();
+
+        mMockIkeLocalAddressGenerator = mock(IkeLocalAddressGenerator.class);
     }
 
     protected void resetMockConnectManager() {
@@ -133,7 +148,7 @@ public abstract class IkeSessionTestBase {
                 .when(mMockConnectManager)
                 .createSocketKeepalive(
                         any(Network.class),
-                        any(UdpEncapsulationSocket.class),
+                        any(),
                         any(Inet4Address.class),
                         any(Inet4Address.class),
                         any(Executor.class),
@@ -151,5 +166,45 @@ public abstract class IkeSessionTestBase {
         doReturn(new InetAddress[] {REMOTE_ADDRESS})
                 .when(mMockDefaultNetwork)
                 .getAllByName(REMOTE_ADDRESS.getHostAddress());
+    }
+
+    protected <T extends IkeSocket> T newMockIkeSocket(Class<T> socketClass) {
+        T mockSocket = mock(socketClass);
+        if (socketClass == IkeUdp4Socket.class || socketClass == IkeUdp6Socket.class) {
+            when(mockSocket.getIkeServerPort()).thenReturn(SERVER_PORT_NON_UDP_ENCAPSULATED);
+        } else {
+            when(mockSocket.getIkeServerPort()).thenReturn(SERVER_PORT_UDP_ENCAPSULATED);
+        }
+
+        return mockSocket;
+    }
+
+    protected void setupLocalAddressForNetwork(Network network, InetAddress address)
+            throws Exception {
+        boolean isIpv4 = address instanceof Inet4Address;
+        when(mMockIkeLocalAddressGenerator.generateLocalAddress(
+                        eq(network), eq(isIpv4), any(), anyInt()))
+                .thenReturn(address);
+    }
+
+    protected void setupRemoteAddressForNetwork(Network network, InetAddress address)
+            throws Exception {
+        if (address instanceof Inet6Address) {
+            LinkAddress mockLinkAddressGlobalV6 = mock(LinkAddress.class);
+            when(mockLinkAddressGlobalV6.getAddress()).thenReturn(address);
+            when(mockLinkAddressGlobalV6.isGlobalPreferred()).thenReturn(true);
+
+            LinkProperties linkProperties = new LinkProperties();
+            linkProperties.addLinkAddress(mockLinkAddressGlobalV6);
+            when(mMockConnectManager.getLinkProperties(eq(network))).thenReturn(linkProperties);
+        }
+        doAnswer(
+                new Answer() {
+                        public Object answer(InvocationOnMock invocation) throws IOException {
+                        return new InetAddress[] {address};
+                        }
+                })
+                .when(network)
+                .getAllByName(REMOTE_HOSTNAME);
     }
 }

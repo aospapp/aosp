@@ -22,6 +22,7 @@ import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.content.pm.UserInfo;
 import android.content.pm.UserInfo.UserInfoFlag;
+import android.os.UserHandle;
 import android.os.UserManager;
 
 import com.android.internal.util.Preconditions;
@@ -54,10 +55,28 @@ public final class UserTestingHelper {
     }
 
     /**
+     * Creates a list of {@link UserHandle UserHandles}, each containing just the given user ids.
+     */
+    @NonNull
+    public static List<UserHandle> newUserHandles(@UserIdInt int... userIds) {
+        return Arrays.stream(userIds)
+                .mapToObj(id -> UserHandle.of(id))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Creates a list of {@link UserInfo UserInfos}.
      */
     @NonNull
     public static List<UserInfo> toList(@NonNull UserInfo... users) {
+        return Arrays.stream(users).collect(Collectors.toList());
+    }
+
+    /**
+     * Creates a list of {@link UserHandle UserHandles}.
+     */
+    @NonNull
+    public static List<UserHandle> toList(@NonNull UserHandle... users) {
         return Arrays.stream(users).collect(Collectors.toList());
     }
 

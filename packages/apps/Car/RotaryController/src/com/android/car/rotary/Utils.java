@@ -69,6 +69,8 @@ final class Utils {
     @VisibleForTesting
     static final String WEB_VIEW_CLASS_NAME = WebView.class.getName();
     @VisibleForTesting
+    static final String COMPOSE_VIEW_CLASS_NAME = "androidx.compose.ui.platform.ComposeView";
+    @VisibleForTesting
     static final String SURFACE_VIEW_CLASS_NAME = SurfaceView.class.getName();
 
     private Utils() {
@@ -142,6 +144,11 @@ final class Utils {
         // are always empty for views that are off screen.
         Rect bounds = new Rect();
         node.getBoundsInParent(bounds);
+        if (bounds.isEmpty()) {
+            // Some nodes, such as those in ComposeView hierarchies may not set bounds in parents,
+            // since the APIs are deprecated. So, check bounds in screen just in case.
+            node.getBoundsInScreen(bounds);
+        }
         return !bounds.isEmpty();
     }
 
@@ -261,6 +268,21 @@ final class Utils {
     static boolean isWebView(@NonNull AccessibilityNodeInfo node) {
         CharSequence className = node.getClassName();
         return className != null && WEB_VIEW_CLASS_NAME.contentEquals(className);
+    }
+
+    /**
+     * Returns whether {@code node} represents a {@code ComposeView}.
+     * <p>
+     * The descendants of a node representing a {@code ComposeView} represent "Composables" rather
+     * than {@link android.view.View}s so {@link AccessibilityNodeInfo#focusSearch} currently does
+     * not work for these nodes. The outcome of b/192274274 could change this.
+     *
+     * TODO(b/192274274): This method is only necessary until {@code ComposeView} supports
+     *  {@link AccessibilityNodeInfo#focusSearch(int)}.
+     */
+    static boolean isComposeView(@NonNull AccessibilityNodeInfo node) {
+        CharSequence className = node.getClassName();
+        return className != null && COMPOSE_VIEW_CLASS_NAME.contentEquals(className);
     }
 
     /** Returns whether the given {@code node} represents a {@link SurfaceView}. */

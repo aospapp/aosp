@@ -106,7 +106,7 @@ Status VideoDecoder::initializeMediaExtractor() {
     }
     if (!mExtractor) {
         mExtractor = AMediaExtractor_new();
-        int size = lseek(mFd, 0, SEEK_END);
+        off64_t size = lseek64(mFd, 0, SEEK_END);
         // Reset the offset.
         lseek(mFd, 0, SEEK_SET);
         media_status_t status = AMediaExtractor_setDataSourceFd(mExtractor, mFd, 0, size);

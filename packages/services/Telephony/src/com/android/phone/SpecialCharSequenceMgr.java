@@ -264,7 +264,7 @@ public class SpecialCharSequenceMgr {
                 }
                 return isMMIHandled;
             } else {
-                AlertDialog dialog = new AlertDialog.Builder(context)
+                AlertDialog dialog = FrameworksUtils.makeAlertDialogBuilder(context)
                         .setMessage(R.string.pin_puk_system_user_only)
                         .setPositiveButton(R.string.ok, null)
                         .setCancelable(true).create();
@@ -294,7 +294,7 @@ public class SpecialCharSequenceMgr {
         int labelId = TelephonyCapabilities.getDeviceIdLabel(phone);
         String deviceId = phone.getDeviceId();
 
-        AlertDialog alert = new AlertDialog.Builder(context)
+        AlertDialog alert = FrameworksUtils.makeAlertDialogBuilder(context)
                 .setTitle(labelId)
                 .setMessage(deviceId)
                 .setPositiveButton(R.string.ok, null)

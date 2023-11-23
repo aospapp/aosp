@@ -27,9 +27,6 @@
          handle playing of the tones. -->
     <bool name="allow_local_dtmf_tones">true</bool>
 
-    <!-- Package name for the default in-call UI and dialer [DO NOT TRANSLATE] -->
-    <string name="ui_default_package" translatable="false">com.android.car.dialer</string>
-
     <!-- Class name for the default in-call UI Service [DO NOT TRANSLATE] -->
     <string name="incall_default_class" translatable="false">com.android.car.dialer.telecom.InCallServiceImpl</string>
 

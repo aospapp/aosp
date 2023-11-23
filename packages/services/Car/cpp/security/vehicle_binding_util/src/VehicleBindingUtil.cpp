@@ -17,11 +17,12 @@
 #include "VehicleBindingUtil.h"
 
 #include <android-base/logging.h>
-#include <android/hardware/automotive/vehicle/2.0/types.h>
 #include <cutils/properties.h>  // for property_get
 #include <logwrap/logwrap.h>
 #include <utils/SystemClock.h>
 
+#include <IHalPropValue.h>
+#include <VehicleHalTypes.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/random.h>
@@ -34,30 +35,26 @@
 namespace android {
 namespace automotive {
 namespace security {
+
 namespace {
 
-using android::hardware::automotive::vehicle::V2_0::IVehicle;
-using android::hardware::automotive::vehicle::V2_0::StatusCode;
-using android::hardware::automotive::vehicle::V2_0::VehicleArea;
-using android::hardware::automotive::vehicle::V2_0::VehiclePropConfig;
-using android::hardware::automotive::vehicle::V2_0::VehicleProperty;
-using android::hardware::automotive::vehicle::V2_0::VehiclePropertyStatus;
-using android::hardware::automotive::vehicle::V2_0::VehiclePropValue;
+using ::aidl::android::hardware::automotive::vehicle::StatusCode;
+using ::aidl::android::hardware::automotive::vehicle::VehicleArea;
+using ::aidl::android::hardware::automotive::vehicle::VehiclePropConfig;
+using ::aidl::android::hardware::automotive::vehicle::VehicleProperty;
+using ::aidl::android::hardware::automotive::vehicle::VehiclePropertyStatus;
+using ::aidl::android::hardware::automotive::vehicle::VehiclePropValue;
+using ::android::frameworks::automotive::vhal::IHalPropValue;
+using ::android::frameworks::automotive::vhal::IVhalClient;
+using ::android::hardware::automotive::vehicle::VhalResult;
 
 template <typename T>
 using hidl_vec = android::hardware::hidl_vec<T>;
 
-bool isSeedVhalPropertySupported(sp<IVehicle> vehicle) {
-    bool is_supported = false;
-
-    hidl_vec<int32_t> props = {
-            static_cast<int32_t>(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED)};
-    vehicle->getPropConfigs(props,
-                            [&is_supported](StatusCode status,
-                                            hidl_vec<VehiclePropConfig> /*propConfigs*/) {
-                                is_supported = (status == StatusCode::OK);
-                            });
-    return is_supported;
+bool isSeedVhalPropertySupported(std::shared_ptr<IVhalClient> vehicle) {
+    auto result = vehicle->getPropConfigs(
+            {static_cast<int32_t>(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED)});
+    return result.ok() && result.value().size() != 0;
 }
 
 std::string toHexString(const std::vector<uint8_t>& bytes) {
@@ -71,37 +68,35 @@ std::string toHexString(const std::vector<uint8_t>& bytes) {
     return out;
 }
 
-BindingStatus setSeedVhalProperty(sp<IVehicle> vehicle, const std::vector<uint8_t>& seed) {
-    VehiclePropValue propValue;
-    propValue.timestamp = elapsedRealtimeNano();
-    propValue.areaId = toInt(VehicleArea::GLOBAL);
-    propValue.prop = toInt(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED);
-    propValue.status = VehiclePropertyStatus::AVAILABLE;
-    propValue.value.bytes = seed;
-    StatusCode vhal_status = vehicle->set(propValue);
-    if (vhal_status == StatusCode::OK) {
-        return BindingStatus::OK;
+BindingStatus setSeedVhalProperty(std::shared_ptr<IVhalClient> vehicle,
+                                  const std::vector<uint8_t>& seed) {
+    auto propValue =
+            vehicle->createHalPropValue(toInt(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED),
+                                        toInt(VehicleArea::GLOBAL));
+    propValue->setByteValues(seed);
+
+    if (auto result = vehicle->setValueSync(*propValue); !result.ok()) {
+        LOG(ERROR) << "Unable to set the VHAL property: error: " << result.error();
+        return BindingStatus::ERROR;
     }
 
-    LOG(ERROR) << "Unable to set the VHAL property: " << toString(vhal_status);
-    return BindingStatus::ERROR;
+    return BindingStatus::OK;
 }
 
-BindingStatus getSeedVhalProperty(sp<IVehicle> vehicle, std::vector<uint8_t>* seed) {
-    VehiclePropValue desired_prop;
-    desired_prop.prop = static_cast<int32_t>(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED);
-    BindingStatus status = BindingStatus::ERROR;
-    vehicle->get(desired_prop,
-                 [&status, &seed](StatusCode prop_status, const VehiclePropValue& propValue) {
-                     if (prop_status != StatusCode::OK) {
-                         LOG(ERROR) << "Error reading vehicle property: " << toString(prop_status);
-                     } else {
-                         status = BindingStatus::OK;
-                         *seed = std::vector<uint8_t>{propValue.value.bytes.begin(),
-                                                      propValue.value.bytes.end()};
-                     }
-                 });
+BindingStatus getSeedVhalProperty(std::shared_ptr<IVhalClient> vehicle,
+                                  std::vector<uint8_t>* seed) {
+    auto desired_prop = vehicle->createHalPropValue(
+            static_cast<int32_t>(VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED));
 
+    VhalResult<std::unique_ptr<IHalPropValue>> result = vehicle->getValueSync(*desired_prop);
+
+    BindingStatus status = BindingStatus::ERROR;
+    if (!result.ok()) {
+        LOG(ERROR) << "Error reading vehicle property, error: " << result.error().message();
+        return status;
+    }
+    status = BindingStatus::OK;
+    *seed = result.value()->getByteValues();
     return status;
 }
 
@@ -157,7 +152,7 @@ int DefaultExecutor::run(const std::vector<std::string>& cmd_args, int* exit_cod
                                LOG_KLOG, true /*abbreviated*/, nullptr /*file_path*/);
 }
 
-BindingStatus setVehicleBindingSeed(sp<IVehicle> vehicle, const Executor& executor,
+BindingStatus setVehicleBindingSeed(std::shared_ptr<IVhalClient> vehicle, const Executor& executor,
                                     const Csrng& csrng) {
     if (!isSeedVhalPropertySupported(vehicle)) {
         LOG(WARNING) << "Vehicle binding seed is not supported by the VHAL.";

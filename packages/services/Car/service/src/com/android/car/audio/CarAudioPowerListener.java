@@ -19,10 +19,10 @@ package com.android.car.audio;
 import static android.car.hardware.power.PowerComponent.AUDIO;
 
 import android.annotation.NonNull;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerPolicy;
 import android.car.hardware.power.CarPowerPolicyFilter;
 import android.car.hardware.power.ICarPowerPolicyListener;
-import android.util.Slog;
 
 import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
@@ -77,7 +77,7 @@ class CarAudioPowerListener {
 
     void startListeningForPolicyChanges() {
         if (mCarPowerManagementService == null) {
-            Slog.w(TAG, "Cannot find CarPowerManagementService");
+            Slogf.w(TAG, "Cannot find CarPowerManagementService");
             mCarAudioService.setAudioEnabled(/* isAudioEnabled= */ true);
             return;
         }
@@ -99,7 +99,7 @@ class CarAudioPowerListener {
         CarPowerPolicy policy = mCarPowerManagementService.getCurrentPowerPolicy();
 
         if (policy == null) {
-            Slog.w(TAG, "Policy is null. Defaulting to enabled");
+            Slogf.w(TAG, "Policy is null. Defaulting to enabled");
             mCarAudioService.setAudioEnabled(/* isAudioEnabled= */ true);
             return;
         }

@@ -57,6 +57,7 @@ public final class WifiAnnotations {
             SoftApInfo.CHANNEL_WIDTH_80MHZ,
             SoftApInfo.CHANNEL_WIDTH_80MHZ_PLUS_MHZ,
             SoftApInfo.CHANNEL_WIDTH_160MHZ,
+            SoftApInfo.CHANNEL_WIDTH_320MHZ,
             SoftApInfo.CHANNEL_WIDTH_2160MHZ,
             SoftApInfo.CHANNEL_WIDTH_4320MHZ,
             SoftApInfo.CHANNEL_WIDTH_6480MHZ,
@@ -71,9 +72,20 @@ public final class WifiAnnotations {
             ScanResult.CHANNEL_WIDTH_80MHZ,
             ScanResult.CHANNEL_WIDTH_160MHZ,
             ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ,
+            ScanResult.CHANNEL_WIDTH_320MHZ,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ChannelWidth{}
+
+    @IntDef(prefix = { "PREAMBLE_" }, value = {
+            ScanResult.PREAMBLE_LEGACY,
+            ScanResult.PREAMBLE_HT,
+            ScanResult.PREAMBLE_VHT,
+            ScanResult.PREAMBLE_HE,
+            ScanResult.PREAMBLE_EHT,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PreambleType {}
 
     @IntDef(prefix = { "WIFI_STANDARD_" }, value = {
             ScanResult.WIFI_STANDARD_UNKNOWN,
@@ -82,6 +94,7 @@ public final class WifiAnnotations {
             ScanResult.WIFI_STANDARD_11AC,
             ScanResult.WIFI_STANDARD_11AX,
             ScanResult.WIFI_STANDARD_11AD,
+            ScanResult.WIFI_STANDARD_11BE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface WifiStandard{}

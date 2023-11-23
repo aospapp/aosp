@@ -27,6 +27,7 @@ import static com.android.launcher3.anim.Interpolators.DEACCEL_3;
 import static com.android.launcher3.anim.Interpolators.LINEAR;
 import static com.android.launcher3.anim.Interpolators.scrollInterpolatorForVelocity;
 import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_HOME;
+import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_QUICKSWITCH_RIGHT;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_UNKNOWN_SWIPEDOWN;
 import static com.android.launcher3.logging.StatsLogManager.LauncherEvent.LAUNCHER_UNKNOWN_SWIPEUP;
 import static com.android.launcher3.logging.StatsLogManager.getLauncherAtomEvent;
@@ -38,9 +39,10 @@ import static com.android.launcher3.states.StateAnimationConfig.ANIM_WORKSPACE_S
 import static com.android.launcher3.states.StateAnimationConfig.SKIP_ALL_ANIMATIONS;
 import static com.android.launcher3.states.StateAnimationConfig.SKIP_OVERVIEW;
 import static com.android.launcher3.states.StateAnimationConfig.SKIP_SCRIM;
+import static com.android.launcher3.testing.TestProtocol.BAD_STATE;
 import static com.android.launcher3.touch.BothAxesSwipeDetector.DIRECTION_RIGHT;
 import static com.android.launcher3.touch.BothAxesSwipeDetector.DIRECTION_UP;
-import static com.android.launcher3.util.DisplayController.getSingleFrameMs;
+import static com.android.launcher3.util.window.RefreshRateTracker.getSingleFrameMs;
 import static com.android.quickstep.util.VibratorWrapper.OVERVIEW_HAPTIC;
 import static com.android.quickstep.views.RecentsView.ADJACENT_PAGE_HORIZONTAL_OFFSET;
 import static com.android.quickstep.views.RecentsView.CONTENT_ALPHA;
@@ -54,6 +56,7 @@ import android.animation.Animator.AnimatorListener;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.graphics.PointF;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.animation.Interpolator;
 
@@ -224,6 +227,7 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
         // Set RecentView's initial properties.
         RECENTS_SCALE_PROPERTY.set(mRecentsView, fromState.getOverviewScaleAndOffset(mLauncher)[0]);
         ADJACENT_PAGE_HORIZONTAL_OFFSET.set(mRecentsView, 1f);
+        Log.d(BAD_STATE, "NBQSTC setupOverviewAnimators setContentAlpha=1");
         mRecentsView.setContentAlpha(1);
         mRecentsView.setFullscreenProgress(fromState.getOverviewFullscreenProgress());
         mLauncher.getActionsView().getVisibilityAlpha().setValue(
@@ -242,6 +246,24 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
                 QUICK_SWITCH.getWorkspaceScrimColor(mLauncher), LINEAR);
         if (mRecentsView.getTaskViewCount() == 0) {
             xAnim.addFloat(mRecentsView, CONTENT_ALPHA, 0f, 1f, LINEAR);
+            Log.d(BAD_STATE, "NBQSTC setupOverviewAnimators from: 0 to: 1");
+            xAnim.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    Log.d(BAD_STATE, "NBQSTC setupOverviewAnimators onStart");
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    float alpha = mRecentsView == null ? -1 : CONTENT_ALPHA.get(mRecentsView);
+                    Log.d(BAD_STATE, "NBQSTC setupOverviewAnimators onCancel, alpha=" + alpha);
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    Log.d(BAD_STATE, "NBQSTC setupOverviewAnimators onEnd");
+                }
+            });
         }
         mXOverviewAnim = xAnim.createPlaybackController();
         mXOverviewAnim.dispatchOnStart();
@@ -430,9 +452,11 @@ public class NoButtonQuickSwitchTouchController implements TouchController,
                 .withSrcState(LAUNCHER_STATE_HOME)
                 .withDstState(targetState.statsLogOrdinal)
                 .log(getLauncherAtomEvent(mStartState.statsLogOrdinal, targetState.statsLogOrdinal,
-                        targetState.ordinal > mStartState.ordinal
-                                ? LAUNCHER_UNKNOWN_SWIPEUP
-                                : LAUNCHER_UNKNOWN_SWIPEDOWN));
+                        targetState == QUICK_SWITCH
+                                ? LAUNCHER_QUICKSWITCH_RIGHT
+                                : targetState.ordinal > mStartState.ordinal
+                                        ? LAUNCHER_UNKNOWN_SWIPEUP
+                                        : LAUNCHER_UNKNOWN_SWIPEDOWN));
         mLauncher.getStateManager().goToState(targetState, false, forEndCallback(this::clearState));
     }
 

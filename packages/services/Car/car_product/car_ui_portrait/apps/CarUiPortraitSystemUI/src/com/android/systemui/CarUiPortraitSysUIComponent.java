@@ -19,7 +19,11 @@ package com.android.systemui;
 import com.android.systemui.dagger.DependencyProvider;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.SystemUIModule;
+import com.android.wm.shell.RootTaskDisplayAreaOrganizer;
 
+import java.util.Optional;
+
+import dagger.BindsInstance;
 import dagger.Subcomponent;
 
 /**
@@ -31,6 +35,7 @@ import dagger.Subcomponent;
         DependencyProvider.class,
         SystemUIModule.class,
         CarSystemUIModule.class,
+        CarSystemUICoreStartableModule.class,
         CarUiPortraitSystemUIBinder.class})
 public interface CarUiPortraitSysUIComponent extends CarSysUIComponent {
     /**
@@ -38,6 +43,10 @@ public interface CarUiPortraitSysUIComponent extends CarSysUIComponent {
      */
     @Subcomponent.Builder
     interface Builder extends CarSysUIComponent.Builder {
+        @BindsInstance
+        CarUiPortraitSysUIComponent.Builder setRootTaskDisplayAreaOrganizer(
+                Optional<RootTaskDisplayAreaOrganizer> r);
+
         CarUiPortraitSysUIComponent build();
     }
 }

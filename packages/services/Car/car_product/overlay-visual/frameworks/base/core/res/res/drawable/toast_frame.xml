@@ -18,6 +18,6 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
        android:shape="rectangle">
     <solid android:color="@*android:color/car_toast_background"/>
-    <corners android:radius="22dp" />
+    <corners android:radius="8dp" />
 </shape>
 

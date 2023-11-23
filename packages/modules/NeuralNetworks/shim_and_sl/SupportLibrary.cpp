@@ -24,20 +24,8 @@
 #include <memory>
 #include <string>
 
-NnApiSupportLibrary::NnApiSupportLibrary(const NnApiSLDriverImplFL5& impl, void* libHandle)
-    : NnApiSLDriverImplFL5(impl), libHandle(libHandle) {
-    base.implFeatureLevel = ANEURALNETWORKS_FEATURE_LEVEL_5;
-}
-
-NnApiSupportLibrary::~NnApiSupportLibrary() {
-    if (libHandle != nullptr) {
-        dlclose(libHandle);
-        libHandle = nullptr;
-    }
-}
-
 std::unique_ptr<const NnApiSupportLibrary> loadNnApiSupportLibrary(const std::string& libName) {
-    void* libHandle = dlopen(libName.c_str(), RTLD_LAZY | RTLD_LOCAL);
+    void* libHandle = dlopen(libName.c_str(), RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);
     if (libHandle == nullptr) {
         LOG(ERROR) << "nnapi error: unable to open library " << libName.c_str() << " " << dlerror();
         return nullptr;
@@ -65,11 +53,27 @@ std::unique_ptr<const NnApiSupportLibrary> loadNnApiSupportLibrary(void* libHand
         return nullptr;
     }
 
-    if (impl->implFeatureLevel != ANEURALNETWORKS_FEATURE_LEVEL_5) {
+    if (impl->implFeatureLevel < ANEURALNETWORKS_FEATURE_LEVEL_5) {
         LOG(ERROR) << "Unsupported NnApiSLDriverImpl->implFeatureLevel: " << impl->implFeatureLevel;
         return nullptr;
     }
 
-    return std::make_unique<NnApiSupportLibrary>(*reinterpret_cast<NnApiSLDriverImplFL5*>(impl),
-                                                 libHandle);
+    if (impl->implFeatureLevel == ANEURALNETWORKS_FEATURE_LEVEL_5) {
+        return std::make_unique<NnApiSupportLibrary>(*reinterpret_cast<NnApiSLDriverImplFL5*>(impl),
+                                                     libHandle);
+    }
+    if (impl->implFeatureLevel == ANEURALNETWORKS_FEATURE_LEVEL_6) {
+        return std::make_unique<NnApiSupportLibrary>(*reinterpret_cast<NnApiSLDriverImplFL6*>(impl),
+                                                     libHandle);
+    }
+    if (impl->implFeatureLevel == ANEURALNETWORKS_FEATURE_LEVEL_7) {
+        return std::make_unique<NnApiSupportLibrary>(*reinterpret_cast<NnApiSLDriverImplFL7*>(impl),
+                                                     libHandle);
+    }
+    if (impl->implFeatureLevel >= ANEURALNETWORKS_FEATURE_LEVEL_8) {
+        return std::make_unique<NnApiSupportLibrary>(*reinterpret_cast<NnApiSLDriverImplFL8*>(impl),
+                                                     libHandle);
+    }
+
+    return nullptr;
 }

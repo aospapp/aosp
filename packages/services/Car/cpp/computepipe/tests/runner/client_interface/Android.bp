@@ -39,8 +39,8 @@ cc_test {
 	"libnativewindow",
         "computepipe_client_interface",
         "computepipe_runner_component",
-        "android.automotive.computepipe.registry-V2-ndk_platform",
-        "android.automotive.computepipe.runner-V2-ndk_platform",
+        "android.automotive.computepipe.registry-V2-ndk",
+        "android.automotive.computepipe.runner-V2-ndk",
         "libprotobuf-cpp-lite",
     ],
 }

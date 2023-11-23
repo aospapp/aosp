@@ -16,18 +16,23 @@
 package com.android.wallpaper.model;
 
 import android.content.Context;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Category listing third party live wallpapers the user might have installed.
  */
 public class ThirdPartyLiveWallpaperCategory extends WallpaperCategory {
+
+    private static final ExecutorService sExecutorService = Executors.newCachedThreadPool();
 
     private final Set<String> mExcludedPackages;
 
@@ -41,10 +46,19 @@ public class ThirdPartyLiveWallpaperCategory extends WallpaperCategory {
     @Override
     public void fetchWallpapers(Context context, WallpaperReceiver receiver, boolean forceReload) {
         if (forceReload) {
-            FetchLiveWallpapersTask task = new FetchLiveWallpapersTask(context,
-                    getMutableWallpapers(), mExcludedPackages, receiver);
-            task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-
+            sExecutorService.execute(() -> {
+                List<WallpaperInfo> mCategoryWallpapers = getMutableWallpapers();
+                List<WallpaperInfo> liveWallpapers = LiveWallpaperInfo.getAll(context,
+                        mExcludedPackages);
+                synchronized (mWallpapersLock) {
+                    mCategoryWallpapers.clear();
+                    mCategoryWallpapers.addAll(liveWallpapers);
+                }
+                new Handler(Looper.getMainLooper()).post(() ->
+                        // Perform a shallow clone so as not to pass the reference to the list
+                        // along to clients.
+                        receiver.onWallpapersReceived(new ArrayList<>(mCategoryWallpapers)));
+            });
         } else {
             super.fetchWallpapers(context, receiver, forceReload);
         }
@@ -68,38 +82,5 @@ public class ThirdPartyLiveWallpaperCategory extends WallpaperCategory {
             }
         }
         return super.containsThirdParty(packageName);
-    }
-
-    private class FetchLiveWallpapersTask extends AsyncTask<Void, Void, Void> {
-
-        private final Context mContext;
-        private final List<WallpaperInfo> mCategoryWallpapers;
-        @Nullable private final Set<String> mExcludedPackages;
-        @Nullable private final WallpaperReceiver mReceiver;
-
-        FetchLiveWallpapersTask(Context context, List<WallpaperInfo> wallpapers,
-                @Nullable Set<String> excludedPackages, @Nullable WallpaperReceiver receiver) {
-            mContext = context;
-            mCategoryWallpapers = wallpapers;
-            mExcludedPackages = excludedPackages;
-            mReceiver = receiver;
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            List<WallpaperInfo> liveWallpapers = LiveWallpaperInfo.getAll(mContext,
-                    mExcludedPackages);
-            synchronized (mWallpapersLock) {
-                mCategoryWallpapers.clear();
-                mCategoryWallpapers.addAll(liveWallpapers);
-            }
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            // Perform a shallow clone so as not to pass the reference to the list along to clients.
-            mReceiver.onWallpapersReceived(new ArrayList<>(mCategoryWallpapers));
-        }
     }
 }

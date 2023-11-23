@@ -61,7 +61,7 @@ public class UsbAoapHostActivity extends Activity
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         mReceiver = new UsbStateReceiver();
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
 
         Intent intent = getIntent();
         if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {

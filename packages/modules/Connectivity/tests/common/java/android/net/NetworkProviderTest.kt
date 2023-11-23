@@ -32,6 +32,7 @@ import android.util.Log
 import androidx.test.InstrumentationRegistry
 import com.android.net.module.util.ArrayTrackRecord
 import com.android.testutils.CompatUtil
+import com.android.testutils.ConnectivityModuleTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
@@ -40,7 +41,6 @@ import com.android.testutils.TestableNetworkOfferCallback
 import com.android.testutils.isDevSdkInRange
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +63,7 @@ private val PROVIDER_NAME = "NetworkProviderTest"
 
 @RunWith(DevSdkIgnoreRunner::class)
 @IgnoreUpTo(Build.VERSION_CODES.Q)
+@ConnectivityModuleTest
 class NetworkProviderTest {
     @Rule @JvmField
     val mIgnoreRule = DevSdkIgnoreRule()
@@ -205,7 +206,6 @@ class NetworkProviderTest {
         }
     }
 
-    @Ignore("Temporarily disable the test since prebuilt Connectivity module is not updated.")
     @IgnoreUpTo(Build.VERSION_CODES.R)
     @Test
     fun testRegisterNetworkOffer() {

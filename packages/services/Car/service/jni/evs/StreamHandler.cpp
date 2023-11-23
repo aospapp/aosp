@@ -16,41 +16,81 @@
 
 #include "StreamHandler.h"
 
+#include <aidl/android/hardware/automotive/evs/EvsEventType.h>
+#include <aidl/android/hardware/automotive/evs/EvsResult.h>
+#include <aidl/android/hardware/common/NativeHandle.h>
 #include <android-base/chrono_utils.h>
 #include <android-base/logging.h>
-#include <cutils/native_handle.h>
+#include <android/hardware_buffer.h>
+#include <android/hardware_buffer_jni.h>
+#include <vndk/hardware_buffer.h>
 
-#include <cstring>
+namespace {
 
-using namespace ::android::hardware::automotive::evs::V1_1;
+using ::aidl::android::hardware::automotive::evs::BufferDesc;
+using ::aidl::android::hardware::automotive::evs::EvsEventDesc;
+using ::aidl::android::hardware::automotive::evs::EvsEventType;
+using ::aidl::android::hardware::automotive::evs::EvsResult;
+using ::aidl::android::hardware::automotive::evs::IEvsCamera;
+using ::aidl::android::hardware::common::NativeHandle;
+using ::aidl::android::hardware::graphics::common::HardwareBuffer;
 
-using ::android::sp;
-using ::android::hardware::hidl_handle;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::automotive::evs::V1_0::EvsResult;
-using ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
+NativeHandle dupNativeHandle(const NativeHandle& handle, bool doDup) {
+    NativeHandle dup;
 
-using EvsDisplayState = ::android::hardware::automotive::evs::V1_0::DisplayState;
-using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
-using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
+    dup.fds = std::vector<::ndk::ScopedFileDescriptor>(handle.fds.size());
+    if (!doDup) {
+        for (auto i = 0; i < handle.fds.size(); ++i) {
+            dup.fds.at(i).set(handle.fds[i].get());
+        }
+    } else {
+        for (auto i = 0; i < handle.fds.size(); ++i) {
+            dup.fds[i] = std::move(handle.fds[i].dup());
+        }
+    }
+    dup.ints = handle.ints;
 
-namespace android {
-namespace automotive {
-namespace evs {
+    return std::move(dup);
+}
 
-StreamHandler::StreamHandler(sp<IEvsCamera>& camera, EvsServiceCallback* callback,
-                             int maxNumFramesInFlight) :
-      mEvsCamera(camera), mCallback(callback), mMaxNumFramesInFlight(maxNumFramesInFlight) {
-    if (camera == nullptr) {
+HardwareBuffer dupHardwareBuffer(const HardwareBuffer& buffer, bool doDup) {
+    HardwareBuffer dup = {
+            .description = buffer.description,
+            .handle = dupNativeHandle(buffer.handle, doDup),
+    };
+
+    return std::move(dup);
+}
+
+BufferDesc dupBufferDesc(const BufferDesc& src, bool doDup) {
+    BufferDesc dup = {
+            .buffer = dupHardwareBuffer(src.buffer, doDup),
+            .pixelSizeBytes = src.pixelSizeBytes,
+            .bufferId = src.bufferId,
+            .deviceId = src.deviceId,
+            .timestamp = src.timestamp,
+            .metadata = src.metadata,
+    };
+
+    return std::move(dup);
+}
+
+}  // namespace
+
+namespace android::automotive::evs {
+
+StreamHandler::StreamHandler(const std::shared_ptr<IEvsCamera>& camObj,
+                             EvsServiceCallback* callback, int maxNumFramesInFlight) :
+      mEvsCamera(camObj), mCallback(callback), mMaxNumFramesInFlight(maxNumFramesInFlight) {
+    if (!camObj) {
         LOG(ERROR) << "IEvsCamera is invalid.";
     } else {
         // We rely on the camera having at least two buffers available since we'll hold one and
         // expect the camera to be able to capture a new image in the background.
-        auto status = camera->setMaxFramesInFlight(maxNumFramesInFlight);
+        auto status = camObj->setMaxFramesInFlight(maxNumFramesInFlight);
         if (!status.isOk()) {
-            LOG(WARNING) << "Failed to adjust the maximum number of frames in flight.";
+            LOG(ERROR) << "Failed to adjust the maximum number of frames in flight: "
+                       << status.getServiceSpecificError();
         }
     }
 }
@@ -80,9 +120,10 @@ void StreamHandler::shutdown() {
 bool StreamHandler::startStream() {
     std::lock_guard<std::mutex> lock(mLock);
     if (!mRunning) {
-        auto result = mEvsCamera->startVideoStream(this);
-        if (!result.isOk() or result != EvsResult::OK) {
-            LOG(ERROR) << "StreamHandler failed to start a video stream.";
+        auto status = mEvsCamera->startVideoStream(ref<StreamHandler>());
+        if (!status.isOk()) {
+            LOG(ERROR) << "StreamHandler failed to start a video stream: "
+                       << status.getServiceSpecificError();
             return false;
         }
 
@@ -106,13 +147,12 @@ bool StreamHandler::asyncStopStream() {
         auto it = mReceivedBuffers.begin();
         while (it != mReceivedBuffers.end()) {
             // Packages a returned buffer and sends it back to the camera
-            hidl_vec<BufferDesc_1_1> frames;
-            frames.resize(1);
-            frames[0] = *it;
-            auto status = mEvsCamera->doneWithFrame_1_1(frames);
+            std::vector<BufferDesc> frames(1);
+            frames[0] = std::move(*it);
+            auto status = mEvsCamera->doneWithFrame(frames);
             if (!status.isOk()) {
                 LOG(WARNING) << "Failed to return a frame to EVS service; "
-                             << "this may leak the memory.";
+                             << "this may leak the memory: " << status.getServiceSpecificError();
                 success = false;
             }
 
@@ -155,88 +195,75 @@ bool StreamHandler::isRunning() {
     return mRunning;
 }
 
-void StreamHandler::doneWithFrame(const BufferDesc_1_1& buffer) {
+void StreamHandler::doneWithFrame(int bufferId) {
+    BufferDesc bufferToReturn;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        auto it = mReceivedBuffers.begin();
-        while (it != mReceivedBuffers.end()) {
-            if (it->bufferId == buffer.bufferId) {
-                // We intentionally do not update the iterator to detect a
-                // request to return an unknown buffer.
-                mReceivedBuffers.erase(it);
-                break;
-            }
-            ++it;
-        }
-
+        auto it = std::find_if(mReceivedBuffers.begin(), mReceivedBuffers.end(),
+                               [bufferId](BufferDesc& b) { return b.bufferId == bufferId; });
         if (it == mReceivedBuffers.end()) {
             LOG(DEBUG) << "Ignores a request to return unknown buffer";
             return;
         }
+
+        bufferToReturn = std::move(*it);
+        mReceivedBuffers.erase(it);
     }
 
     // Packages a returned buffer and sends it back to the camera
-    hidl_vec<BufferDesc_1_1> frames;
-    frames.resize(1);
-    frames[0] = buffer;
-    auto status = mEvsCamera->doneWithFrame_1_1(frames);
-    if (!status.isOk()) {
-        LOG(ERROR) << "Failed to return a frame to EVS service; this may leak the memory.";
+    std::vector<BufferDesc> frames(1);
+    frames[0] = std::move(bufferToReturn);
+    if (auto status = mEvsCamera->doneWithFrame(frames); !status.isOk()) {
+        LOG(ERROR) << "Status = " << status.getStatus();
+        LOG(ERROR) << "Failed to return a frame (id = " << bufferId
+                   << " to EVS service; this may leak the memory: "
+                   << status.getServiceSpecificError();
     }
 }
 
-Return<void> StreamHandler::deliverFrame(const BufferDesc_1_0& buffer) {
-    LOG(WARNING) << "Ignores a frame delivered from v1.0 EVS service.";
-    auto status = mEvsCamera->doneWithFrame(buffer);
-    if (!status.isOk()) {
-        LOG(ERROR) << "Failed to return a frame to EVS service; this may leak the memory.";
-    }
-    return {};
+void StreamHandler::doneWithFrame(const BufferDesc& buffer) {
+    return doneWithFrame(buffer.bufferId);
 }
 
-Return<void> StreamHandler::deliverFrame_1_1(const hidl_vec<BufferDesc_1_1>& buffers) {
+::ndk::ScopedAStatus StreamHandler::deliverFrame(const std::vector<BufferDesc>& buffers) {
     LOG(DEBUG) << "Received frames from the camera, bufferId = " << buffers[0].bufferId;
 
-    // Takes the lock to protect our frameDesc slots and running state variable
-    BufferDesc_1_1 frameDesc = buffers[0];
-    if (frameDesc.buffer.nativeHandle.getNativeHandle() == nullptr) {
-        // Signals that the last frameDesc has been received and the stream is stopped
-        LOG(WARNING) << "Invalid null frameDesc (id: 0x" << std::hex << frameDesc.bufferId
-                     << ") is ignored";
-
-        return {};
-    }
-
+    const BufferDesc& bufferToUse = buffers[0];
     size_t numBuffersInUse;
     {
         std::lock_guard<std::mutex> lock(mLock);
         numBuffersInUse = mReceivedBuffers.size();
     }
 
-    if (numBuffersInUse > mMaxNumFramesInFlight) {
+    if (numBuffersInUse >= mMaxNumFramesInFlight) {
         // We're holding more than what allowed; returns this buffer
         // immediately.
-        doneWithFrame(frameDesc);
-    } else {
-        {
-            std::lock_guard<std::mutex> lock(mLock);
-            // Records a new frameDesc and forwards to clients
-            mReceivedBuffers.emplace_back(frameDesc);
-            LOG(DEBUG) << "Got buffer " << frameDesc.bufferId
-                       << ", total = " << mReceivedBuffers.size();
-
-            // Notify anybody who cares that things have changed
-            mCondition.notify_all();
-        }
-
-        // Forwards a new frame
-        mCallback->onNewFrame(frameDesc);
+        doneWithFrame(bufferToUse);
+        return ::ndk::ScopedAStatus::ok();
     }
 
-    return {};
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        // Records a new frameDesc and forwards to clients
+        mReceivedBuffers.push_back(dupBufferDesc(bufferToUse, /* dup= */ true));
+        LOG(DEBUG) << "Got buffer " << bufferToUse.bufferId
+                   << ", total = " << mReceivedBuffers.size();
+
+        // Notify anybody who cares that things have changed
+        mCondition.notify_all();
+    }
+
+    // Forwards a new frame
+    if (!mCallback->onNewFrame(bufferToUse)) {
+        doneWithFrame(bufferToUse);
+        return ::ndk::ScopedAStatus::fromServiceSpecificError(
+                static_cast<int32_t>(EvsResult::INVALID_ARG));
+    }
+
+    return ::ndk::ScopedAStatus::ok();
 }
 
-Return<void> StreamHandler::notify(const EvsEventDesc& event) {
+::ndk::ScopedAStatus StreamHandler::notify(const EvsEventDesc& event) {
     switch (event.aType) {
         case EvsEventType::STREAM_STOPPED: {
             {
@@ -266,10 +293,7 @@ Return<void> StreamHandler::notify(const EvsEventDesc& event) {
     }
 
     mCallback->onNewEvent(event);
-
-    return {};
+    return ::ndk::ScopedAStatus::ok();
 }
 
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs

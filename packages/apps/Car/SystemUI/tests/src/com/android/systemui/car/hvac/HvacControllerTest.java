@@ -211,7 +211,7 @@ public class HvacControllerTest extends SysuiTestCase {
 
     private static class TestHvacView extends View implements HvacView {
 
-        TestHvacView(Context context) {
+        public TestHvacView(Context context) {
             super(context);
         }
 

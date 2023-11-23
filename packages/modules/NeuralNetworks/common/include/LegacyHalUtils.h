@@ -17,8 +17,8 @@
 // utilities. LegacyUtils.h is the subset of these utilities that do not touch
 // HAL.
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_HAL_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_HAL_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_HAL_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_HAL_UTILS_H
 
 #include <android-base/logging.h>
 #include <nnapi/TypeUtils.h>
@@ -342,7 +342,7 @@ Extension uncheckedConvert(const V1_2::Extension& extension);
 hardware::hidl_vec<uint8_t> uncheckedConvert(const Operand::ExtensionParams& params);
 MeasureTiming uncheckedConvert(V1_2::MeasureTiming measure);
 SharedMemory uncheckedConvert(const hardware::hidl_memory& memory);
-Model::ExtensionNameAndPrefix uncheckedConvert(const V1_2::Model::ExtensionNameAndPrefix&);
+ExtensionNameAndPrefix uncheckedConvert(const V1_2::Model::ExtensionNameAndPrefix&);
 Model::Subgraph uncheckedConvert(const V1_3::Subgraph& subgraph);
 Model uncheckedConvert(const V1_3::Model& model);
 Operand::ExtensionParams uncheckedConvert(const hardware::hidl_vec<uint8_t>& params);
@@ -380,7 +380,7 @@ V1_0::ErrorStatus convertToV1_0(ErrorStatus status);
 V1_0::RequestArgument convertToV1_0(const Request::Argument& requestArgument);
 V1_1::ExecutionPreference convertToV1_1(ExecutionPreference preference);
 V1_2::MeasureTiming convertToV1_2(MeasureTiming measure);
-V1_2::Model::ExtensionNameAndPrefix convertToV1_2(const Model::ExtensionNameAndPrefix&);
+V1_2::Model::ExtensionNameAndPrefix convertToV1_2(const ExtensionNameAndPrefix&);
 V1_2::Operand::ExtraParams convertToV1_2(const Operand::ExtraParams& params);
 V1_2::OutputShape convertToV1_2(const OutputShape& outputShape);
 V1_2::SymmPerChannelQuantParams convertToV1_2(const Operand::SymmPerChannelQuantParams& params);
@@ -403,4 +403,4 @@ V1_3::Subgraph convertToV1_3(const Model::Subgraph& model);
 }  // namespace nn
 }  // namespace android
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_LEGACY_HAL_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_LEGACY_HAL_UTILS_H

@@ -24,6 +24,7 @@ import android.media.MediaMetadataRetriever;
 
 import com.android.camera.debug.Log;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import javax.microedition.khronos.opengles.GL11;
@@ -174,7 +175,11 @@ public class FilmstripItemUtils {
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "MediaMetadataRetriever.setDataSource() fail:" + e.getMessage());
         }
-        retriever.release();
+        try {
+            retriever.release();
+        } catch (IOException e) {
+            // We ignore errors occurred while releasing the MediaMetadataRetriever.
+        }
         return bitmap;
     }
 }

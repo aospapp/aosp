@@ -72,6 +72,12 @@
         "ErrorDetails": ["IO_EXCEPTION"],
         "RetryArray": ["0", "0", "0", "60+r15", "120", "-1"],
         "UnthrottlingEvents": ["APM_ENABLE_EVENT", "APM_DISABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_AP_CHANGED_EVENT"]
+      },
+      {
+        "ErrorType": "IKE_PROTOCOL_ERROR_TYPE",
+        "ErrorDetails": ["24"],
+        "RetryArray": ["10", "20", "40", "80", "160"],
+        "UnthrottlingEvents": ["APM_ENABLE_EVENT", "WIFI_DISABLE_EVENT", "WIFI_CALLING_DISABLE_EVENT"]
       }
     ]
   }

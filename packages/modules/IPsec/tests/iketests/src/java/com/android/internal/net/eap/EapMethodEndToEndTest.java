@@ -29,6 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.content.Context;
+import android.net.eap.test.EapInfo;
 import android.net.eap.test.EapSessionConfig;
 import android.os.test.TestLooper;
 
@@ -46,6 +47,7 @@ public class EapMethodEndToEndTest {
     protected TestLooper mTestLooper;
     protected EapSessionConfig mEapSessionConfig;
     protected EapAuthenticator mEapAuthenticator;
+    protected static final int EAP_RESPONSE_FLAGS_NOT_SET = 0;
 
     @Before
     public void setUp() {
@@ -61,7 +63,7 @@ public class EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // verify EAP-Response/Nak returned
-        verify(mMockCallback).onResponse(eq(nakResponse));
+        verify(mMockCallback).onResponse(eq(nakResponse), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -70,7 +72,7 @@ public class EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         verify(mMockCallback, times(callsToVerify))
-                .onResponse(eq(EAP_RESPONSE_NOTIFICATION_PACKET));
+                .onResponse(eq(EAP_RESPONSE_NOTIFICATION_PACKET), eq(EAP_RESPONSE_FLAGS_NOT_SET));
         verifyNoMoreInteractions(mMockCallback);
     }
 
@@ -80,8 +82,17 @@ public class EapMethodEndToEndTest {
         mTestLooper.dispatchAll();
 
         // verify that onSuccess callback made
-        verify(mMockCallback).onSuccess(eq(msk), eq(emsk));
-        verifyNoMoreInteractions(mMockContext, mMockSecureRandom, mMockCallback);
+        verify(mMockCallback).onSuccess(eq(msk), eq(emsk), eq(null));
+        verifyNoMoreInteractions(mMockContext, mMockCallback);
+    }
+
+    protected void verifyEapSuccessWithOption(byte[] msk, byte[] emsk) {
+        // EAP-Success
+        mEapAuthenticator.processEapMessage(EAP_SUCCESS);
+        mTestLooper.dispatchAll();
+
+        // verify that onSuccess callback made
+        verify(mMockCallback).onSuccess(eq(msk), eq(emsk), any(EapInfo.class));
     }
 
     protected void verifyEapFailure() {

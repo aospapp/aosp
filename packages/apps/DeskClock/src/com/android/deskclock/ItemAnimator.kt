@@ -125,11 +125,11 @@ class ItemAnimator : SimpleItemAnimator() {
         moveAnimator?.duration = moveDuration
         moveAnimator.interpolator = AnimatorUtils.INTERPOLATOR_FAST_OUT_SLOW_IN
         moveAnimator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationStart(animator: Animator?) {
+            override fun onAnimationStart(animator: Animator) {
                 dispatchMoveStarting(holder)
             }
 
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 animator?.removeAllListeners()
                 mAnimators.remove(holder)
                 view.translationX = prevTranslationX

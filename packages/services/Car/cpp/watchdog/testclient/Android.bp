@@ -29,7 +29,7 @@ cc_binary {
         "-Wunused-parameter",
     ],
     shared_libs: [
-        "android.automotive.watchdog-V2-ndk_platform",
+        "android.automotive.watchdog-V2-ndk",
         "libbase",
         "libbinder_ndk",
         "liblog",

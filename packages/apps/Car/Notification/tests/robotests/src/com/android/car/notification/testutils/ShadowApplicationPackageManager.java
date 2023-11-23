@@ -41,7 +41,7 @@ public class ShadowApplicationPackageManager extends
 
     @Implementation
     public PackageInfo getPackageInfoAsUser(String packageName,
-            @PackageManager.PackageInfoFlags int flags, @UserIdInt int userId) {
+            int packageInfoFlags, @UserIdInt int userId) {
         return sPackageInfo;
     }
 

@@ -637,22 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"وضع هاتف معاودة الاتصال بالطوارئ"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"تم إيقاف اتصال البيانات"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"لا يوجد اتصال بيانات حتى <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="zero">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> من الدقائق. وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-      <item quantity="two">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة دقيقتين (<xliff:g id="COUNT_1">%s</xliff:g>). وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-      <item quantity="few">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقائق. وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-      <item quantity="many">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقيقة. وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-      <item quantity="other">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> من الدقائق. وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-      <item quantity="one">سيكون الهاتف في وضع الرد على مكالمة الطوارئ لمدة <xliff:g id="COUNT_0">%s</xliff:g> دقيقة. وأثناء هذا الوضع، لا يمكن استخدام أي تطبيقات تستخدم اتصال بيانات. هل تريد الخروج الآن؟</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="zero">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة <xliff:g id="COUNT_1">%s</xliff:g> من الدقائق. هل تريد الخروج الآن؟</item>
-      <item quantity="two">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة دقيقتين (<xliff:g id="COUNT_1">%s</xliff:g>). هل تريد الخروج الآن؟</item>
-      <item quantity="few">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقائق. هل تريد الخروج الآن؟</item>
-      <item quantity="many">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقيقة. هل تريد الخروج الآن؟</item>
-      <item quantity="other">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة <xliff:g id="COUNT_1">%s</xliff:g> من الدقائق. هل تريد الخروج الآن؟</item>
-      <item quantity="one">الإجراء المحدد ليس متاحًا أثناء تفعيل وضع الرد على مكالمة الطوارئ. وسيكون الهاتف في هذا الوضع لمدة <xliff:g id="COUNT_0">%s</xliff:g> دقيقة. هل تريد الخروج الآن؟</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"الإجراء المحدد ليس متاحًا أثناء إجراء اتصال بالطوارئ."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"الخروج من وضع معاودة الاتصال بالطوارئ"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"نعم"</string>
@@ -660,14 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"استبعاد"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"الهاتف في وضع معاودة الاتصال بالطوارئ."</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"حتى <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="zero">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقيقة.\nهل تريد الخروج الآن؟</item>
-      <item quantity="two">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة دقيقتين (<xliff:g id="COUNT_1">%s</xliff:g>).\nهل تريد الخروج الآن؟</item>
-      <item quantity="few">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقائق.\nهل تريد الخروج الآن؟</item>
-      <item quantity="many">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقيقة.\nهل تريد الخروج الآن؟</item>
-      <item quantity="other">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة <xliff:g id="COUNT_1">%s</xliff:g> دقيقة.\nهل تريد الخروج الآن؟</item>
-      <item quantity="one">سيكون الهاتف في وضع معاودة الاتصال بالطوارئ لمدة دقيقة (<xliff:g id="COUNT_0">%s</xliff:g>).\nهل تريد الخروج الآن؟</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"الخدمة"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"الإعداد"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"‏&lt;لم يتم الضبط&gt;"</string>
@@ -695,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"إعدادات تمكين الوصول"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"‏مكالمة Wi-Fi من"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"‏مكالمة عبر Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"انقر مرة أخرى للفتح."</string>
     <string name="message_decode_error" msgid="1061856591500290887">"حدث خطأ أثناء فك ترميز الرسالة."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"‏نشطت شريحة SIM خدمتك وحدّثت إمكانات التجوال لهاتفك."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"هناك الكثير من المكالمات النشطة. يرجى إنهاء أو دمج المكالمات الموجودة قبل إجراء مكالمة جديدة."</string>
@@ -714,7 +692,7 @@
     <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"تعيين رقم تعريف شخصي جديد"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"ينبغي لرقم التعريف الشخصي أن يتكون من <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> أرقام."</string>
     <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"تأكيد رقم التعريف الشخصي"</string>
-    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"أرقام التعريف الشخصي غير متطابقة"</string>
+    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"رقما التعريف الشخصي غير متطابقَين"</string>
     <string name="change_pin_succeeded" msgid="2504705600693014403">"تمّ تحديث رقم التعريف الشخصي للبريد الصوتي"</string>
     <string name="change_pin_system_error" msgid="7772788809875146873">"يتعذر تعيين رقم التعريف الشخصي"</string>
     <string name="mobile_data_status_roaming_turned_off_subtext" msgid="6840673347416227054">"تم إيقاف تجوال البيانات"</string>
@@ -839,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"لا يمكن إجراء مكالمة لأنّ هناك مكالمة صادرة أخرى تجري بالفعل."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"لا يمكن إجراء مكالمة لأنّ هناك مكالمة واردة لم يتم الرد عليها. يُرجى الرد على المكالمة الواردة أو رفضها قبل إجراء مكالمة جديدة."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"‏لا يمكن إجراء مكالمة لأنّه قد تم إيقاف وظيفة الاتصال باستخدام ميزة النظام ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"لا يمكن إجراء مكالمة لأنّ هناك مكالمتين قيد التقدّم بالفعل. يمكنك إنهاء إحدى المكالمتين أو دمجهما في مكالمة جماعية قبل إجراء مكالمة جديدة."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"لا يمكن إجراء مكالمة لأنّ هناك مكالمتين جاريتين حاليًا. يمكنك إنهاء إحدى المكالمتين أو دمجهما في مكالمة جماعية قبل إجراء مكالمة جديدة."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"لاستخدام <xliff:g id="SUPP_SERVICE">%s</xliff:g>، تأكّد من تفعيل بيانات الجوّال. يمكنك تغيير هذا الإعداد في إعدادات شبكة الجوّال."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"لاستخدام <xliff:g id="SUPP_SERVICE">%s</xliff:g>، تأكّد من تفعيل بيانات الجوّال وتجوال البيانات. يمكنك تغيير هذين الإعدادين في إعدادات شبكة الجوّال."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"‏لاستخدام <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>، تأكّد من تفعيل بيانات الجوّال لشريحة SIM رقم <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. يمكنك تغيير هذا الإعداد في إعدادات شبكة الجوّال."</string>
@@ -857,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"عليك إعادة تشغيل جهازك لتغيير هذا الإعداد."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"إعادة التشغيل"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"إلغاء"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"‏ضبط شريحة eSIM القابلة للإزالة كشريحة تلقائية"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"طاقة اللاسلكي للجوّال"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"‏عرض دفتر عناوين SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"عرض أرقام الطلب الثابت"</string>
@@ -911,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"تحديد النطاق اللاسلكي"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"نوع الشبكة الصوتية:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"نوع شبكة البيانات:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"تجاهل نوع الشبكة:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"اختيار فهرس الهاتف"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"تحديد نوع الشبكة المفضّل:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏فحص اتصال اسم المضيف (www.google.com) عبر IPv4:"</string>
@@ -922,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"إعادة التحميل"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"تبديل فحص نظام أسماء النطاقات"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"المعلومات/الإعدادات المتعلّقة بالمصنّع الأصلي للجهاز"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"‏EN-DC متوفر:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"‏تم حظر DCNR:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"‏NR متوفر:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"‏حالة NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"‏EN-DC متوفّر (في وضع NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"‏تم حظر DCNR ‏(في وضع NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"‏NR متوفّر (في وضع NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"‏حالة NR ‏(في وضع NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"‏تردد NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"تحديد وضع النطاق اللاسلكي"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"جارٍ تحميل قائمة النطاقات…"</string>

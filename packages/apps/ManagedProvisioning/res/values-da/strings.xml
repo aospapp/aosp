@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Den følgende app vil styre din enhed:"</string>
     <string name="next" msgid="1004321437324424398">"Næste"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Arbejdsprofilen konfigureres..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne profil, bl.a. din netværksaktivitet samt enhedens lokation, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
-
-</xliff:g>Kontakt din it-administrator for at få flere oplysninger, bl.a. om din organisations privatlivspolitik."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser, data og netværksaktivitet, der er knyttet til denne profil, samt din opkaldshistorik og historik for søgning efter kontakter. Kontakt din it-administrator for at få flere oplysninger, bl.a. om din organisations privatlivspolitikker."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne enhed, bl.a. din netværksaktivitet samt enhedens lokation, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
 
 </xliff:g>Kontakt din it-administrator for at få flere oplysninger, bl.a. om din organisations privatlivspolitikker."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> kan installere <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-appen, så du kan foretage betalinger på denne enhed."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Denne enhed kan være begrænset"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan begrænse adgangen til denne enhed, hvis du ikke foretager betalinger."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Enheden kan ikke konfigureres. Kontakt din it-administrator, og henvis til \"ugyldig kontrolsum\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Prøv igen senere, eller bed din it-administrator om hjælp"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Enheden kan ikke konfigureres. Kontakt din it-administrator, og henvis til \"Komponenter mangler eller er beskadigede\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Konfigurerer…"</string>
 </resources>

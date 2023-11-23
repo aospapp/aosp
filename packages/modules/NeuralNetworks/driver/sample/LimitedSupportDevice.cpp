@@ -22,6 +22,7 @@
 #include <nnapi/IPreparedModel.h>
 #include <nnapi/OperandTypes.h>
 #include <nnapi/Result.h>
+#include <nnapi/TypeUtils.h>
 #include <nnapi/Types.h>
 #include <nnapi/Validation.h>
 
@@ -37,7 +38,105 @@
 #include <utility>
 #include <vector>
 
+#include "CanonicalDevice.h"
+
 namespace android::nn::sample {
+namespace {
+
+Capabilities makeCapabilitiesFloatFast() {
+    const Capabilities::PerformanceInfo defaultInfo = {.execTime = 1.0f, .powerUsage = 1.0f};
+    const Capabilities::PerformanceInfo float32Info = {.execTime = 0.8f, .powerUsage = 1.2f};
+    const Capabilities::PerformanceInfo relaxedInfo = {.execTime = 0.7f, .powerUsage = 1.1f};
+    return makeCapabilities(defaultInfo, float32Info, relaxedInfo);
+}
+
+Capabilities makeCapabilitiesFloatSlow() {
+    const Capabilities::PerformanceInfo defaultInfo = {.execTime = 1.0f, .powerUsage = 1.0f};
+    const Capabilities::PerformanceInfo float32Info = {.execTime = 1.3f, .powerUsage = 0.7f};
+    const Capabilities::PerformanceInfo relaxedInfo = {.execTime = 1.2f, .powerUsage = 0.6f};
+    return makeCapabilities(defaultInfo, float32Info, relaxedInfo);
+}
+
+Capabilities makeCapabilitiesMinimal() {
+    const Capabilities::PerformanceInfo defaultInfo = {.execTime = 1.0f, .powerUsage = 1.0f};
+    const Capabilities::PerformanceInfo float32Info = {.execTime = 0.4f, .powerUsage = 0.5f};
+    const Capabilities::PerformanceInfo relaxedInfo = {.execTime = 0.4f, .powerUsage = 0.5f};
+    return makeCapabilities(defaultInfo, float32Info, relaxedInfo);
+}
+
+Capabilities makeCapabilitiesQuant() {
+    const Capabilities::PerformanceInfo info = {.execTime = 50.0f, .powerUsage = 1.0f};
+    return makeCapabilities(info, info, info);
+}
+
+GeneralResult<std::vector<bool>> getSupportedOperationsFloat(const Model& model) {
+    const size_t count = model.main.operations.size();
+    std::vector<bool> supported(count);
+    for (size_t i = 0; i < count; i++) {
+        const Operation& operation = model.main.operations[i];
+        if (!isExtension(operation.type) && !operation.inputs.empty()) {
+            const Operand& firstOperand = model.main.operands[operation.inputs[0]];
+            supported[i] = firstOperand.type == OperandType::TENSOR_FLOAT32;
+        }
+    }
+    return supported;
+}
+
+GeneralResult<std::vector<bool>> getSupportedOperationsMinimal(const Model& model) {
+    const size_t count = model.main.operations.size();
+    std::vector<bool> supported(count);
+    // Simulate supporting just a few ops
+    for (size_t i = 0; i < count; i++) {
+        supported[i] = false;
+        const Operation& operation = model.main.operations[i];
+        switch (operation.type) {
+            case OperationType::ADD:
+            case OperationType::CONCATENATION:
+            case OperationType::CONV_2D: {
+                const Operand& firstOperand = model.main.operands[operation.inputs[0]];
+                if (firstOperand.type == OperandType::TENSOR_FLOAT32) {
+                    supported[i] = true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    return supported;
+}
+
+bool isQuantized(OperandType opType) {
+    return opType == OperandType::TENSOR_QUANT8_ASYMM ||
+           opType == OperandType::TENSOR_QUANT8_ASYMM_SIGNED;
+}
+
+GeneralResult<std::vector<bool>> getSupportedOperationsQuant(const Model& model) {
+    const size_t count = model.main.operations.size();
+    std::vector<bool> supported(count);
+    for (size_t i = 0; i < count; i++) {
+        const Operation& operation = model.main.operations[i];
+        if (!isExtension(operation.type) && !operation.inputs.empty()) {
+            const Operand& firstOperand = model.main.operands[operation.inputs[0]];
+            supported[i] = isQuantized(firstOperand.type);
+            if (operation.type == OperationType::SELECT) {
+                const Operand& secondOperand = model.main.operands[operation.inputs[1]];
+                supported[i] = isQuantized(secondOperand.type);
+            }
+        }
+    }
+    return supported;
+}
+
+SharedDevice makeDevice(std::string name, Capabilities capabilities,
+                        LimitedSupportDevice::SupportedOperationsFunction getSupportedOperations) {
+    auto device = std::make_shared<const Device>(std::move(name));
+    auto limitedDevice = std::make_shared<const LimitedSupportDevice>(
+            std::move(device), std::move(capabilities), std::move(getSupportedOperations));
+    return limitedDevice;
+}
+
+}  // namespace
 
 LimitedSupportDevice::LimitedSupportDevice(SharedDevice device, Capabilities capabilities,
                                            SupportedOperationsFunction supportedOperationsFunction)
@@ -90,14 +189,16 @@ GeneralResult<std::vector<bool>> LimitedSupportDevice::getSupportedOperations(
 GeneralResult<SharedPreparedModel> LimitedSupportDevice::prepareModel(
         const Model& model, ExecutionPreference preference, Priority priority,
         OptionalTimePoint deadline, const std::vector<SharedHandle>& modelCache,
-        const std::vector<SharedHandle>& dataCache, const CacheToken& token) const {
+        const std::vector<SharedHandle>& dataCache, const CacheToken& token,
+        const std::vector<TokenValuePair>& /*hints*/,
+        const std::vector<ExtensionNameAndPrefix>& /*extensionNameToPrefix*/) const {
     const auto supportedOperations = NN_TRY(kSupportedOperationsFunction(model));
     constexpr auto id = [](auto v) { return v; };
     if (!std::all_of(supportedOperations.begin(), supportedOperations.end(), id)) {
         return NN_ERROR(nn::ErrorStatus::INVALID_ARGUMENT) << "Not all operations are supported";
     }
     return kDevice->prepareModel(model, preference, priority, deadline, modelCache, dataCache,
-                                 token);
+                                 token, {}, {});
 }
 
 GeneralResult<SharedPreparedModel> LimitedSupportDevice::prepareModelFromCache(
@@ -111,6 +212,29 @@ GeneralResult<SharedBuffer> LimitedSupportDevice::allocate(
         const std::vector<BufferRole>& inputRoles,
         const std::vector<BufferRole>& outputRoles) const {
     return kDevice->allocate(desc, preparedModels, inputRoles, outputRoles);
+}
+
+std::vector<SharedDevice> getExampleLimitedDevices() {
+    SharedDevice device;
+    std::vector<SharedDevice> devices;
+    devices.reserve(4);
+
+    device = makeDevice("nnapi-sample_float_fast", makeCapabilitiesFloatFast(),
+                        getSupportedOperationsFloat);
+    devices.push_back(std::move(device));
+
+    device = makeDevice("nnapi-sample_float_slow", makeCapabilitiesFloatSlow(),
+                        getSupportedOperationsFloat);
+    devices.push_back(std::move(device));
+
+    device = makeDevice("nnapi-sample_minimal", makeCapabilitiesMinimal(),
+                        getSupportedOperationsMinimal);
+    devices.push_back(std::move(device));
+
+    device = makeDevice("nnapi-sample_quant", makeCapabilitiesQuant(), getSupportedOperationsQuant);
+    devices.push_back(std::move(device));
+
+    return devices;
 }
 
 }  // namespace android::nn::sample

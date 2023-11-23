@@ -32,7 +32,6 @@ import com.android.wallpaper.model.Category;
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.CategoryReceiver;
 import com.android.wallpaper.model.DefaultWallpaperInfo;
-import com.android.wallpaper.model.DesktopCustomCategory;
 import com.android.wallpaper.model.ImageCategory;
 import com.android.wallpaper.model.LegacyPartnerWallpaperInfo;
 import com.android.wallpaper.model.LiveWallpaperInfo;
@@ -42,7 +41,6 @@ import com.android.wallpaper.model.ThirdPartyAppCategory;
 import com.android.wallpaper.model.ThirdPartyLiveWallpaperCategory;
 import com.android.wallpaper.model.WallpaperCategory;
 import com.android.wallpaper.model.WallpaperInfo;
-import com.android.wallpaper.module.FormFactorChecker.FormFactor;
 import com.android.wallpaper.module.NetworkStatusNotifier.NetworkStatus;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -197,12 +195,9 @@ public class DefaultCategoryProvider implements CategoryProvider {
         protected Void doInBackground(Void... voids) {
             mPartnerProvider = InjectorProvider.getInjector().getPartnerProvider(
                     mAppContext);
-            FormFactorChecker formFactorChecker =
-                    InjectorProvider.getInjector().getFormFactorChecker(mAppContext);
-            @FormFactor int formFactor = formFactorChecker.getFormFactor();
 
             // "My photos" wallpapers
-            publishProgress(getMyPhotosCategory(formFactor));
+            publishProgress(getMyPhotosCategory());
 
             publishDeviceCategories();
 
@@ -224,13 +219,11 @@ public class DefaultCategoryProvider implements CategoryProvider {
                 }
             }
 
-            // Third party apps -- only on mobile.
-            if (formFactor == FormFactorChecker.FORM_FACTOR_MOBILE) {
-                List<ThirdPartyAppCategory> thirdPartyApps = ThirdPartyAppCategory.getAll(
-                        mAppContext, PRIORITY_THIRD_PARTY, getExcludedThirdPartyPackageNames());
-                for (ThirdPartyAppCategory thirdPartyApp : thirdPartyApps) {
-                    publishProgress(thirdPartyApp);
-                }
+            // Third party apps.
+            List<ThirdPartyAppCategory> thirdPartyApps = ThirdPartyAppCategory.getAll(
+                    mAppContext, PRIORITY_THIRD_PARTY, getExcludedThirdPartyPackageNames());
+            for (ThirdPartyAppCategory thirdPartyApp : thirdPartyApps) {
+                publishProgress(thirdPartyApp);
             }
 
             return null;
@@ -379,30 +372,15 @@ public class DefaultCategoryProvider implements CategoryProvider {
                     PRIORITY_ON_DEVICE);
         }
 
-        private Category getDesktopOnDeviceCategory() {
-            List<WallpaperInfo> onDeviceWallpapers = new ArrayList<>();
-
-            DefaultWallpaperInfo defaultWallpaperInfo = new DefaultWallpaperInfo();
-            onDeviceWallpapers.add(defaultWallpaperInfo);
-
-            return new DesktopCustomCategory(
-                    mAppContext.getString(R.string.on_device_wallpapers_category_title_desktop),
-                    mAppContext.getString(R.string.on_device_wallpaper_collection_id),
-                    onDeviceWallpapers,
-                    PRIORITY_MY_PHOTOS);
-        }
-
         /**
          * Returns an appropriate "my photos" custom photo category for the given device form factor.
          */
-        private Category getMyPhotosCategory(@FormFactor int formFactor) {
-            return formFactor == FormFactorChecker.FORM_FACTOR_DESKTOP
-                    ? getDesktopOnDeviceCategory()
-                    : new ImageCategory(
+        private Category getMyPhotosCategory() {
+            return new ImageCategory(
                     mAppContext.getString(R.string.my_photos_category_title),
                     mAppContext.getString(R.string.image_wallpaper_collection_id),
                     PRIORITY_MY_PHOTOS,
-                    R.drawable.myphotos_empty_tile_illustration /* overlayIconResId */);
+                    R.drawable.wallpaperpicker_emptystate /* overlayIconResId */);
         }
 
         @Override

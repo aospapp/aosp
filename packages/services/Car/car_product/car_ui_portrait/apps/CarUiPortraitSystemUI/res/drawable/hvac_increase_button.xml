@@ -30,10 +30,7 @@
             </vector>
         </aapt:attr>
     </item>
-    <item
-        android:gravity="center"
-        android:width="24dp"
-        android:height="24dp">
+    <item android:gravity="center">
         <aapt:attr name="android:drawable">
             <vector android:width="24dp"
                     android:height="24dp"

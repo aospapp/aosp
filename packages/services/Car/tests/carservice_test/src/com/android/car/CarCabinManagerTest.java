@@ -25,10 +25,10 @@ import android.car.hardware.CarPropertyValue;
 import android.car.hardware.cabin.CarCabinManager;
 import android.car.hardware.cabin.CarCabinManager.CarCabinEventCallback;
 import android.car.hardware.cabin.CarCabinManager.PropertyId;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaDoor;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleAreaDoor;
+import android.hardware.automotive.vehicle.VehicleAreaWindow;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.MutableInt;
@@ -37,8 +37,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
-import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
+import com.android.car.hal.test.AidlMockedVehicleHal.VehicleHalPropertyHandler;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,11 +62,11 @@ public class CarCabinManagerTest extends MockedCarTestBase {
     private int mEventZoneVal;
 
     @Override
-    protected synchronized void configureMockedHal() {
+    protected void configureMockedHal() {
         CabinPropertyHandler handler = new CabinPropertyHandler();
-        addProperty(VehicleProperty.DOOR_LOCK, handler)
+        addAidlProperty(VehicleProperty.DOOR_LOCK, handler)
                 .addAreaConfig(VehicleAreaDoor.ROW_1_LEFT, 0, 0);
-        addProperty(VehicleProperty.WINDOW_POS, handler)
+        addAidlProperty(VehicleProperty.WINDOW_POS, handler)
                 .addAreaConfig(VehicleAreaWindow.ROW_1_LEFT, 0, 0);
     }
 
@@ -133,7 +133,7 @@ public class CarCabinManagerTest extends MockedCarTestBase {
             }
         });
         mCarCabinManager.setBooleanProperty(PROP, AREA, true);
-        getMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
+        getAidlMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
         assertTrue(errorLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
         assertEquals(PROP, propertyIdReceived.value);
         assertEquals(AREA, areaIdReceived.value);
@@ -149,27 +149,27 @@ public class CarCabinManagerTest extends MockedCarTestBase {
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         // Inject a boolean event and wait for its callback in onPropertySet.
-        VehiclePropValue v = VehiclePropValueBuilder.newBuilder(VehicleProperty.DOOR_LOCK)
+        VehiclePropValue v = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.DOOR_LOCK)
                 .setAreaId(VehicleAreaDoor.ROW_1_LEFT)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos())
-                .addIntValue(1)
+                .addIntValues(1)
                 .build();
 
         assertEquals(0, mAvailable.availablePermits());
-        getMockedVehicleHal().injectEvent(v);
+        getAidlMockedVehicleHal().injectEvent(v);
 
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mEventBoolVal);
         assertEquals(VehicleAreaDoor.ROW_1_LEFT, mEventZoneVal);
 
         // Inject an integer event and wait for its callback in onPropertySet.
-        v = VehiclePropValueBuilder.newBuilder(VehicleProperty.WINDOW_POS)
+        v = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.WINDOW_POS)
                 .setAreaId(VehicleAreaWindow.ROW_1_LEFT)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos())
-                .addIntValue(75)
+                .addIntValues(75)
                 .build();
         assertEquals(0, mAvailable.availablePermits());
-        getMockedVehicleHal().injectEvent(v);
+        getAidlMockedVehicleHal().injectEvent(v);
 
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertEquals(mEventIntVal, 75);
@@ -197,10 +197,10 @@ public class CarCabinManagerTest extends MockedCarTestBase {
             Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
             if (mMap.get(property) == null) {
                 Log.d(TAG, "onPropertySubscribe add placeholder property: " + property);
-                VehiclePropValue placeholderValue = VehiclePropValueBuilder.newBuilder(property)
+                VehiclePropValue placeholderValue = AidlVehiclePropValueBuilder.newBuilder(property)
                         .setAreaId(VehicleAreaDoor.ROW_1_LEFT)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
-                        .addIntValue(1)
+                        .addIntValues(1)
                         .build();
                 mMap.put(property, placeholderValue);
             }

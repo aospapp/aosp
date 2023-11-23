@@ -22,8 +22,10 @@ import static com.android.internal.net.ipsec.ike.message.IkeConfigPayload.CONFIG
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
+import android.net.eap.EapInfo;
 
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribute;
@@ -65,6 +67,7 @@ public final class IkeSessionConfiguration {
     private final List<InetAddress> mPcscfServers = new ArrayList<>();
     private final List<byte[]> mRemoteVendorIds = new ArrayList<>();
     private final Set<Integer> mEnabledExtensions = new HashSet<>();
+    private final EapInfo mEapInfo;
 
     /**
      * Construct an instance of {@link IkeSessionConfiguration}.
@@ -79,10 +82,12 @@ public final class IkeSessionConfiguration {
             IkeSessionConnectionInfo ikeConnInfo,
             IkeConfigPayload configPayload,
             List<byte[]> remoteVendorIds,
-            List<Integer> enabledExtensions) {
+            List<Integer> enabledExtensions,
+            EapInfo eapInfo) {
         mIkeConnInfo = ikeConnInfo;
         mRemoteVendorIds.addAll(remoteVendorIds);
         mEnabledExtensions.addAll(enabledExtensions);
+        mEapInfo = eapInfo;
 
         String appVersion = "";
         if (configPayload != null) {
@@ -126,12 +131,14 @@ public final class IkeSessionConfiguration {
             List<InetAddress> pcscfServers,
             List<byte[]> remoteVendorIds,
             Set<Integer> enabledExtensions,
-            String remoteApplicationVersion) {
+            String remoteApplicationVersion,
+            EapInfo eapInfo) {
         mIkeConnInfo = ikeConnInfo;
         mPcscfServers.addAll(pcscfServers);
         mRemoteVendorIds.addAll(remoteVendorIds);
         mEnabledExtensions.addAll(enabledExtensions);
         mRemoteApplicationVersion = remoteApplicationVersion;
+        mEapInfo = eapInfo;
 
         validateOrThrow();
     }
@@ -208,6 +215,18 @@ public final class IkeSessionConfiguration {
     }
 
     /**
+     * Retrieves the EAP information.
+     *
+     * @return the EAP information provided by the server during EAP authentication (e.g. next
+     *    re-authentication ID), or null if the server did not provide any information that will be
+     *    useful after the authentication.
+     */
+    @Nullable
+    public EapInfo getEapInfo() {
+        return mEapInfo;
+    }
+
+    /**
      * This class can be used to incrementally construct a {@link IkeSessionConfiguration}.
      *
      * <p>Except for testing, IKE library users normally do not instantiate {@link
@@ -220,6 +239,7 @@ public final class IkeSessionConfiguration {
         private final List<byte[]> mRemoteVendorIds = new ArrayList<>();
         private final Set<Integer> mEnabledExtensions = new HashSet<>();
         private String mRemoteApplicationVersion = "";
+        private EapInfo mEapInfo;
 
         /**
          * Constructs a Builder.
@@ -344,6 +364,17 @@ public final class IkeSessionConfiguration {
             return this;
         }
 
+        /**
+         * Sets EapInfo for the {@link IkeSessionConfiguration} being built.
+         *
+         * @return Builder this, to facilitate chaining
+         */
+        @NonNull
+        public Builder setEapInfo(@Nullable EapInfo eapInfo) {
+            mEapInfo = eapInfo;
+            return this;
+        }
+
         /** Constructs an {@link IkeSessionConfiguration} instance. */
         @NonNull
         public IkeSessionConfiguration build() {
@@ -352,7 +383,8 @@ public final class IkeSessionConfiguration {
                     mPcscfServers,
                     mRemoteVendorIds,
                     mEnabledExtensions,
-                    mRemoteApplicationVersion);
+                    mRemoteApplicationVersion,
+                    mEapInfo);
         }
     }
 }

@@ -21,10 +21,10 @@ import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_FRAGMENT_DE
 import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_FRAGMENT_RESTRICTED;
 import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_SLICE_FRAGMENT;
 import static com.android.tv.settings.accounts.AccountsUtil.ACCOUNTS_SYSTEM_INTENT;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
-import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.library.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 import static com.android.tv.settings.util.InstrumentationUtils.logPageFocused;
 
@@ -43,6 +43,7 @@ import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
+import android.icu.text.MessageFormat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.settings.suggestions.Suggestion;
@@ -63,15 +64,21 @@ import com.android.settingslib.suggestions.SuggestionControllerMixinCompat;
 import com.android.tv.settings.HotwordSwitchController.HotwordStateListener;
 import com.android.tv.settings.accounts.AccountsFragment;
 import com.android.tv.settings.accounts.AccountsUtil;
+import com.android.tv.settings.connectivity.ActiveNetworkProvider;
 import com.android.tv.settings.connectivity.ConnectivityListener;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.connectivity.ConnectivityListenerLite;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.library.util.SliceUtils;
 import com.android.tv.settings.suggestions.SuggestionPreference;
 import com.android.tv.settings.system.SecurityFragment;
-import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.TwoPanelSettingsFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -109,10 +116,11 @@ public class MainFragment extends PreferenceControllerFragment implements
     @VisibleForTesting
     static final String KEY_DISPLAY_AND_SOUND = "display_and_sound";
     private static final String KEY_CHANNELS_AND_INPUTS = "channels_and_inputs";
+    private static final String KEY_CHANNELS_AND_INPUTS_SLICE = "channels_and_inputs_slice";
 
     private static final String ACTION_ACCOUNTS = "com.android.tv.settings.ACCOUNTS";
     @VisibleForTesting
-    ConnectivityListener mConnectivityListener;
+    Optional<ConnectivityListener> mConnectivityListenerOptional;
     @VisibleForTesting
     BluetoothAdapter mBtAdapter;
     @VisibleForTesting
@@ -128,6 +136,8 @@ public class MainFragment extends PreferenceControllerFragment implements
             updateAccessoryPref();
         }
     };
+
+    private ConnectivityListenerLite mConnectivityListenerLite;
 
     public static MainFragment newInstance() {
         return new MainFragment();
@@ -157,8 +167,14 @@ public class MainFragment extends PreferenceControllerFragment implements
     @Override
     public void onCreate(Bundle savedInstanceState) {
         mSuggestionQuickSettingPrefsContainer.onCreate();
-        mConnectivityListener = new ConnectivityListener(getContext(), this::updateConnectivity,
-                getSettingsLifecycle());
+        if (isWifiScanOptimisationEnabled()) {
+            mConnectivityListenerLite = new ConnectivityListenerLite(
+                    getContext(), this::updateConnectivityType, getLifecycle());
+            mConnectivityListenerOptional = Optional.empty();
+        } else {
+            mConnectivityListenerOptional = Optional.of(new ConnectivityListener(
+                    getContext(), this::updateConnectivity, getSettingsLifecycle()));
+        }
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
         super.onCreate(savedInstanceState);
         // This is to record the initial start of Settings root in two panel settings case, as the
@@ -170,15 +186,49 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
+    private boolean isWifiScanOptimisationEnabled() {
+        return getContext().getResources().getBoolean(R.bool.wifi_scan_optimisation_enabled);
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         mSuggestionQuickSettingPrefsContainer.showOrHideQuickSettings();
         updateAccountPref();
         updateAccessoryPref();
-        updateConnectivity();
+        if (isWifiScanOptimisationEnabled()) {
+            mConnectivityListenerLite.handleConnectivityChange();
+        } else {
+            updateConnectivity();
+        }
         updateBasicModeSuggestion();
+        updateChannelsAndInputs();
         return super.onCreateView(inflater, container, savedInstanceState);
+    }
+
+    private void updateConnectivityType(ActiveNetworkProvider activeNetworkProvider) {
+        final Preference networkPref = findPreference(KEY_NETWORK);
+        if (networkPref == null) {
+            return;
+        }
+
+        if (activeNetworkProvider.isTypeCellular()) {
+            networkPref.setIcon(R.drawable.ic_cell_signal_4_white);
+        } else if (activeNetworkProvider.isTypeEthernet()) {
+            networkPref.setIcon(R.drawable.ic_ethernet_white);
+            networkPref.setSummary(R.string.connectivity_summary_ethernet_connected);
+        } else if (activeNetworkProvider.isTypeWifi()) {
+            networkPref.setIcon(R.drawable.ic_wifi_signal_4_white);
+            networkPref.setSummary(activeNetworkProvider.getSsid());
+        } else {
+            if (activeNetworkProvider.isWifiEnabled()) {
+                networkPref.setIcon(R.drawable.ic_wifi_not_connected);
+                networkPref.setSummary(R.string.connectivity_summary_no_network_connected);
+            } else {
+                networkPref.setIcon(R.drawable.ic_wifi_signal_off_white);
+                networkPref.setSummary(R.string.connectivity_summary_wifi_disabled);
+            }
+        }
     }
 
     @Override
@@ -216,13 +266,16 @@ public class MainFragment extends PreferenceControllerFragment implements
 
     @VisibleForTesting
     void updateConnectivity() {
+        if (!mConnectivityListenerOptional.isPresent()) {
+            return;
+        }
         final Preference networkPref = findPreference(KEY_NETWORK);
         if (networkPref == null) {
             return;
         }
 
-        if (mConnectivityListener.isCellConnected()) {
-            final int signal = mConnectivityListener.getCellSignalStrength();
+        if (mConnectivityListenerOptional.get().isCellConnected()) {
+            final int signal = mConnectivityListenerOptional.get().getCellSignalStrength();
             switch (signal) {
                 case CellSignalStrength.SIGNAL_STRENGTH_GREAT:
                     networkPref.setIcon(R.drawable.ic_cell_signal_4_white);
@@ -241,12 +294,12 @@ public class MainFragment extends PreferenceControllerFragment implements
                     networkPref.setIcon(R.drawable.ic_cell_signal_0_white);
                     break;
             }
-        } else if (mConnectivityListener.isEthernetConnected()) {
+        } else if (mConnectivityListenerOptional.get().isEthernetConnected()) {
             networkPref.setIcon(R.drawable.ic_ethernet_white);
             networkPref.setSummary(R.string.connectivity_summary_ethernet_connected);
-        } else if (mConnectivityListener.isWifiEnabledOrEnabling()) {
-            if (mConnectivityListener.isWifiConnected()) {
-                final int signal = mConnectivityListener.getWifiSignalStrength(5);
+        } else if (mConnectivityListenerOptional.get().isWifiEnabledOrEnabling()) {
+            if (mConnectivityListenerOptional.get().isWifiConnected()) {
+                final int signal = mConnectivityListenerOptional.get().getWifiSignalStrength(5);
                 switch (signal) {
                     case 4:
                         networkPref.setIcon(R.drawable.ic_wifi_signal_4_white);
@@ -265,7 +318,7 @@ public class MainFragment extends PreferenceControllerFragment implements
                         networkPref.setIcon(R.drawable.ic_wifi_signal_0_white);
                         break;
                 }
-                networkPref.setSummary(mConnectivityListener.getSsid());
+                networkPref.setSummary(mConnectivityListenerOptional.get().getSsid());
             } else {
                 networkPref.setIcon(R.drawable.ic_wifi_not_connected);
                 networkPref.setSummary(R.string.connectivity_summary_no_network_connected);
@@ -514,8 +567,13 @@ public class MainFragment extends PreferenceControllerFragment implements
                 if (accounts.length == 1) {
                     accountsPref.setSummary(accounts[0].name);
                 } else {
-                    accountsPref.setSummary(getResources().getQuantityString(
-                            R.plurals.accounts_category_summary, accounts.length, accounts.length));
+                    MessageFormat msgFormat = new MessageFormat(
+                            getContext().getResources().getString(
+                                    R.string.accounts_category_summary),
+                            Locale.getDefault());
+                    Map<String, Object> arguments = new HashMap<>();
+                    arguments.put("count", accounts.length);
+                    accountsPref.setSummary(msgFormat.format(arguments));
                 }
             }
         }
@@ -535,9 +593,26 @@ public class MainFragment extends PreferenceControllerFragment implements
         }
     }
 
+    private void updateChannelsAndInputs() {
+        Preference channelsAndInputsPreference = findPreference(KEY_CHANNELS_AND_INPUTS);
+        SlicePreference channelsAndInputsSlicePreference =
+                (SlicePreference) findPreference(KEY_CHANNELS_AND_INPUTS_SLICE);
+        if (channelsAndInputsSlicePreference != null
+                && FlavorUtils.isTwoPanel(getContext())
+                && SliceUtils.isSliceProviderValid(
+                getContext(), channelsAndInputsSlicePreference.getUri())) {
+            channelsAndInputsSlicePreference.setVisible(true);
+            if (channelsAndInputsPreference != null) {
+                channelsAndInputsPreference.setVisible(false);
+            }
+        }
+    }
+
     @Override
     public void onStart() {
         super.onStart();
+        updateAccountPref();
+        updateAccessoryPref();
         IntentFilter btChangeFilter = new IntentFilter();
         btChangeFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         btChangeFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);

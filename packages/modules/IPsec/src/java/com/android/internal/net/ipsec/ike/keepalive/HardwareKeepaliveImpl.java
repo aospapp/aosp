@@ -99,13 +99,12 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
         void onNetworkError();
     }
 
-    private class MySocketKeepaliveCb extends SocketKeepalive.Callback {
+    class MySocketKeepaliveCb extends SocketKeepalive.Callback {
         @Override
         public void onError(int error) {
             getIkeLog().d(TAG, "Hardware offload failed on error: " + error);
             switch (error) {
                 case ERROR_INVALID_NETWORK: // fallthrough
-                case ERROR_INVALID_IP_ADDRESS: // fallthrough
                 case ERROR_INVALID_PORT: // fallthrough
                 case ERROR_INVALID_LENGTH: // fallthrough
                 case ERROR_INVALID_INTERVAL: // fallthrough
@@ -113,6 +112,9 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
                 case ERROR_SOCKET_NOT_IDLE: // fallthrough
                     mHardwareKeepaliveCb.onNetworkError();
                     return;
+                case ERROR_INVALID_IP_ADDRESS:
+                    // Hardware keepalive is not supported on 464XLAT and this error will be thrown.
+                    // So fallthrough to use software keepalive.
                 case ERROR_UNSUPPORTED: // fallthrough
                 case ERROR_HARDWARE_ERROR: // fallthrough
                 case ERROR_INSUFFICIENT_RESOURCES:

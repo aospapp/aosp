@@ -134,6 +134,7 @@ public final class StatsManager {
     /**
      * Adds the given configuration and associates it with the given configKey. If a config with the
      * given configKey already exists for the caller's uid, it is replaced with the new one.
+     * This call can block on statsd.
      *
      * @param configKey An arbitrary integer that allows clients to track the configuration.
      * @param config    Wire-encoded StatsdConfig proto that specifies metrics (and all
@@ -177,6 +178,8 @@ public final class StatsManager {
 
     /**
      * Remove a configuration from logging.
+     *
+     * This call can block on statsd.
      *
      * @param configKey Configuration key to remove.
      * @throws StatsUnavailableException if unsuccessful due to failing to connect to stats service
@@ -235,6 +238,7 @@ public final class StatsManager {
      * <p>
      * This function can only be called by the owner (uid) of the config. It must be called each
      * time statsd starts. The config must have been added first (via {@link #addConfig}).
+     * This call can block on statsd.
      *
      * @param pendingIntent the PendingIntent to use when broadcasting info to the subscriber
      *                      associated with the given subscriberId. May be null, in which case
@@ -290,6 +294,7 @@ public final class StatsManager {
      * statsd to send metrics data whenever statsd determines that the metrics in memory are
      * approaching the memory limits. The fetch operation should call {@link #getReports} to fetch
      * the data, which also deletes the retrieved metrics from statsd's memory.
+     * This call can block on statsd.
      *
      * @param pendingIntent the PendingIntent to use when broadcasting info to the subscriber
      *                      associated with the given subscriberId. May be null, in which case
@@ -325,6 +330,7 @@ public final class StatsManager {
      * statsd to inform clients that they should pull data of the configs that are currently
      * active. The activeConfigsChangedOperation should set periodic alarms to pull data of configs
      * that are active and stop pulling data of configs that are no longer active.
+     * This call can block on statsd.
      *
      * @param pendingIntent the PendingIntent to use when broadcasting info to the subscriber
      *                      associated with the given subscriberId. May be null, in which case
@@ -375,6 +381,7 @@ public final class StatsManager {
     /**
      * Request the data collected for the given configKey.
      * This getter is destructive - it also clears the retrieved metrics from statsd's memory.
+     * This call can block on statsd.
      *
      * @param configKey Configuration key to retrieve data from.
      * @return Serialized ConfigMetricsReportList proto.
@@ -416,6 +423,7 @@ public final class StatsManager {
      * Clients can request metadata for statsd. Will contain stats across all configurations but not
      * the actual metrics themselves (metrics must be collected via {@link #getReports(long)}.
      * This getter is not destructive and will not reset any metrics/counters.
+     * This call can block on statsd.
      *
      * @return Serialized StatsdStatsReport proto.
      * @throws StatsUnavailableException if unsuccessful due to failing to connect to stats service
@@ -455,6 +463,8 @@ public final class StatsManager {
     /**
      * Returns the experiments IDs registered with statsd, or an empty array if there aren't any.
      *
+     * This call can block on statsd.
+     *
      * @throws StatsUnavailableException if unsuccessful due to failing to connect to stats service
      */
     @RequiresPermission(allOf = {DUMP, PACKAGE_USAGE_STATS})
@@ -471,9 +481,11 @@ public final class StatsManager {
                                     + "registered experiment IDs");
                 }
                 throw new StatsUnavailableException("could not connect", e);
+            } catch (SecurityException e) {
+              throw new StatsUnavailableException(e.getMessage(), e);
             } catch (IllegalStateException e) {
-                Log.e(TAG, "Failed to getRegisteredExperimentIds in statsmanager");
-                throw new StatsUnavailableException(e.getMessage(), e);
+              Log.e(TAG, "Failed to getRegisteredExperimentIds in statsmanager");
+              throw new StatsUnavailableException(e.getMessage(), e);
             }
         }
     }

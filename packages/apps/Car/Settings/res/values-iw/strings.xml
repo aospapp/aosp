@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"שימוש בחבילת הגלישה דרך הרשת הסלולרית"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"רשת סלולרית"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"שימוש בחבילת גלישה"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"כבויה"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"לכבות את חבילת הגלישה?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"עליך לבחור אפשרות כלשהי"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"להשתמש ב-<xliff:g id="CARRIER">%1$s</xliff:g> בשביל חבילת גלישה?"</string>
@@ -65,7 +66,7 @@
     <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"תאריך איפוס של מחזור שימוש"</string>
     <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"תאריך בכל חודש:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"הגדרה"</string>
-    <string name="data_warning_limit_title" msgid="4950868241810828601">"אזהרות והגבלות של נתונים"</string>
+    <string name="data_warning_limit_title" msgid="4950868241810828601">"אזהרות והגבלות לגבי נתונים"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"מחזור שימוש בחבילת הגלישה באפליקציות"</string>
     <string name="mobile_data_usage" msgid="8171519864391091861">"שימוש בחבילת הגלישה"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"מתי תופיע אזהרת שימוש בנתונים"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"סריקת Wi-Fi מופעלת"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"מעבר אוטומטי לחבילת גלישה"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"יש להשתמש בחבילת הגלישה כשאין גישה לאינטרנט ברשת Wi-Fi. ייתכנו חיובים על שימוש בחבילת הגלישה."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"איתור רשתות Wi-Fi והתחברות אליהן"</string>
     <string name="learn_more" msgid="8214605928933358604">"מידע נוסף"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"שם הנקודה לשיתוף אינטרנט"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"המערכת מפעילה את <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"אפשר לחבר מכשירים נוספים לנקודה <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"הסיסמה לנקודה לשיתוף אינטרנט"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"אבטחה"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"אין"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"תדר AP"</string>
@@ -175,7 +179,7 @@
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"מכשיר ללא שם"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"מכשירים מותאמים"</string>
-    <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"התאמה של מכשיר חדש"</string>
+    <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"התאמת מכשיר חדש"</string>
     <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"Bluetooth יופעל לצורך התאמה"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"לנתק את המכשיר?"</string>
     <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"הרכב יתנתק מ-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"העדפות האפליקציה אופסו"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"מחיקת כל הנתונים (איפוס להגדרות מקוריות)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"מחיקת כל הנתונים והפרופילים ממערכת המידע והבידור"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"הפעולה הזו תמחק את כל הנתונים ממערכת המידע והבידור של הרכב שלך, כולל:\n\n"<li>"חשבון Google שלך"</li>\n<li>"נתוני מערכת ואפליקציות והגדרות"</li>\n<li>"אפליקציות שהורדו"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"הפעולה הזו תמחק את כל הנתונים ממערכת המידע והבידור שברכב, כולל:\n\n"<li>"החשבונות והפרופילים שלך"</li>\n<li>"נתונים והגדרות של האפליקציות והמערכת וכן"</li>\n<li>"אפליקציות שהורדת"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"יש לך חיבור פעיל כרגע אל החשבונות הבאים:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"פרופילים אחרים הוגדרו לרכב הזה."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"מחיקת כל הנתונים"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"בחירת מנהל מערכת חדש"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"יש צורך במנהל מערכת אחד לפחות: לפני שמוחקים את מנהל המערכת הזה, צריך לבחור מחליף."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"לבחירת מנהל מערכת"</string>
-    <string name="user_guest" msgid="3465399481257448601">"אורח"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"אורח"</string>
     <string name="user_switch" msgid="6544839750534690781">"החלפה"</string>
     <string name="current_user_name" msgid="3813671533249316823">"את/ה (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"שם"</string>
@@ -569,7 +571,7 @@
     <string name="storage_data_size_label" msgid="7986110464268960652">"נתוני הפרופיל"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"מטמון"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"סה\"כ"</string>
-    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"פינוי שטח אחסון"</string>
+    <string name="storage_clear_user_data_text" msgid="8787615136779130680">"פינוי נפח אחסון"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ניקוי מטמון"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"למחוק את נתוני האפליקציה?"</string>
     <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"כל נתוני האפליקציה יימחקו לתמיד. נתונים אלה כוללים את כל הקבצים, ההגדרות, החשבונות, מסדי הנתונים וכדומה."</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"חשבונות עבור <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"סנכרון נתונים באופן אוטומטי"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"אפליקציות יוכלו לרענן נתונים באופן אוטומטי"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"להפעיל סנכרון אוטומטי של נתונים?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"כל שינוי שיבוצע בחשבונות שלך באינטרנט יועתק באופן אוטומטי למכשיר.\n\nייתכן גם שחלק מהשינויים שיבוצעו בטלפון יועתקו באופן אוטומטי לאינטרנט. כך פועל חשבון Google."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"להשבית סנכרון אוטומטי של נתונים?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"לאפשר את סנכרון הנתונים האוטומטי?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"כל שינוי שיבוצע בחשבונות שלך באינטרנט יועתק באופן אוטומטי לרכב.\n\nבנוסף, יכול להיות שחלק מהשינויים שיבוצעו ברכב יועתקו באופן אוטומטי לאינטרנט."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"למנוע את סנכרון הנתונים האוטומטי?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"פעולה זו תחסוך בשימוש בנתונים, אבל יהיה צורך לסנכרן כל חשבון באופן ידני כדי לאסוף מידע עדכני. בזמן עדכונים לא יתקבלו התראות."</string>
     <string name="account_details_title" msgid="7529571432258448573">"פרטי חשבון"</string>
     <string name="add_account_title" msgid="5988746086885210040">"הוספת חשבון"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"פרטיות"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"הנתונים של מערכת המידע והבידור"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"שליטה בגישת האפליקציה למיקום שלך"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"מצלמה"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"שליטה בגישה של האפליקציות למצלמות"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"מיקרופון"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"שליטה בגישת האפליקציה למיקרופון"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"הנתונים של מערכת המידע והבידור"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"ביטול"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"אישור"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"הסיסמה חייבת להיות באורך של ארבעה תווים לפחות"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"צריכה להכיל <xliff:g id="COUNT">%d</xliff:g> תווים לפחות"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"קוד הגישה צריך להיות באורך של <xliff:g id="COUNT">%d</xliff:g> ספרות לפחות"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"צריכה להכיל פחות מ-<xliff:g id="NUMBER">%d</xliff:g> תווים"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"צריך להיות פחות מ-<xliff:g id="NUMBER">%d</xliff:g> ספרות"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"צריכה להכיל רק את הספרות 0-9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"מנהל המכשיר לא מאפשר להשתמש בקוד גישה שנעשה בו שימוש לאחרונה"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"קודי אימות נפוצים חסומים בידי מנהל ה-IT. יש לנסות קוד אימות אחר."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"מנהל המכשיר לא מאפשר להשתמש בסיסמה שנעשה בה שימוש לאחרונה"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"שגיאה בשמירת הסיסמה"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"סיסמאות נפוצות חסומות בידי מנהל ה-IT. יש לנסות סיסמה אחרת."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"אין להגדיר רצף ספרות עולה, יורד או חוזר."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"צריכה להכיל לפחות אות אחת"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"צריכה להכיל לפחות ספרה אחת"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"צריכה להכיל לפחות סמל אחד"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{צריכה להכיל לפחות אות אחת}two{צריכה להכיל לפחות # אותיות}many{צריכה להכיל לפחות # אותיות}other{צריכה להכיל לפחות # אותיות}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{צריכה להכיל לפחות אות קטנה אחת}two{צריכה להכיל לפחות # אותיות קטנות}many{צריכה להכיל לפחות # אותיות קטנות}other{צריכה להכיל לפחות # אותיות קטנות}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{צריכה להכיל לפחות אות גדולה אחת}two{צריכה להכיל לפחות # אותיות גדולות}many{צריכה להכיל לפחות # אותיות גדולות}other{צריכה להכיל לפחות # אותיות גדולות}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{צריכה להכיל לפחות ספרה אחת}two{צריכה להכיל לפחות # ספרות}many{צריכה להכיל לפחות # ספרות}other{צריכה להכיל לפחות # ספרות}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{צריכה להכיל לפחות סמל מיוחד אחד}two{צריכה להכיל לפחות # סמלים מיוחדים}many{צריכה להכיל לפחות # סמלים מיוחדים}other{צריכה להכיל לפחות # סמלים מיוחדים}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{צריכה להכיל לפחות תו אחד שאינו אות}two{צריכה להכיל לפחות # תווים שאינם אותיות}many{צריכה להכיל לפחות # תווים שאינם אותיות}other{צריכה להכיל לפחות # תווים שאינם אותיות}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{צריכה להכיל לפחות תו אחד שאינו ספרה}two{צריכה להכיל לפחות # תווים שאינם ספרות}many{צריכה להכיל לפחות # תווים שאינם ספרות}other{צריכה להכיל לפחות # תווים שאינם ספרות}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{צריכה להכיל לפחות תו אחד}two{צריכה להכיל לפחות # תווים}many{צריכה להכיל לפחות # תווים}other{צריכה להכיל לפחות # תווים}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{צריכה להכיל לפחות ספרה אחת}two{צריכה להכיל לפחות # ספרות}many{צריכה להכיל לפחות # ספרות}other{צריכה להכיל לפחות # ספרות}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{צריכה להיות קצרה מתו אחד}two{צריכה להיות קצרה מ-# תווים}many{צריכה להיות קצרה מ-# תווים}other{צריכה להיות קצרה מ-# תווים}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{צריכה להיות קצרה מספרה אחת}two{צריכה להיות קצרה מ-# ספרות}many{צריכה להיות קצרה מ-# ספרות}other{צריכה להיות קצרה מ-# ספרות}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"אין להגדיר רצף ספרות עולה, יורד או חוזר"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"אפשרויות נעילת מסך"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : לפני <xliff:g id="NUM_DAYS">%3$s</xliff:g> ימים"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ניקוי פרטי כניסה"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"הסרה"</string>
     <string name="cancel" msgid="750286395700355455">"ביטול"</string>
     <string name="allow" msgid="7519431342750394402">"אישור"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"אין אישור"</string>
     <string name="deny" msgid="340512788979930804">"עדיף שלא"</string>
     <string name="backspace_key" msgid="1545590866688979099">"מקש Backspace"</string>
     <string name="enter_key" msgid="2121394305541579468">"הזנת מפתח"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"הפעלת האפליקציה הזאת של מערכת המידע והבידור"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"השבתה והסרה"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"השבתת האפליקציה הזאת של מערכת המידע והבידור"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"פרטים נוספים"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים לפרופיל הזה ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום הרכב."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים לפרופיל הזה ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום המכשיר."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים למערכת הזו של המידע והבידור ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום הרכב."</string>
@@ -757,12 +771,79 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"מדיניות הרכב של <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ההגדרות מנוהלות על ידי המנהל של הארגון"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"מידע נוסף על <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"פרטי הרכב המנוהל"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"ההגדרות מנוהלות על ידי האדמין של הצי"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"כדי לספק גישה לנתונים שברכב המנוהל הזה, יכול להיות שהאדמין של הצי ישנה את ההגדרות ויתקין תוכנה במערכת המידע והבידור.\n\nלמידע נוסף, יש ליצור קשר עם האדמין של הצי."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"מידע שזמין לצפייה על ידי האדמין של הצי"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"שינויים שנעשו על ידי האדמין של הצי"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"נתונים שמשויכים לחשבון הרכב המנוהל שלך"</li>\n" "<li>"רשימת אפליקציות ברכב המנוהל שלך"</li>\n" "<li>"כמות הזמן והנתונים שכל אפליקציה ניצלה"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"הגישה שלך למערכת המידע והבידור"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"רשימת האפליקציות ברכב שלך"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"זוהי הערכה של מספר האפליקציות. יכול להיות שהמספר לא כולל אפליקציות שהותקנו מחוץ לחנות Play."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="two">לפחות <xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="many">לפחות <xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="other">לפחות <xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="one">אפליקציה אחת (<xliff:g id="COUNT_0">%d</xliff:g>) לפחות</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="two"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות</item>
+      <item quantity="one">אפליקציה אחת (<xliff:g id="COUNT_0">%d</xliff:g>)</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"היומן האחרון של התנועה ברשת"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"הדוח האחרון על באג"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"יומן האבטחה האחרון"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"ללא"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"אפליקציות מותקנות"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"הרשאות מיקום"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"הרשאות המיקרופון"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"הרשאות המצלמה"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"אפליקציות ברירת מחדל"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"מקלדת המוגדרת כברירת מחדל"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"שיטת הקלט הוגדרה כ-<xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"הוגדר שרת proxy גלובלי של HTTP"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"פרטי כניסה מהימנים בפרופיל האישי שלך"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"בסמכות האדמין לנעול את מערכת המידע והבידור ולאפס את הסיסמה"</li>\n" "<li>"בסמכות האדמין למחוק נתונים ממערכת המידע והבידור"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"מספר הזנות של סיסמה שגויה לפני מחיקה של כל הנתונים במערכת המידע והבידור"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"מספר הזנות של סיסמה שגויה לפני מחיקה של נתוני הפרופיל"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="two"><xliff:g id="COUNT_1">%d</xliff:g> ניסיונות</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> ניסיונות</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ניסיונות</item>
+      <item quantity="one">ניסיון אחד (<xliff:g id="COUNT_0">%d</xliff:g>)</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="two">אפליקציות מצלמה</item>
+      <item quantity="many">אפליקציות מצלמה</item>
+      <item quantity="other">אפליקציות מצלמה</item>
+      <item quantity="one">אפליקציית מצלמה</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="two">אפליקציות של תוכנת אימייל</item>
+      <item quantity="many">אפליקציות של תוכנת אימייל</item>
+      <item quantity="other">אפליקציות של תוכנת אימייל</item>
+      <item quantity="one">אפליקציה של תוכנת אימייל</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="two">אפליקציות טלפון</item>
+      <item quantity="many">אפליקציות טלפון</item>
+      <item quantity="other">אפליקציות טלפון</item>
+      <item quantity="one">אפליקציית טלפון</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"לשתף את דוח איתור הבאגים?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"מנהל הארגון האחראי לרכב הזה ביקש דוח איתור באגים כדי לסייע בפתרון בעיות במכשיר הזה. יכול להיות שהאפליקציות והנתונים שלך ישותפו."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"מנהל הארגון האחראי לרכב הזה ביקש דוח איתור באגים כדי לסייע בפתרון בעיות במכשיר הזה. יכול להיות שהאפליקציות והנתונים ישותפו, ופעילות המכשיר שלך תהיה איטית יותר באופן זמני."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"דוח איתור הבאגים משותף עכשיו עם מנהל הארגון האחראי לרכב הזה. צריך ליצור איתו קשר כדי לקבל פרטים נוספים."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"שיתוף"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"דחייה"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"איפוס מערכת המידע והבידור"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"המערכת שלך קיבלה בקשה לאיפוס להגדרות המקוריות ולמחיקת כל הנתונים. ניתן לבצע את האיפוס עכשיו, או שהוא יתבצע בהתנעה הבאה של המכונית. לאחר מכן ניתן יהיה להגדיר פרופיל חדש."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"לאיפוס עכשיו"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"לאיפוס מאוחר יותר"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"מערכת המידע והבידור תתאפס בהתנעה הבאה של המכונית."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"אפשר להתחיל באיפוס רק כשהמכונית חונה."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"לא ניתן לשנות את ההגדרה הזו כרגע."</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"נגישות"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"כתוביות"</string>
@@ -784,4 +865,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"שחור על גבי לבן"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"צהוב על גבי שחור"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"צהוב על גבי כחול"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"קורא מסך"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"כבוי"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"הקראת הפריטים במסך"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"שימוש באפליקציה <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"אפשרויות"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"הגדרות"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"מצלמה"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"שימוש במצלמה"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"מתן הרשאת גישה למצלמה לכל האפליקציות"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"ניהול הרשאות הגישה למצלמה"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"האפליקציות האחרונות שניגשו למצלמה"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"אין אפליקציות אחרונות"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"אין אפליקציות עם הרשאת גישה"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{לאפליקציה אחת מתוך {total_count} יש גישה}two{ל-# אפליקציות מתוך {total_count} יש גישה}many{ל-# אפליקציות מתוך {total_count} יש גישה}other{ל-# אפליקציות מתוך {total_count} יש גישה}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"בקשות הגישה האחרונות למצלמה"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"הצגת הכול"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"בטעינה…"</string>
 </resources>

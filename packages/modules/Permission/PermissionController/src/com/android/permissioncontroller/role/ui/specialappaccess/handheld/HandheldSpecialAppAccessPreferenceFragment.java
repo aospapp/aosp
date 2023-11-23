@@ -16,7 +16,6 @@
 
 package com.android.permissioncontroller.role.ui.specialappaccess.handheld;
 
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -91,14 +90,14 @@ public class HandheldSpecialAppAccessPreferenceFragment extends PreferenceFragme
 
     @NonNull
     @Override
-    public TwoStatePreference createApplicationPreference(@NonNull Context context) {
-        return new AppSwitchPreference(context);
+    public TwoStatePreference createApplicationPreference() {
+        return new AppSwitchPreference(requireContext());
     }
 
     @NonNull
     @Override
-    public Preference createFooterPreference(@NonNull Context context) {
-        return new FooterPreference(context);
+    public Preference createFooterPreference() {
+        return new FooterPreference(requireContext());
     }
 
     @Override

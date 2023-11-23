@@ -33,12 +33,12 @@ namespace android::net {
 
 // The overall information of a StatsRecords.
 struct StatsData {
-    StatsData(const netdutils::IPSockAddr& ipSockAddr) : serverSockAddr(ipSockAddr) {
+    StatsData(const netdutils::IPSockAddr& ipSockAddr) : sockAddr(ipSockAddr) {
         lastUpdate = std::chrono::steady_clock::now();
     };
 
-    // Server socket address.
-    netdutils::IPSockAddr serverSockAddr;
+    // Socket address.
+    netdutils::IPSockAddr sockAddr;
 
     // The most recent number of records being accumulated.
     int total = 0;
@@ -106,15 +106,15 @@ class StatsRecords {
     static constexpr int kMaxQuality = 10000;
 };
 
-// DnsStats class manages the statistics of DNS servers per netId.
+// DnsStats class manages the statistics of DNS servers or MDNS multicast addresses per netId.
 // The class itself is not thread-safe.
 class DnsStats {
   public:
-    using ServerStatsMap = std::map<netdutils::IPSockAddr, StatsRecords>;
+    using StatsMap = std::map<netdutils::IPSockAddr, StatsRecords>;
 
-    // Add |servers| to the map, and remove no-longer-used servers.
+    // Add |addrs| to the map, and remove no-longer-used addresses.
     // Return true if they are successfully added; otherwise, return false.
-    bool setServers(const std::vector<netdutils::IPSockAddr>& servers, Protocol protocol);
+    bool setAddrs(const std::vector<netdutils::IPSockAddr>& addrs, Protocol protocol);
 
     // Return true if |record| is successfully added into |server|'s stats; otherwise, return false.
     bool addStats(const netdutils::IPSockAddr& server, const DnsQueryEvent& record);
@@ -133,7 +133,7 @@ class DnsStats {
     static constexpr size_t kLogSize = 128;
 
   private:
-    std::map<Protocol, ServerStatsMap> mStats;
+    std::map<Protocol, StatsMap> mStats;
 };
 
 }  // namespace android::net

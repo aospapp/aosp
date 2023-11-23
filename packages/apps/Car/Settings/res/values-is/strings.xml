@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Aðgangur að gögnum um farsímakerfi"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Farsímakerfi"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Nota farsímagögn"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Slökkt"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Slökkva á farsímagögnum?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Val er áskilið"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Nota <xliff:g id="CARRIER">%1$s</xliff:g> fyrir farsímagögn?"</string>
@@ -103,7 +104,7 @@
     <string name="wifi_show_password" msgid="8423293211933521097">"Sýna aðgangsorð"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"Sláðu inn heiti netkerfis"</string>
     <string name="wifi_ssid" msgid="488604828159458741">"Heiti nets"</string>
-    <string name="wifi_ssid_hint" msgid="3170608752313710099">"Sláðu inn SSID-kennið"</string>
+    <string name="wifi_ssid_hint" msgid="3170608752313710099">"Sláðu inn SSID"</string>
     <string name="wifi_security" msgid="158358046038876532">"Öryggi"</string>
     <string name="wifi_signal_strength" msgid="8507318230553042817">"Sendistyrkur"</string>
     <string name="wifi_status" msgid="5688013206066543952">"Staða"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Kveikt á Wi‑Fi leit"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Skipta sjálfkrafa yfir í farsímagögn"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Nota farsímagögn þegar Wi-Fi er ekki með nettengingu. Gjöld fyrir gagnanotkun kunna að eiga við."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Finna og tengjast WiFi-neti"</string>
     <string name="learn_more" msgid="8214605928933358604">"Frekari upplýsingar"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Heiti á heitum reit"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Kveikir á <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Önnur tæki geta tengst við <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Aðgangsorð fyrir heitan reit"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Öryggi"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Engin"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Tíðnisvið"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Stillingar forrita voru endurstilltar"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Eyða öllum gögnum (núllstilla)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Eyða öllum gögnum og prófílum úr upplýsinga- og afþreyingarkerfinu"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Núna verður öllum gögnum eytt úr upplýsinga- og afþreyingarkerfi ökutækisins, þ.m.t.:\n\n"<li>"Google reikningnum þínum"</li>\n<li>"Kerfis- og forritagögnum og stillingum"</li>\n<li>"Sóttum forritum"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Núna verður öllum gögnum eytt úr upplýsinga- og afþreyingarkerfi ökutækisins, þ.m.t:\n\n"<li>"Reikningum og prófílum"</li>\n<li>"Kerfis- og forritagögnum og stillingum"</li>\n<li>"Sóttum forritum"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Þú ert skráð(ur) inn á eftirfarandi reikninga:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Aðrir prófílar hafa verið settir upp fyrir þetta ökutæki."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Eyða öllum gögnum"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Velja nýjan stjórnanda"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Þú þarft að minnsta kosti einn stjórnanda. Til að eyða þessum þarftu fyrst að finna einhvern í staðinn."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Velja stjórnanda"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Gestur"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Gestur"</string>
     <string name="user_switch" msgid="6544839750534690781">"Skipta"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Þú (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Nafn"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Reikningar fyrir <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Samstilla gögn sjálfkrafa"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Leyfa forritum að endurnýja gögn sjálfkrafa"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Kveikja á gagnasamstillingu?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Allar breytingar sem þú gerir á reikningunum þínum á vefnum verða sjálfkrafa afritaðar yfir í tækið.\n\nEinhverjir reikningar kunna einnig að afrita sjálfkrafa allar breytingar sem þú gerir í símanum yfir á vefinn. Þetta gildir um Google reikninga."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Slökkva á gagnasamstillingu?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Leyfa sjálfvirka samstillingu gagna?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Allar breytingar sem þú gerir á reikningunum þínum á vefnum verða sjálfkrafa afritaðar yfir í bílinn.\n\nEinhverjir reikningar kunna einnig að afrita sjálfkrafa allar breytingar sem þú gerir í bílnum yfir á vefinn."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Banna sjálfvirka samstillingu gagna?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Þetta dregur úr gagnanotkun en þú þarft að samstilla hvern reikning handvirkt til að sækja nýjustu upplýsingar. Þú færð ekki tilkynningar þegar uppfærslur fara fram."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Reikningsupplýsingar"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Bæta reikningi við"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Persónuvernd"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Gögn upplýsinga- og afþreyingarkerfis"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Stjórna aðgengi forrits að staðsetningu þinni"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Myndavél"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Stjórna forritaaðgangi að myndavélum"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Hljóðnemi"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Stjórna aðgangi forritsins að hljóðnemanum"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Gögn upplýsinga- og afþreyingarkerfis"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Hætta við"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Staðfesta"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Verður að vera að minnsta kosti fjórir stafir"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Verður að vera að minnsta kosti <xliff:g id="COUNT">%d</xliff:g> stafir"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN-númerið verður að vera að minnsta kosti <xliff:g id="COUNT">%d</xliff:g> tölustafir"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Verður að vera styttra en <xliff:g id="NUMBER">%d</xliff:g> stafir"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Má ekki vera lengra en <xliff:g id="NUMBER">%d</xliff:g> tölustafir"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Má eingöngu innihalda tölustafi, 0–9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Tækjastjóri leyfir ekki notkun nýlegs PIN-númers"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Kerfisstjórinn þinn hefur lokað á algeng PIN-númer. Prófaðu annað PIN-númer."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Tækjastjóri leyfir ekki notkun nýlegs aðgangsorðs"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Villa við að vista aðgangsorð"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Kerfisstjórinn þinn hefur lokað á algeng aðgangsorð. Prófaðu annað aðgangsorð."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Hækkandi, lækkandi eða endurtekin röð tölustafa er óheimil."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Verður að innihalda minnst einn bókstaf"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Verður að innihalda minnst einn tölustaf"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Verður að innihalda minnst eitt tákn"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Verður að innihalda minnst # bókstaf}one{Verður að innihalda minnst # bókstaf}other{Verður að innihalda minnst # bókstafi}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Verður að innihalda minnst # lágstaf}one{Verður að innihalda minnst # lágstaf}other{Verður að innihalda minnst # lágstafi}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Verður að innihalda minnst # hástaf}one{Verður að innihalda minnst # hástaf}other{Verður að innihalda minnst # hástafi}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Verður að innihalda minnst # tölustaf}one{Verður að innihalda minnst # tölustaf}other{Verður að innihalda minnst # tölustafi}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Verður að innihalda minnst # sérstaf}one{Verður að innihalda minnst # sérstaf}other{Verður að innihalda minnst # sérstafi}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Verður að innihalda minnst # staftákn sem er ekki bókstafur}one{Verður að innihalda minnst # staftákn sem er ekki bókstafur}other{Verður að innihalda minnst # staftákn sem eru ekki bókstafir}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Verður að innihalda minnst # staftákn sem er ekki tölustafur}one{Verður að innihalda minnst # staftákn sem er ekki tölustafur}other{Verður að innihalda minnst # staftákn sem eru ekki tölustafir}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Verður að innihalda minnst # staf}one{Verður að innihalda minnst # staf}other{Verður að innihalda minnst # stafi}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Verður að innihalda minnst # tölustaf}one{Verður að innihalda minnst # tölustaf}other{Verður að innihalda minnst # tölustafi}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Verður að vera styttra en # stafur}one{Verður að vera styttra en # stafur}other{Verður að vera styttra en # stafir}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Verður að vera styttra en # tölustafur}one{Verður að vera styttra en # tölustafur}other{Verður að vera styttra en # tölustafir}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Hækkandi, lækkandi eða endurtekin röð tölustafa er óheimil"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Valkostir skjálæsingar"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : Fyrir <xliff:g id="NUM_DAYS">%3$s</xliff:g> dögum"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Hreinsa skilríki"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Fjarlægja"</string>
     <string name="cancel" msgid="750286395700355455">"Hætta við"</string>
     <string name="allow" msgid="7519431342750394402">"Leyfa"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Ekki leyfa"</string>
     <string name="deny" msgid="340512788979930804">"Hafna"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Bakklykill"</string>
     <string name="enter_key" msgid="2121394305541579468">"Færslulykill"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Virkja þetta upplýsinga- og afþreyingarkerfisforrit"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Gera óvirkt og fjarlægja"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Slökkva á þessu upplýsinga- og afþreyingarkerfisforriti"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Nánar"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Stjórnandi fyrirtækisins getur fylgst með og stjórnað forritum og gögnum sem tengjast þessum prófíl, þ.m.t. stillingum, heimildum, fyrirtækjaaðgangi, netnotkun og staðsetningarupplýsingum ökutækisins."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Stjórnandi fyrirtækisins getur fylgst með og stjórnað forritum og gögnum sem tengjast þessum prófíl, þ.m.t. stillingum, heimildum, fyrirtækjaaðgangi, netnotkun og staðsetningarupplýsingum tækisins."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Stjórnandi fyrirtækisins getur fylgst með og stjórnað forritum og gögnum sem tengjast þessu upplýsinga- og afþreyingarkerfi, þ.m.t. stillingum, heimildum, fyrirtækjaaðgangi, netnotkun og staðsetningarupplýsingum ökutækisins."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Ökutækjaregla <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Stjórnandi fyrirtækis stjórnar stillingum"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Nánar um <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Upplýsingar um stýrt ökutæki"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Stillingar sem stjórnandi bílaflotans stjórnar"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Stjórnandi bílaflotans getur breytt stillingum og sett upp hugbúnað í upplýsinga- og afþreyingarkerfinu til að veita aðgang að gögnum í þessu stýrða ökutæki.\n\nHafðu samband við stjórnanda bílaflotans til að fá frekari upplýsingar."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Upplýsingar sem stjórnandi bílaflotans getur séð"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Breytingar sem stjórnandi bílaflotans hefur gert"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Gögn sem tengjast reikningi stýrðra ökutækja"</li>\n" "<li>"Listi yfir forriti í stýrðu ökutæki"</li>\n" "<li>"Tímalengd og gagnanotkun í hverju forriti fyrir sig"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Aðgangur þinn að upplýsinga- og afþreyingarkerfinu"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Listi yfir forrit í ökutækinu"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Fjöldi forrita er áætlaður. Forrit sem eru sett upp utan Play Store eru hugsanlega ekki talin með."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="one">Að lágmarki <xliff:g id="COUNT_1">%d</xliff:g> forrit</item>
+      <item quantity="other">Að lágmarki <xliff:g id="COUNT_1">%d</xliff:g> forrit</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> forrit</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> forrit</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Nýjasti netumferðarannállinn"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Nýjasta villutilkynningin"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Nýjasti öryggisannállinn"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Ekkert"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Uppsett forrit"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Heimildir staðsetningar"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Heimildir hljóðnema"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Heimildir myndavélar"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Sjálfgefin forrit"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Sjálfgefið lyklaborð"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Stillt á <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Altækur HTTP-staðgengilsþjónn stilltur"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Traust skilríki á eigin sniði"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Stjórnandi getur læst upplýsinga- og afþreyingarkerfinu og endurstillt aðgangsorðið"</li>\n" "<li>"Stjórnandi getur eytt gögnum í upplýsinga- og afþreyingarkerfinu"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Fjöldi rangra tilrauna fyrir aðgangsorð áður en öllum gögnum upplýsinga- og afþreyingarkerfis er eytt"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Fjöldi rangra tilrauna fyrir aðgangsorð áður en prófílgögnum er eytt"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> tilraun</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tilraunir</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="one">Myndavélarforrit</item>
+      <item quantity="other">Myndavélarforrit</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="one">Póstforrit</item>
+      <item quantity="other">Póstforrit</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="one">Símaforrit</item>
+      <item quantity="other">Símaforrit</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Deila villutilkynningu?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Stjórnandi fyrirtækisins sem stjórnar þessu ökutæki bað um villutilkynningu til að aðstoða við úrræðaleit í þessu tæki. Forritum og gögnum verður hugsanlega deilt."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Stjórnandi fyrirtækisins sem stjórnar þessu ökutæki bað um villutilkynningu til að aðstoða við úrræðaleit í þessu tæki. Forritum og gögnum verður hugsanlega deilt og mögulegt er að þetta hægi tímabundið á tækinu."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Þessari villutilkynningu er deilt með stjórnanda fyrirtækisins sem stjórnar þessu ökutæki. Hafðu samband við viðkomandi til að fá frekari upplýsingar."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Deila"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Hafna"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Endurstilla upplýsinga- og afþreyingarkerfi"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Kerfið fékk beiðni um að núllstilla og eyða öllum gögnum. Hægt er að endurstilla núna eða endurstilla sjálfkrafa næst þegar bíllinn er ræstur. Þá er hægt að setja upp nýjan prófíl."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Endurstilla núna"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Endurstilla síðar"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Upplýsinga- og afþreyingarkerfið endurstillist næst þegar bíllinn er ræstur."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Bíllinn verður að vera kyrr til að endurstilla."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Ekki er hægt að breyta þessari stillingu eins og er"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Aðgengi"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Skjátextar"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Svart á hvítu"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Gult á svörtu"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Gult á bláu"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Skjálesari"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Slökkt"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Lesa upp atriði á skjánum"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Nota <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Valkostir"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Stillingar"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Myndavél"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Nota myndavél"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Veita öllum forritum aðgang að myndavélinni"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Stjórna myndavélaheimildum"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Nýlega opnað"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Engin nýleg forrit"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 forrit eru með aðgang"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# af {total_count} forriti/forritum er með aðgang}one{# af {total_count} forriti/forritum er með aðgang}other{# af {total_count} forritum er með aðgang}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Nýlega opnað"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Skoða allt"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Hleður…"</string>
 </resources>

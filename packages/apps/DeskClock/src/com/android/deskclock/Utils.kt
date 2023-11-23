@@ -155,6 +155,12 @@ object Utils {
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
     /**
+     * @return {@code true} if the device is {@link Build.VERSION_CODES#P} or later
+     */
+    val isPOrLater: Boolean
+        get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+
+    /**
      * @param resourceId identifies an application resource
      * @return the Uri by which the application resource is accessed
      */

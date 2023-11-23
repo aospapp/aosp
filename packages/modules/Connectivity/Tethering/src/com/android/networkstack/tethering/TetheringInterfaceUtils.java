@@ -16,13 +16,17 @@
 
 package com.android.networkstack.tethering;
 
+import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_TEST;
+
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.RouteInfo;
-import android.net.util.InterfaceSet;
 
 import com.android.net.module.util.NetUtils;
+import com.android.networkstack.tethering.util.InterfaceSet;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -78,11 +82,15 @@ public final class TetheringInterfaceUtils {
                 // Minimal amount of IPv6 provisioning:
                 && ns.linkProperties.hasGlobalIpv6Address()
                 // Temporary approximation of "dedicated prefix":
-                && ns.networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
+                && allowIpv6Tethering(ns.networkCapabilities);
 
         return canTether
                 ? getInterfaceForDestination(ns.linkProperties, IN6ADDR_ANY)
                 : null;
+    }
+
+    private static boolean allowIpv6Tethering(@NonNull final NetworkCapabilities nc) {
+        return nc.hasTransport(TRANSPORT_CELLULAR) || nc.hasTransport(TRANSPORT_TEST);
     }
 
     private static String getInterfaceForDestination(LinkProperties lp, InetAddress dst) {

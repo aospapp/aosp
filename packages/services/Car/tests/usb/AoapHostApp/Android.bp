@@ -38,7 +38,7 @@ android_app {
         enabled: false,
     },
 
-    static_libs: [
-        "android.car",
+    libs: [
+        "android.car-system-stubs",
     ],
 }

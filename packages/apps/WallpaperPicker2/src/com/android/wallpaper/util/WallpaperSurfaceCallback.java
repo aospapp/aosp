@@ -20,6 +20,7 @@ import static android.view.View.MeasureSpec.makeMeasureSpec;
 
 import android.content.Context;
 import android.service.wallpaper.WallpaperService;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceControlViewHost;
 import android.view.SurfaceHolder;
@@ -29,6 +30,7 @@ import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
 
+import com.android.wallpaper.model.WallpaperInfo.ColorInfo;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.PackageStatusNotifier;
@@ -52,6 +54,7 @@ public class WallpaperSurfaceCallback implements SurfaceHolder.Callback {
         void onSurfaceCreated();
     }
 
+    private static final String TAG = "WallpaperSurfaceCallback";
     private Surface mLastSurface;
     private SurfaceControlViewHost mHost;
     // Home workspace surface is behind the app window, and so must the home image wallpaper like
@@ -63,14 +66,14 @@ public class WallpaperSurfaceCallback implements SurfaceHolder.Callback {
     @Nullable
     private final SurfaceListener mListener;
     @Nullable
-    private final Future<Integer> mPlaceholderColor;
+    private final Future<ColorInfo> mColorFuture;
     private boolean mSurfaceCreated;
 
     private PackageStatusNotifier.Listener mAppStatusListener;
     private PackageStatusNotifier mPackageStatusNotifier;
 
     public WallpaperSurfaceCallback(Context context, View containerView,
-            SurfaceView wallpaperSurface, @Nullable Future<Integer> placeholderColor,
+            SurfaceView wallpaperSurface, @Nullable Future<ColorInfo> colorFuture,
             @Nullable SurfaceListener listener) {
         mContext = context.getApplicationContext();
         mContainerView = containerView;
@@ -88,12 +91,12 @@ public class WallpaperSurfaceCallback implements SurfaceHolder.Callback {
         };
         mPackageStatusNotifier.addListener(mAppStatusListener,
                 WallpaperService.SERVICE_INTERFACE);
-        mPlaceholderColor = placeholderColor;
+        mColorFuture = colorFuture;
     }
 
     public WallpaperSurfaceCallback(Context context, View containerView,
             SurfaceView wallpaperSurface, @Nullable SurfaceListener listener) {
-        this(context, containerView, wallpaperSurface, null, listener);
+        this(context, containerView, wallpaperSurface, /* colorFuture= */ null, listener);
     }
 
     public WallpaperSurfaceCallback(Context context, View containerView,
@@ -156,11 +159,14 @@ public class WallpaperSurfaceCallback implements SurfaceHolder.Callback {
     private void setupSurfaceWallpaper(boolean forceClean) {
         mHomeImageWallpaper = new ImageView(mContext);
         Integer placeholder = null;
-        if (mPlaceholderColor != null && mPlaceholderColor.isDone()) {
+        if (mColorFuture != null && mColorFuture.isDone()) {
             try {
-                placeholder = mPlaceholderColor.get();
+                ColorInfo colorInfo = mColorFuture.get();
+                if (colorInfo != null) {
+                    placeholder = colorInfo.getPlaceholderColor();
+                }
             } catch (InterruptedException | ExecutionException e) {
-                // Ignore
+                Log.e(TAG, "Couldn't get placeholder from ColorInfo.");
             }
         }
         mHomeImageWallpaper.setBackgroundColor((placeholder != null) ? placeholder

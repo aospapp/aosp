@@ -28,6 +28,8 @@ import static org.mockito.Mockito.verify;
 
 import android.hardware.wifi.supplicant.V1_0.ISupplicantStaIfaceCallback.WpsConfigError;
 import android.hardware.wifi.supplicant.V1_0.ISupplicantStaIfaceCallback.WpsErrorIndication;
+import android.net.DscpPolicy;
+import android.net.MacAddress;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiManager;
@@ -39,6 +41,8 @@ import android.os.test.TestLooper;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.MboOceController.BtmFrameData;
+import com.android.server.wifi.SupplicantStaIfaceHal.QosPolicyClassifierParams;
+import com.android.server.wifi.SupplicantStaIfaceHal.QosPolicyRequest;
 import com.android.server.wifi.hotspot2.AnqpEvent;
 import com.android.server.wifi.hotspot2.IconEvent;
 import com.android.server.wifi.hotspot2.WnmData;
@@ -46,6 +50,10 @@ import com.android.server.wifi.hotspot2.WnmData;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Unit tests for {@link com.android.server.wifi.WifiMonitor}.
@@ -165,7 +173,8 @@ public class WifiMonitorTest extends WifiBaseTest {
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiMonitor.WPS_FAIL_EVENT, messageCaptor.getValue().what);
-        assertEquals(WifiManager.ERROR, messageCaptor.getValue().arg1);
+        assertEquals(WifiManager.ActionListener.FAILURE_INTERNAL_ERROR,
+                messageCaptor.getValue().arg1);
         assertEquals(WpsConfigError.MSG_TIMEOUT, messageCaptor.getValue().arg2);
     }
 
@@ -357,13 +366,17 @@ public class WifiMonitorTest extends WifiBaseTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.AUTHENTICATION_FAILURE_EVENT, mHandlerSpy);
         int reason = WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD;
-        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, -1);
+        MacAddress bssid = MacAddress.fromString(BSSID);
+        AuthenticationFailureEventInfo expected = new AuthenticationFailureEventInfo(SSID, bssid,
+                reason, -1);
+        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, -1,
+                SSID, bssid);
         mLooper.dispatchAll();
 
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiMonitor.AUTHENTICATION_FAILURE_EVENT, messageCaptor.getValue().what);
-        assertEquals(reason, messageCaptor.getValue().arg1);
+        assertEquals(expected, messageCaptor.getValue().obj);
     }
 
     /**
@@ -374,15 +387,18 @@ public class WifiMonitorTest extends WifiBaseTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.AUTHENTICATION_FAILURE_EVENT, mHandlerSpy);
         int reason = WifiManager.ERROR_AUTH_FAILURE_EAP_FAILURE;
-	int errorCode = WifiNative.EAP_SIM_VENDOR_SPECIFIC_CERT_EXPIRED;
-        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, errorCode);
+        int errorCode = WifiNative.EAP_SIM_VENDOR_SPECIFIC_CERT_EXPIRED;
+        MacAddress bssid = MacAddress.fromString(BSSID);
+        AuthenticationFailureEventInfo expected = new AuthenticationFailureEventInfo(SSID, bssid,
+                reason, errorCode);
+        mWifiMonitor.broadcastAuthenticationFailureEvent(WLAN_IFACE_NAME, reason, errorCode,
+                SSID, bssid);
         mLooper.dispatchAll();
 
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         verify(mHandlerSpy).handleMessage(messageCaptor.capture());
         assertEquals(WifiMonitor.AUTHENTICATION_FAILURE_EVENT, messageCaptor.getValue().what);
-        assertEquals(reason, messageCaptor.getValue().arg1);
-	assertEquals(errorCode, messageCaptor.getValue().arg2);
+        assertEquals(expected, messageCaptor.getValue().obj);
     }
 
     /**
@@ -441,7 +457,7 @@ public class WifiMonitorTest extends WifiBaseTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.NETWORK_CONNECTION_EVENT, mHandlerSpy);
         int networkId = NETWORK_ID;
-        WifiSsid wifiSsid = WifiSsid.createFromByteArray(new byte[]{'a', 'b', 'c'});
+        WifiSsid wifiSsid = WifiSsid.fromBytes(new byte[]{'a', 'b', 'c'});
         String bssid = BSSID;
         mWifiMonitor.broadcastNetworkConnectionEvent(WLAN_IFACE_NAME, networkId, false,
                 wifiSsid, bssid);
@@ -492,7 +508,7 @@ public class WifiMonitorTest extends WifiBaseTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, mHandlerSpy);
         int networkId = NETWORK_ID;
-        WifiSsid wifiSsid = WifiSsid.createFromAsciiEncoded(SSID);
+        WifiSsid wifiSsid = WifiSsid.fromUtf8Text(SSID);
         String bssid = BSSID;
         SupplicantState newState = SupplicantState.ASSOCIATED;
         mWifiMonitor.broadcastSupplicantStateChangeEvent(
@@ -614,7 +630,7 @@ public class WifiMonitorTest extends WifiBaseTest {
         mWifiMonitor.registerHandler(
                 WLAN_IFACE_NAME, WifiMonitor.NETWORK_CONNECTION_EVENT, mHandlerSpy);
         int networkId = NETWORK_ID;
-        WifiSsid wifiSsid = WifiSsid.createFromByteArray(new byte[]{'a', 'b', 'c'});
+        WifiSsid wifiSsid = WifiSsid.fromBytes(new byte[]{'a', 'b', 'c'});
         String bssid = BSSID;
         mWifiMonitor.broadcastNetworkConnectionEvent(WLAN_IFACE_NAME, networkId, true,
                 wifiSsid, bssid);
@@ -722,5 +738,94 @@ public class WifiMonitorTest extends WifiBaseTest {
         assertEquals(WifiMonitor.NETWORK_NOT_FOUND_EVENT, messageCaptor.getValue().what);
         String ssid = (String) messageCaptor.getValue().obj;
         assertEquals(SSID, ssid);
+    }
+
+    /**
+     * Broadcast Certification event.
+     */
+    @Test
+    public void testBroadcastCertificateEvent() {
+        final int depth = 2;
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.TOFU_ROOT_CA_CERTIFICATE, mHandlerSpy);
+        mWifiMonitor.broadcastCertificationEvent(
+                WLAN_IFACE_NAME, NETWORK_ID, SSID, depth, FakeKeys.CA_CERT0);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.TOFU_ROOT_CA_CERTIFICATE, messageCaptor.getValue().what);
+        assertEquals(NETWORK_ID, messageCaptor.getValue().arg1);
+        assertEquals(depth, messageCaptor.getValue().arg2);
+        X509Certificate cert = (X509Certificate) messageCaptor.getValue().obj;
+        assertEquals(FakeKeys.CA_CERT0, cert);
+    }
+
+    /**
+     * Broadcast Auxiliary Supplicant event.
+     */
+    @Test
+    public void testBroadcastAuxiliarySupplicantEvent() {
+        SupplicantEventInfo expectedInfo = new SupplicantEventInfo(
+                SupplicantStaIfaceHal.SUPPLICANT_EVENT_EAP_METHOD_SELECTED,
+                MacAddress.fromString(BSSID), "method=5");
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.AUXILIARY_SUPPLICANT_EVENT, mHandlerSpy);
+        mWifiMonitor.broadcastAuxiliarySupplicantEvent(WLAN_IFACE_NAME, expectedInfo.eventCode,
+                expectedInfo.bssid, expectedInfo.reasonString);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.AUXILIARY_SUPPLICANT_EVENT, messageCaptor.getValue().what);
+        SupplicantEventInfo info = (SupplicantEventInfo) messageCaptor.getValue().obj;
+        assertEquals(expectedInfo.eventCode, info.eventCode);
+        assertEquals(expectedInfo.bssid, info.bssid);
+        assertEquals(expectedInfo.reasonString, info.reasonString);
+    }
+
+    /**
+     * Broadcast QoS policy reset event.
+     */
+    @Test
+    public void testBroadcastQosPolicyResetEvent() {
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.QOS_POLICY_RESET_EVENT, mHandlerSpy);
+        mWifiMonitor.broadcastQosPolicyResetEvent(WLAN_IFACE_NAME);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.QOS_POLICY_RESET_EVENT, messageCaptor.getValue().what);
+    }
+
+    /**
+     * Broadcast QoS policy request event.
+     */
+    @Test
+    public void testBroadcastQosPolicyRequestEvent() {
+        int dialogToken = 124;
+        int numPolicyRequests = 5;
+        List<QosPolicyRequest> policyRequestList = new ArrayList();
+        for (int i = 0; i < numPolicyRequests; i++) {
+            policyRequestList.add(new QosPolicyRequest(
+                    (byte) i, SupplicantStaIfaceHal.QOS_POLICY_REQUEST_ADD, (byte) 0,
+                    new QosPolicyClassifierParams(false, null, false, null,
+                            DscpPolicy.SOURCE_PORT_ANY, new int[]{125, 150},
+                            DscpPolicy.PROTOCOL_ANY)));
+        }
+
+        mWifiMonitor.registerHandler(
+                WLAN_IFACE_NAME, WifiMonitor.QOS_POLICY_REQUEST_EVENT, mHandlerSpy);
+        mWifiMonitor.broadcastQosPolicyRequestEvent(
+                WLAN_IFACE_NAME, dialogToken, policyRequestList);
+        mLooper.dispatchAll();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mHandlerSpy).handleMessage(messageCaptor.capture());
+        assertEquals(WifiMonitor.QOS_POLICY_REQUEST_EVENT, messageCaptor.getValue().what);
+        assertEquals(dialogToken, messageCaptor.getValue().arg1);
+        assertEquals(numPolicyRequests,
+                ((List<QosPolicyRequest>) messageCaptor.getValue().obj).size());
     }
 }

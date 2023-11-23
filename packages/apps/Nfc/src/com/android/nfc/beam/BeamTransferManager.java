@@ -16,15 +16,12 @@
 
 package com.android.nfc.beam;
 
-import com.android.nfc.R;
-
 import android.app.Notification;
+import android.app.Notification.Builder;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.Notification.Builder;
 import android.bluetooth.BluetoothDevice;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.media.MediaScannerConnection;
@@ -37,6 +34,10 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.util.Log;
 
+import androidx.core.content.FileProvider;
+
+import com.android.nfc.R;
+
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -44,8 +45,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
-
-import androidx.core.content.FileProvider;
 
 /**
  * A BeamTransferManager object represents a set of files

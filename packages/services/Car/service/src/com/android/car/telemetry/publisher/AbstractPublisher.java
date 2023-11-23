@@ -16,8 +16,12 @@
 
 package com.android.car.telemetry.publisher;
 
-import com.android.car.telemetry.TelemetryProto;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.car.telemetry.TelemetryProto;
+
 import com.android.car.telemetry.databroker.DataSubscriber;
+import com.android.car.telemetry.sessioncontroller.SessionAnnotation;
 
 import java.util.List;
 
@@ -25,30 +29,45 @@ import java.util.List;
  * Abstract class for publishers. It is 1-1 with data source and manages sending data to
  * subscribers. Publisher stops itself when there are no subscribers.
  *
- * <p>Note that it doesn't map 1-1 to {@link com.android.car.telemetry.TelemetryProto.Publisher}
+ * <p>Note that it doesn't map 1-1 to {@link android.car.telemetry.TelemetryProto.Publisher}
  * configuration. Single publisher instance can send data as several
- * {@link com.android.car.telemetry.TelemetryProto.Publisher} to subscribers.
+ * {@link android.car.telemetry.TelemetryProto.Publisher} to subscribers.
  *
  * <p>The methods must be called from the telemetry thread.
  */
 public abstract class AbstractPublisher {
-    private final PublisherFailureListener mFailureListener;
+    private final PublisherListener mPublisherListener;
 
     /**
-     * Listener for publisher failures, such as failing to connect to a underlying service or
-     * invalid Publisher configuration. When publishers fail, the affected configs should be
-     * disabled, because the associated scripts cannot receive data from the failed publishers.
+     * Listener for publisher updates, such as failing to connect to a underlying service or
+     * invalid Publisher configuration.
      */
-    public interface PublisherFailureListener {
-        /** Called by publishers when they fail. */
+    public interface PublisherListener {
+        /**
+         * Called by publishers when they fail.
+         * When publishers fail, the affected configs should be disabled, because the associated
+         * scripts cannot receive data from the failed publishers.
+         */
         void onPublisherFailure(
-                AbstractPublisher publisher,
-                List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error);
+                @NonNull List<TelemetryProto.MetricsConfig> affectedConfigs,
+                @Nullable Throwable error);
+
+        /**
+         * Called by publishers when a config satisfies terminating conditions.
+         */
+        void onConfigFinished(@NonNull TelemetryProto.MetricsConfig metricsConfig);
     }
 
-    AbstractPublisher(PublisherFailureListener failureListener) {
-        mFailureListener = failureListener;
+    AbstractPublisher(@NonNull PublisherListener listener) {
+        mPublisherListener = listener;
     }
+
+    /**
+     * Handles driving session update changes. Must be overridden by concrete publisher classes.
+     *
+     * @param annotation Contains annotating information about the state change.
+     */
+    protected abstract void handleSessionStateChange(@NonNull SessionAnnotation annotation);
 
     /**
      * Adds a subscriber that listens for data produced by this publisher.
@@ -60,14 +79,14 @@ public abstract class AbstractPublisher {
      * @throws IllegalArgumentException if the subscriber is invalid.
      * @throws IllegalStateException if there are internal errors.
      */
-    public abstract void addDataSubscriber(DataSubscriber subscriber);
+    public abstract void addDataSubscriber(@NonNull DataSubscriber subscriber);
 
     /**
      * Removes the subscriber from the publisher. Publisher stops if necessary.
      *
      * <p>It does nothing if subscriber is not found.
      */
-    public abstract void removeDataSubscriber(DataSubscriber subscriber);
+    public abstract void removeDataSubscriber(@NonNull DataSubscriber subscriber);
 
     /**
      * Removes all the subscribers from the publisher. The publisher may stop.
@@ -77,14 +96,20 @@ public abstract class AbstractPublisher {
     public abstract void removeAllDataSubscribers();
 
     /** Returns true if the publisher already has this data subscriber. */
-    public abstract boolean hasDataSubscriber(DataSubscriber subscriber);
+    public abstract boolean hasDataSubscriber(@NonNull DataSubscriber subscriber);
 
     /**
-     * Notifies the failure Listener that this publisher failed. See
-     * {@link PublisherFailureListener} for details.
+     * Notifies the PublisherListener that this publisher failed.
      */
     protected void onPublisherFailure(
-            List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error) {
-        mFailureListener.onPublisherFailure(this, affectedConfigs, error);
+            @NonNull List<TelemetryProto.MetricsConfig> affectedConfigs, @NonNull Throwable error) {
+        mPublisherListener.onPublisherFailure(affectedConfigs, error);
+    }
+
+    /**
+     * Notifies the PublisherListener that a MetricsConfig should be marked as finished.
+     */
+    protected void onConfigFinished(@NonNull TelemetryProto.MetricsConfig metricsConfig) {
+        mPublisherListener.onConfigFinished(metricsConfig);
     }
 }

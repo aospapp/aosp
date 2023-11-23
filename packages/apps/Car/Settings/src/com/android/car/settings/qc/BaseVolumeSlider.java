@@ -20,6 +20,7 @@ import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTIN
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 
 import static com.android.car.qc.QCItem.QC_ACTION_SLIDER_VALUE;
+import static com.android.car.settings.qc.QCUtils.getActionDisabledDialogIntent;
 
 import android.app.PendingIntent;
 import android.car.Car;
@@ -29,6 +30,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.util.SparseArray;
 
 import androidx.annotation.VisibleForTesting;
@@ -40,6 +42,7 @@ import com.android.car.qc.QCRow;
 import com.android.car.qc.QCSlider;
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.car.settings.sound.VolumeItemParser;
 
 /**
@@ -70,6 +73,12 @@ public abstract class BaseVolumeSlider extends SettingsQCItem {
             return null;
         }
 
+        String userRestriction = UserManager.DISALLOW_ADJUST_VOLUME;
+        boolean hasDpmRestrictions = EnterpriseUtils.hasUserRestrictionByDpm(getContext(),
+                userRestriction);
+        boolean hasUmRestrictions = EnterpriseUtils.hasUserRestrictionByUm(getContext(),
+                userRestriction);
+
         QCList.Builder listBuilder = new QCList.Builder();
         for (int usage : getUsages()) {
             VolumeItemParser.VolumeItem volumeItem = mVolumeItems.get(usage);
@@ -90,6 +99,10 @@ public abstract class BaseVolumeSlider extends SettingsQCItem {
                             .setMax(max)
                             .setValue(value)
                             .setInputAction(createSliderAction(groupId))
+                            .setEnabled(!hasUmRestrictions && !hasDpmRestrictions)
+                            .setClickableWhileDisabled(hasDpmRestrictions)
+                            .setDisabledClickAction(getActionDisabledDialogIntent(getContext(),
+                                    userRestriction))
                             .build()
                     )
                     .build()

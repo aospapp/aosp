@@ -234,9 +234,9 @@ public class WifiEntryListPreferenceControllerTest {
 
     @Test
     public void callChangeListener_newSecureWifiEntry_wifiConnected() {
-        String ssid = "test_ssid";
+        String title = "test_title";
         String password = "test_password";
-        when(mMockWifiEntry1.getSsid()).thenReturn(ssid);
+        when(mMockWifiEntry1.getTitle()).thenReturn(title);
         when(mMockWifiEntry1.getSecurity()).thenReturn(WifiEntry.SECURITY_PSK);
         when(mMockWifiEntry1.isSaved()).thenReturn(false);
         List<WifiEntry> wifiEntryList = Arrays.asList(mMockWifiEntry1);
@@ -254,8 +254,8 @@ public class WifiEntryListPreferenceControllerTest {
 
     @Test
     public void fetchWifiEntries_getSavedWifiEntries() {
-        String ssid = "test_ssid";
-        when(mMockWifiEntry1.getSsid()).thenReturn(ssid);
+        String title = "test_title";
+        when(mMockWifiEntry1.getTitle()).thenReturn(title);
         when(mMockWifiEntry1.getSecurity()).thenReturn(WifiEntry.SECURITY_PSK);
         when(mMockWifiEntry1.isSaved()).thenReturn(false);
         List<WifiEntry> wifiEntryList = Arrays.asList(mMockWifiEntry1);
@@ -281,8 +281,8 @@ public class WifiEntryListPreferenceControllerTest {
 
     @Test
     public void fetchWifiEntries_getAllWifiEntries() {
-        String ssid = "test_ssid";
-        when(mMockWifiEntry1.getSsid()).thenReturn(ssid);
+        String title = "test_title";
+        when(mMockWifiEntry1.getTitle()).thenReturn(title);
         when(mMockWifiEntry1.getSecurity()).thenReturn(WifiEntry.SECURITY_PSK);
         when(mMockWifiEntry1.isSaved()).thenReturn(false);
         List<WifiEntry> wifiEntryList = Arrays.asList(mMockWifiEntry1);

@@ -57,14 +57,14 @@ import java.util.concurrent.ThreadLocalRandom;
 @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
 public class IpSecServiceRefcountedResourceTest {
     Context mMockContext;
-    IpSecService.IpSecServiceConfiguration mMockIpSecSrvConfig;
+    IpSecService.Dependencies mMockDeps;
     IpSecService mIpSecService;
 
     @Before
     public void setUp() throws Exception {
         mMockContext = mock(Context.class);
-        mMockIpSecSrvConfig = mock(IpSecService.IpSecServiceConfiguration.class);
-        mIpSecService = new IpSecService(mMockContext, mMockIpSecSrvConfig);
+        mMockDeps = mock(IpSecService.Dependencies.class);
+        mIpSecService = new IpSecService(mMockContext, mMockDeps);
     }
 
     private void assertResourceState(

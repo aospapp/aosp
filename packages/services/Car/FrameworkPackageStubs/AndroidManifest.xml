@@ -229,7 +229,8 @@
             android:name=".Stubs$ContactsStub"
             android:label="@string/stub_name"
             android:excludeFromRecents="true"
-            android:exported="true">
+            android:exported="true"
+            android:visibleToInstantApps="true">
             <intent-filter android:priority="-1">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

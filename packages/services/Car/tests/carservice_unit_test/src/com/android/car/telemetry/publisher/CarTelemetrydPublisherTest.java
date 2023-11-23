@@ -29,13 +29,14 @@ import static org.mockito.Mockito.when;
 import android.annotation.Nullable;
 import android.automotive.telemetry.internal.ICarDataListener;
 import android.automotive.telemetry.internal.ICarTelemetryInternal;
+import android.car.telemetry.TelemetryProto;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 
-import com.android.car.telemetry.TelemetryProto;
+import com.android.car.CarLog;
 import com.android.car.telemetry.databroker.DataSubscriber;
 import com.android.car.test.FakeHandlerWrapper;
 
@@ -47,8 +48,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
-
-import java.util.List;
 
 @RunWith(MockitoJUnitRunner.class)
 public class CarTelemetrydPublisherTest extends AbstractExtendedMockitoTestCase {
@@ -62,23 +61,24 @@ public class CarTelemetrydPublisherTest extends AbstractExtendedMockitoTestCase 
 
     private final FakeHandlerWrapper mFakeHandlerWrapper =
             new FakeHandlerWrapper(Looper.getMainLooper(), FakeHandlerWrapper.Mode.IMMEDIATE);
+    private final FakePublisherListener mFakePublisherListener = new FakePublisherListener();
 
     @Mock private IBinder mMockBinder;
     @Mock private DataSubscriber mMockDataSubscriber;
 
     @Captor private ArgumentCaptor<IBinder.DeathRecipient> mLinkToDeathCallbackCaptor;
 
-    // These 2 variables are set in onPublisherFailure() callback.
-    @Nullable private Throwable mPublisherFailure;
-    @Nullable private List<TelemetryProto.MetricsConfig> mFailedConfigs;
-
     private FakeCarTelemetryInternal mFakeCarTelemetryInternal;
     private CarTelemetrydPublisher mPublisher;
+
+    public CarTelemetrydPublisherTest() {
+        super(CarLog.TAG_TELEMETRY);
+    }
 
     @Before
     public void setUp() throws Exception {
         mPublisher = new CarTelemetrydPublisher(
-                this::onPublisherFailure, mFakeHandlerWrapper.getMockHandler());
+                mFakePublisherListener, mFakeHandlerWrapper.getMockHandler());
         mFakeCarTelemetryInternal = new FakeCarTelemetryInternal(mMockBinder);
         when(mMockDataSubscriber.getPublisherParam()).thenReturn(PUBLISHER_PARAMS_1);
         when(mMockBinder.queryLocalInterface(any())).thenReturn(mFakeCarTelemetryInternal);
@@ -168,9 +168,9 @@ public class CarTelemetrydPublisherTest extends AbstractExtendedMockitoTestCase 
         mLinkToDeathCallbackCaptor.getValue().binderDied();
 
         assertThat(mFakeCarTelemetryInternal.mSetListenerCallCount).isEqualTo(1);
-        assertThat(mPublisherFailure).hasMessageThat()
+        assertThat(mFakePublisherListener.mPublisherFailure).hasMessageThat()
                 .contains("ICarTelemetryInternal binder died");
-        assertThat(mFailedConfigs).hasSize(1);  // got all the failed configs
+        assertThat(mFakePublisherListener.mFailedConfigs).hasSize(1);  // got all the failed configs
     }
 
     @Test
@@ -179,15 +179,9 @@ public class CarTelemetrydPublisherTest extends AbstractExtendedMockitoTestCase 
 
         mPublisher.addDataSubscriber(mMockDataSubscriber);
 
-        assertThat(mPublisherFailure).hasMessageThat()
+        assertThat(mFakePublisherListener.mPublisherFailure).hasMessageThat()
                 .contains("Cannot set CarData listener");
-        assertThat(mFailedConfigs).hasSize(1);
-    }
-
-    private void onPublisherFailure(AbstractPublisher publisher,
-            List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error) {
-        mPublisherFailure = error;
-        mFailedConfigs = affectedConfigs;
+        assertThat(mFakePublisherListener.mFailedConfigs).hasSize(1);
     }
 
     private static class FakeCarTelemetryInternal implements ICarTelemetryInternal {
@@ -224,6 +218,16 @@ public class CarTelemetrydPublisherTest extends AbstractExtendedMockitoTestCase 
 
         void setApiFailure(RemoteException e) {
             mApiFailure = e;
+        }
+
+        @Override
+        public String getInterfaceHash() {
+            return ICarTelemetryInternal.HASH;
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return ICarTelemetryInternal.VERSION;
         }
     }
 }

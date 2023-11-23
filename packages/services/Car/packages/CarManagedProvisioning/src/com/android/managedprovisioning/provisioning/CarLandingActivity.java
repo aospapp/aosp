@@ -29,7 +29,6 @@ import com.android.managedprovisioning.common.ThemeHelper;
 import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecker;
 import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.Utils;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
@@ -103,8 +102,8 @@ public final class CarLandingActivity extends LandingActivity {
      * {@code CarSetupWizardLayout}
      */
     @Override
-    protected void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
-            CustomizationParams params) {
+    protected void initializeLayoutParams(
+            int layoutResourceId, @Nullable Integer headerResourceId) {
         CarSetupWizardLayoutHelper layoutHelper = mLayoutHelper;
         layoutHelper.setBaseLayout(
                 /* mainLayoutId= */ layoutResourceId,

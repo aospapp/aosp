@@ -29,7 +29,7 @@ interface ICarPower {
 
     void requestShutdownOnNextSuspend();
 
-    void finished(in ICarPowerStateListener listener);
+    void finished(int state, in ICarPowerStateListener listener);
 
     void scheduleNextWakeupTime(int seconds);
 

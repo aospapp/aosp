@@ -238,7 +238,8 @@ public class BleScanReceiver extends BroadcastReceiver {
 
         // RegisterAlarmReceiver for BleScanListener
         mContext.registerReceiver(mAlarmScanListener,
-                new IntentFilter(BleScanListener.BLESCAN));
+                new IntentFilter(BleScanListener.BLESCAN),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
 
     }
 

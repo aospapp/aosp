@@ -44,10 +44,10 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/bottom_actions_height"
         android:layout_alignParentBottom="true"
-        android:layout_marginHorizontal="@dimen/bottom_actions_horizontal_margin"
-        android:layoutDirection="locale"
         android:clipToPadding="false"
+        android:layoutDirection="locale"
         android:paddingBottom="@dimen/bottom_actions_bottom_padding"
+        android:paddingHorizontal="@dimen/bottom_actions_horizontal_padding"
         android:paddingTop="@dimen/bottom_actions_top_padding"
         android:theme="@style/BottomActionItemStyle">
 
@@ -55,14 +55,14 @@
             android:id="@+id/action_back"
             android:layout_width="@dimen/bottom_action_button_width"
             android:layout_height="@dimen/bottom_action_button_height"
-            android:src="@drawable/ic_close_gm2_24px"
             android:contentDescription="@string/bottom_action_bar_back"
+            android:src="@drawable/ic_close_gm2_24px"
             android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/action_rotation"
             app:layout_constraintHorizontal_chainStyle="spread_inside"
-            app:layout_constraintStart_toStartOf="parent" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
             android:id="@+id/action_rotation"
@@ -121,8 +121,20 @@
             android:visibility="gone"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/action_download"
+            app:layout_constraintEnd_toStartOf="@id/action_effects"
             app:layout_constraintStart_toEndOf="@id/action_edit" />
+
+        <ImageView
+            android:id="@+id/action_effects"
+            android:layout_width="@dimen/bottom_action_button_width"
+            android:layout_height="@dimen/bottom_action_button_height"
+            android:src="@drawable/ic_effect_black_24dp"
+            android:contentDescription="@string/tab_effects"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/action_download"
+            app:layout_constraintStart_toEndOf="@id/action_customize" />
 
         <ImageView
             android:id="@+id/action_download"
@@ -134,7 +146,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/action_progress"
-            app:layout_constraintStart_toEndOf="@id/action_customize" />
+            app:layout_constraintStart_toEndOf="@id/action_effects" />
 
         <ProgressBar
             android:id="@+id/action_progress"
@@ -164,8 +176,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:background="@drawable/bottom_apply_button_background"
-            android:minHeight="0dp"
-            android:minWidth="0dp"
+            android:minHeight="@dimen/bottom_action_button_height"
+            android:minWidth="@dimen/bottom_action_button_wide_width"
             android:padding="0dp"
             android:text="@string/bottom_action_bar_apply"
             android:textColor="?android:textColorPrimaryInverse"

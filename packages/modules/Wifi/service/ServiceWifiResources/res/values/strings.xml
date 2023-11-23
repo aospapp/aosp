@@ -121,14 +121,56 @@
     <string name="wifi_disable_mac_randomization_dialog_network_not_found">Network not found</string>
     <!-- End of string constants used to inform the user that the current network may be failing to connect due to not supporting randomized MAC-->
 
-    <!-- A notification is shown when eap failure happens. It should be overridden by carrier-specific overlays. -->
+    <!-- A notification is shown when eap failure happens. It should be overridden by carrier-specific overlays. An empty string will result in no notification shown.-->
+    <!-- Note: the :::integer::: is a carrier identifier - it is not to be translated! -->
+    <string name="wifi_eap_error_message_code_32756"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32756</string>
+    <string-array name="wifi_eap_error_message_code_32756_carrier_overrides">
+        <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g></item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32760"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32760</string>
+    <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : You can\u2019t connect to Verizon Wi-Fi Access from outside the Verizon coverage area. (Error = 32760)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32761"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32761</string>
+    <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : You are not subscribed to Verizon Wi-Fi Access. Please call us at 800-922-0204. (Error = 32761)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32762"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32762</string>
+    <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem with your Verizon Wi-Fi Access account. Please call us at 800-922-0204. (Error = 32762)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32763"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32763</string>
+    <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : You are already connected to Verizon Wi-Fi Access. (Error = 32763)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32764"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32764</string>
+    <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access. Please call us at 800-922-0204. (Error = 32764)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32765"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32765</string>
+    <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem with your Verizon Wi-Fi Access account. Please call us at 800-922-0204. (Error = 32765)</item>
+    </string-array>
     <string name="wifi_eap_error_message_code_32766"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32766</string>
+    <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : Verizon Wi-Fi Access is not available from your location. Try again later or try from a different location. (Error = 32766)</item>
+    </string-array>
+    <string name="wifi_eap_error_message_code_32767"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 32767</string>
+    <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access. Try again later or try from a different location.</item>
+    </string-array>
+    <string name="wifi_eap_error_message_code_16384"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 16384</string>
+    <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access due to error 16384.</item>
+    </string-array>
+    <string name="wifi_eap_error_message_code_16385"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error 16385</string>
+    <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access due to error 16385.</item>
+    </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code"><xliff:g id="ssid">%1$s</xliff:g> : EAP authentication error, unknown error code</string>
+    <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+      <item><xliff:g id="carrier_id_prefix">:::1839:::</xliff:g><xliff:g id="ssid">%1$s</xliff:g> : There is a problem connecting you to Verizon Wi-Fi Access.</item>
+    </string-array>
 
 
     <!-- A notification is shown when softap auto shutdown timeout expired. It should be overridden by carrier-specific overlays. -->
@@ -138,4 +180,46 @@
     <!-- A notification is shown when eap-sim/aka/aka' wifi network is disconnected due to sim removal -->
     <string name="wifi_sim_required_title">Wi\u2011Fi disconnected</string>
     <string name="wifi_sim_required_message">To connect to <xliff:g id="ssid">%1$s</xliff:g>, insert a <xliff:g id="carrier_name">%2$s</xliff:g> SIM</string>
+
+    <!-- External approver for interface priority calls. -->
+    <string name="wifi_interface_priority_title"><xliff:g id="app">%1$s</xliff:g> wants to use a networking resource</string>
+    <!-- Note: additional available arguments for customized message (not used in default string):
+          %1$s: application name
+          %2$s: interface name
+     -->
+    <string name="wifi_interface_priority_message">This may cause problems for <xliff:g id="apps">%3$s</xliff:g>.</string>
+    <string name="wifi_interface_priority_message_plural">This may cause problems for these apps: <xliff:g id="apps">%3$s</xliff:g>.</string>
+    <string name="wifi_interface_priority_approve">Allow</string>
+    <string name="wifi_interface_priority_reject">Don\'t allow</string>
+
+    <!-- Trust On First Use dialog and notification text. -->
+    <string name="wifi_ca_cert_dialog_title">Is this network trusted?</string>
+    <string name="wifi_ca_cert_dialog_continue_text">Yes, connect</string>
+    <string name="wifi_ca_cert_dialog_abort_text">No, don\'t connect</string>
+    <string name="wifi_ca_cert_dialog_message_hint">Only allow this network to connect if the information below looks correct.\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text">Server Name:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text">Issuer Name:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text">Organization:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text">Contact:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text">Signature:\n<xliff:g id="value">%1$s</xliff:g>\n\n</string>
+    <string name="wifi_ca_cert_notification_title">Network needs to be verified</string>
+    <string name="wifi_ca_cert_notification_message">Review network details for <xliff:g id="ssid">%1$s</xliff:g> before connecting. Tap to continue.</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert">Certificate installation failed.</string>
+
+    <!-- Legacy EAP network dialog and notification text on Pre-T devices. -->
+    <string name="wifi_ca_cert_dialog_preT_title">Can\'t verify this network</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text">Connect anyway</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text">Don\'t connect</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint">The network <xliff:g id="ssid">%1$s</xliff:g> is missing a certificate.</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link">Learn how to add certificates</string>
+    <string name="wifi_ca_cert_notification_preT_title">Can\'t verify this network</string>
+    <string name="wifi_ca_cert_notification_preT_message">The network <xliff:g id="ssid">%1$s</xliff:g> is missing a certificate. Tap to learn how to add certificates.</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text">Connect anyway</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text">Don\'t connect</string>
+
+    <!-- User-confirmation dialog for pre-Q apps enabling Wi-Fi. -->
+    <string name="wifi_enable_request_dialog_title">Allow <xliff:g id="app_name" example="App123">%1$s</xliff:g> to turn on Wi\u2011Fi?</string>
+    <string name="wifi_enable_request_dialog_message">You can turn off Wi\u2011Fi in Quick Settings</string>
+    <string name="wifi_enable_request_dialog_positive_button">Allow</string>
+    <string name="wifi_enable_request_dialog_negative_button">Don\u0027t allow</string>
 </resources>

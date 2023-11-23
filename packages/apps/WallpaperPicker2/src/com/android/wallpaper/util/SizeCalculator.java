@@ -29,10 +29,6 @@ import androidx.annotation.NonNull;
 
 import com.android.systemui.shared.system.QuickStepContract;
 import com.android.wallpaper.R;
-import com.android.wallpaper.module.FormFactorChecker;
-import com.android.wallpaper.module.FormFactorChecker.FormFactor;
-import com.android.wallpaper.module.InjectorProvider;
-
 
 /**
  * Simple utility class that calculates various sizes relative to the display or current
@@ -247,17 +243,8 @@ public class SizeCalculator {
         Display display = windowManager.getDefaultDisplay();
         Point screenSizePx = ScreenSizeCalculator.getInstance().getScreenSize(display);
 
-        FormFactorChecker formFactorChecker =
-                InjectorProvider.getInjector().getFormFactorChecker(context);
-        @FormFactor int formFactor = formFactorChecker.getFormFactor();
-
-        int gridPaddingPx;
         Resources res = context.getResources();
-        if (formFactor == FormFactorChecker.FORM_FACTOR_MOBILE) {
-            gridPaddingPx = res.getDimensionPixelSize(R.dimen.grid_padding);
-        } else { // DESKTOP
-            gridPaddingPx = res.getDimensionPixelSize(R.dimen.grid_padding_desktop);
-        }
+        int gridPaddingPx = res.getDimensionPixelSize(R.dimen.grid_padding);
 
         // Note: don't need to multiply by density because getting the dimension from resources
         // already does that.

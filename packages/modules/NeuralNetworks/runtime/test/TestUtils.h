@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_UTILS_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_UTILS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_UTILS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_UTILS_H
 
+#include <android-base/file.h>
+#include <android-base/logging.h>
 #include <android-base/mapped_file.h>
 #include <android-base/unique_fd.h>
 #include <android/sharedmem.h>
@@ -44,7 +46,13 @@ class TestAshmem {
     // Factory function for TestAshmem; prefer this over the raw constructor
     static std::unique_ptr<TestAshmem> createFrom(const void* data, uint32_t length) {
         // Create ashmem-based fd.
+#ifdef __ANDROID__
         int fd = ASharedMemory_create(nullptr, length);
+#else   // __ANDROID__
+        TemporaryFile tmpFile;
+        int fd = tmpFile.release();
+        CHECK_EQ(ftruncate(fd, length), 0);
+#endif  // __ANDROID__
         if (fd <= 0) return nullptr;
         ::android::base::unique_fd managedFd(fd);
 
@@ -79,4 +87,4 @@ class TestAshmem {
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_TEST_TEST_UTILS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_TEST_TEST_UTILS_H

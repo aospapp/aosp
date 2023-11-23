@@ -1,153 +1,88 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 2
-        dimension: 3
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 144
         }
-        channel_dim: 0
+        scale: 1
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 3046290712
+        }
       }
-      data {
-        random_seed: 685424675
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 144
+        }
+        scale: 10
+        zero_point: 120
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 1095968103
+        }
+      }
+      operand {
+        type: INT32
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 0
+        }
+      }
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 144
+        }
+        scale: 10
+        zero_point: 120
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2780471595
+        }
       }
     }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 3
-        dimension: 2
-      }
-      scale: 0.5
-      zero_point: 0
-      lifetime: TEMPORARY_VARIABLE
-      channel_quant {
-        scales {
+    operations {
+      operation {
+        type: SUB
+        inputs {
+          index: 0
+          index: 1
+          index: 2
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 797982799
+        outputs {
+          index: 3
+        }
       }
     }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 3
-        dimension: 2
-      }
-      scale: 0.5
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2063247693
-      }
+    input_indexes {
+      index: 0
+      index: 1
     }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 1
-        dimension: 4
-      }
-      scale: 0.5
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 965637500
-      }
-    }
-    operand {
-      type: TENSOR_QUANT8_ASYMM
-      dimensions {
-        dimension: 4
-      }
-      scale: 1
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 100971425
-      }
-    }
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 2
-        dimension: 3
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 685424675
-      }
-    }
-    operand {
-      type: INT32
-      dimensions {
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
-        }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 173552573
-      }
+    output_indexes {
+      index: 3
     }
   }
-  operations {
-    operation {
-      type: HASHTABLE_LOOKUP
-      inputs {
-        index: 6
-        index: 2
-        index: 5
-      }
-      outputs {
-      }
-    }
-    operation {
-      type: L2_NORMALIZATION
-      inputs {
-        index: 0
-      }
-      outputs {
-        index: 1
-      }
-    }
+  referenced {
   }
-  input_indexes {
-  }
-  output_indexes {
-  }
-  is_relaxed: true
 }

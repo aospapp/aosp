@@ -21,5 +21,5 @@
     android:paddingTop="24dp"
     android:paddingStart="24dp"
     android:paddingEnd="24dp"
-    android:textAppearance="@*android:style/TextAppearance.DeviceDefault.Subhead">
+    android:textAppearance="@style/Subhead">
 </TextView>

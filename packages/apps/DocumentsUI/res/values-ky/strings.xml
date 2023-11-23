@@ -205,7 +205,7 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> колдонмосуна <xliff:g id="STORAGE"><i>^3</i></xliff:g> түзмөгүндөгү <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> папканы пайдалануу мүмкүнчүлүгү берилсинби?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> колдонмосуна <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> каталогун пайдалануу мүмкүнчүлүгү берилсинби?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> колдонмосуна <xliff:g id="STORAGE"><i>^2</i></xliff:g> түзмөгүндөгү дайын-даректериңиз, сүрөттөрүңүз жана видеолоруңузду пайдалануу мүмкүнчүлүгү берилсинби?"</string>
-    <string name="allow" msgid="1275746941353040309">"Уруксат берүү"</string>
+    <string name="allow" msgid="1275746941353040309">"Ооба"</string>
     <string name="deny" msgid="5127201668078153379">"Тыюу салынат"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> тандалды</item>

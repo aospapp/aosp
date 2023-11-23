@@ -24,17 +24,17 @@ import static org.junit.Assert.assertTrue;
 import android.car.Car;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.CarSensorManager;
-import android.hardware.automotive.vehicle.V2_0.VehicleGear;
-import android.hardware.automotive.vehicle.V2_0.VehicleIgnitionState;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleGear;
+import android.hardware.automotive.vehicle.VehicleIgnitionState;
+import android.hardware.automotive.vehicle.VehiclePropValue;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,34 +50,34 @@ public class CarSensorManagerTest extends MockedCarTestBase {
     private CarSensorManager mCarSensorManager;
 
     @Override
-    protected synchronized void configureMockedHal() {
-        addProperty(VehicleProperty.NIGHT_MODE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.NIGHT_MODE)
-                        .addIntValue(0)
+    protected void configureMockedHal() {
+        addAidlProperty(VehicleProperty.NIGHT_MODE,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.NIGHT_MODE)
+                        .addIntValues(0)
                         .build());
-        addProperty(VehicleProperty.PERF_VEHICLE_SPEED,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(0f)
+        addAidlProperty(VehicleProperty.PERF_VEHICLE_SPEED,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(0f)
                         .build());
-        addProperty(VehicleProperty.FUEL_LEVEL,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.FUEL_LEVEL)
-                        .addFloatValue(20000)  // ml
+        addAidlProperty(VehicleProperty.FUEL_LEVEL,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.FUEL_LEVEL)
+                        .addFloatValues(20000)  // ml
                         .build());
-        addProperty(VehicleProperty.PARKING_BRAKE_ON,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        addAidlProperty(VehicleProperty.PARKING_BRAKE_ON,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                         .setBooleanValue(true)
                         .build());
-        addProperty(VehicleProperty.CURRENT_GEAR,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.CURRENT_GEAR)
-                        .addIntValue(0)
+        addAidlProperty(VehicleProperty.CURRENT_GEAR,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.CURRENT_GEAR)
+                        .addIntValues(0)
                         .build());
-        addProperty(VehicleProperty.GEAR_SELECTION,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(0)
+        addAidlProperty(VehicleProperty.GEAR_SELECTION,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(0)
                         .build());
-        addProperty(VehicleProperty.IGNITION_STATE,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.IGNITION_STATE)
-                        .addIntValue(CarSensorEvent.IGNITION_STATE_ACC)
+        addAidlProperty(VehicleProperty.IGNITION_STATE,
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.IGNITION_STATE)
+                        .addIntValues(CarSensorEvent.IGNITION_STATE_ACC)
                         .build());
     }
 
@@ -162,8 +162,8 @@ public class CarSensorManagerTest extends MockedCarTestBase {
         listener.reset();
 
         // Set the value TRUE and wait for the event to arrive
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                         .setBooleanValue(true)
                         .setTimestamp(51L)
                         .build(), true);
@@ -187,8 +187,8 @@ public class CarSensorManagerTest extends MockedCarTestBase {
 
         listener.reset();
         // Set the value FALSE
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                         .setTimestamp(1001)
                         .setBooleanValue(false)
                         .build(), true);
@@ -214,11 +214,11 @@ public class CarSensorManagerTest extends MockedCarTestBase {
 
         listener.reset();
         // Set the value TRUE again
-        value = VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        value = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setTimestamp(2001)
                 .setBooleanValue(true)
                 .build();
-        getMockedVehicleHal().injectEvent(value, true);
+        getAidlMockedVehicleHal().injectEvent(value, true);
 
         // Ensure we did not get a callback (should timeout)
         Log.i(TAG, "waiting for unexpected callback -- should timeout.");
@@ -269,9 +269,9 @@ public class CarSensorManagerTest extends MockedCarTestBase {
             int mgrIgnitionState) throws Exception{
         listener.reset();
         long time = SystemClock.elapsedRealtimeNanos();
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.IGNITION_STATE)
-                        .addIntValue(halIgnitionState)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.IGNITION_STATE)
+                        .addIntValues(halIgnitionState)
                         .setTimestamp(time)
                         .build(), true);
         assertTrue(listener.waitForSensorChange(time));
@@ -317,9 +317,9 @@ public class CarSensorManagerTest extends MockedCarTestBase {
             int carSensorValue) throws Exception {
         listener.reset();
         long time = SystemClock.elapsedRealtimeNanos();
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(halValue)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(halValue)
                         .setTimestamp(time)
                         .build(), true);
         assertTrue(listener.waitForSensorChange(time));
@@ -365,11 +365,11 @@ public class CarSensorManagerTest extends MockedCarTestBase {
         listener3.reset();
 
         // Set the value TRUE and wait for the event to arrive
-        value = VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        value = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setTimestamp(1001L)
                 .setBooleanValue(true)
                 .build();
-        getMockedVehicleHal().injectEvent(value, true);
+        getAidlMockedVehicleHal().injectEvent(value, true);
 
         assertTrue(listener1.waitForSensorChange(1001L));
         assertTrue(listener2.waitForSensorChange(1001L));
@@ -406,11 +406,11 @@ public class CarSensorManagerTest extends MockedCarTestBase {
         listener2.reset();
         listener3.reset();
         // Set the value FALSE
-        value = VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        value = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setTimestamp(2001)
                 .setBooleanValue(false)
                 .build();
-        getMockedVehicleHal().injectEvent(value, true);
+        getAidlMockedVehicleHal().injectEvent(value, true);
         assertTrue(listener1.waitForSensorChange(2001));
         assertTrue(listener2.waitForSensorChange(2001));
         assertTrue(listener3.waitForSensorChange(2001));
@@ -447,11 +447,11 @@ public class CarSensorManagerTest extends MockedCarTestBase {
         listener3.reset();
         mCarSensorManager.unregisterListener(listener3);
         Log.d(TAG, "Rate changed - expect sensor restart and change event sent.");
-        value = VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        value = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setTimestamp(3002)
                 .setBooleanValue(false)
                 .build();
-        getMockedVehicleHal().injectEvent(value, true);
+        getAidlMockedVehicleHal().injectEvent(value, true);
         assertTrue(listener1.waitForSensorChange());
         assertTrue(listener2.waitForSensorChange());
         assertFalse(listener3.waitForSensorChange());
@@ -459,11 +459,11 @@ public class CarSensorManagerTest extends MockedCarTestBase {
         listener2.reset();
         listener3.reset();
         // Set the value TRUE again
-        value = VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
-                .setTimestamp()
+        value = AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+                .setCurrentTimestamp()
                 .setBooleanValue(true)
                 .build();
-        getMockedVehicleHal().injectEvent(value, true);
+        getAidlMockedVehicleHal().injectEvent(value, true);
 
         assertTrue(listener1.waitForSensorChange());
         assertTrue(listener2.waitForSensorChange());

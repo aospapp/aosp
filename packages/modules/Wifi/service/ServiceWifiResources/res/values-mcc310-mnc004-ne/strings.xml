@@ -16,11 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wifi_eap_error_message_code_32760" msgid="5711364720754353427">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईं Verizon कभरेज क्षेत्र बाहिरबाट Verizon Wi-Fi Access मा जोडिन सक्नुहुन्न।"</string>
-    <string name="wifi_eap_error_message_code_32761" msgid="7871615432524623339">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंले Verizon Wi-Fi Access को सदस्यता लिनुभएको छैन। कृपया 800-922-0204 मा फोन गर्नुहोस्।"</string>
-    <string name="wifi_eap_error_message_code_32762" msgid="2994908156286205343">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको Verizon Wi-Fi Access खातामा कुनै समस्या छ। कृपया 800-922-0204 मा फोन गर्नुहोस्।"</string>
-    <string name="wifi_eap_error_message_code_32763" msgid="8051026304965697200">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईं अहिले Verizon Wi-Fi Access मा नै जोडिनुभएको छ।"</string>
-    <string name="wifi_eap_error_message_code_32764" msgid="7311904315070770780">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंलाई Verizon Wi-Fi Access मा जोड्ने क्रममा कुनै समस्या भयो। कृपया 800-922-0204 मा फोन गर्नुहोस्।"</string>
-    <string name="wifi_eap_error_message_code_32765" msgid="576968115890091383">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको Verizon Wi-Fi Access खातामा कुनै समस्या छ। कृपया 800-922-0204 मा फोन गर्नुहोस्।"</string>
-    <string name="wifi_eap_error_message_code_32766" msgid="895346637290649533">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईं रहेको स्थानमा Verizon Wi-Fi Access उपलब्ध छैन। पछि फेरि प्रयास गर्नुहोस् वा अर्को स्थानमा गएर जोडिने प्रयास गर्नुहोस्।"</string>
+    <string name="wifi_eap_error_message_code_32760" msgid="7899190980723541970">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईं Verizon कभरेज क्षेत्रबाहिरबाट Verizon Wi-Fi Access मा कनेक्ट गर्न सक्नुहुन्न। (त्रुटि = ३२७६०)"</string>
+    <string name="wifi_eap_error_message_code_32761" msgid="4502241555553812761">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंले Verizon Wi-Fi Access को सदस्यता लिनुभएको छैन। कृपया हामीलाई ८००-९२२-०२०४ मा कल गर्नुहोस्। (त्रुटि = ३२७६१)"</string>
+    <string name="wifi_eap_error_message_code_32762" msgid="8636803855192974833">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको Verizon Wi-Fi Access खातामा कुनै समस्या छ। कृपया हामीलाई ८००-९२२-०२०४ मा कल गर्नुहोस्। (त्रुटि = ३२७६२)"</string>
+    <string name="wifi_eap_error_message_code_32763" msgid="2907148732721960554">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंले आफ्नो डिभाइस Verizon Wi-Fi Access मा कनेक्ट गरिसक्नुभएको छ। (त्रुटि = ३२७६३)"</string>
+    <string name="wifi_eap_error_message_code_32764" msgid="7893339226278701313">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको डिभाइस Verizon Wi-Fi Access मा कनेक्ट गर्ने क्रममा समस्या भइरहेको छ। कृपया हामीलाई ८००-९२२-०२०४ मा कल गर्नुहोस्। (त्रुटि = ३२७६४)"</string>
+    <string name="wifi_eap_error_message_code_32765" msgid="280860840894726014">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको Verizon Wi-Fi Access खातामा कुनै समस्या छ। कृपया हामीलाई ८००-९२२-०२०४ मा कल गर्नुहोस्। (त्रुटि = ३२७६५)"</string>
+    <string name="wifi_eap_error_message_code_32766" msgid="8240516953105404383">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईं रहेको स्थानमा Verizon Wi-Fi Access उपलब्ध छैन। पछि फेरि प्रयास गर्नुहोस् वा अर्को स्थानमा गएर कनेक्ट गर्ने प्रयास गर्नुहोस्। (त्रुटि = ३२७६६)"</string>
+    <string name="wifi_eap_error_message_code_32767" msgid="2748970858713796197">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको डिभाइस Verizon Wi-Fi Access मा कनेक्ट गर्ने क्रममा समस्या भइरहेको छ। पछि फेरि प्रयास गर्नुहोस् वा अर्को स्थानमा गएर कनेक्ट गर्ने प्रयास गर्नुहोस्।"</string>
+    <string name="wifi_eap_error_message_code_32768" msgid="6940754993270246981"></string>
+    <string name="wifi_eap_error_message_code_32769" msgid="4532250424174893199"></string>
+    <string name="wifi_eap_error_message_code_16384" msgid="3188087130800435510">"<xliff:g id="SSID">%1$s</xliff:g> : त्रुटि १६३८४ का कारण तपाईंको डिभाइस Verizon Wi-Fi Access मा कनेक्ट गर्ने क्रममा समस्या भइरहेको छ।"</string>
+    <string name="wifi_eap_error_message_code_16385" msgid="5914307659373687387">"<xliff:g id="SSID">%1$s</xliff:g> : त्रुटि १६३८५ का कारण तपाईंको डिभाइस Verizon Wi-Fi Access मा कनेक्ट गर्ने क्रममा समस्या भइरहेको छ।"</string>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4276024988348676667">"<xliff:g id="SSID">%1$s</xliff:g> : तपाईंको डिभाइस Verizon Wi-Fi Access मा कनेक्ट गर्ने क्रममा समस्या भइरहेको छ।"</string>
 </resources>

@@ -50,7 +50,7 @@
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi प्रत्यक्ष प्रिन्टरहरू फेला पार्नुहोस्‌"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct प्रिन्टिङ"</string>
-    <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi प्रत्यक्षका प्रिन्टरहरू"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct प्रिन्टरहरू"</string>
     <string name="searching" msgid="2114018057619514587">"खोजी गरिँदै छ…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"तपाईंले आफ्नो प्रिन्टरको अग्रभागको प्यानलमा यो जडानलाई अनुमोदन गर्नु पर्ने हुन सक्छ"</string>
     <string name="connecting_to" msgid="2665161014972086194">"<xliff:g id="PRINTER">%1$s</xliff:g> मा जडान गरिँदै छ"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"जडानहरू"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"डिफल्ट प्रिन्ट सेवाले Wi-Fi Direct मा कनेक्ट भएको कुनै पनि प्रिन्ट फेला पार्न सकेन"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct अफ गर्नु…"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"डिफल्ट छपाइ सेवालाई वरपरका डिभाइसहरू फेला पार्न स्थानसम्बन्धी अनुमति चाहिन्छ।"</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"प्रिन्ट गर्ने डिफल्ट सेवाले नजिकैका प्रिन्टरहरू भेट्टाउन यसलाई नजिकैका डिभाइसहरू खोज्ने र तिनमा कनेक्ट गर्ने अनुमति दिनु पर्ने हुन्छ।"</string>
     <string name="fix" msgid="7784394272611365393">"अनुमतिको समीक्षा गर्नु"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"डिफल्ट प्रिन्ट सेवाले लोकेसन सर्भिस अन गरेपछि मात्र नजिकैका डिभाइसहरू फेला पार्न सक्छ।"</string>
-    <string name="enable_location" msgid="3627841004298863140">"लोकेसन सर्भिस अन गर्नु…"</string>
     <string name="print" msgid="7851318072404916362">"प्रिन्ट गर्नुहोस्"</string>
 </resources>

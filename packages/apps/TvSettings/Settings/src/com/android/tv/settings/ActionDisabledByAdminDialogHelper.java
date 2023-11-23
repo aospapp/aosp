@@ -87,7 +87,9 @@ public class ActionDisabledByAdminDialogHelper {
         // same profile group. Otherwise the admin package and its policies are not accessible to
         // the current user.
         final UserManager um = UserManager.get(mActivity.getApplicationContext());
-        if (um.isSameProfileGroup(getEnforcementAdminUserId(mEnforcedAdmin), um.getUserHandle())) {
+        if (um.isSameProfileGroup(
+                getEnforcementAdminUserId(mEnforcedAdmin),
+                um.getProcessUserId())) {
             builder.setNeutralButton(R.string.learn_more, (dialog, which) -> {
                 showAdminPolicies(mEnforcedAdmin, mActivity);
                 mActivity.finish();

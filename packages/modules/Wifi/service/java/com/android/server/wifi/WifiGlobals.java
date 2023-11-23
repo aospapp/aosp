@@ -18,6 +18,7 @@ package com.android.server.wifi;
 
 import android.content.Context;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.wifi.resources.R;
 
 import java.io.FileDescriptor;
@@ -61,9 +62,16 @@ public class WifiGlobals {
     private final int mP2pDeviceNamePostfixNumDigits;
     // This is read from the overlay, cache it after boot up.
     private final int mClientModeImplNumLogRecs;
+    // This is read from the overlay, cache it after boot up.
+    private final boolean mSaveFactoryMacToConfigStoreEnabled;
+    private final int mWifiLowConnectedScoreThresholdToTriggerScanForMbb;
+    private final int mWifiLowConnectedScoreScanPeriodSeconds;
+    // This is read from the overlay, cache it after boot up.
+    private final boolean mWifiAllowInsecureEnterpriseConfiguration;
 
     // This is set by WifiManager#setVerboseLoggingEnabled(int).
     private boolean mIsShowKeyVerboseLoggingModeEnabled = false;
+    private boolean mIsUsingExternalScorer = false;
 
     public WifiGlobals(Context context) {
         mContext = context;
@@ -84,6 +92,14 @@ public class WifiGlobals {
                 .getInteger(R.integer.config_wifiP2pDeviceNamePostfixNumDigits);
         mClientModeImplNumLogRecs = mContext.getResources()
                 .getInteger(R.integer.config_wifiClientModeImplNumLogRecs);
+        mSaveFactoryMacToConfigStoreEnabled = mContext.getResources()
+                .getBoolean(R.bool.config_wifiSaveFactoryMacToWifiConfigStore);
+        mWifiLowConnectedScoreThresholdToTriggerScanForMbb = mContext.getResources().getInteger(
+                R.integer.config_wifiLowConnectedScoreThresholdToTriggerScanForMbb);
+        mWifiLowConnectedScoreScanPeriodSeconds = mContext.getResources().getInteger(
+                R.integer.config_wifiLowConnectedScoreScanPeriodSeconds);
+        mWifiAllowInsecureEnterpriseConfiguration = mContext.getResources().getBoolean(
+                R.bool.config_wifiAllowInsecureEnterpriseConfigurationsForSettingsAndSUW);
     }
 
     /** Get the interval between RSSI polls, in milliseconds. */
@@ -169,7 +185,8 @@ public class WifiGlobals {
      * @return boolean true if auto-upgrade is enabled, false otherwise.
      */
     public boolean isOweUpgradeEnabled() {
-        return mIsOweUpgradeEnabled;
+        // OWE auto-upgrade is supported on S or newer releases.
+        return SdkLevel.isAtLeastS() && mIsOweUpgradeEnabled;
     }
 
     /**
@@ -200,6 +217,16 @@ public class WifiGlobals {
         return mIsShowKeyVerboseLoggingModeEnabled;
     }
 
+    /** Set whether the external scorer is being used **/
+    public void setUsingExternalScorer(boolean isUsingExternalScorer) {
+        mIsUsingExternalScorer = isUsingExternalScorer;
+    }
+
+    /** Get whether the external scorer is being used **/
+    public boolean isUsingExternalScorer() {
+        return mIsUsingExternalScorer;
+    }
+
     /** Get the prefix of the default wifi p2p device name. */
     public String getWifiP2pDeviceNamePrefix() {
         return mP2pDeviceNamePrefix;
@@ -213,6 +240,26 @@ public class WifiGlobals {
     /** Get the number of log records to maintain. */
     public int getClientModeImplNumLogRecs() {
         return mClientModeImplNumLogRecs;
+    }
+
+    /** Get whether to use the saved factory MAC address when available **/
+    public boolean isSaveFactoryMacToConfigStoreEnabled() {
+        return mSaveFactoryMacToConfigStoreEnabled;
+    }
+
+    /** Get the low score threshold to do scan for MBB when external scorer is not used. **/
+    public int getWifiLowConnectedScoreThresholdToTriggerScanForMbb() {
+        return mWifiLowConnectedScoreThresholdToTriggerScanForMbb;
+    }
+
+    /** Get the minimum period between the extra scans triggered for MBB when score is low **/
+    public int getWifiLowConnectedScoreScanPeriodSeconds() {
+        return mWifiLowConnectedScoreScanPeriodSeconds;
+    }
+
+    /** Get whether or not insecure enterprise configuration is allowed. */
+    public boolean isInsecureEnterpriseConfigurationAllowed() {
+        return mWifiAllowInsecureEnterpriseConfiguration;
     }
 
     /** Dump method for debugging */
@@ -229,5 +276,14 @@ public class WifiGlobals {
         pw.println("mP2pDeviceNamePrefix=" + mP2pDeviceNamePrefix);
         pw.println("mP2pDeviceNamePostfixNumDigits=" + mP2pDeviceNamePostfixNumDigits);
         pw.println("mClientModeImplNumLogRecs=" + mClientModeImplNumLogRecs);
+        pw.println("mSaveFactoryMacToConfigStoreEnabled=" + mSaveFactoryMacToConfigStoreEnabled);
+        pw.println("mWifiLowConnectedScoreThresholdToTriggerScanForMbb="
+                + mWifiLowConnectedScoreThresholdToTriggerScanForMbb);
+        pw.println("mWifiLowConnectedScoreScanPeriodSeconds="
+                + mWifiLowConnectedScoreScanPeriodSeconds);
+        pw.println("mIsUsingExternalScorer="
+                + mIsUsingExternalScorer);
+        pw.println("mWifiAllowInsecureEnterpriseConfiguratio"
+                + mWifiAllowInsecureEnterpriseConfiguration);
     }
 }

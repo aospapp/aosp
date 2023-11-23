@@ -61,7 +61,8 @@ public class TakeBugReportController extends AbstractPreferenceController {
     public void updateState(Preference preference) {
         super.updateState(preference);
         if (KEY_TAKE_BUG_REPORT.equals(preference.getKey())) {
-            preference.setTitle(com.android.internal.R.string.bugreport_title);
+            preference.setTitle(mContext.getResources().getIdentifier("bugreport_title",
+                    "string", "android"));
             preference.setIcon(R.drawable.ic_bug_report);
         }
     }

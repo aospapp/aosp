@@ -29,7 +29,7 @@
     tests on their own then use the command:
     "adb shell am instrument -w com.android.calllogbackup.tests/android.test.InstrumentationTestRunner"
     -->
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.calllogbackup"
         android:label="CallLog Backup Tests">
     </instrumentation>

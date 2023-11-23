@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Laitettasi hallinnoi seuraava sovellus:"</string>
     <string name="next" msgid="1004321437324424398">"Seuraava"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Työprofiilia luodaan…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän profiiliin liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää tämän profiilin asetuksia, yrityskäyttöä, sovelluksia, lupia ja verkkotoimintaa sekä puheluhistoriaasi ja yhteystietojen hakuhistoriaa. Pyydä IT-järjestelmänvalvojalta lisätietoa tästä ja organisaation tietosuojakäytännöistä."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-järjestelmänvalvoja voi valvoa ja ylläpitää asetuksia, yrityskäyttöä, sovelluksia, käyttöoikeuksia ja tähän laitteeseen liittyvää dataa (mukaan lukien verkkotoimintaa) sekä puheluhistoriaa ja yhteystietojen hakuhistoriaa.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Saat IT-järjestelmänvalvojalta lisätietoja esimerkiksi organisaation tietosuojakäytännöistä."</string>
@@ -107,7 +105,7 @@
     <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> hallinnoi, valvoo ja suojaa tätä laitetta. Käyttöehtoja sovelletaan. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> hallinnoi, valvoo ja suojaa tätä laitetta. Seuraavia käyttöehtoja sovelletaan: <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Tämä linkki ei ole turvallinen, eikä sitä voi avata ennen kuin laite on määritetty: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>."</string>
-    <string name="contact_device_provider" msgid="2843488903902493030">"Saat lisätietoja ottamalla yhteyttä: <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"<xliff:g id="IT_ADMIN">%1$s</xliff:g> antaa sinulle lisätietoja."</string>
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Jos sinulla on kysyttävää, ota yhteyttä IT-järjestelmänvalvojaan."</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Määritys ei ole valmis. Pyydä apua IT-järjestelmänvalvojalta."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Pyydä apua IT-järjestelmänvalvojalta."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> saa asentaa sovelluksen (<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>), jotta voit tehdä tämän laitteen maksuja."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Tätä laitetta voidaan rajoittaa"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> voi rajoittaa pääsyä tälle laitteelle, jos et suorita maksuja."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Laitteen käyttöönotto ei onnistu. Ota yhteyttä IT-järjestelmän valvojaan ja mainitse \"virheellinen tarkistussumma\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Yritä uudelleen tai pyydä apua IT-järjestelmänvalvojalta"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Laitteen käyttöönotto ei onnistu. Ota yhteyttä IT-järjestelmän valvojaan ja mainitse \"puuttuvat tai vahingoittuneet osat\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Otetaan käyttöön…"</string>
 </resources>

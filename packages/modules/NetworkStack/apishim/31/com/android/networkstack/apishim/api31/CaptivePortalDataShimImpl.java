@@ -18,14 +18,17 @@ package com.android.networkstack.apishim.api31;
 
 import android.net.CaptivePortalData;
 import android.net.Uri;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 
 /**
  * Compatibility implementation of {@link CaptivePortalDataShim}.
  */
+@RequiresApi(Build.VERSION_CODES.S)
 public class CaptivePortalDataShimImpl
         extends com.android.networkstack.apishim.api30.CaptivePortalDataShimImpl {
     public CaptivePortalDataShimImpl(@NonNull CaptivePortalData data) {

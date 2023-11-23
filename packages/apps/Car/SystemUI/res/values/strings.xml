@@ -36,10 +36,6 @@
     <string name="hvac_temperature_off">OFF</string>
     <!-- Text for voice recognition toast. [CHAR LIMIT=60] -->
     <string name="voice_recognition_toast">Voice recognition now handled by connected Bluetooth device</string>
-    <!-- Name of Guest Profile. [CHAR LIMIT=35] -->
-    <string name="car_guest">Guest</string>
-    <!-- Title for button that starts a guest session. [CHAR LIMIT=35] -->
-    <string name="start_guest_session">Guest</string>
     <!-- Title for button that adds a new profile. [CHAR LIMIT=30] -->
     <string name="car_add_user">Add a profile</string>
     <!-- Default name of the new profile created. [CHAR LIMIT=30] -->
@@ -52,31 +48,35 @@
     <string name="user_add_user_message_update">Apps can be updated from any profile for use by all other profiles.</string>
     <!-- Title for the dialog that lets users know that the maximum allowed number of profiles on the device has been reached. [CHAR LIMIT=35]-->
     <string name="profile_limit_reached_title">Profile limit reached</string>
-    <!-- Message that tells people what's the maximum number of profiles allowed on the device. [CHAR_LIMIT=NONE]-->
-    <plurals name="profile_limit_reached_message">
-        <item quantity="one">Only one profile can be created.</item>
-        <item quantity="other">You can add up to <xliff:g id="count" example="3">%d</xliff:g> profiles.</item>
-    </plurals>
+    <!-- Message that tells people what's the maximum number of profiles allowed on the device. (ICU syntax) [CHAR_LIMIT=NONE]-->
+    <string name="profile_limit_reached_message">
+        {count, plural,
+            =1    {Only one profile can be created.}
+            other {You can add up to # profiles.}
+        }
+    </string>
     <!-- Message to inform user that the new user profile is loading. [CHAR LIMIT=20] -->
     <string name="car_loading_profile">Loading</string>
     <!-- Message to inform user that the new user profile is loading with additional information on the previous and the next user. [CHAR LIMIT=100] -->
     <string name="car_loading_profile_developer_message">Loading user (from <xliff:g id="from_user" example="10">%1$d</xliff:g> to <xliff:g id="to_user" example="12">%2$d</xliff:g>)</string>
-    <!-- Accessibility content description for microphone off state of microphone privacy chip. [CHAR LIMIT=40]-->
-    <string name="mic_privacy_chip_off_content">Microphone is off.</string>
-    <!-- Message displayed near microphone toggle [CHAR LIMIT=50]-->
-    <string name="mic_privacy_chip_use_microphone">Use microphone</string>
-    <!-- Message Subtext displayed near microphone toggle [CHAR LIMIT=60]-->
-    <string name="mic_privacy_chip_use_microphone_subtext">For apps that have permission</string>
+
+    <!-- Accessibility content description for microphone/camera off state of privacy chip. [CHAR LIMIT=40]-->
+    <string name="privacy_chip_off_content"><xliff:g id="sensor" example="Microphone">%1$s</xliff:g> is off.</string>
+    <!-- Message displayed near microphone/camera toggle [CHAR LIMIT=50]-->
+    <string name="privacy_chip_use_sensor">Use <xliff:g id="sensor" example="microphone">%1$s</xliff:g></string>
+    <!-- Message Subtext displayed near microphone/camera toggle [CHAR LIMIT=60]-->
+    <string name="privacy_chip_use_sensor_subtext">For apps that have permission</string>
+
     <!-- Microphone settings button text. [CHAR LIMIT=45]-->
     <string name="mic_privacy_chip_microphone_settings">Microphone settings</string>
     <!-- App is using microphone suffix [CHAR LIMIT=32]-->
-    <string name="mic_privacy_chip_app_using_mic_suffix"><xliff:g id="app" example="Assistant">%s</xliff:g> is using the mic</string>
+    <string name="privacy_chip_app_using_sensor_suffix"><xliff:g id="app" example="Assistant">%1$s</xliff:g> is using the <xliff:g id="sensor" example="microphone">%2$s</xliff:g></string>
     <!-- Apps are using microphone suffix [CHAR LIMIT=32]-->
     <string name="mic_privacy_chip_apps_using_mic_suffix"><xliff:g id="app_list" example="Assistant &amp; Phone">%s</xliff:g> are using the mic</string>
     <!-- App was using microphone suffix [CHAR LIMIT=50]-->
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix"><xliff:g id="app" example="Assistant">%s</xliff:g> used the mic recently</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix"><xliff:g id="app" example="Assistant">%1$s</xliff:g> used the <xliff:g id="sensor" example="microphone">%2$s</xliff:g> recently</string>
     <!-- Apps were using microphone suffix [CHAR LIMIT=60]-->
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix"><xliff:g id="app" example="Assistant">%1$s</xliff:g> and <xliff:g id="additional_app_count" example="2">%2$d</xliff:g> more used the mic recently</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix"><xliff:g id="app" example="Assistant">%1$s</xliff:g> and <xliff:g id="additional_app_count" example="2">%2$d</xliff:g> more used the <xliff:g id="sensor" example="microphone">%3$s</xliff:g> recently</string>
     <!-- Microphone turned on toast text [CHAR LIMIT=40]-->
     <string name="mic_privacy_chip_on_toast">Microphone turned on</string>
     <!-- Microphone turned off toast text [CHAR LIMIT=42]-->
@@ -87,6 +87,37 @@
     <string name="sensor_privacy_start_use_mic_dialog_title">Turn on vehicle microphone?</string>
     <!--- Content of dialog triggered if the microphone is disabled but an app tried to access it. [CHAR LIMIT=NONE] -->
     <string name="sensor_privacy_start_use_mic_dialog_content">To continue, turn on the infotainment system microphone. This will turn on the microphone for all apps that have permission.</string>
+
+    <!-- Camera settings button text. [CHAR LIMIT=45]-->
+    <string name="camera_privacy_chip_camera_settings">Camera settings</string>
+    <!-- App is using camera suffix [CHAR LIMIT=32]-->
+    <string name="camera_privacy_chip_app_using_camera_suffix"><xliff:g id="app" example="Assistant">%s</xliff:g> is using the camera</string>
+    <!-- Apps are using camera suffix [CHAR LIMIT=32]-->
+    <string name="camera_privacy_chip_apps_using_camera_suffix"><xliff:g id="app_list" example="Assistant &amp; Phone">%s</xliff:g> are using the camera</string>
+    <!-- App was using camera suffix [CHAR LIMIT=50]-->
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix"><xliff:g id="app" example="Assistant">%s</xliff:g> used the camera recently</string>
+    <!-- Apps were using camera suffix [CHAR LIMIT=60]-->
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix"><xliff:g id="app" example="Assistant">%1$s</xliff:g> and <xliff:g id="additional_app_count" example="2">%2$d</xliff:g> more used the camera recently</string>
+    <!-- Camera turned on toast text [CHAR LIMIT=40]-->
+    <string name="camera_privacy_chip_on_toast">Camera turned on</string>
+    <!-- Camera turned off toast text [CHAR LIMIT=42]-->
+    <string name="camera_privacy_chip_off_toast">Camera turned off</string>
+    <!-- Ok button for dialog that shows which apps have recently used camera [CHAR LIMIT=10]-->
+    <string name="camera_privacy_chip_dialog_ok">OK</string>
+    <!--- Title of dialog triggered if the camera is disabled but an app tried to access it. [CHAR LIMIT=75] -->
+    <string name="sensor_privacy_start_use_camera_dialog_title">Turn on vehicle camera?</string>
+    <!--- Content of dialog triggered if the camera is disabled but an app tried to access it. [CHAR LIMIT=NONE] -->
+    <string name="sensor_privacy_start_use_camera_dialog_content">To continue, turn on the infotainment system camera. This will turn on the camera for all apps that have permission.</string>
+
+
+    <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=120] -->
+    <string name="activity_blocked_text">You can\u2019t use this feature while driving</string>
+    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=20] -->
+    <string name="exit_button_close_application">Close app</string>
+    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=15] -->
+    <string name="exit_button_go_back">Back</string>
+    <!-- Blocking activity: Text for button that shows debug info in non-user build. -->
+    <string name="debug_button_text" translatable="false">Debug Info</string>
 
     <!-- Quick Controls: Message to be displayed as the footer button to launch the settings application [CHAR LIMIT=45] -->
     <string name="qc_footer_settings">Settings</string>

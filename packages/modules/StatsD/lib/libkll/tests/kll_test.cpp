@@ -15,9 +15,9 @@
  */
 #include "kll.h"
 
-#include "kll-quantiles.pb.h"
-
 #include <gtest/gtest.h>
+
+#include "kll-quantiles.pb.h"
 
 namespace dist_proc {
 namespace aggregation {

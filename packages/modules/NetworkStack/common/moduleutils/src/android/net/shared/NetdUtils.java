@@ -16,20 +16,14 @@
 
 package android.net.shared;
 
-import static android.net.RouteInfo.RTN_UNICAST;
 import static android.system.OsConstants.EBUSY;
 
 import android.net.INetd;
-import android.net.IpPrefix;
-import android.net.RouteInfo;
 import android.net.TetherConfigParcel;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 import android.os.SystemClock;
 import android.util.Log;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Implements common operations on INetd
@@ -45,23 +39,6 @@ public class NetdUtils {
         config.usingLegacyDnsProxy = usingLegacyDnsProxy;
         config.dhcpRanges = dhcpRange;
         netd.tetherStartWithConfiguration(config);
-    }
-
-    /** Setup interface for tethering. */
-    public static void tetherInterface(final INetd netd, final String iface, final IpPrefix dest)
-            throws RemoteException, ServiceSpecificException {
-        tetherInterface(netd, iface, dest, 20 /* maxAttempts */, 50 /* pollingIntervalMs */);
-    }
-
-    /** Setup interface with configurable retries for tethering. */
-    public static void tetherInterface(final INetd netd, final String iface, final IpPrefix dest,
-            int maxAttempts, int pollingIntervalMs)
-            throws RemoteException, ServiceSpecificException {
-        netd.tetherInterfaceAdd(iface);
-        networkAddInterface(netd, iface, maxAttempts, pollingIntervalMs);
-        List<RouteInfo> routes = new ArrayList<>();
-        routes.add(new RouteInfo(dest, null, iface, RTN_UNICAST));
-        RouteUtils.addRoutesToLocalNetwork(netd, iface, routes);
     }
 
     /**

@@ -18,6 +18,8 @@ package com.android.managedprovisioning.provisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -25,13 +27,14 @@ import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.ContextWrapper;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
+import com.android.managedprovisioning.task.AddWifiNetworkTask;
 import com.android.managedprovisioning.task.CreateAndProvisionManagedProfileTask;
 
 import org.mockito.Mock;
@@ -51,15 +54,20 @@ public class ProfileOwnerProvisioningControllerTest extends ProvisioningControll
     private static final int TEST_PROFILE_USER_ID = 2;
     private static final ComponentName TEST_ADMIN = new ComponentName("com.test.admin",
             "com.test.admin.AdminReceiver");
+    private static final ProvisioningParams PROVISIONING_PARAMS = new ProvisioningParams.Builder()
+            .setDeviceAdminComponentName(TEST_ADMIN)
+            .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
+            .build();
 
     @Mock private ProvisioningControllerCallback mCallback;
-    private Context mContext;
+    private static final Context mContext = InstrumentationRegistry.getTargetContext();
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        mContext = new ContextWrapper(getContext());
-    }
+    private static final String TEST_ERROR_MESSAGE = "test error message";
+
+    private static final AbstractProvisioningTask TASK =
+            new AddWifiNetworkTask(mContext,
+                    PROVISIONING_PARAMS,
+                    createTaskCallback());
 
     @SmallTest
     public void testRunAllTasks() throws Exception {
@@ -129,23 +137,43 @@ public class ProfileOwnerProvisioningControllerTest extends ProvisioningControll
         AbstractProvisioningTask task = verifyTaskRun(CreateAndProvisionManagedProfileTask.class);
 
         // WHEN the task encountered an error
-        mController.onError(task, 0);
+        mController.onError(task, 0, /* errorMessage= */ null);
 
         // THEN the activity should be informed about the error
         verify(mCallback).error(R.string.cant_set_up_profile,
                 R.string.managed_provisioning_error_text, false);
     }
 
-    private void createController() {
-        ProvisioningParams params = new ProvisioningParams.Builder()
-                .setDeviceAdminComponentName(TEST_ADMIN)
-                .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
-                .build();
+    @SmallTest
+    public void testErrorWithStringMessage() {
+        createController();
+        mController.start(mHandler);
 
+        mController.onError(TASK, /* errorCode= */ 0, TEST_ERROR_MESSAGE);
+
+        verify(mCallback).error(anyInt(), eq(TEST_ERROR_MESSAGE), eq(false));
+    }
+
+    private void createController() {
         mController = ProfileOwnerProvisioningController.createInstance(
                 mContext,
-                params,
+                PROVISIONING_PARAMS,
                 TEST_PARENT_USER_ID,
                 mCallback);
+    }
+
+    private static AbstractProvisioningTask.Callback createTaskCallback() {
+        return new AbstractProvisioningTask.Callback() {
+            @Override
+            public void onSuccess(AbstractProvisioningTask task) {
+
+            }
+
+            @Override
+            public void onError(AbstractProvisioningTask task, int errorCode,
+                    String errorMessage) {
+
+            }
+        };
     }
 }

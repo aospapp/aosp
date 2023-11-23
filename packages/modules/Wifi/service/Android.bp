@@ -42,12 +42,6 @@ filegroup {
     ],
 }
 
-filegroup {
-    name: "wifi-service-BaseWifiService",
-    srcs: ["java/com/android/server/wifi/BaseWifiService.java"],
-    path: "java",
-}
-
 // pre-jarjar version of wifi-service that builds against pre-jarjar version of framework-wifi
 java_library {
     name: "wifi-service-pre-jarjar",
@@ -63,6 +57,7 @@ java_library {
         strict_updatability_linting: true,
     },
     libs: [
+        "androidx.annotation_annotation",
         "error_prone_annotations",
         "jsr305",
         "framework-annotations-lib",
@@ -71,7 +66,9 @@ java_library {
         // need pre-jarjar symbols so that wifi-service can reference the original class names at
         // compile time
         "framework-wifi-pre-jarjar",
+        "framework-bluetooth",
         "framework-connectivity.stubs.module_lib",
+        "framework-connectivity-t.stubs.module_lib",
         "framework-statsd.stubs.module_lib",
         "framework-tethering.stubs.module_lib",
         "unsupportedappusage",
@@ -84,17 +81,23 @@ java_library {
         "android.hardware.wifi-V1.3-java",
         "android.hardware.wifi-V1.4-java",
         "android.hardware.wifi-V1.5-java",
+        "android.hardware.wifi-V1.6-java",
+        // AIDL hostapd implementation
+        "android.hardware.wifi.hostapd-V1-java",
+        // HIDL hostapd implementation
         "android.hardware.wifi.hostapd-V1.0-java",
         "android.hardware.wifi.hostapd-V1.1-java",
         "android.hardware.wifi.hostapd-V1.2-java",
         "android.hardware.wifi.hostapd-V1.3-java",
+        // AIDL supplicant implementation
+        "android.hardware.wifi.supplicant-V1-java",
+        // HIDL supplicant implementation
         "android.hardware.wifi.supplicant-V1.0-java",
         "android.hardware.wifi.supplicant-V1.1-java",
         "android.hardware.wifi.supplicant-V1.2-java",
         "android.hardware.wifi.supplicant-V1.3-java",
         "android.hardware.wifi.supplicant-V1.4-java",
         "android.hidl.manager-V1.2-java",
-        "androidx.annotation_annotation",
         "bouncycastle-unbundled",
         "ksoap2",
         // Note: libprotobuf-java-lite uses a few core platform APIs which
@@ -129,10 +132,6 @@ java_library {
         enabled: true,
         shrink: true,
         proguard_flags_files: ["proguard.flags"],
-    },
-    dex_preopt: {
-        enabled: false,
-        app_image: false,
     },
 
     visibility: [

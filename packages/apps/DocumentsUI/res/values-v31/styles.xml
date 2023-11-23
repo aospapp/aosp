@@ -16,7 +16,7 @@
   -->
 
 <resources>
-    <style name="SectionHeader" parent="@*android:style/TextAppearance.DeviceDefault.Medium">
+    <style name="SectionHeader" parent="@android:style/TextAppearance.Material.Medium">
         <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
         <item name="android:textSize">12sp</item>

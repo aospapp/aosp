@@ -20,11 +20,11 @@ import android.Manifest;
 import android.annotation.Nullable;
 import android.car.Car;
 import android.car.VehiclePropertyIds;
+import android.car.VehiclePropertyType;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
 import android.content.pm.PackageManager;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -116,12 +116,8 @@ public class SensorsTestFragment extends Fragment {
                     if (DBG_VERBOSE) {
                         Log.v(TAG, "New car property value: " + value);
                     }
-                    if (value.getStatus() == CarPropertyValue.STATUS_AVAILABLE) {
-                        mValueMap.put(value.getPropertyId(), value);
-                    } else {
-                        mValueMap.put(value.getPropertyId(), null);
-                    }
-                    refreshSensorInfoText();
+                    mValueMap.put(value.getPropertyId(), value);
+                    refreshCarSensorInfoText();
                 }
                 @Override
                 public void onErrorEvent(int propId, int zone) {
@@ -137,11 +133,17 @@ public class SensorsTestFragment extends Fragment {
     private String mNaString;
     private List<CarPropertyConfig> mCarPropertyConfigs;
 
-    private TextView mSensorInfo;
+    private TextView mCarSensorInfo;
     private TextView mLocationInfo;
     private TextView mAccelInfo;
     private TextView mGyroInfo;
     private TextView mMagInfo;
+    private TextView mAccelUncalInfo;
+    private TextView mGyroUncalInfo;
+    private TextView mAccelLimitedAxesInfo;
+    private TextView mGyroLimitedAxesInfo;
+    private TextView mAccelLimitedAxesUncalInfo;
+    private TextView mGyroLimitedAxesUncalInfo;
 
     @Nullable
     @Override
@@ -153,13 +155,20 @@ public class SensorsTestFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.sensors, container, false);
         mActivity = (KitchenSinkActivity) getHost();
-        mSensorInfo = (TextView) view.findViewById(R.id.sensor_info);
-        mSensorInfo.setMovementMethod(new ScrollingMovementMethod());
+        mCarSensorInfo = (TextView) view.findViewById(R.id.car_sensor_info);
+        mCarSensorInfo.setMovementMethod(new ScrollingMovementMethod());
         mLocationInfo = (TextView) view.findViewById(R.id.location_info);
         mLocationInfo.setMovementMethod(new ScrollingMovementMethod());
         mAccelInfo = (TextView) view.findViewById(R.id.accel_info);
         mGyroInfo = (TextView) view.findViewById(R.id.gyro_info);
         mMagInfo = (TextView) view.findViewById(R.id.mag_info);
+        mAccelUncalInfo = (TextView) view.findViewById(R.id.accel_uncal_info);
+        mGyroUncalInfo = (TextView) view.findViewById(R.id.gyro_uncal_info);
+        mAccelLimitedAxesInfo = (TextView) view.findViewById(R.id.accel_limited_axes_info);
+        mGyroLimitedAxesInfo = (TextView) view.findViewById(R.id.gyro_limited_axes_info);
+        mAccelLimitedAxesUncalInfo =
+                (TextView) view.findViewById(R.id.accel_limited_axes_uncal_info);
+        mGyroLimitedAxesUncalInfo = (TextView) view.findViewById(R.id.gyro_limited_axes_uncal_info);
 
         mNaString = getContext().getString(R.string.sensor_na);
         return view;
@@ -259,11 +268,11 @@ public class SensorsTestFragment extends Fragment {
         Log.d(TAG, "onRequestPermissionsResult reqCode=" + requestCode);
     }
 
-    private void refreshSensorInfoText() {
+    private void refreshCarSensorInfoText() {
         String summaryString;
         List<String> summary = formSummary();
         summaryString = TextUtils.join("\n", summary);
-        mHandler.post(() -> mSensorInfo.setText(summaryString));
+        mHandler.post(() -> mCarSensorInfo.setText(summaryString));
     }
 
     private List<String> formSummary() {
@@ -271,6 +280,10 @@ public class SensorsTestFragment extends Fragment {
         for (CarPropertyConfig propertyConfig : mCarPropertyConfigs) {
             int propertyId = propertyConfig.getPropertyId();
             CarPropertyValue propertyValue = mValueMap.get(propertyId);
+            if (propertyValue != null
+                    && propertyValue.getStatus() != CarPropertyValue.STATUS_AVAILABLE) {
+                propertyValue = null;
+            }
             int resourceId = PROPERTY_TO_RESOURCE.get(propertyId);
             // for wheel_tick, add the configuration.
             if (propertyId == VehiclePropertyIds.WHEEL_TICK) {
@@ -308,11 +321,11 @@ public class SensorsTestFragment extends Fragment {
         if (value == null) {
             return mNaString;
         }
-        return Double.toString(value.getTimestamp() / (1000L * 1000L * 1000L)) + " seconds";
+        return Double.toString(value.getTimestamp() / (1000L * 1000L * 1000L)) + " sec";
     }
 
     private String getTimestampNow() {
-        return Double.toString(System.nanoTime() / (1000L * 1000L * 1000L)) + " seconds";
+        return Double.toString(System.nanoTime() / (1000L * 1000L * 1000L)) + " sec";
     }
 
     private String getStringOfPropertyValue(CarPropertyValue value) {
@@ -349,6 +362,30 @@ public class SensorsTestFragment extends Fragment {
 
         public void setMagField(String value) {
             setTimestampedTextField(mMagInfo, value);
+        }
+
+        public void setAccelUncalField(String value) {
+            setTimestampedTextField(mAccelUncalInfo, value);
+        }
+
+        public void setGyroUncalField(String value) {
+            setTimestampedTextField(mGyroUncalInfo, value);
+        }
+
+        public void setAccelLimitedAxesField(String value) {
+            setTimestampedTextField(mAccelLimitedAxesInfo, value);
+        }
+
+        public void setGyroLimitedAxesField(String value) {
+            setTimestampedTextField(mGyroLimitedAxesInfo, value);
+        }
+
+        public void setAccelLimitedAxesUncalField(String value) {
+            setTimestampedTextField(mAccelLimitedAxesUncalInfo, value);
+        }
+
+        public void setGyroLimitedAxesUncalField(String value) {
+            setTimestampedTextField(mGyroLimitedAxesUncalInfo, value);
         }
 
         private void setTimestampedTextField(TextView text, String value) {

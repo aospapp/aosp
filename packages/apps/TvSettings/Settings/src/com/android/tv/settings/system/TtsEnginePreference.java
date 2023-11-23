@@ -140,6 +140,9 @@ public class TtsEnginePreference extends Preference {
         if (mSharedState.getCurrentChecked() != null) {
             mSharedState.getCurrentChecked().setChecked(false);
         }
+        if (current != null) {
+            current.setChecked(true);
+        }
         mSharedState.setCurrentChecked(current);
         mSharedState.setCurrentKey(getKey());
         callChangeListener(mSharedState.getCurrentKey());

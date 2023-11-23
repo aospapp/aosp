@@ -38,6 +38,9 @@
     <uses-permission android:name="android.permission.REORDER_TASKS"/>
     <!-- System permission to remove a task -->
     <uses-permission android:name="android.permission.REMOVE_TASKS"/>
+    <!-- System permission to call AM.getRunningAppProcesses().
+         TODO: change this to REAL_GET_TASKS. -->
+    <uses-permission android:name="android.permission.GET_TASKS"/>
     <!-- System permission to query users on device -->
     <uses-permission android:name="android.permission.MANAGE_USERS"/>
     <!-- System permission to control media playback of the active session -->
@@ -58,6 +61,8 @@
     <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE" />
     <!-- Permission to use InteractionJankMonitor. -->
     <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
+    <!-- Permission to send notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- To connect to media browser services in other apps, media browser clients
     that target Android 11 need to add the following in their manifest -->
@@ -68,7 +73,6 @@
     </queries>
 
     <application
-        android:name=".CarLauncherApplication"
         android:icon="@drawable/ic_launcher_home"
         android:label="@string/app_title"
         android:theme="@style/Theme.Launcher"
@@ -99,6 +103,9 @@
             android:exported="true"
             android:windowSoftInputMode="adjustPan">
             <meta-data android:name="distractionOptimized" android:value="true"/>
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".AppGridActivity"

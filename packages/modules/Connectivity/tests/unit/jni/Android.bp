@@ -13,16 +13,38 @@ cc_library_shared {
         "-Wthread-safety",
     ],
 
+    header_libs: ["bpf_connectivity_headers"],
+
     srcs: [
         ":lib_networkStatsFactory_native",
         "test_onload.cpp",
     ],
 
     shared_libs: [
-        "libbpf_android",
         "liblog",
         "libnativehelper",
-        "libnetdbpf",
         "libnetdutils",
+        "libnetworkstats",
+    ],
+}
+
+cc_library_shared {
+    name: "libandroid_net_frameworktests_util_jni",
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-Wthread-safety",
+    ],
+    srcs: [
+        "android_net_frameworktests_util/onload.cpp",
+    ],
+    static_libs: [
+        "libnet_utils_device_common_bpfjni",
+        "libtcutils",
+    ],
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
     ],
 }

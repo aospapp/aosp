@@ -20,6 +20,7 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
+import android.net.wifi.WifiContext;
 
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
 import com.android.wifi.resources.R;

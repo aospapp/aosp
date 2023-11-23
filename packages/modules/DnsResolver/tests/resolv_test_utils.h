@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <aidl/android/net/INetd.h>
+#include <android-base/properties.h>
 #include <gtest/gtest.h>
 #include <netdutils/InternetAddresses.h>
 
@@ -74,6 +75,19 @@ class ScopedChangeUID {
     const uid_t mSavedUid;
 };
 
+class ScopedSystemProperties {
+  public:
+    ScopedSystemProperties(const std::string& key, const std::string& value) : mStoredKey(key) {
+        mStoredValue = android::base::GetProperty(key, "");
+        android::base::SetProperty(key, value);
+    }
+    ~ScopedSystemProperties() { android::base::SetProperty(mStoredKey, mStoredValue); }
+
+  private:
+    std::string mStoredKey;
+    std::string mStoredValue;
+};
+
 struct DnsRecord {
     std::string host_name;  // host name
     ns_type type;           // record type
@@ -94,6 +108,9 @@ static constexpr char kHelloExampleCom[] = "hello.example.com.";
 static constexpr char kHelloExampleComAddrV4[] = "1.2.3.4";
 static constexpr char kHelloExampleComAddrV6[] = "::1.2.3.4";
 static constexpr char kExampleComDomain[] = ".example.com";
+
+static const std::string kNat64Prefix = "64:ff9b::/96";
+static const std::string kNat64Prefix2 = "2001:db8:6464::/96";
 
 constexpr size_t kMaxmiumLabelSize = 63;  // see RFC 1035 section 2.3.4.
 
@@ -196,3 +213,9 @@ std::vector<std::string> ToStrings(const android::netdutils::ScopedAddrinfo& ai)
 // Wait for |condition| to be met until |timeout|.
 bool PollForCondition(const std::function<bool()>& condition,
                       std::chrono::milliseconds timeout = std::chrono::milliseconds(1000));
+
+android::netdutils::ScopedAddrinfo safe_getaddrinfo(const char* node, const char* service,
+                                                    const struct addrinfo* hints);
+
+void SetMdnsRoute();
+void RemoveMdnsRoute();

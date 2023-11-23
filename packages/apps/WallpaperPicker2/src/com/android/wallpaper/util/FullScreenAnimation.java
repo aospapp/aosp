@@ -39,8 +39,6 @@ import androidx.cardview.widget.CardView;
 import com.android.wallpaper.R;
 import com.android.wallpaper.picker.TouchForwardingLayout;
 
-import com.google.android.material.appbar.AppBarLayout;
-
 /**
  * A class storing information about a preview fragment's full-screen layout.
  *
@@ -52,6 +50,7 @@ public class FullScreenAnimation {
     private final TouchForwardingLayout mTouchForwardingLayout;
     private final SurfaceView mWorkspaceSurface;
     private boolean mIsFullScreen = false;
+    private boolean mShowInFullScreen = false;
 
     private boolean mScaleIsSet = false;
     private boolean mWorkspaceVisibility = true;
@@ -129,6 +128,17 @@ public class FullScreenAnimation {
     }
 
     /**
+     * Informs this object whether the full screen is separate activity.
+     *
+     * Used to determine the height of workspace.
+     *
+     * @param isShowInFullScreen whether the full screen is separate activity.
+     */
+    public void setShowInFullScreen(boolean isShowInFullScreen) {
+        mShowInFullScreen = isShowInFullScreen;
+    }
+
+    /**
      * Returns the height of status bar.
      *
      * @return height of status bar.
@@ -191,14 +201,26 @@ public class FullScreenAnimation {
      * Place UI elements in the correct locations.
      *
      * Takes status bar and navigation bar into account.
+     * @param view view is used to show preview fragment.
      */
-    public void placeViews() {
-        setViewMargins(R.id.screen_preview_layout,
-                getStatusBarHeight() + getAttributeDimension(R.attr.actionBarSize),
-                getNavigationBarHeight()
-                        + mView.getResources().getDimension(R.dimen.bottom_actions_height)
-                        + mView.getResources().getDimension(R.dimen.separated_tabs_height),
-                false);
+    public void placeViews(View view) {
+        // If is already full screen we do not do anything here.
+        if (mIsFullScreen) {
+            return;
+        }
+        if (mShowInFullScreen) {
+            View container = view.findViewById(R.id.container);
+            container.setPadding(0, 0, 0, 0);
+            setViewMargins(R.id.screen_preview_layout, 0, 0, false);
+        } else {
+            setViewMargins(R.id.screen_preview_layout,
+                    (float) getStatusBarHeight() + mView.findViewById(
+                            R.id.preview_header).getPaddingBottom(),
+                    getNavigationBarHeight()
+                            + mView.getResources().getDimension(R.dimen.bottom_actions_height)
+                            + mView.getResources().getDimension(R.dimen.separated_tabs_height),
+                    false);
+        }
         setViewMargins(R.id.bottom_action_bar_container,
                 0,
                 getNavigationBarHeight(),
@@ -230,13 +252,12 @@ public class FullScreenAnimation {
      * correctly located when it is redrawn.
      */
     public void ensureToolbarIsCorrectlyLocated() {
-        AppBarLayout.LayoutParams layoutParams = new AppBarLayout.LayoutParams(
-                AppBarLayout.LayoutParams.MATCH_PARENT,
-                AppBarLayout.LayoutParams.MATCH_PARENT);
+        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT);
 
         layoutParams.setMargins(0, getStatusBarHeight(), 0, 0);
-
-        mView.findViewById(R.id.toolbar).setLayoutParams(layoutParams);
+        mView.findViewById(R.id.section_header_container).setLayoutParams(layoutParams);
     }
 
     /**
@@ -246,7 +267,9 @@ public class FullScreenAnimation {
      */
     public void ensureToolbarIsCorrectlyColored() {
         TextView textView = mView.findViewById(R.id.custom_toolbar_title);
-        textView.setTextColor(mCurrentTextColor);
+        if (textView != null) {
+            textView.setTextColor(mCurrentTextColor);
+        }
 
         Toolbar toolbar = mView.findViewById(R.id.toolbar);
         // It may be null because there's no back arrow in some cases. For example: no back arrow
@@ -284,7 +307,8 @@ public class FullScreenAnimation {
                     0,
                     Math.round(mWorkspaceHeight * HIDE_ICONS_TOP_RATIO),
                     mWorkspaceWidth,
-                    mWorkspaceHeight + Math.round(mFullScreenButtonsTranslation / mScale)));
+                    mShowInFullScreen ? mWorkspaceHeight : mWorkspaceHeight + Math.round(
+                            mFullScreenButtonsTranslation / mScale)));
             mView.findViewById(R.id.lock_screen_preview_container).setVisibility(View.VISIBLE);
         } else {
             mWorkspaceSurface.setClipBounds(new Rect(
@@ -333,7 +357,9 @@ public class FullScreenAnimation {
         ValueAnimator colorAnimator = ValueAnimator.ofArgb(mCurrentTextColor, targetColor);
         colorAnimator.addUpdateListener(animation -> {
             int color = (int) animation.getAnimatedValue();
-            textView.setTextColor(color);
+            if (textView != null) {
+                textView.setTextColor(color);
+            }
             // It may be null because there's no back arrow in some cases. For example: no back
             // arrow for Photos launching case.
             if (button != null) {
@@ -421,7 +447,7 @@ public class FullScreenAnimation {
                     0,
                     Math.round(mWorkspaceHeight * top),
                     mWorkspaceWidth,
-                    mWorkspaceHeight + Math.round(bottom)));
+                    mShowInFullScreen ? mWorkspaceHeight : mWorkspaceHeight + Math.round(bottom)));
         });
 
         // Other animations.

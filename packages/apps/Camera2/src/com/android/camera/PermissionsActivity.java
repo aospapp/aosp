@@ -22,6 +22,9 @@ import com.android.camera.settings.SettingsManager;
 import com.android.camera.util.QuickActivity;
 import com.android.camera2.R;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Activity that shows permissions request dialogs and handles lack of critical permissions.
  * TODO: Convert PermissionsActivity into a dialog to be emitted from
@@ -31,21 +34,8 @@ import com.android.camera2.R;
 public class PermissionsActivity extends QuickActivity {
     private static final Log.Tag TAG = new Log.Tag("PermissionsActivity");
 
-    private static int PERMISSION_REQUEST_CODE = 1;
-    private static int RESULT_CODE_OK = 1;
-    private static int RESULT_CODE_FAILED = 2;
+    private static final int PERMISSION_REQUEST_CODE = 1;
 
-    private int mIndexPermissionRequestCamera;
-    private int mIndexPermissionRequestMicrophone;
-    private int mIndexPermissionRequestLocation;
-    private int mIndexPermissionRequestStorage;
-    private int mIndexPermissionRequestWriteStorage;
-    private boolean mShouldRequestCameraPermission;
-    private boolean mShouldRequestMicrophonePermission;
-    private boolean mShouldRequestLocationPermission;
-    private int mNumPermissionsToRequest;
-    private boolean mFlagHasCameraPermission;
-    private boolean mFlagHasMicrophonePermission;
     private SettingsManager mSettingsManager;
 
     /**
@@ -88,7 +78,6 @@ public class PermissionsActivity extends QuickActivity {
 
     @Override
     protected void onResumeTasks() {
-        mNumPermissionsToRequest = 0;
         checkPermissions();
     }
 
@@ -99,34 +88,31 @@ public class PermissionsActivity extends QuickActivity {
     }
 
     private void checkPermissions() {
-        if (checkSelfPermission(Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            mNumPermissionsToRequest++;
-            mShouldRequestCameraPermission = true;
-        } else {
-            mFlagHasCameraPermission = true;
+        List<String> permissions = new ArrayList<>();
+
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.CAMERA);
         }
 
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
-            mNumPermissionsToRequest++;
-            mShouldRequestMicrophonePermission = true;
-        } else {
-            mFlagHasMicrophonePermission = true;
+            permissions.add(Manifest.permission.RECORD_AUDIO);
         }
 
-        if (mSettingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
-            Keys.KEY_RECORD_LOCATION)
-                && (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED)) {
-            mNumPermissionsToRequest++;
-            mShouldRequestLocationPermission = true;
+        if (mSettingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL, Keys.KEY_RECORD_LOCATION)
+                && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
 
-        if (mNumPermissionsToRequest != 0) {
+        if (!permissions.isEmpty()) {
             if (!isKeyguardLocked() && !mSettingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
                     Keys.KEY_HAS_SEEN_PERMISSIONS_DIALOGS)) {
-                buildPermissionsRequest();
+                Log.v(TAG, "requestPermissions count: " + permissions.size());
+                requestPermissions(permissions.toArray(new String[0]), PERMISSION_REQUEST_CODE);
             } else {
                 // Permissions dialog has already been shown, or we're on
                 // lockscreen, and we're still missing permissions.
@@ -137,64 +123,31 @@ public class PermissionsActivity extends QuickActivity {
         }
     }
 
-    private void buildPermissionsRequest() {
-        String[] permissionsToRequest = new String[mNumPermissionsToRequest];
-        int permissionsRequestIndex = 0;
-
-        if (mShouldRequestCameraPermission) {
-            permissionsToRequest[permissionsRequestIndex] = Manifest.permission.CAMERA;
-            mIndexPermissionRequestCamera = permissionsRequestIndex;
-            permissionsRequestIndex++;
-        }
-        if (mShouldRequestMicrophonePermission) {
-            permissionsToRequest[permissionsRequestIndex] = Manifest.permission.RECORD_AUDIO;
-            mIndexPermissionRequestMicrophone = permissionsRequestIndex;
-            permissionsRequestIndex++;
-        }
-        if (mShouldRequestLocationPermission) {
-            permissionsToRequest[permissionsRequestIndex] = Manifest.permission.ACCESS_COARSE_LOCATION;
-            mIndexPermissionRequestLocation = permissionsRequestIndex;
-        }
-
-        Log.v(TAG, "requestPermissions count: " + permissionsToRequest.length);
-        requestPermissions(permissionsToRequest, PERMISSION_REQUEST_CODE);
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode,
-                                           String permissions[], int[] grantResults) {
+                                           String[] permissions, int[] grantResults) {
         Log.v(TAG, "onPermissionsResult counts: " + permissions.length + ":" + grantResults.length);
         mSettingsManager.set(
                 SettingsManager.SCOPE_GLOBAL,
                 Keys.KEY_HAS_SEEN_PERMISSIONS_DIALOGS,
                 true);
 
-        if (mShouldRequestCameraPermission) {
-            if (grantResults.length > 0 && grantResults[mIndexPermissionRequestCamera] ==
-                    PackageManager.PERMISSION_GRANTED) {
-                mFlagHasCameraPermission = true;
-            } else {
+        boolean missingCriticalPermissions = false;
+        for (int i = 0; i < permissions.length; i++) {
+            String permission = permissions[i];
+            int result = grantResults[i];
+            // Show fail dialog if critical permissions are not granted
+            if (Manifest.permission.CAMERA.equals(permission)
+                    && result == PackageManager.PERMISSION_DENIED) {
                 handlePermissionsFailure();
-            }
-        }
-        if (mShouldRequestMicrophonePermission) {
-            if (grantResults.length > 0 && grantResults[mIndexPermissionRequestMicrophone] ==
-                    PackageManager.PERMISSION_GRANTED) {
-                mFlagHasMicrophonePermission = true;
-            } else {
+                missingCriticalPermissions = true;
+            } else if (Manifest.permission.RECORD_AUDIO.equals(permission)
+                    && result == PackageManager.PERMISSION_DENIED) {
                 handlePermissionsFailure();
+                missingCriticalPermissions = true;
             }
         }
-        if (mShouldRequestLocationPermission) {
-            if (grantResults.length > 0 && grantResults[mIndexPermissionRequestLocation] ==
-                    PackageManager.PERMISSION_GRANTED) {
-                // Do nothing
-            } else {
-                // Do nothing
-            }
-        }
-
-        if (mFlagHasCameraPermission && mFlagHasMicrophonePermission) {
+        if (!missingCriticalPermissions) {
             handlePermissionsSuccess();
         }
     }

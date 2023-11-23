@@ -16,11 +16,15 @@
 
 package android.car.vms;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+
 import android.annotation.Nullable;
+import android.car.annotation.AddedInOrBefore;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.android.internal.util.DataClass;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.DataClass;
 
 import java.util.Arrays;
 
@@ -59,12 +63,14 @@ public class VmsProviderInfo implements Parcelable {
     }
 
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public @Nullable byte[] getDescription() {
         return mDescription;
     }
 
     @Override
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public boolean equals(@Nullable Object o) {
         // You can override field equality logic by defining either of the methods like:
         // boolean fieldNameEquals(VmsProviderInfo other) { ... }
@@ -81,6 +87,7 @@ public class VmsProviderInfo implements Parcelable {
 
     @Override
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public int hashCode() {
         // You can override field hashCode logic by defining methods like:
         // int fieldNameHashCode() { ... }
@@ -92,6 +99,7 @@ public class VmsProviderInfo implements Parcelable {
 
     @Override
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public void writeToParcel(@android.annotation.NonNull Parcel dest, int flags) {
         // You can override field parcelling by defining methods like:
         // void parcelFieldName(Parcel dest, int flags) { ... }
@@ -104,6 +112,8 @@ public class VmsProviderInfo implements Parcelable {
 
     @Override
     @DataClass.Generated.Member
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
+    @AddedInOrBefore(majorVersion = 33)
     public int describeContents() { return 0; }
 
     /** @hide */
@@ -122,6 +132,7 @@ public class VmsProviderInfo implements Parcelable {
     }
 
     @DataClass.Generated.Member
+    @AddedInOrBefore(majorVersion = 33)
     public static final @android.annotation.NonNull Parcelable.Creator<VmsProviderInfo> CREATOR
             = new Parcelable.Creator<VmsProviderInfo>() {
         @Override
@@ -139,7 +150,7 @@ public class VmsProviderInfo implements Parcelable {
             time = 1581406319319L,
             codegenVersion = "1.0.14",
             sourceFile = "packages/services/Car/car-lib/src/android/car/vms/VmsProviderInfo.java",
-            inputSignatures = "private final @android.annotation.Nullable byte[] mDescription\nclass VmsProviderInfo extends java.lang.Object implements [android.os.Parcelable]\n@com.android.internal.util.DataClass(genEqualsHashCode=true, genAidl=true)")
+            inputSignatures = "private final @android.annotation.Nullable byte[] mDescription\nclass VmsProviderInfo extends java.lang.Object implements [android.os.Parcelable]\n@com.android.car.internal.util.DataClass(genEqualsHashCode=true, genAidl=true)")
     @Deprecated
     private void __metadata() {}
 

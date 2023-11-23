@@ -30,14 +30,14 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.server.wifi.util.WifiHandler;
+import com.android.modules.utils.HandlerExecutor;
 import com.android.wifi.resources.R;
 
 import java.io.FileDescriptor;
@@ -106,7 +106,7 @@ public class SarManager {
         mTelephonyManager = telephonyManager;
         mWifiNative = wifiNative;
         mAudioManager = mContext.getSystemService(AudioManager.class);
-        mHandler = new WifiHandler(TAG, looper);
+        mHandler = new Handler(looper);
         mPhoneStateListener = new WifiPhoneStateListener(looper);
     }
 
@@ -247,9 +247,9 @@ public class SarManager {
                     @Override
                     public void onReceive(Context context, Intent intent) {
                         String action = intent.getAction();
-                        if (action.equals(Intent.ACTION_SCREEN_ON)) {
+                        if (TextUtils.equals(action, Intent.ACTION_SCREEN_ON)) {
                             handleScreenStateChanged(true);
-                        } else if (action.equals(Intent.ACTION_SCREEN_OFF)) {
+                        } else if (TextUtils.equals(action, Intent.ACTION_SCREEN_OFF)) {
                             handleScreenStateChanged(false);
                         }
                     }
@@ -427,12 +427,8 @@ public class SarManager {
     /**
      * Enable/disable verbose logging.
      */
-    public void enableVerboseLogging(int verbose) {
-        if (verbose > 0) {
-            mVerboseLoggingEnabled = true;
-        } else {
-            mVerboseLoggingEnabled = false;
-        }
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
     }
 
     /**

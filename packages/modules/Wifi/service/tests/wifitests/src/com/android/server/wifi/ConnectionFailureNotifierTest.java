@@ -17,17 +17,25 @@
 package com.android.server.wifi;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import android.app.AlertDialog;
 import android.app.Notification;
 import android.content.BroadcastReceiver;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.os.Handler;
 import android.os.Process;
 import android.os.test.TestLooper;
@@ -35,6 +43,7 @@ import android.os.test.TestLooper;
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
+import com.android.wifi.resources.R;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,9 +63,10 @@ public class ConnectionFailureNotifierTest extends WifiBaseTest {
     @Mock private WifiConfigManager mWifiConfigManager;
     @Mock private WifiConnectivityManager mWifiConnectivityManager;
     @Mock private WifiNotificationManager mWifiNotificationManager;
+    @Mock private WifiDialogManager mWifiDialogManager;
     @Mock private ConnectionFailureNotificationBuilder mConnectionFailureNotificationBuilder;
     @Mock private Notification mNotification;
-    @Mock private AlertDialog mAlertDialog;
+    @Mock private WifiDialogManager.DialogHandle mDialogHandle;
 
     private final ArgumentCaptor<BroadcastReceiver> mBroadCastReceiverCaptor =
             ArgumentCaptor.forClass(BroadcastReceiver.class);
@@ -72,12 +82,15 @@ public class ConnectionFailureNotifierTest extends WifiBaseTest {
         when(mContext.getResources()).thenReturn(mResources);
         when(mConnectionFailureNotificationBuilder
                 .buildNoMacRandomizationSupportNotification(any())).thenReturn(mNotification);
-        when(mConnectionFailureNotificationBuilder.buildChangeMacRandomizationSettingDialog(any(),
-                any())).thenReturn(mAlertDialog);
+        when(mWifiDialogManager.createSimpleDialog(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(mDialogHandle);
         mConnectionFailureNotifier = new ConnectionFailureNotifier(
                 mContext, mFrameworkFacade, mWifiConfigManager, mWifiConnectivityManager,
                 new Handler(mLooper.getLooper()), mWifiNotificationManager,
-                mConnectionFailureNotificationBuilder);
+                mConnectionFailureNotificationBuilder, mWifiDialogManager);
+        when(mResources.getString(
+                eq(R.string.wifi_disable_mac_randomization_dialog_message), anyString()))
+                .thenAnswer(s -> "blah" + s.getArguments()[1]);
 
         verify(mContext).registerReceiver(mBroadCastReceiverCaptor.capture(), any());
     }
@@ -129,12 +142,19 @@ public class ConnectionFailureNotifierTest extends WifiBaseTest {
         ArgumentCaptor<DialogInterface.OnClickListener>  onClickListenerArgumentCaptor =
                 ArgumentCaptor.forClass(DialogInterface.OnClickListener.class);
         mBroadCastReceiverCaptor.getValue().onReceive(mContext, intent);
-        verify(mConnectionFailureNotificationBuilder).buildChangeMacRandomizationSettingDialog(
-                eq(config.SSID), onClickListenerArgumentCaptor.capture());
+        ArgumentCaptor<WifiDialogManager.SimpleDialogCallback> dialogCallbackCaptor =
+                ArgumentCaptor.forClass(WifiDialogManager.SimpleDialogCallback.class);
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(mDialogHandle).launchDialog();
+        verify(mWifiDialogManager).createSimpleDialog(
+                any(), messageCaptor.capture(), any(), any(), any(),
+                dialogCallbackCaptor.capture(), any());
+        String message = messageCaptor.getValue();
+        assertNotNull(message);
+        assertTrue(message.contains(config.SSID));
 
         // simulate the user tapping on the option to reset MAC address to factory MAC
-        onClickListenerArgumentCaptor.getValue().onClick(null, 0);
-        mLooper.dispatchAll();
+        dialogCallbackCaptor.getValue().onPositiveButtonClicked();
 
         // verify the WifiConfiguration is updated properly.
         verify(mWifiConfigManager).addOrUpdateNetwork(
@@ -166,8 +186,9 @@ public class ConnectionFailureNotifierTest extends WifiBaseTest {
         mBroadCastReceiverCaptor.getValue().onReceive(mContext, intent);
 
         // verify that the AlertDialog is not launched in this case
-        verify(mConnectionFailureNotificationBuilder, never())
-                .buildChangeMacRandomizationSettingDialog(any(), any());
+        verify(mWifiDialogManager, never())
+                .createSimpleDialog(any(), any(), any(), any(), any(), any(), any());
+        verify(mDialogHandle, never()).launchDialog();
 
         verify(mFrameworkFacade, never()).makeAlertDialogBuilder(any());
         // instead we are showings a toast due to failing to find the network

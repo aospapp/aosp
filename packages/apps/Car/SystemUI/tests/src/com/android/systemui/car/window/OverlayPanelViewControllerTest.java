@@ -325,23 +325,13 @@ public class OverlayPanelViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void setPanelVisible_setTrue_windowNotVisible_setsWindowVisible() {
+    public void setPanelVisible_setTrue_showsView() {
         mOverlayPanelViewController.inflate(mBaseLayout);
         when(mOverlayViewGlobalStateController.isWindowVisible()).thenReturn(false);
 
         mOverlayPanelViewController.setPanelVisible(true);
 
         verify(mOverlayViewGlobalStateController).showView(mOverlayPanelViewController);
-    }
-
-    @Test
-    public void setPanelVisible_setTrue_windowVisible_doesNotSetWindowVisible() {
-        mOverlayPanelViewController.inflate(mBaseLayout);
-        when(mOverlayViewGlobalStateController.isWindowVisible()).thenReturn(true);
-
-        mOverlayPanelViewController.setPanelVisible(true);
-
-        verify(mOverlayViewGlobalStateController, never()).showView(mOverlayPanelViewController);
     }
 
     @Test

@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"SLOKKNAR"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"SLÖKKT"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Raddgreiningu er nú stjórnað af tengdu Bluetooth-tæki"</string>
-    <string name="car_guest" msgid="768913000117469596">"Gestur"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"Gestur"</string>
     <string name="car_add_user" msgid="6182764665687382136">"Bæta við prófíl"</string>
     <string name="car_new_user" msgid="6766334721724989964">"Nýr prófíll"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"Bæta við nýjum prófíl?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"Eftir að þú býrð til nýjan prófíl ætti eigandi prófílsins að sérsníða hann eftir eigin höfði."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"Hægt er að uppfæra forrit úr hvaða prófíl sem er til að nota á öllum öðrum prófílum."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"Hámarki prófíla náð"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="one">Þú getur bætt við allt að <xliff:g id="COUNT">%d</xliff:g> prófíl.</item>
-      <item quantity="other">Þú getur bætt við allt að <xliff:g id="COUNT">%d</xliff:g> prófílum.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{Aðeins er hægt að búa til einn prófíl.}one{Þú getur bætt við allt að # prófíl.}other{Þú getur bætt við allt að # prófílum.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"Hleður"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Hleður notanda (frá <xliff:g id="FROM_USER">%1$d</xliff:g> til <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Slökkt er á hljóðnemanum."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Nota hljóðnema"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Fyrir forrit með heimild"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"Slökkt er á <xliff:g id="SENSOR">%1$s</xliff:g>."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"Nota <xliff:g id="SENSOR">%1$s</xliff:g>"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"Fyrir forrit með heimild"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Stillingar hljóðnema"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> er að nota hljóðnemann"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> er að nota <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> eru að nota hljóðnemann"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> notaði hljóðnemann nýlega"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> og <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> í viðbót notuðu hljóðnemann nýlega"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"<xliff:g id="APP">%1$s</xliff:g> notaði <xliff:g id="SENSOR">%2$s</xliff:g> nýlega"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g> og <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> í viðbót notuðu <xliff:g id="SENSOR">%3$s</xliff:g> nýlega"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Kveikt er á hljóðnemanum"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Slökkt á hljóðnemanum"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"Í lagi"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Kveikja á hljóðnema ökutækisins?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Kveiktu á hljóðnema upplýsinga- og afþreyingakerfisins til að halda áfram. Þetta kveikir á hljóðnemanum fyrir öll forrit með heimild."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"Stillingar myndavélar"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> er að nota myndavélina"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> eru að nota myndavélina"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g> notaði myndavélina nýlega"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g> og <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> í viðbót notuðu myndavélina nýlega"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"Kveikt á myndavél"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"Slökkt á myndavél"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"Í lagi"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"Kveikja á myndavél ökutækisins?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"Kveiktu á myndavél upplýsinga- og afþreyingakerfisins til að halda áfram. Þetta kveikir á myndavélinni fyrir öll forrit með heimild."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"Þú getur ekki notað þennan eiginleika við akstur"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"Loka forriti"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"Til baka"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"Stillingar"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Bluetooth-stillingar"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Netkerfis- og internetstillingar"</string>

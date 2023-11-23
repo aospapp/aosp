@@ -17,7 +17,8 @@
 #define LOG_TAG "resolv"
 
 #include <aidl/android/net/IDnsResolver.h>
-#include <android-base/stringprintf.h>
+#include <android-base/format.h>
+#include <android-base/logging.h>
 #include <arpa/inet.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -30,6 +31,7 @@
 #include "gethnamaddr.h"
 #include "resolv_cache.h"
 #include "stats.pb.h"
+#include "tests/resolv_test_base.h"
 #include "tests/resolv_test_utils.h"
 
 #define NAME(variable) #variable
@@ -38,7 +40,6 @@ namespace android {
 namespace net {
 
 using aidl::android::net::IDnsResolver;
-using android::base::StringPrintf;
 using android::net::NetworkDnsEventReported;
 using android::netdutils::ScopedAddrinfo;
 
@@ -49,7 +50,7 @@ constexpr unsigned int MAXPACKET = 8 * 1024;
 // that any type or protocol can be returned by getaddrinfo().
 constexpr unsigned int ANY = 0;
 
-class TestBase : public ::testing::Test {
+class TestBase : public ResolvTestBase {
   protected:
     struct DnsMessage {
         std::string host_name;   // host name
@@ -60,10 +61,12 @@ class TestBase : public ::testing::Test {
     void SetUp() override {
         // Create cache for test
         resolv_create_cache_for_net(TEST_NETID);
+        SetMdnsRoute();
     }
     void TearDown() override {
         // Delete cache for test
         resolv_delete_cache_for_net(TEST_NETID);
+        RemoveMdnsRoute();
     }
 
     test::DNSRecord MakeAnswerRecord(const std::string& name, unsigned rclass, unsigned rtype,
@@ -184,9 +187,9 @@ TEST_F(ResolvGetAddrInfoTest, InvalidParameters) {
         int expected_eai_error;
 
         std::string asParameters() const {
-            return StringPrintf("0x%x/%u/%s/%p/%p", ai_flags, ai_addrlen,
-                                ai_canonname ? ai_canonname : "(null)", (void*)ai_addr,
-                                (void*)ai_next);
+            return fmt::format("{:#x}/{}/{}/{}/{}", ai_flags, ai_addrlen,
+                               ai_canonname ? ai_canonname : "(null)", (void*)ai_addr,
+                               (void*)ai_next);
         }
     } testConfigs[]{
             {0, sizeof(in_addr) /*bad*/, nullptr, nullptr, nullptr, EAI_BADHINTS},
@@ -228,7 +231,7 @@ TEST_F(ResolvGetAddrInfoTest, InvalidParameters_Family) {
         if (family == AF_UNSPEC || family == AF_INET || family == AF_INET6) {
             continue;  // skip supported family
         }
-        SCOPED_TRACE(StringPrintf("family: %d", family));
+        SCOPED_TRACE(fmt::format("family: {}", family));
 
         addrinfo* result = nullptr;
         const addrinfo hints = {
@@ -258,9 +261,9 @@ TEST_F(ResolvGetAddrInfoTest, InvalidParameters_SocketType) {
                                             "ftp",
                                             "65536",  // out of valid port range from 0 to 65535
                                             "invalid"}) {
-                    SCOPED_TRACE(StringPrintf("family: %d, socktype: %d, protocol: %d, service: %s",
-                                              family, socktype, protocol,
-                                              service ? service : "service is nullptr"));
+                    SCOPED_TRACE(fmt::format("family: {}, socktype: {}, protocol: {}, service: {}",
+                                             family, socktype, protocol,
+                                             service ? service : "service is nullptr"));
                     addrinfo* result = nullptr;
                     NetworkDnsEventReported event;
                     int rv = resolv_getaddrinfo("localhost", service, &hints, &mNetcontext, &result,
@@ -288,8 +291,8 @@ TEST_F(ResolvGetAddrInfoTest, InvalidParameters_MeaningfulSocktypeAndProtocolCom
     for (const auto& family : families) {
         for (const auto& socktype : socktypes) {
             for (int protocol = 0; protocol < IPPROTO_MAX; ++protocol) {
-                SCOPED_TRACE(StringPrintf("family: %d, socktype: %d, protocol: %d", family,
-                                          socktype, protocol));
+                SCOPED_TRACE(fmt::format("family: {}, socktype: {}, protocol: {}", family, socktype,
+                                         protocol));
 
                 // Both socktype/protocol need to be specified.
                 if (!socktype || !protocol) continue;
@@ -340,8 +343,8 @@ TEST_F(ResolvGetAddrInfoTest, InvalidParameters_PortNameAndNumber) {
         int expected_eai_error;
 
         std::string asParameters() const {
-            return StringPrintf("0x%x/%d/%d/%s", ai_flags, ai_family, ai_socktype,
-                                servname ? servname : "(null)");
+            return fmt::format("{:#x}/{}/{}/{}", ai_flags, ai_family, ai_socktype,
+                               servname ? servname : "(null)");
         }
     } testConfigs[]{
             {0, AF_INET, SOCK_RAW /*bad*/, http_portno, EAI_SERVICE},
@@ -558,7 +561,7 @@ TEST_F(ResolvGetAddrInfoTest, AlphabeticalHostname) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(StringPrintf("family: %d", config.ai_family));
+        SCOPED_TRACE(fmt::format("family: {}", config.ai_family));
         dns.clearQueries();
 
         addrinfo* result = nullptr;
@@ -602,7 +605,7 @@ TEST_F(ResolvGetAddrInfoTest, IllegalHostname) {
         dns.addMapping(hostname, ns_type::ns_t_aaaa, "2001:db8::42");
 
         for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
-            SCOPED_TRACE(StringPrintf("family: %d, config.name: %s", family, hostname));
+            SCOPED_TRACE(fmt::format("family: {}, config.name: {}", family, hostname));
 
             addrinfo* res = nullptr;
             const addrinfo hints = {.ai_family = family};
@@ -635,7 +638,7 @@ TEST_F(ResolvGetAddrInfoTest, ServerResponseError) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(StringPrintf("rcode: %d", config.rcode));
+        SCOPED_TRACE(fmt::format("rcode: {}", config.rcode));
 
         test::DNSResponder dns(config.rcode);
         dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.4");
@@ -845,7 +848,7 @@ TEST_F(ResolvGetAddrInfoTest, ServerTimeout) {
         })Event";
     test::DNSResponder dns(static_cast<ns_rcode>(-1) /*no response*/);
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.4");
-    dns.setResponseProbability(0.0);  // always ignore requests and don't response
+    dns.setResponseProbability(0.0);  // always ignore requests and don't respond
     ASSERT_TRUE(dns.startServer());
     ASSERT_EQ(0, SetResolvers());
 
@@ -855,6 +858,198 @@ TEST_F(ResolvGetAddrInfoTest, ServerTimeout) {
     int rv = resolv_getaddrinfo("hello", nullptr, &hints, &mNetcontext, &result, &event);
     EXPECT_THAT(event, NetworkDnsEventEq(fromNetworkDnsEventReportedStr(expected_event)));
     EXPECT_EQ(NETD_RESOLV_TIMEOUT, rv);
+}
+
+TEST_F(ResolvGetAddrInfoTest, MdnsAlphabeticalHostname) {
+    constexpr char v4addr[] = "127.0.0.3";
+    constexpr char v6addr[] = "::127.0.0.3";
+    constexpr char host_name[] = "hello.local.";
+    // Following fields will not be verified during the test in proto NetworkDnsEventReported.
+    // So don't need to config those values: event_type, return_code, latency_micros,
+    // hints_ai_flags, res_nsend_flags, network_type, private_dns_modes.
+
+    constexpr char event_ipv4[] = R"Event(
+             NetworkDnsEventReported {
+             dns_query_events:
+             {
+               dns_query_event:[
+                {
+                 rcode: 0,
+                 type: 1,
+                 cache_hit: 1,
+                 ip_version: 1,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 linux_errno: 0,
+                },
+               ]
+             }
+        })Event";
+
+    constexpr char event_ipv6[] = R"Event(
+             NetworkDnsEventReported {
+             dns_query_events:
+             {
+               dns_query_event:[
+                {
+                 rcode: 0,
+                 type: 28,
+                 cache_hit: 1,
+                 ip_version: 2,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 linux_errno: 0,
+                },
+               ]
+             }
+        })Event";
+
+    constexpr char event_ipv4v6[] = R"Event(
+             NetworkDnsEventReported {
+             dns_query_events:
+             {
+               dns_query_event:[
+                {
+                 rcode: 0,
+                 type: 28,
+                 cache_hit: 1,
+                 ip_version: 2,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 linux_errno: 0,
+                },
+                {
+                 rcode: 0,
+                 type: 1,
+                 cache_hit: 1,
+                 ip_version: 1,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 linux_errno: 0,
+                }
+               ]
+             }
+        })Event";
+
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService);
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService);
+    mdnsv4.addMapping(host_name, ns_type::ns_t_a, v4addr);
+    mdnsv6.addMapping(host_name, ns_type::ns_t_aaaa, v6addr);
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+
+    static const struct TestConfig {
+        int ai_family;
+        const std::vector<std::string> expected_addr;
+        const std::string expected_event;
+    } testConfigs[]{
+            {AF_UNSPEC, {v4addr, v6addr}, event_ipv4v6},
+            {AF_INET, {v4addr}, event_ipv4},
+            {AF_INET6, {v6addr}, event_ipv6},
+    };
+
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("family: {}", config.ai_family));
+        mdnsv4.clearQueries();
+        mdnsv6.clearQueries();
+
+        addrinfo* result = nullptr;
+        const addrinfo hints = {.ai_family = config.ai_family, .ai_socktype = SOCK_DGRAM};
+        NetworkDnsEventReported event;
+        int rv = resolv_getaddrinfo("hello.local", nullptr, &hints, &mNetcontext, &result, &event);
+        EXPECT_THAT(event,
+                    NetworkDnsEventEq(fromNetworkDnsEventReportedStr(config.expected_event)));
+        ScopedAddrinfo result_cleanup(result);
+
+        if (config.ai_family == AF_UNSPEC) {
+            EXPECT_EQ(0, rv);
+            EXPECT_EQ(1U, GetNumQueries(mdnsv4, host_name));
+            EXPECT_EQ(1U, GetNumQueries(mdnsv6, host_name));
+            const std::vector<std::string> result_strs = ToStrings(result);
+            EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(config.expected_addr));
+        } else if (config.ai_family == AF_INET) {
+            EXPECT_EQ(0, rv);
+            EXPECT_EQ(1U, GetNumQueries(mdnsv4, host_name));
+            const std::vector<std::string> result_strs = ToStrings(result);
+            EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(config.expected_addr));
+        } else if (config.ai_family == AF_INET6) {
+            EXPECT_EQ(0, rv);
+            EXPECT_EQ(1U, GetNumQueries(mdnsv6, host_name));
+            const std::vector<std::string> result_strs = ToStrings(result);
+            EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(config.expected_addr));
+        }
+        resolv_flush_cache_for_net(TEST_NETID);
+    }
+}
+
+TEST_F(ResolvGetAddrInfoTest, MdnsIllegalHostname) {
+    constexpr char v6addr[] = "::127.0.0.3";
+    constexpr char v4addr[] = "127.0.0.3";
+
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService);
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService);
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+    mdnsv4.clearQueries();
+    mdnsv6.clearQueries();
+
+    constexpr char illegalHostname[] = "hello^.local.";
+    // Expect to get no address because hostname format is illegal.
+    //
+    // Ex:
+    // ANSWER SECTION:
+    // hello^.local.      IN  A       127.0.0.3
+    // hello^.local.      IN  AAAA    ::127.0.0.3
+    //
+    // In this example, querying "hello^.local" should get no address because
+    // "hello^.local" has an illegal char '^' in the middle of label.
+    mdnsv4.addMapping(illegalHostname, ns_type::ns_t_a, v4addr);
+    mdnsv6.addMapping(illegalHostname, ns_type::ns_t_aaaa, v6addr);
+
+    for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
+        SCOPED_TRACE(fmt::format("family: {}, illegalHostname: {}", family, illegalHostname));
+        addrinfo* result = nullptr;
+        const addrinfo hints = {.ai_family = family};
+        NetworkDnsEventReported event;
+        int rv = resolv_getaddrinfo("hello^.local", nullptr, &hints, &mNetcontext, &result, &event);
+        ScopedAddrinfo result_cleanup(result);
+        EXPECT_EQ(nullptr, result);
+        EXPECT_EQ(EAI_FAIL, rv);
+    }
+}
+
+TEST_F(ResolvGetAddrInfoTest, MdnsResponderTimeout) {
+    constexpr char host_name[] = "hello.local.";
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService,
+                              static_cast<ns_rcode>(-1));
+    mdnsv4.setResponseProbability(0.0);  // always ignore requests and don't respond
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService, static_cast<ns_rcode>(-1));
+    mdnsv6.setResponseProbability(0.0);
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+    test::DNSResponder dns("127.0.0.3", test::kDefaultListenService, static_cast<ns_rcode>(-1));
+    dns.setResponseProbability(0.0);
+    ASSERT_TRUE(dns.startServer());
+
+    for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
+        SCOPED_TRACE(fmt::format("family: {}, host_name: {}", family, host_name));
+        addrinfo* result = nullptr;
+        const addrinfo hints = {.ai_family = family};
+        NetworkDnsEventReported event;
+        int rv = resolv_getaddrinfo("hello.local", nullptr, &hints, &mNetcontext, &result, &event);
+        EXPECT_EQ(NETD_RESOLV_TIMEOUT, rv);
+    }
 }
 
 TEST_F(ResolvGetAddrInfoTest, CnamesNoIpAddress) {
@@ -882,8 +1077,7 @@ TEST_F(ResolvGetAddrInfoTest, CnamesNoIpAddress) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(
-                StringPrintf("config.family: %d, config.name: %s", config.family, config.name));
+        SCOPED_TRACE(fmt::format("config.family: {}, config.name: {}", config.family, config.name));
 
         addrinfo* res = nullptr;
         const addrinfo hints = {.ai_family = config.family};
@@ -903,7 +1097,7 @@ TEST_F(ResolvGetAddrInfoTest, CnamesBrokenChainByIllegalCname) {
     static const struct TestConfig {
         const char* name;
         const char* cname;
-        std::string asHostName() const { return StringPrintf("%s.example.com.", name); }
+        std::string asHostName() const { return fmt::format("{}.example.com.", name); }
 
         // Illegal cname is verified by res_hnok() in system/netd/resolv/res_comp.cpp.
     } testConfigs[]{
@@ -933,8 +1127,7 @@ TEST_F(ResolvGetAddrInfoTest, CnamesBrokenChainByIllegalCname) {
         dns.addMapping(config.cname, ns_type::ns_t_aaaa, "2001:db8::42");
 
         for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
-            SCOPED_TRACE(
-                    StringPrintf("family: %d, testHostName: %s", family, testHostName.c_str()));
+            SCOPED_TRACE(fmt::format("family: {}, testHostName: {}", family, testHostName));
 
             addrinfo* res = nullptr;
             const addrinfo hints = {.ai_family = family};
@@ -955,7 +1148,7 @@ TEST_F(ResolvGetAddrInfoTest, CnamesInfiniteLoop) {
     ASSERT_EQ(0, SetResolvers());
 
     for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
-        SCOPED_TRACE(StringPrintf("family: %d", family));
+        SCOPED_TRACE(fmt::format("family: {}", family));
 
         addrinfo* res = nullptr;
         const addrinfo hints = {.ai_family = family};
@@ -982,7 +1175,7 @@ TEST_F(ResolvGetAddrInfoTest, MultiAnswerSections) {
     ASSERT_EQ(0, SetResolvers());
 
     for (const auto& family : {AF_INET, AF_INET6, AF_UNSPEC}) {
-        SCOPED_TRACE(StringPrintf("family: %d", family));
+        SCOPED_TRACE(fmt::format("family: {}", family));
 
         addrinfo* res = nullptr;
         // If the socket type is not specified, every address will appear twice, once for
@@ -1121,7 +1314,7 @@ TEST_F(ResolvGetAddrInfoTest, TruncatedResponse) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(StringPrintf("family: %d", config.ai_family));
+        SCOPED_TRACE(fmt::format("family: {}", config.ai_family));
         dns.clearQueries();
 
         addrinfo* result = nullptr;
@@ -1243,7 +1436,7 @@ TEST_F(GetHostByNameForNetContextTest, AlphabeticalHostname) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(StringPrintf("family: %d", config.ai_family));
+        SCOPED_TRACE(fmt::format("family: {}", config.ai_family));
         dns.clearQueries();
 
         hostent* hp = nullptr;
@@ -1288,7 +1481,7 @@ TEST_F(GetHostByNameForNetContextTest, IllegalHostname) {
         dns.addMapping(hostname, ns_type::ns_t_aaaa, "2001:db8::42");
 
         for (const auto& family : {AF_INET, AF_INET6}) {
-            SCOPED_TRACE(StringPrintf("family: %d, config.name: %s", family, hostname));
+            SCOPED_TRACE(fmt::format("family: {}, config.name: {}", family, hostname));
 
             struct hostent* hp = nullptr;
             hostent hbuf;
@@ -1345,7 +1538,7 @@ TEST_F(GetHostByNameForNetContextTest, ServerResponseError) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(StringPrintf("rcode: %d", config.rcode));
+        SCOPED_TRACE(fmt::format("rcode: {}", config.rcode));
 
         test::DNSResponder dns(config.rcode);
         dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.4");
@@ -1369,7 +1562,7 @@ TEST_F(GetHostByNameForNetContextTest, ServerTimeout) {
     constexpr char host_name[] = "hello.example.com.";
     test::DNSResponder dns(static_cast<ns_rcode>(-1) /*no response*/);
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.4");
-    dns.setResponseProbability(0.0);  // always ignore requests and don't response
+    dns.setResponseProbability(0.0);  // always ignore requests and don't respond
     ASSERT_TRUE(dns.startServer());
     ASSERT_EQ(0, SetResolvers());
 
@@ -1403,8 +1596,7 @@ TEST_F(GetHostByNameForNetContextTest, CnamesNoIpAddress) {
     };
 
     for (const auto& config : testConfigs) {
-        SCOPED_TRACE(
-                StringPrintf("config.family: %d, config.name: %s", config.family, config.name));
+        SCOPED_TRACE(fmt::format("config.family: {}, config.name: {}", config.family, config.name));
 
         struct hostent* hp = nullptr;
         hostent hbuf;
@@ -1425,7 +1617,7 @@ TEST_F(GetHostByNameForNetContextTest, CnamesBrokenChainByIllegalCname) {
     static const struct TestConfig {
         const char* name;
         const char* cname;
-        std::string asHostName() const { return StringPrintf("%s.example.com.", name); }
+        std::string asHostName() const { return fmt::format("{}.example.com.", name); }
 
         // Illegal cname is verified by res_hnok() in system/netd/resolv/res_comp.cpp
     } testConfigs[]{
@@ -1455,8 +1647,7 @@ TEST_F(GetHostByNameForNetContextTest, CnamesBrokenChainByIllegalCname) {
         dns.addMapping(config.cname, ns_type::ns_t_aaaa, "2001:db8::42");
 
         for (const auto& family : {AF_INET, AF_INET6}) {
-            SCOPED_TRACE(
-                    StringPrintf("family: %d, testHostName: %s", family, testHostName.c_str()));
+            SCOPED_TRACE(fmt::format("family: {}, testHostName: {}", family, testHostName));
 
             struct hostent* hp = nullptr;
             hostent hbuf;
@@ -1478,7 +1669,7 @@ TEST_F(GetHostByNameForNetContextTest, CnamesInfiniteLoop) {
     ASSERT_EQ(0, SetResolvers());
 
     for (const auto& family : {AF_INET, AF_INET6}) {
-        SCOPED_TRACE(StringPrintf("family: %d", family));
+        SCOPED_TRACE(fmt::format("family: {}", family));
 
         struct hostent* hp = nullptr;
         hostent hbuf;
@@ -1488,6 +1679,169 @@ TEST_F(GetHostByNameForNetContextTest, CnamesInfiniteLoop) {
                                       &hp, &event);
         EXPECT_EQ(nullptr, hp);
         EXPECT_EQ(EAI_FAIL, rv);
+    }
+}
+
+TEST_F(GetHostByNameForNetContextTest, MdnsAlphabeticalHostname) {
+    constexpr char v4addr[] = "127.0.0.3";
+    constexpr char v6addr[] = "::127.0.0.3";
+    constexpr char host_name[] = "hello.local.";
+
+    // Following fields will not be verified during the test in proto NetworkDnsEventReported.
+    // So don't need to config those values: event_type, return_code, latency_micros,
+    // hints_ai_flags, res_nsend_flags, network_type, private_dns_modes.
+    constexpr char event_ipv4[] = R"Event(
+             NetworkDnsEventReported {
+             dns_query_events:
+             {
+               dns_query_event:[
+                {
+                 rcode: 0,
+                 type: 1,
+                 cache_hit: 1,
+                 ip_version: 1,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 latency_micros: 0,
+                 linux_errno: 0,
+                }
+               ]
+             }
+        })Event";
+
+    constexpr char event_ipv6[] = R"Event(
+             NetworkDnsEventReported {
+             dns_query_events:
+             {
+               dns_query_event:[
+                {
+                 rcode: 0,
+                 type: 28,
+                 cache_hit: 1,
+                 ip_version: 2,
+                 protocol: 5,
+                 retry_times: 0,
+                 dns_server_index: 0,
+                 connected: 0,
+                 latency_micros: 0,
+                 linux_errno: 0,
+                }
+               ]
+             }
+        })Event";
+
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService);
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService);
+
+    mdnsv4.addMapping(host_name, ns_type::ns_t_a, v4addr);
+    mdnsv6.addMapping(host_name, ns_type::ns_t_aaaa, v6addr);
+
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+
+    static const struct TestConfig {
+        int ai_family;
+        const std::vector<std::string> expected_addr;
+        const std::string expected_event;
+    } testConfigs[]{
+            {AF_INET, {v4addr}, event_ipv4},
+            {AF_INET6, {v6addr}, event_ipv6},
+    };
+
+    for (const auto& config : testConfigs) {
+        SCOPED_TRACE(fmt::format("family: {}", config.ai_family));
+        hostent* result = nullptr;
+        hostent hbuf;
+        char tmpbuf[MAXPACKET];
+        NetworkDnsEventReported event;
+        int rv = resolv_gethostbyname("hello.local", config.ai_family, &hbuf, tmpbuf,
+                                      sizeof(tmpbuf), &mNetcontext, &result, &event);
+        EXPECT_THAT(event,
+                    NetworkDnsEventEq(fromNetworkDnsEventReportedStr(config.expected_event)));
+        EXPECT_EQ(0, rv);
+        test::DNSResponder& mdns = config.ai_family == AF_INET ? mdnsv4 : mdnsv6;
+        EXPECT_EQ(1U, GetNumQueries(mdns, host_name));
+        mdns.clearQueries();
+        std::vector<std::string> result_strs = ToStrings(result);
+        EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(config.expected_addr));
+
+        // Ensure the query result is still cached.
+        rv = resolv_gethostbyname("hello.local", config.ai_family, &hbuf, tmpbuf, sizeof(tmpbuf),
+                                  &mNetcontext, &result, &event);
+        EXPECT_EQ(0, rv);
+        EXPECT_EQ(0U, GetNumQueries(mdns, host_name));
+        result_strs = ToStrings(result);
+        EXPECT_THAT(result_strs, testing::UnorderedElementsAreArray(config.expected_addr));
+    }
+}
+
+TEST_F(GetHostByNameForNetContextTest, MdnsIllegalHostname) {
+    constexpr char v6addr[] = "::127.0.0.3";
+    constexpr char v4addr[] = "127.0.0.3";
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService);
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService);
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+    mdnsv4.clearQueries();
+    mdnsv6.clearQueries();
+
+    constexpr char illegalHostname[] = "hello^.local.";
+    // Expect to get no address because hostname format is illegal.
+    //
+    // Ex:
+    // ANSWER SECTION:
+    // hello^.local.      IN  A       127.0.0.3
+    // hello^.local.      IN  AAAA    ::127.0.0.3
+    //
+    // In this example, querying "hello^.local" should get no address because
+    // "hello^.local" has an illegal char '^' in the middle of label.
+    mdnsv4.addMapping(illegalHostname, ns_type::ns_t_a, v4addr);
+    mdnsv6.addMapping(illegalHostname, ns_type::ns_t_aaaa, v6addr);
+
+    SCOPED_TRACE(fmt::format("family: {}, illegalHostname: {}", AF_INET6, illegalHostname));
+    struct hostent* result = nullptr;
+    hostent hbuf;
+    char tmpbuf[MAXPACKET];
+    NetworkDnsEventReported event;
+    int rv = resolv_gethostbyname("hello^.local", AF_INET6, &hbuf, tmpbuf, sizeof(tmpbuf),
+                                  &mNetcontext, &result, &event);
+    EXPECT_EQ(nullptr, result);
+    EXPECT_EQ(EAI_FAIL, rv);
+
+    SCOPED_TRACE(fmt::format("family: {}, illegalHostname: {}", AF_INET, illegalHostname));
+    rv = resolv_gethostbyname("hello^.local", AF_INET, &hbuf, tmpbuf, sizeof(tmpbuf), &mNetcontext,
+                              &result, &event);
+    EXPECT_EQ(nullptr, result);
+    EXPECT_EQ(EAI_FAIL, rv);
+}
+
+TEST_F(GetHostByNameForNetContextTest, MdnsResponderTimeout) {
+    constexpr char host_name[] = "hello.local.";
+    test::DNSResponder mdnsv4("127.0.0.3", test::kDefaultMdnsListenService,
+                              static_cast<ns_rcode>(-1));
+    mdnsv4.setResponseProbability(0.0);  // always ignore requests and don't respond
+    test::DNSResponder mdnsv6("::1", test::kDefaultMdnsListenService, static_cast<ns_rcode>(-1));
+    mdnsv6.setResponseProbability(0.0);
+    ASSERT_TRUE(mdnsv4.startServer());
+    ASSERT_TRUE(mdnsv6.startServer());
+    ASSERT_EQ(0, SetResolvers());
+    test::DNSResponder dns("127.0.0.3", test::kDefaultListenService, static_cast<ns_rcode>(-1));
+    dns.setResponseProbability(0.0);
+    ASSERT_TRUE(dns.startServer());
+
+    for (const auto& family : {AF_INET, AF_INET6}) {
+        SCOPED_TRACE(fmt::format("family: {}, host_name: {}", family, host_name));
+        hostent* result = nullptr;
+        hostent hbuf;
+        char tmpbuf[MAXPACKET];
+        NetworkDnsEventReported event;
+        int rv = resolv_gethostbyname("hello.local", family, &hbuf, tmpbuf, sizeof tmpbuf,
+                                      &mNetcontext, &result, &event);
+        EXPECT_EQ(NETD_RESOLV_TIMEOUT, rv);
     }
 }
 

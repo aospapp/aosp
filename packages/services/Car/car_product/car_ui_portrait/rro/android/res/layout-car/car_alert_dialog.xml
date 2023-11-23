@@ -14,21 +14,21 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<com.android.internal.widget.AlertDialogLayout
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@*android:id/parentPanel"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="400dp"
     android:maxHeight="916dp"
     android:gravity="start|top"
-    android:background="@color/alert_dialog_background_color"
+    android:background="@drawable/alert_dialog_bg"
     android:orientation="vertical">
     <include layout="@layout/car_alert_dialog_title" />
     <FrameLayout
         android:id="@*android:id/contentPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@*android:id/topPanel"
         android:layout_marginStart="@dimen/car_alert_dialog_margin"
         android:layout_marginEnd="@dimen/car_alert_dialog_margin">
         <ScrollView
@@ -49,7 +49,8 @@
                     android:id="@android:id/message"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/alert_dialog_message_text_color"/>
+                    android:textSize="24sp"
+                    android:textColor="@color/alert_dialog_subtitle_text_color"/>
                 <!-- we don't need this spacer, but the id needs to be here for compatibility -->
                 <Space
                     android:id="@*android:id/textSpacerNoButtons"
@@ -63,6 +64,7 @@
         android:id="@*android:id/customPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@*android:id/contentPanel"
         android:minHeight="48dp">
         <FrameLayout
             android:id="@android:id/custom"
@@ -72,5 +74,8 @@
     <include
         android:layout_width="match_parent"
         android:layout_height="@dimen/button_layout_height"
+        android:layout_marginTop="@dimen/car_alert_dialog_margin"
+        android:layout_marginBottom="@dimen/car_alert_dialog_margin"
+        android:layout_below="@*android:id/customPanel"
         layout="@layout/car_alert_dialog_button_bar" />
-</com.android.internal.widget.AlertDialogLayout>
+</RelativeLayout>

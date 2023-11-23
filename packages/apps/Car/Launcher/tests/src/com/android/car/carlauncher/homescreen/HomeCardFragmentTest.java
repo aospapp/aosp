@@ -25,14 +25,23 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.not;
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import android.graphics.drawable.Drawable;
+import android.widget.ImageButton;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.carlauncher.CarLauncher;
 import com.android.car.carlauncher.R;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
+import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
 import com.android.car.carlauncher.homescreen.ui.TextBlockView;
 
 import org.junit.Rule;
@@ -47,7 +56,8 @@ public class HomeCardFragmentTest {
     private static final String DESCRIPTIVE_TEXT_FOOTER = "Descriptive footer";
     private static final String TEXT_BLOCK_CONTENT = "Test text for text block";
     private static final String TEXT_BLOCK_FOOTER = "Text block footer";
-    private static final CardHeader CARD_HEADER = new CardHeader("Test App Name", /* appIcon= */ null);
+    private static final CardHeader CARD_HEADER = new CardHeader("Test App Name", /* appIcon= */
+            null);
     private static final DescriptiveTextView DESCRIPTIVE_TEXT_VIEW =
             new DescriptiveTextView(/* image = */ null, DESCRIPTIVE_TEXT_TITLE,
                     DESCRIPTIVE_TEXT_SUBTITLE, DESCRIPTIVE_TEXT_FOOTER);
@@ -137,5 +147,40 @@ public class HomeCardFragmentTest {
         onView(allOf(withId(R.id.tap_for_more_text),
                 isDescendantOfA(withId(R.id.text_block_layout)),
                 isDescendantOfA(withId(R.id.top_card)))).check(matches(not(isDisplayed())));
+    }
+
+    @Test
+    public void updateControlBarButton_updatesButtonSelectedState() {
+        HomeCardFragment fragment = (HomeCardFragment) mActivityTestRule.getActivity()
+                .getSupportFragmentManager().findFragmentById(R.id.top_card);
+        assertNotNull(fragment);
+
+        ImageButton leftImageButton = mock(ImageButton.class);
+        fragment.setControlBarLeftButton(leftImageButton);
+
+        Drawable mockIcon = mock(Drawable.class);
+        DescriptiveTextWithControlsView.Control buttonControl = mock(
+                DescriptiveTextWithControlsView.Control.class);
+        DescriptiveTextWithControlsView.Control leftButtonControl = mock(
+                DescriptiveTextWithControlsView.Control.class);
+
+        // unselects the button in case the icon doesn't have a selected state
+        when(mockIcon.getState()).thenReturn(new int[0]);
+        when(leftButtonControl.getIcon()).thenReturn(mockIcon);
+        DescriptiveTextWithControlsView controlView = new DescriptiveTextWithControlsView(null,
+                "test", "test", leftButtonControl, buttonControl, buttonControl);
+        fragment.updateHeaderView(CARD_HEADER);
+        fragment.updateContentView(controlView);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        verify(leftImageButton).setSelected(false);
+
+        // selects the button in case the icon have a selected state
+        when(mockIcon.getState()).thenReturn(new int[]{android.R.attr.state_selected});
+        when(leftButtonControl.getIcon()).thenReturn(mockIcon);
+        controlView = new DescriptiveTextWithControlsView(null,
+                "test", "test", leftButtonControl, buttonControl, buttonControl);
+        fragment.updateContentView(controlView);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        verify(leftImageButton).setSelected(true);
     }
 }

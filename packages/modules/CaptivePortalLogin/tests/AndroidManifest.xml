@@ -17,9 +17,8 @@
  */
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
     package="com.android.captiveportallogin.tests">
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
-
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
     <application android:debuggable="true">
@@ -27,15 +26,18 @@
         <provider android:name="androidx.core.content.FileProvider"
                   android:authorities="com.android.captiveportallogin.tests.fileprovider"
                   android:exported="false"
-                  android:grantUriPermissions="true">
+                  android:grantUriPermissions="true"
+                  tools:replace="android:authorities" >
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+                android:resource="@xml/file_paths"
+                tools:replace="android:resource" />
         </provider>
         <activity
             android:name="com.android.captiveportallogin.CaptivePortalLoginActivityTest$InstrumentedCaptivePortalLoginActivity"/>
         <activity android:name="com.android.captiveportallogin.DownloadServiceTest$RequestDismissKeyguardActivity"/>
-        <activity android:name="com.android.captiveportallogin.DownloadServiceTest$OpenTextFileActivity">
+        <activity android:name="com.android.captiveportallogin.DownloadServiceTest$OpenTextFileActivity"
+                  android:exported="false" >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

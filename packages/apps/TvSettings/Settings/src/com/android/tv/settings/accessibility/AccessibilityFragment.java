@@ -53,6 +53,7 @@ import java.util.Set;
 @Keep
 public class AccessibilityFragment extends SettingsPreferenceFragment {
     private static final String TOGGLE_HIGH_TEXT_CONTRAST_KEY = "toggle_high_text_contrast";
+    private static final String TOGGLE_AUDIO_DESCRIPTION_KEY = "toggle_audio_description";
     private static final String ACCESSIBILITY_SERVICES_KEY = "system_accessibility_services";
 
     private PreferenceGroup mServicesPref;
@@ -94,6 +95,12 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
         highContrastPreference.setChecked(Settings.Secure.getInt(getContext().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_HIGH_TEXT_CONTRAST_ENABLED, 0) == 1);
 
+        final TwoStatePreference audioDescriptionPreference =
+                (TwoStatePreference) findPreference(TOGGLE_AUDIO_DESCRIPTION_KEY);
+        audioDescriptionPreference.setChecked(Settings.Secure.getInt(
+                getContext().getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT, 0) == 1);
+
         mServicesPref = (PreferenceGroup) findPreference(ACCESSIBILITY_SERVICES_KEY);
         if (mServicesPref != null) {
             refreshServices(mServicesPref);
@@ -113,6 +120,14 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
                     ((SwitchPreference) preference).isChecked());
             Settings.Secure.putInt(getActivity().getContentResolver(),
                     Settings.Secure.ACCESSIBILITY_HIGH_TEXT_CONTRAST_ENABLED,
+                    (((SwitchPreference) preference).isChecked() ? 1 : 0));
+            return true;
+        } else if (TextUtils.equals(preference.getKey(), TOGGLE_AUDIO_DESCRIPTION_KEY)) {
+            logToggleInteracted(
+                    TvSettingsEnums.SYSTEM_A11Y_AUDIO_DESCRIPTION,
+                    ((SwitchPreference) preference).isChecked());
+            Settings.Secure.putInt(getActivity().getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT,
                     (((SwitchPreference) preference).isChecked() ? 1 : 0));
             return true;
         } else {

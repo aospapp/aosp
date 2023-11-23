@@ -287,7 +287,7 @@ public class ProfileGridRecyclerView extends RecyclerView {
             mRes = context.getResources();
             mContext = context;
             updateProfiles(profiles);
-            mGuestName = mRes.getString(R.string.user_guest);
+            mGuestName = mRes.getString(com.android.internal.R.string.guest_name);
             mNewProfileName = mRes.getString(R.string.user_new_user_name);
             mOpacityDisabled = mRes.getFloat(R.dimen.opacity_disabled);
             mOpacityEnabled = mRes.getFloat(R.dimen.opacity_enabled);
@@ -468,7 +468,7 @@ public class ProfileGridRecyclerView extends RecyclerView {
             String recordName;
             switch (profileRecord.mType) {
                 case ProfileRecord.START_GUEST:
-                    recordName = mContext.getString(R.string.start_guest_session);
+                    recordName = mContext.getString(com.android.internal.R.string.guest_name);
                     break;
                 case ProfileRecord.ADD_PROFILE:
                     recordName = mContext.getString(R.string.user_add_user_menu);

@@ -35,8 +35,6 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.util.Set;
-
 @SmallTest
 public class ManagedProvisioningSharedPreferencesTest {
 
@@ -67,7 +65,11 @@ public class ManagedProvisioningSharedPreferencesTest {
     }
 
     private void cleanUp() {
-        mSharedPreferences.edit().clear().commit();
+        clearSharedPreferences();
+    }
+
+    private boolean clearSharedPreferences() {
+        return mSharedPreferences.edit().clear().commit();
     }
 
     @Test
@@ -85,5 +87,29 @@ public class ManagedProvisioningSharedPreferencesTest {
 
         assertThat(mManagedProvisioningSharedPreferences.getProvisioningStartedTimestamp())
                 .isEqualTo(1234);
+    }
+
+    @Test
+    public void setIsProvisioningFlowDelegatedToRoleHolder_setToTrue_works() {
+        mManagedProvisioningSharedPreferences.setIsProvisioningFlowDelegatedToRoleHolder(true);
+
+        assertThat(mManagedProvisioningSharedPreferences.isProvisioningFlowDelegatedToRoleHolder())
+                .isTrue();
+    }
+
+    @Test
+    public void setIsProvisioningFlowDelegatedToRoleHolder_setToFalse_works() {
+        mManagedProvisioningSharedPreferences.setIsProvisioningFlowDelegatedToRoleHolder(false);
+
+        assertThat(mManagedProvisioningSharedPreferences.isProvisioningFlowDelegatedToRoleHolder())
+                .isFalse();
+    }
+
+    @Test
+    public void setIsProvisioningFlowDelegatedToRoleHolder_sharedPreferencesCleared_valueIsFalse() {
+        clearSharedPreferences();
+
+        assertThat(mManagedProvisioningSharedPreferences.isProvisioningFlowDelegatedToRoleHolder())
+                .isFalse();
     }
 }

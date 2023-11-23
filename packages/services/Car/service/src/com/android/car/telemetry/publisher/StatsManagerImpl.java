@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.StatsManager;
 import android.app.StatsManager.StatsUnavailableException;
 
@@ -23,17 +25,18 @@ import android.app.StatsManager.StatsUnavailableException;
 public class StatsManagerImpl implements StatsManagerProxy {
     private final StatsManager mStatsManager;
 
-    public StatsManagerImpl(StatsManager statsManager) {
+    public StatsManagerImpl(@NonNull StatsManager statsManager) {
         mStatsManager = statsManager;
     }
 
     @Override
+    @Nullable
     public byte[] getReports(long configKey) throws StatsUnavailableException {
         return mStatsManager.getReports(configKey);
     }
 
     @Override
-    public void addConfig(long configKey, byte[] data) throws StatsUnavailableException {
+    public void addConfig(long configKey, @NonNull byte[] data) throws StatsUnavailableException {
         mStatsManager.addConfig(configKey, data);
     }
 
@@ -43,6 +46,7 @@ public class StatsManagerImpl implements StatsManagerProxy {
     }
 
     @Override
+    @Nullable
     public byte[] getStatsMetadata() throws StatsUnavailableException {
         return mStatsManager.getStatsMetadata();
     }

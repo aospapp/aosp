@@ -27,6 +27,7 @@ import android.net.wifi.WifiConfiguration.Protocol;
 import android.net.wifi.WifiConfiguration.SecurityType;
 import android.net.wifi.WifiConfiguration.SuiteBCipher;
 import android.os.Parcel;
+import android.os.Parcelable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -37,7 +38,7 @@ import java.util.Objects;
  * A class representing a security configuration.
  * @hide
  */
-public class SecurityParams {
+public final class SecurityParams implements Parcelable {
     private static final String TAG = "SecurityParams";
 
     /** Passpoint Release 1 */
@@ -543,7 +544,14 @@ public class SecurityParams {
         }
     }
 
-    /** Write this object to the parcel. */
+    /** Implement the Parcelable interface */
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    /** Implement the Parcelable interface */
+    @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mSecurityType);
         dest.writeBoolean(mEnabled);
@@ -561,24 +569,31 @@ public class SecurityParams {
 
     }
 
-    /** Create a SecurityParams object from the parcel. */
-    public static final @NonNull SecurityParams createFromParcel(Parcel in) {
-        SecurityParams params = new SecurityParams();
-        params.mSecurityType = in.readInt();
-        params.mEnabled = in.readBoolean();
-        params.mAllowedKeyManagement = readBitSet(in);
-        params.mAllowedProtocols = readBitSet(in);
-        params.mAllowedAuthAlgorithms = readBitSet(in);
-        params.mAllowedPairwiseCiphers = readBitSet(in);
-        params.mAllowedGroupCiphers = readBitSet(in);
-        params.mAllowedGroupManagementCiphers = readBitSet(in);
-        params.mAllowedSuiteBCiphers = readBitSet(in);
-        params.mRequirePmf = in.readBoolean();
-        params.mIsAddedByAutoUpgrade = in.readBoolean();
-        params.mIsSaeH2eOnlyMode = in.readBoolean();
-        params.mIsSaePkOnlyMode = in.readBoolean();
-        return params;
-    }
+    /** Implement the Parcelable interface */
+    public static final @NonNull Parcelable.Creator<SecurityParams> CREATOR =
+            new Creator<SecurityParams>() {
+                public SecurityParams createFromParcel(Parcel in) {
+                    SecurityParams params = new SecurityParams();
+                    params.mSecurityType = in.readInt();
+                    params.mEnabled = in.readBoolean();
+                    params.mAllowedKeyManagement = readBitSet(in);
+                    params.mAllowedProtocols = readBitSet(in);
+                    params.mAllowedAuthAlgorithms = readBitSet(in);
+                    params.mAllowedPairwiseCiphers = readBitSet(in);
+                    params.mAllowedGroupCiphers = readBitSet(in);
+                    params.mAllowedGroupManagementCiphers = readBitSet(in);
+                    params.mAllowedSuiteBCiphers = readBitSet(in);
+                    params.mRequirePmf = in.readBoolean();
+                    params.mIsAddedByAutoUpgrade = in.readBoolean();
+                    params.mIsSaeH2eOnlyMode = in.readBoolean();
+                    params.mIsSaePkOnlyMode = in.readBoolean();
+                    return params;
+                }
+
+                public SecurityParams[] newArray(int size) {
+                    return new SecurityParams[size];
+                }
+            };
 
     /**
      * Create a params according to the security type.
@@ -594,6 +609,10 @@ public class SecurityParams {
      * {@link WifiConfiguration#SECURITY_TYPE_WAPI_CERT},
      * {@link WifiConfiguration#SECURITY_TYPE_EAP_WPA3_ENTERPRISE},
      * {@link WifiConfiguration#SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT},
+     * {@link WifiConfiguration#SECURITY_TYPE_OSEN},
+     * {@link WifiConfiguration#SECURITY_TYPE_PASSPOINT_R1_R2},
+     * {@link WifiConfiguration#SECURITY_TYPE_PASSPOINT_R3},
+     * {@link WifiConfiguration#SECURITY_TYPE_DPP}
      *
      * @return the corresponding security params if the security type is valid;
      *         otherwise, throw IllegalArgumentException.
@@ -630,6 +649,8 @@ public class SecurityParams {
                 return SecurityParams.createPasspointParams(PASSPOINT_R2);
             case WifiConfiguration.SECURITY_TYPE_PASSPOINT_R3:
                 return SecurityParams.createPasspointParams(PASSPOINT_R3);
+            case WifiConfiguration.SECURITY_TYPE_DPP:
+                return SecurityParams.createDppParams();
             default:
                 throw new IllegalArgumentException("unknown security type " + securityType);
         }
@@ -892,6 +913,29 @@ public class SecurityParams {
         params.mAllowedGroupCiphers.set(GroupCipher.TKIP);
         params.mAllowedGroupCiphers.set(GroupCipher.WEP40);
         params.mAllowedGroupCiphers.set(GroupCipher.WEP104);
+        return params;
+    }
+
+    /**
+     * Create Easy Connect (DPP) params.
+     */
+    private static @NonNull SecurityParams createDppParams() {
+        SecurityParams params = new SecurityParams();
+        params.mSecurityType = WifiConfiguration.SECURITY_TYPE_DPP;
+
+        params.mAllowedKeyManagement.set(KeyMgmt.DPP);
+
+        params.mAllowedProtocols.set(Protocol.RSN);
+
+        params.mAllowedPairwiseCiphers.set(PairwiseCipher.CCMP);
+        params.mAllowedPairwiseCiphers.set(PairwiseCipher.GCMP_128);
+        params.mAllowedPairwiseCiphers.set(PairwiseCipher.GCMP_256);
+
+        params.mAllowedGroupCiphers.set(GroupCipher.CCMP);
+        params.mAllowedGroupCiphers.set(GroupCipher.GCMP_128);
+        params.mAllowedGroupCiphers.set(GroupCipher.GCMP_256);
+
+        params.mRequirePmf = true;
         return params;
     }
 }

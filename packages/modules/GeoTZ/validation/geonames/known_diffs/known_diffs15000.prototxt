@@ -1,133 +1,11 @@
 knownDifferences {
-  cityName: "L\303\251vis"
-  s2CellId: 5528333079304732672
+  cityName: "Alvorada"
+  s2CellId: 10008839181846970368
   referenceDataResult {
-    isoCountryCodes: "ca"
-    zoneIds: "America/Blanc-Sablon"
+    isoCountryCodes: "br"
+    zoneIds: "America/Sao_Paulo"
   }
   actualResult {
-    isoCountryCodes: "ca"
-    zoneIds: "America/Toronto"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Zhanjiang"
-  s2CellId: 3554231191718592512
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Xucheng"
-  s2CellId: 3553983235740401664
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Wuchuan"
-  s2CellId: 3939725508924669952
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Lianjiang"
-  s2CellId: 3939841663093964800
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Huazhou"
-  s2CellId: 3939737416184627200
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Gaozhou"
-  s2CellId: 3939674516925448192
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Xinyi"
-  s2CellId: 3939538212380213248
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Zhongshan"
-  s2CellId: 3939748998100811776
-  referenceDataResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Urumqi"
-  }
-  actualResult {
-    isoCountryCodes: "cn"
-    zoneIds: "Asia/Shanghai"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -188,21 +66,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "mx"
     zoneIds: "America/Matamoros"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Mazatlan"
-  s2CellId: 9690857059892854784
-  referenceDataResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Chihuahua"
-  }
-  actualResult {
-    isoCountryCodes: "mx"
-    zoneIds: "America/Mexico_City"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -280,21 +143,6 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "il"
     zoneIds: "Asia/Jerusalem"
-  }
-  comment: "Add a comment here"
-  type: "UNKNOWN"
-  bugUri: "http://b/bugId"
-}
-knownDifferences {
-  cityName: "Sevastopol"
-  s2CellId: 4653666233785253888
-  referenceDataResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Kiev"
-  }
-  actualResult {
-    isoCountryCodes: "ua"
-    zoneIds: "Europe/Simferopol"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"
@@ -1197,6 +1045,111 @@ knownDifferences {
   actualResult {
     isoCountryCodes: "rs"
     zoneIds: "Europe/Belgrade"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Baikonur"
+  s2CellId: 4752461235117621248
+  referenceDataResult {
+    isoCountryCodes: "kz"
+    zoneIds: "Asia/Almaty"
+  }
+  actualResult {
+    isoCountryCodes: "kz"
+    zoneIds: "Asia/Oral"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Ngh\304\251a L\341\273\231"
+  s2CellId: 3545244948146159616
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    zoneIds: "Asia/Bangkok"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "M\306\260\341\273\235ng Lay"
+  s2CellId: 3543547665654480896
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    zoneIds: "Asia/Bangkok"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "C\341\273\225 L\303\263a"
+  s2CellId: 3545741068408455168
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    zoneIds: "Asia/Bangkok"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "Ch\303\255 Linh"
+  s2CellId: 3545871968274219008
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    zoneIds: "Asia/Bangkok"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "C\341\272\251m Ph\341\272\243"
+  s2CellId: 3551930755158376448
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "th"
+    zoneIds: "Asia/Bangkok"
+  }
+  comment: "Add a comment here"
+  type: "UNKNOWN"
+  bugUri: "http://b/bugId"
+}
+knownDifferences {
+  cityName: "th\341\273\213 x\303\243 Qu\341\272\243ng Tr\341\273\213"
+  s2CellId: 3549087959254827008
+  referenceDataResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Bangkok"
+  }
+  actualResult {
+    isoCountryCodes: "vn"
+    zoneIds: "Asia/Ho_Chi_Minh"
   }
   comment: "Add a comment here"
   type: "UNKNOWN"

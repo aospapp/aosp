@@ -21,6 +21,8 @@ import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -94,16 +96,12 @@ public final class QosCallbackException extends Exception {
         }
     }
 
-    /**
-     * @hide
-     */
+    @VisibleForTesting
     public QosCallbackException(@NonNull final String message) {
         super(message);
     }
 
-    /**
-     * @hide
-     */
+    @VisibleForTesting
     public QosCallbackException(@NonNull final Throwable cause) {
         super(cause);
     }

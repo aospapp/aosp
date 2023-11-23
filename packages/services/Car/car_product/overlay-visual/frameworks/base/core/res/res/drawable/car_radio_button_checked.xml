@@ -27,7 +27,7 @@
                 android:height="@dimen/car_radio_button_outer_ring_size" />
             <stroke
                 android:width="@dimen/car_radio_button_outer_ring_stroke_width"
-                android:color="@color/car_radio_button_checked_color"/>
+                android:color="@color/car_selection_controls_checked_color"/>
         </shape>
     </item>
     <item android:gravity="center">
@@ -36,7 +36,7 @@
             <size
                 android:width="@dimen/car_radio_button_inner_circle_size"
                 android:height="@dimen/car_radio_button_inner_circle_size" />
-            <solid android:color="@color/car_radio_button_checked_color"/>
+            <solid android:color="@color/car_selection_controls_checked_color"/>
         </shape>
     </item>
     <item

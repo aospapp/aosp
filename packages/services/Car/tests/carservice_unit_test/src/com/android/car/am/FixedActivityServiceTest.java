@@ -18,24 +18,27 @@ package com.android.car.am;
 
 import static android.car.test.mocks.AndroidMockitoHelper.mockAmGetCurrentUser;
 
+import static com.android.car.CarLog.TAG_AM;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doAnswer;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.verify;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
-import android.app.ActivityTaskManager.RootTaskInfo;
-import android.app.IActivityManager;
-import android.app.TaskStackListener;
+import android.app.TaskInfo;
+import android.car.builtin.app.ActivityManagerHelper;
 import android.car.hardware.power.CarPowerManager;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
+import android.car.user.CarUserManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -49,12 +52,12 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.view.Display;
 
 import com.android.car.CarLocalServices;
 import com.android.car.CarServiceUtils;
 import com.android.car.user.CarUserService;
+import com.android.car.user.UserHandleHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -76,9 +79,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     @Mock
     private Context mContext;
     @Mock
-    private IActivityManager mActivityManager;
-    @Mock
-    private UserManager mUserManager;
+    private CarActivityService mActivityService;
     @Mock
     private DisplayManager mDisplayManager;
     @Mock
@@ -88,15 +89,22 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     @Mock
     private CarPowerManager mCarPowerManager;
     @Mock
+    private UserHandleHelper mUserHandleHelper;
+    @Mock
     private Display mValidDisplay;
 
     private FixedActivityService mFixedActivityService;
 
+    public FixedActivityServiceTest() {
+        super(TAG_AM);
+    }
+
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
         builder
-            .spyStatic(ActivityManager.class)
-            .spyStatic(CarLocalServices.class);
+                .spyStatic(ActivityManager.class)
+                .spyStatic(ActivityManagerHelper.class)
+                .spyStatic(CarLocalServices.class);
     }
 
     @Before
@@ -105,8 +113,8 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         doReturn(mCarUserService).when(() -> CarLocalServices.getService(CarUserService.class));
         doReturn(mCarPowerManager).when(() -> CarLocalServices.createCarPowerManager(mContext));
         when(mDisplayManager.getDisplay(mValidDisplayId)).thenReturn(mValidDisplay);
-        mFixedActivityService = new FixedActivityService(mContext, mActivityManager, mUserManager,
-                mDisplayManager);
+        mFixedActivityService = new FixedActivityService(mContext,
+                mActivityService, mDisplayManager, mUserHandleHelper);
     }
 
     @After
@@ -120,7 +128,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_noRunningActivity()
             throws Exception {
-        int userId = 10;
+        int userId = 100;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
@@ -137,15 +145,14 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_alreadyRunningActivity()
             throws Exception {
-        int userId = 10;
-        int[] userIds = new int[] { userId };
-        int[] taskIds = new int[] { 1234 };
+        int userId = 100;
+        int taskId = 1234;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
         expectRootTaskInfo(
                 createEmptyTaskInfo(),
-                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
+                createRootTaskInfo(intent, userId, mValidDisplayId, taskId)
         );
 
         // No running activities
@@ -165,9 +172,8 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_runNewActivity() throws Exception {
-        int userId = 10;
-        int[] userIds = new int[] { userId };
-        int[] taskIds = new int[] { 1234 };
+        int userId = 100;
+        int taskId = 1234;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         Intent anotherIntent = expectComponentAvailable("test_package_II", "com.test.dude_II",
@@ -175,7 +181,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         mockAmGetCurrentUser(userId);
         expectRootTaskInfo(
                 createEmptyTaskInfo(),
-                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
+                createRootTaskInfo(intent, userId, mValidDisplayId, taskId)
         );
 
         // No running activities
@@ -193,9 +199,8 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStartFixedActivityModeForDisplay_relaunchWithPackageUpdated() throws Exception {
-        int userId = 10;
-        int[] userIds = new int[] { userId };
-        int[] taskIds = new int[] { 1234 };
+        int userId = 100;
+        int taskId = 1234;
         String packageName = "test_package";
         String className = "com.test.dude";
         ActivityOptions options = new ActivityOptions(new Bundle());
@@ -205,14 +210,14 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         mockAmGetCurrentUser(userId);
         expectRootTaskInfo(
                 createEmptyTaskInfo(),
-                createRootTaskInfo(intent, userIds, mValidDisplayId, taskIds)
+                createRootTaskInfo(intent, userId, mValidDisplayId, taskId)
         );
 
         // No running activities
         boolean ret = mFixedActivityService.startFixedActivityModeForDisplayAndUser(intent,
                 options, mValidDisplayId, userId);
-        verify(mContext).registerReceiverAsUser(receiverCaptor.capture(), eq(UserHandle.ALL),
-                any(IntentFilter.class), eq(null), eq(null));
+        verify(mContext).registerReceiverForAllUsers(receiverCaptor.capture(),
+                any(IntentFilter.class), eq(null), eq(null), anyInt());
         verify(mContext).startActivityAsUser(eq(intent), any(Bundle.class),
                 eq(UserHandle.of(userId)));
         assertThat(ret).isTrue();
@@ -241,7 +246,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_runOnDifferentDisplay()
             throws Exception {
-        int userId = 10;
+        int userId = 100;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         Intent anotherIntent = expectComponentAvailable("test_package_II", "com.test.dude_II",
@@ -265,7 +270,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_invalidDisplay() {
-        int userId = 10;
+        int userId = 100;
         Intent intent = new Intent(Intent.ACTION_MAIN);
         ActivityOptions options = new ActivityOptions(new Bundle());
         int invalidDisplayId = Display.DEFAULT_DISPLAY;
@@ -277,7 +282,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_unavailableDisplay() {
-        int userId = 10;
+        int userId = 100;
         Intent intent = new Intent(Intent.ACTION_MAIN);
         ActivityOptions options = new ActivityOptions(new Bundle());
         int unavailableDisplayId = mValidDisplayId + 1;
@@ -295,7 +300,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
                 mValidDisplay, // for startFixedActivityModeForDisplayAndUser
                 mValidDisplay, // for launchIf
                 null);
-        int userId = 10;
+        int userId = 100;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
@@ -304,21 +309,21 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         boolean started = mFixedActivityService.startFixedActivityModeForDisplayAndUser(
                 intent, options, displayToBeRemoved, userId);
         assertThat(started).isTrue();
-        assertThat(mFixedActivityService.getRunningFixedActivity(displayToBeRemoved)).isNotNull();
+        assertThat(mFixedActivityService.hasRunningFixedActivity(displayToBeRemoved)).isTrue();
 
         // The display is still valid.
         mFixedActivityService.launchIfNecessary();
-        assertThat(mFixedActivityService.getRunningFixedActivity(displayToBeRemoved)).isNotNull();
+        assertThat(mFixedActivityService.hasRunningFixedActivity(displayToBeRemoved)).isTrue();
 
         // The display is removed.
         mFixedActivityService.launchIfNecessary();
-        assertThat(mFixedActivityService.getRunningFixedActivity(displayToBeRemoved)).isNull();
+        assertThat(mFixedActivityService.hasRunningFixedActivity(displayToBeRemoved)).isFalse();
     }
 
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_notAllowedUser() {
-        int currentUserId = 10;
-        int notAllowedUserId = 11;
+        int currentUserId = 100;
+        int notAllowedUserId = 101;
         Intent intent = new Intent(Intent.ACTION_MAIN);
         ActivityOptions options = new ActivityOptions(new Bundle());
         int displayId = mValidDisplayId;
@@ -332,7 +337,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStartFixedActivityModeForDisplayAndUser_invalidComponent() throws Exception {
-        int userId = 10;
+        int userId = 100;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent invalidIntent = expectComponentUnavailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
@@ -344,7 +349,7 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
 
     @Test
     public void testStopFixedActivityMode() throws Exception {
-        int userId = 10;
+        int userId = 100;
         ActivityOptions options = new ActivityOptions(new Bundle());
         Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
         mockAmGetCurrentUser(userId);
@@ -353,22 +358,130 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
         // Start an activity
         boolean ret = mFixedActivityService.startFixedActivityModeForDisplayAndUser(intent,
                 options, mValidDisplayId, userId);
-        // To check if monitoring is started.
-        verify(mActivityManager).registerTaskStackListener(any(TaskStackListener.class));
         assertThat(ret).isTrue();
+        // To check if monitoring is started.
+        verify(() -> ActivityManagerHelper.registerProcessObserverCallback(
+                any(ActivityManagerHelper.ProcessObserverCallback.class)));
 
         mFixedActivityService.stopFixedActivityMode(mValidDisplayId);
-        verify(mActivityManager).unregisterTaskStackListener(any(TaskStackListener.class));
+        verify(() -> ActivityManagerHelper.unregisterProcessObserverCallback(
+                any(ActivityManagerHelper.ProcessObserverCallback.class)));
     }
 
     @Test
     public void testStopFixedActivityMode_invalidDisplayId() throws Exception {
         mFixedActivityService.stopFixedActivityMode(Display.DEFAULT_DISPLAY);
-        verify(mActivityManager, never()).unregisterTaskStackListener(any(TaskStackListener.class));
+        verify(() -> ActivityManagerHelper.unregisterProcessObserverCallback(
+                any(ActivityManagerHelper.ProcessObserverCallback.class)), never());
+    }
+
+    @Test
+    public void onUserSwitch_clearsRunningActivities() throws Exception {
+        testClearingOfRunningActivitiesOnUserSwitch(
+                /* fromUserId = */ 100,
+                /* toUserId = */ 101,
+                /* runningFixedActivityExpected = */ false);
+    }
+
+    @Test
+    public void onUserSwitchFromSystemUser_noChangeInRunningActivities() throws Exception {
+        testClearingOfRunningActivitiesOnUserSwitch(
+                /* fromUserId = */ UserHandle.USER_SYSTEM,
+                /* toUserId = */ 101,
+                /* runningFixedActivityExpected = */ true);
+    }
+
+    @Test
+    public void onUserSwitchToUserWithEnabledProfile_noChangeInRunningActivities()
+            throws Exception {
+        when(mUserHandleHelper.getEnabledProfiles(101))
+                .thenReturn(Arrays.asList(UserHandle.of(100)));
+        testClearingOfRunningActivitiesOnUserSwitch(
+                /* fromUserId = */ 100,
+                /* toUserId = */ 101,
+                /* runningFixedActivityExpected = */ true);
+    }
+
+    @Test
+    public void onUserSwitchToSameUser_noChangeInRunningActivities() throws Exception {
+        testClearingOfRunningActivitiesOnUserSwitch(
+                /* fromUserId = */ 101,
+                /* toUserId = */ 101,
+                /* runningFixedActivityExpected = */ true);
+    }
+
+    @Test
+    public void userSwitchedToNotAllowedUser_launchesBlankActivity() throws Exception {
+        String blankActivityComponentName = "package/blankActivityClassName";
+        int userId = 100;
+        int taskId = 1234;
+        int notAllowedUserId = 101;
+        when(mContext.getString(anyInt())).thenReturn(blankActivityComponentName);
+        when(mDisplayManager.getDisplay(mValidDisplayId)).thenReturn(
+                mValidDisplay, // for startFixedActivityModeForDisplayAndUser
+                mValidDisplay, // for launchIf
+                null);
+        ActivityOptions options = new ActivityOptions(new Bundle());
+        Intent intent = expectComponentAvailable("test_package", "com.test.dude", userId);
+        mockAmGetCurrentUser(userId);
+        List<TaskInfo> rootTaskInfo = createRootTaskInfo(intent, userId,
+                mValidDisplayId, taskId);
+        expectRootTaskInfo(rootTaskInfo);
+
+        mFixedActivityService.startFixedActivityModeForDisplayAndUser(
+                intent, options, mValidDisplayId, userId);
+        mockAmGetCurrentUser(notAllowedUserId);
+        mFixedActivityService.launchIfNecessary();
+
+        ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        ArgumentCaptor<Bundle> activityOptionsCaptor = ArgumentCaptor.forClass(Bundle.class);
+        ArgumentCaptor<UserHandle> userHandleCaptor = ArgumentCaptor.forClass(UserHandle.class);
+
+        verify(mContext).startActivityAsUser(intentCaptor.capture(),
+                activityOptionsCaptor.capture(), userHandleCaptor.capture());
+        assertThat(userHandleCaptor.getValue()).isEqualTo(
+                UserHandle.of(ActivityManager.getCurrentUser()));
+        assertThat(ActivityOptions.fromBundle(activityOptionsCaptor.getValue())
+                .getLaunchDisplayId()).isEqualTo(mValidDisplayId);
+        Intent blankActivityIntent =  intentCaptor.getValue();
+        assertThat(blankActivityIntent.getComponent()).isEqualTo(
+                ComponentName.unflattenFromString(blankActivityComponentName));
+        assertThat(blankActivityIntent.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK)
+                .isEqualTo(Intent.FLAG_ACTIVITY_NEW_TASK);
+        assertThat(blankActivityIntent.getFlags() & Intent.FLAG_ACTIVITY_NO_HISTORY)
+                .isEqualTo(Intent.FLAG_ACTIVITY_NO_HISTORY);
+    }
+
+    private void testClearingOfRunningActivitiesOnUserSwitch(int fromUserId, int toUserId,
+            boolean runningFixedActivityExpected) throws Exception {
+        ActivityOptions options = new ActivityOptions(new Bundle());
+        Intent intent = expectComponentAvailable("test_package", "com.test.dude", fromUserId);
+        mockAmGetCurrentUser(fromUserId);
+        expectNoActivityStack();
+        doAnswer(invocation -> {
+            CarUserManager.UserLifecycleListener userLifecycleListener =
+                    (CarUserManager.UserLifecycleListener) invocation.getArgument(1);
+            mockAmGetCurrentUser(toUserId);
+            userLifecycleListener.onEvent(new CarUserManager.UserLifecycleEvent(
+                    CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING, toUserId));
+            return null;
+        }).when(mCarUserService).addUserLifecycleListener(any(), any());
+
+        // No running activities
+        boolean ret = mFixedActivityService.startFixedActivityModeForDisplayAndUser(intent,
+                options, mValidDisplayId, fromUserId);
+        assertThat(ret).isTrue();
+        verify(mCarUserService).addUserLifecycleListener(any(), any());
+
+        if (runningFixedActivityExpected) {
+            assertThat(mFixedActivityService.hasRunningFixedActivity(mValidDisplayId)).isTrue();
+        } else {
+            assertThat(mFixedActivityService.hasRunningFixedActivity(mValidDisplayId)).isFalse();
+        }
     }
 
     private void expectNoProfileUser(@UserIdInt int userId) {
-        when(mUserManager.getEnabledProfileIds(userId)).thenReturn(new int[0]);
+        when(mUserHandleHelper.getEnabledProfiles(userId)).thenReturn(new ArrayList<UserHandle>());
     }
 
     private Intent expectComponentUnavailable(String pkgName, String className,
@@ -401,28 +514,31 @@ public final class FixedActivityServiceTest extends AbstractExtendedMockitoTestC
     }
 
     private void expectNoActivityStack() throws Exception {
-        when(mActivityManager.getAllRootTaskInfos()).thenReturn(createEmptyTaskInfo());
+        when(mActivityService.getTopTasks()).thenReturn(createEmptyTaskInfo());
     }
 
-    private void expectRootTaskInfo(List<RootTaskInfo> ...taskInfos) throws Exception {
-        OngoingStubbing<List<RootTaskInfo>> stub = when(mActivityManager.getAllRootTaskInfos());
-        for (List<RootTaskInfo> taskInfo : taskInfos) {
+    private void expectRootTaskInfo(List<TaskInfo>... taskInfos)
+            throws Exception {
+        OngoingStubbing<List<TaskInfo>> stub = when(
+                mActivityService.getTopTasks());
+        for (List<TaskInfo> taskInfo : taskInfos) {
             stub = stub.thenReturn(taskInfo);
         }
     }
 
-    private List<RootTaskInfo> createEmptyTaskInfo() {
-        return new ArrayList<RootTaskInfo>();
+    private List<TaskInfo> createEmptyTaskInfo() {
+        return new ArrayList<>();
     }
 
-    private List<RootTaskInfo> createRootTaskInfo(Intent intent, @UserIdInt int[] userIds,
-            int displayId, int[] taskIds) {
-        RootTaskInfo taskInfo = new RootTaskInfo();
-        taskInfo.childTaskUserIds = userIds;
+    private List<TaskInfo> createRootTaskInfo(Intent intent,
+            @UserIdInt int userId, int displayId, int taskId) {
+        TaskInfo taskInfo = new ActivityManager.RunningTaskInfo();
         taskInfo.topActivity = intent.getComponent().clone();
-        taskInfo.visible = true;
+        taskInfo.taskId = taskId;
+        taskInfo.userId = userId;
         taskInfo.displayId = displayId;
-        taskInfo.childTaskIds = taskIds;
-        return Arrays.asList(taskInfo);
+        List<TaskInfo> topTasks = new ArrayList<>();
+        topTasks.add(taskInfo);
+        return topTasks;
     }
 }

@@ -41,7 +41,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Adicionar impressora"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"Adicionar impressora por endereço IP"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"Nome de anfitrião ou endereço IP"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"Nome do anfitrião ou endereço IP"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Adicionar"</string>
     <string name="add_named" msgid="9074106244018070583">"Adicionar <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Ligações"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"O serviço de impressão padrão não consegue encontrar impressoras Wi-Fi Direct."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Desat. Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"O serviço de impressão padrão necessita de autorização de acesso à localização para procurar dispositivos próximos."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"O serviço de impressão padrão necessita da autorização Dispositivos próximos para encontrar impressoras próximas."</string>
     <string name="fix" msgid="7784394272611365393">"Rever autorização"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"O serviço de impressão padrão necessita que os Serviços de localização estejam ativados para procurar dispositivos próximos."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Ativar localização"</string>
     <string name="print" msgid="7851318072404916362">"Imprimir"</string>
 </resources>

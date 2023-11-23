@@ -37,6 +37,7 @@ import static org.mockito.Mockito.when;
 import android.content.Context;
 import android.content.IContentProvider;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Binder;
@@ -627,22 +628,27 @@ public class BasicCallTests extends TelecomSystemTest {
 
         mInCallServiceFixtureX.mInCallAdapter.mute(true);
         verify(mAudioService, timeout(TEST_TIMEOUT))
-                .setMicrophoneMute(eq(true), any(String.class), any(Integer.class));
+                .setMicrophoneMute(eq(true), any(String.class), any(Integer.class),
+                        nullable(String.class));
         mInCallServiceFixtureX.mInCallAdapter.mute(false);
         verify(mAudioService, timeout(TEST_TIMEOUT))
-                .setMicrophoneMute(eq(false), any(String.class), any(Integer.class));
+                .setMicrophoneMute(eq(false), any(String.class), any(Integer.class),
+                        nullable(String.class));
 
         mInCallServiceFixtureX.mInCallAdapter.setAudioRoute(CallAudioState.ROUTE_SPEAKER, null);
         waitForHandlerAction(mTelecomSystem.getCallsManager().getCallAudioManager()
                 .getCallAudioRouteStateMachine().getHandler(), TEST_TIMEOUT);
-        verify(audioManager, timeout(TEST_TIMEOUT))
-                .setSpeakerphoneOn(true);
+        ArgumentCaptor<AudioDeviceInfo> infoArgumentCaptor =
+                ArgumentCaptor.forClass(AudioDeviceInfo.class);
+        verify(audioManager, timeout(TEST_TIMEOUT)).setCommunicationDevice(
+                infoArgumentCaptor.capture());
+        assertEquals(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, infoArgumentCaptor.getValue().getType());
         mInCallServiceFixtureX.mInCallAdapter.setAudioRoute(CallAudioState.ROUTE_EARPIECE, null);
         waitForHandlerAction(mTelecomSystem.getCallsManager().getCallAudioManager()
                 .getCallAudioRouteStateMachine().getHandler(), TEST_TIMEOUT);
         // setSpeakerPhoneOn(false) gets called once during the call initiation phase
         verify(audioManager, timeout(TEST_TIMEOUT).atLeast(1))
-                .setSpeakerphoneOn(false);
+                .clearCommunicationDevice();
 
         mConnectionServiceFixtureA.
                 sendSetDisconnected(outgoing.mConnectionId, DisconnectCause.REMOTE);
@@ -1042,7 +1048,9 @@ public class BasicCallTests extends TelecomSystemTest {
     @Test
     public void testIsOutgoingCallPermitted() throws Exception {
         assertTrue(mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle()));
+                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle(),
+                        mPhoneAccountSelfManaged.getAccountHandle().getComponentName()
+                                .getPackageName()));
     }
 
     /**
@@ -1059,7 +1067,9 @@ public class BasicCallTests extends TelecomSystemTest {
         assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
 
         assertTrue(mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle()));
+                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle(),
+                        mPhoneAccountSelfManaged.getAccountHandle().getComponentName()
+                                .getPackageName()));
     }
 
     /**
@@ -1077,7 +1087,9 @@ public class BasicCallTests extends TelecomSystemTest {
         assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
 
         assertTrue(mTelecomSystem.getTelecomServiceImpl().getBinder()
-                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle()));
+                .isOutgoingCallPermitted(mPhoneAccountSelfManaged.getAccountHandle(),
+                        mPhoneAccountSelfManaged.getAccountHandle().getComponentName()
+                                .getPackageName()));
     }
 
     /**
@@ -1194,7 +1206,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         ArgumentCaptor<Boolean> muteValueCaptor = ArgumentCaptor.forClass(Boolean.class);
         verify(mAudioService, times(2)).setMicrophoneMute(muteValueCaptor.capture(),
-                any(String.class), any(Integer.class));
+                any(String.class), any(Integer.class), nullable(String.class));
         List<Boolean> muteValues = muteValueCaptor.getAllValues();
         // Check mute status was changed twice with true and false.
         assertTrue(muteValues.get(0));

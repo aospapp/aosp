@@ -17,30 +17,25 @@
 #define ANDROID_CARSERVICE_EVS_SERVICE_WRAPPER_H
 
 #include "EvsCallbackThread.h"
-#include "EvsDeathRecipient.h"
 #include "EvsServiceCallback.h"
 #include "StreamHandler.h"
 
-#include <android/hardware/automotive/evs/1.1/IEvsDisplay.h>
-#include <android/hardware/automotive/evs/1.1/IEvsEnumerator.h>
-#include <android/hardware/automotive/evs/1.1/types.h>
-#include <hidl/HidlTransportSupport.h>
-#include <utils/Mutex.h>
-#include <utils/StrongPointer.h>
-
-#include <jni.h>
+#include <aidl/android/hardware/automotive/evs/BufferDesc.h>
+#include <aidl/android/hardware/automotive/evs/EvsEventDesc.h>
+#include <aidl/android/hardware/automotive/evs/IEvsCamera.h>
+#include <aidl/android/hardware/automotive/evs/IEvsDisplay.h>
+#include <aidl/android/hardware/automotive/evs/IEvsEnumerator.h>
 
 #include <mutex>
+#include <set>
 
-namespace android {
-namespace automotive {
-namespace evs {
+namespace android::automotive::evs {
 
 /*
  * This class wraps around HIDL transactions to the Extended View System service
  * and the video stream managements.
  */
-class EvsServiceContext : public EvsServiceCallback {
+class EvsServiceContext final : public EvsServiceCallback {
 public:
     EvsServiceContext(JavaVM* vm, jclass clazz);
     virtual ~EvsServiceContext();
@@ -106,45 +101,40 @@ public:
     }
 
     /*
-     * Compares the binder interface
-     */
-    bool isEqual(const wp<hidl::base::V1_0::IBase>& who) ACQUIRE(mLock) {
-        std::lock_guard<std::mutex> lock(mLock);
-        return hardware::interfacesEqual(mService, who.promote());
-    }
-
-    /*
      * Implements EvsServiceCallback methods
      */
-    void onNewEvent(hardware::automotive::evs::V1_1::EvsEventDesc) override;
-    void onNewFrame(hardware::automotive::evs::V1_1::BufferDesc) override;
-    void onServiceDied(const wp<hidl::base::V1_0::IBase>&) override;
+    void onNewEvent(const ::aidl::android::hardware::automotive::evs::EvsEventDesc&) override;
+    bool onNewFrame(const ::aidl::android::hardware::automotive::evs::BufferDesc&) override;
 
 private:
+    // Death recipient callback that is called when IEvsEnumerator service dies.
+    // The cookie is a pointer to a EvsServiceContext object.
+    static void onEvsServiceBinderDied(void* cookie);
+    void onEvsServiceDiedImpl();
+
     // Acquires the camera and the display exclusive ownerships.
-    void acquireCameraAndDisplay() ACQUIRE(mLock);
+    void acquireCameraAndDisplayLocked() REQUIRES(mLock);
 
     // A mutex to protect shared resources
     mutable std::mutex mLock;
 
     // Extended View System Enumerator service handle
-    sp<hardware::automotive::evs::V1_1::IEvsEnumerator> mService GUARDED_BY(mLock);
+    std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsEnumerator> mService
+            GUARDED_BY(mLock);
 
     // A camera device opened for the rearview service
-    sp<hardware::automotive::evs::V1_1::IEvsCamera> mCamera GUARDED_BY(mLock);
+    std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsCamera> mCamera
+            GUARDED_BY(mLock);
 
     // A handler of a video stream from the rearview camera device
-    sp<StreamHandler> mStreamHandler GUARDED_BY(mLock);
+    std::shared_ptr<StreamHandler> mStreamHandler GUARDED_BY(mLock);
 
     // Extended View System display handle.  This would not be used but held by
     // us to prevent other EVS clients from using EvsDisplay.
-    sp<hardware::automotive::evs::V1_1::IEvsDisplay> mDisplay;
-
-    // A flag to acquire a display handle only once
-    std::once_flag mDisplayAcquired;
+    std::shared_ptr<::aidl::android::hardware::automotive::evs::IEvsDisplay> mDisplay;
 
     // A death recipient of Extended View System service
-    sp<EvsDeathRecipient> mDeathRecipient GUARDED_BY(mLock);
+    ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient GUARDED_BY(mLock);
 
     // Java VM
     JavaVM* mVm;
@@ -166,11 +156,14 @@ private:
     // CarEvsService object's method to handle a new stream event
     jmethodID mEventHandlerMethodId;
 
-    // Bookkeeps descriptors of received frame buffers.
-    std::map<int, hardware::automotive::evs::V1_1::BufferDesc> mBufferRecords GUARDED_BY(mLock);
+    // Bookkeeps descriptors of received frame buffer IDs.
+    std::set<int> mBufferRecords GUARDED_BY(mLock);
 
     // A name of the camera device currently in use.
-    const char* mCameraIdInUse;
+    std::string_view mCameraIdInUse;
+
+    // List of available camera devices
+    std::vector<::aidl::android::hardware::automotive::evs::CameraDesc> mCameraList;
 
     // Service name for EVS enumerator
     static const char* kServiceName;
@@ -184,8 +177,6 @@ private:
     static constexpr uint8_t kExclusiveMainDisplayId = 0xFF;
 };
 
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs
 
 #endif  // ANDROID_CARSERVICE_EVS_SERVICE_WRAPPER_H

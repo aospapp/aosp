@@ -25,12 +25,16 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
     <!-- To pass GtsInstallPackagesWhitelistDeviceTestCases b/173156153 -->
     <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
+    <!-- Permissions required for CTS tests - AssistUtilsHelperTest -->
+    <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE" />
     <!-- Permission required for ATS tests - AtsCarHostTestCases, AtsCarDeviceApp -->
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE" />
     <!-- Permission required for ATS tests - AtsDeviceInfo, AtsAudioDeviceTestCases -->
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
     <!-- Permission required for ATS tests - AtsCarTests#CarAudioManagerSystemTest -->
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
+    <!-- Permission required for 'adb shell cmd location is-automotive-gnss-suspended' -->
+    <uses-permission android:name="android.permission.CONTROL_AUTOMOTIVE_GNSS" />
     <!-- Permission required for ATS tests - AtsCarTests#CarPropertyManagerTest-->
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
     <!-- Permission required for ATS tests - AtsCarTests#CarAudioManagerSystemTest -->
@@ -41,6 +45,7 @@
     <uses-permission android:name="android.car.permission.CAR_POWER" />
     <!-- Permission required for ATS tests - AtsCarTests#CarPowerManagerTest-->
     <uses-permission android:name="android.car.permission.CONTROL_CAR_POWER_POLICY" />
+    <uses-permission android:name="android.car.permission.CONTROL_SHUTDOWN_PROCESS" />
     <!-- Permissions required for ATS tests - AtsCarTests#CarWatchdogManagerTest-->
     <uses-permission android:name="android.car.permission.USE_CAR_WATCHDOG" />
     <uses-permission android:name="android.car.permission.COLLECT_CAR_WATCHDOG_METRICS" />
@@ -56,4 +61,10 @@
     <uses-permission android:name="android.car.permission.CONTROL_CAR_EVS_ACTIVITY" />
     <uses-permission android:name="android.car.permission.USE_CAR_EVS_CAMERA" />
     <uses-permission android:name="android.car.permission.MONITOR_CAR_EVS_STATUS" />
+    <!-- Permissions required for ATS tests - CarEvsManagerTest -->
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_APP_LAUNCH" />
+    <!-- Permissions required for CarTelemetryManagerPermissionTest -->
+    <uses-permission android:name="android.car.permission.USE_CAR_TELEMETRY_SERVICE" />
+    <!-- Permission required for CTS test - LocationManagerFineTest -->
+    <uses-permission android:name="android.permission.LOCATION_BYPASS" />
 </manifest>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,19 @@ public enum Status {
     // Bugreport is being written
     STATUS_WRITE_PENDING(0),
 
-    // Writing bugreport failed
+    // Writing bugreport failed. This is the final state.
     STATUS_WRITE_FAILED(1),
 
     // Bugreport is waiting to be uploaded
     STATUS_UPLOAD_PENDING(2),
 
-    // Bugreport uploaded successfully
+    // Bugreport uploaded successfully. This is the final state.
     STATUS_UPLOAD_SUCCESS(3),
 
-    // Bugreport failed to upload
+    // Bugreport failed to upload. This is the final state.
     STATUS_UPLOAD_FAILED(4),
 
-    // Bugreport is cancelled by user
+    // Bugreport is cancelled by user. This is the final state.
     STATUS_USER_CANCELLED(5),
 
     // Bugreport is pending user choice on whether to upload or copy.
@@ -41,17 +41,28 @@ public enum Status {
     // Bugreport was moved successfully.
     STATUS_MOVE_SUCCESSFUL(7),
 
-    // Bugreport move has failed.
+    // Bugreport move has failed. This is the final state.
     STATUS_MOVE_FAILED(8),
 
     // Bugreport is moving to USB drive.
     STATUS_MOVE_IN_PROGRESS(9),
 
     // Bugreport is expired. Associated file is deleted from the disk.
+    // This is the final state.
     STATUS_EXPIRED(10),
 
     // Bugreport needs audio message.
-    STATUS_AUDIO_PENDING(11);
+    STATUS_AUDIO_PENDING(11),
+
+    // Bugreport was uploaded before. New upload failed.
+    // It may happen when bugreport was uploaded but because
+    // of network or other issues bugreport status wasn't changed from
+    // STATUS_UPLOAD_PENDING to STATUS_UPLOAD_SUCCESS.
+    //
+    // The bugreport zip files are stored in the device for some time in case the previous
+    // upload failed. The files are cleaned-up in ExpireOldBugReportsJob.
+    // This is the final state.
+    STATUS_UPLOADED_BEFORE(12);
 
     private final int mValue;
 

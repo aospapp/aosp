@@ -165,13 +165,13 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         mWifiDiagnostics = new WifiDiagnostics(
                 mContext, mWifiInjector, mWifiNative, mBuildProperties, mLastMileLogger, mClock,
                 mTestLooper.getLooper());
-        mWifiNative.enableVerboseLogging(false);
+        mWifiNative.enableVerboseLogging(false, false);
     }
 
     /** Verifies that startLogging() registers a logging event handler. */
     @Test
     public void startLoggingRegistersLogEventHandler() throws Exception {
-        mWifiDiagnostics.enableVerboseLogging(false);
+        mWifiDiagnostics.enableVerboseLogging(false, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).setLoggingEventHandler(anyObject());
     }
@@ -186,14 +186,14 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         final boolean verbosityToggle = false;  // even default mode registers handler
 
         when(mWifiNative.setLoggingEventHandler(anyObject())).thenReturn(false);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).setLoggingEventHandler(anyObject());
         mWifiDiagnostics.stopLogging(STA_IF_NAME);
         reset(mWifiNative);
 
         when(mWifiNative.setLoggingEventHandler(anyObject())).thenReturn(true);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).setLoggingEventHandler(anyObject());
     }
@@ -203,12 +203,12 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void startLoggingDoesNotRegisterLogEventHandlerIfPriorAttemptSucceeded()
             throws Exception {
         when(mWifiNative.setLoggingEventHandler(anyObject())).thenReturn(true);
-        mWifiDiagnostics.enableVerboseLogging(false);
+        mWifiDiagnostics.enableVerboseLogging(false, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).setLoggingEventHandler(anyObject());
         reset(mWifiNative);
 
-        mWifiDiagnostics.enableVerboseLogging(false);
+        mWifiDiagnostics.enableVerboseLogging(false, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative, never()).setLoggingEventHandler(anyObject());
     }
@@ -223,7 +223,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void startLoggingStopsAndRestartsRingBufferLoggingInVerboseMode() throws Exception {
         final boolean verbosityToggle = true;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).startLoggingRingBuffer(
                 eq(WifiDiagnostics.VERBOSE_NO_LOG), anyInt(), anyInt(), anyInt(),
@@ -236,7 +236,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void startLoggingStopsAndThenStartRingBufferLoggingInNormalMode() throws Exception {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         verify(mWifiNative).startLoggingRingBuffer(
                 eq(WifiDiagnostics.VERBOSE_NO_LOG), anyInt(), anyInt(), anyInt(),
@@ -251,7 +251,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void stopLoggingResetsLogHandlerIfHandlerWasRegistered() throws Exception {
         final boolean verbosityToggle = false;  // even default mode registers handler
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         when(mWifiNative.setLoggingEventHandler(anyObject())).thenReturn(true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         reset(mWifiNative);
@@ -273,7 +273,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         final boolean verbosityToggle = false;  // even default mode registers handler
 
         when(mWifiNative.setLoggingEventHandler(anyObject())).thenReturn(true);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         reset(mWifiNative);
 
@@ -292,7 +292,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void canCaptureAndStoreRingBufferData() throws Exception {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
 
         final byte[] data = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
@@ -312,7 +312,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void loggerDiscardsExtraneousData() throws Exception {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
 
         final byte[] data1 = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
@@ -342,7 +342,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionFailureIsIgnoredWithoutVerboseMode() {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -356,7 +356,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionFailureFetchesFatesInVerboseMode() {
         final boolean verbosityToggle = true;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -367,7 +367,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionEventPropagatesStartToLastMileLogger() {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_STARTED,
                 mClientModeManager);
@@ -378,7 +378,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionEventPropagatesSuccessToLastMileLogger() {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_SUCCEEDED,
                 mClientModeManager);
@@ -389,7 +389,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionEventPropagatesFailureToLastMileLogger() {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -403,7 +403,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void reportConnectionEventPropagatesTimeoutToLastMileLogger() {
         final boolean verbosityToggle = true;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_TIMEOUT,
                 mClientModeManager);
@@ -418,7 +418,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void loggerFetchesTxFatesEvenIfFetchingRxFatesFails() {
         final boolean verbosityToggle = true;
         when(mClientModeManager.getRxPktFates()).thenReturn(new ArrayList<>());
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -433,7 +433,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void loggerFetchesRxFatesEvenIfFetchingTxFatesFails() {
         final boolean verbosityToggle = true;
         when(mClientModeManager.getTxPktFates()).thenReturn(new ArrayList<>());
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -449,7 +449,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         final boolean verbosityToggle = false;
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.dump(new FileDescriptor(), pw, new String[]{"bogus", "args"});
         verify(mClientModeManager).getTxPktFates();
@@ -482,7 +482,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void dumpSucceedsWhenFatesHaveBeenFetchedButAreEmpty() {
         final boolean verbosityToggle = true;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, verbosityToggle);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.reportConnectionEvent(WifiDiagnostics.CONNECTION_EVENT_FAILED,
                 mClientModeManager);
@@ -501,10 +501,10 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     }
 
     private String getDumpString(boolean verbose) {
-        mWifiDiagnostics.enableVerboseLogging(verbose);
+        mWifiDiagnostics.enableVerboseLogging(verbose, verbose);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
-        mWifiNative.enableVerboseLogging(verbose);
+        mWifiNative.enableVerboseLogging(verbose, verbose);
         when(mClientModeManager.getTxPktFates()).thenReturn(Arrays.asList(
                 new WifiNative.TxFateReport(
                         WifiLoggerHal.TX_PKT_FATE_ACKED, 2, WifiLoggerHal.FRAME_TYPE_ETHERNET_II,
@@ -630,7 +630,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void dumpOmitsFatesIfVerboseIsDisabledAfterFetch() {
         final boolean verbosityToggle = true;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startPktFateMonitoring(STA_IF_NAME);
         when(mClientModeManager.getTxPktFates()).thenReturn(Arrays.asList(
                 new WifiNative.TxFateReport(
@@ -648,7 +648,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         verify(mClientModeManager).getRxPktFates();
 
         final boolean newVerbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(newVerbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(newVerbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
 
         StringWriter sw = new StringWriter();
@@ -665,7 +665,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void ringBufferSizeIsSmallByDefault() throws Exception {
         final boolean verbosityToggle = false;
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
@@ -682,7 +682,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         when(mBuildProperties.isUserdebugBuild()).thenReturn(true);
         when(mBuildProperties.isEngBuild()).thenReturn(false);
         when(mBuildProperties.isUserBuild()).thenReturn(false);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
@@ -699,7 +699,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         when(mBuildProperties.isEngBuild()).thenReturn(true);
         when(mBuildProperties.isUserdebugBuild()).thenReturn(false);
         when(mBuildProperties.isUserBuild()).thenReturn(false);
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
@@ -713,7 +713,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void ringBufferSizeIsLargeInVerboseMode() throws Exception {
         final boolean verbosityToggle = true;
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[LARGE_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE]);
@@ -725,9 +725,9 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     /** Verifies that we use large ring buffers when switched from normal to verbose mode. */
     @Test
     public void startLoggingGrowsRingBuffersIfNeeded() throws Exception {
-        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */);
+        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[LARGE_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE]);
@@ -741,13 +741,13 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     @Test
     public void startLoggingShrinksRingBuffersIfNeeded() throws Exception {
 
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.onRingBufferData(
                 mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
 
         // Existing data is nuked (too large).
-        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */);
+        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -791,7 +791,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     /** Verifies that we capture the firmware and driver dumps if verbose is enabled. */
     @Test
     public void captureBugReportTakesFirmwareAndDriverDumpsInVerboseMode() {
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -804,7 +804,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void dumpIncludesDriverStateDumpIfAvailable() {
         when(mWifiNative.getDriverStateDump()).thenReturn(new byte[]{0, 1, 2});
 
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -819,7 +819,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     /** Verifies that the dump skips driver state, if driver state was not provided by HAL. */
     @Test
     public void dumpOmitsDriverStateDumpIfUnavailable() {
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -836,13 +836,13 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void dumpOmitsDriverStateDumpIfVerboseDisabledAfterCapture() {
         when(mWifiNative.getDriverStateDump()).thenReturn(new byte[]{0, 1, 2});
 
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
         verify(mWifiNative).getDriverStateDump();
 
-        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */);
+        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
 
         StringWriter sw = new StringWriter();
@@ -856,7 +856,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void dumpIncludesFirmwareMemoryDumpIfAvailable() {
         when(mWifiNative.getFwMemoryDump()).thenReturn(new byte[]{0, 1, 2});
 
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -871,7 +871,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     /** Verifies that the dump skips firmware memory, if firmware memory was not provided by HAL. */
     @Test
     public void dumpOmitsFirmwareMemoryDumpIfUnavailable() {
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
@@ -888,13 +888,13 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void dumpOmitsFirmwareMemoryDumpIfVerboseDisabledAfterCapture() {
         when(mWifiNative.getFwMemoryDump()).thenReturn(new byte[]{0, 1, 2});
 
-        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */);
+        mWifiDiagnostics.enableVerboseLogging(true /* verbose enabled */, true);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.triggerBugReportDataCapture(WifiDiagnostics.REPORT_REASON_NONE);
         mTestLooper.dispatchAll();
         verify(mWifiNative).getFwMemoryDump();
 
-        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */);
+        mWifiDiagnostics.enableVerboseLogging(false /* verbose disabled */, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
 
         StringWriter sw = new StringWriter();
@@ -997,7 +997,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void canCaptureAndStoreRingBufferDataInSoftApMode() throws Exception {
         final boolean verbosityToggle = false;
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(AP_IF_NAME);
 
         final byte[] data = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
@@ -1018,7 +1018,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void canCaptureAndStoreRingBufferDataInConcurrencyMode() throws Exception {
         final boolean verbosityToggle = false;
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.startLogging(AP_IF_NAME);
 
@@ -1042,7 +1042,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         final boolean verbosityToggle = false;
         final byte[] data = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.startLogging(AP_IF_NAME);
 
@@ -1075,7 +1075,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
         final boolean verbosityToggle = false;
         final byte[] data = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         mWifiDiagnostics.startLogging(STA_IF_NAME);
         mWifiDiagnostics.startLogging(AP_IF_NAME);
 
@@ -1105,7 +1105,7 @@ public class WifiDiagnosticsTest extends WifiBaseTest {
     public void verifyStopLoggingOnAllInterfacesClearTheResources() throws Exception {
         final boolean verbosityToggle = false;
 
-        mWifiDiagnostics.enableVerboseLogging(verbosityToggle);
+        mWifiDiagnostics.enableVerboseLogging(verbosityToggle, false);
         when(mWifiNative.setLoggingEventHandler(any())).thenReturn(true);
         when(mWifiNative.resetLogHandler()).thenReturn(true);
 

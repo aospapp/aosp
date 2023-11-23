@@ -98,7 +98,13 @@ public final class IkeSessionParams {
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({IKE_OPTION_ACCEPT_ANY_REMOTE_ID, IKE_OPTION_EAP_ONLY_AUTH, IKE_OPTION_MOBIKE})
+    @IntDef({
+        IKE_OPTION_ACCEPT_ANY_REMOTE_ID,
+        IKE_OPTION_EAP_ONLY_AUTH,
+        IKE_OPTION_MOBIKE,
+        IKE_OPTION_FORCE_PORT_4500,
+        IKE_OPTION_INITIAL_CONTACT
+    })
     public @interface IkeOption {}
 
     /**
@@ -115,18 +121,33 @@ public final class IkeSessionParams {
      * <p>@see {@link Builder#setAuthEap(X509Certificate, EapSessionConfig)}
      */
     public static final int IKE_OPTION_EAP_ONLY_AUTH = 1;
+
     /**
-     * If set, the IKE library will be able to handle network and address changes.
+     * If set, the IKE Session will attempt to handle IP address changes using RFC4555 MOBIKE.
+     *
+     * <p>Upon IP address changes (including Network changes), the IKE session will initiate an RFC
+     * 4555 MOBIKE procedure, migrating both this IKE Session and associated IPsec Transforms to the
+     * new local and remote address pair.
      *
      * <p>The IKE library will first attempt to enable MOBIKE to handle the changes of underlying
-     * network and addresses. If the server does not support MOBIKE, the IKE library will handle the
-     * changes by rekeying all the underlying Child SAs.
+     * network and addresses. For callers targeting SDK {@link android.os.Build.VERSION_CODES#S_V2}
+     * and earlier, this option will implicitly enable the support for rekey-based mobility, and
+     * thus if the server does not support MOBIKE, the IKE Session will try migration by rekeying
+     * all associated IPsec SAs. This rekey-based mobility feature is not best-practice and has
+     * technical issues; accordingly, it will no longer be enabled for callers targeting SDK {@link
+     * android.os.Build.VERSION_CODES#TIRAMISU} and above.
+     *
+     * <p>Checking whether or not MOBIKE is supported by both the IKE library and the server in an
+     * IKE Session is done via {@link IkeSessionConfiguration#isIkeExtensionEnabled(int)}.
+     *
+     * <p>It is recommended that IKE_OPTION_MOBIKE be enabled unless precluded for compatibility
+     * reasons.
      *
      * <p>If this option is set for an IKE Session, Transport-mode SAs will not be allowed in that
      * Session.
      *
-     * <p>Checking if MOBIKE is supported by both the IKE library and the server in an IKE Session
-     * is done via {@link IkeSessionConfiguration#isIkeExtensionEnabled(int)}.
+     * <p>Callers that need to perform migration of IPsec transforms and tunnels MUST implement
+     * migration specific methods in {@link IkeSessionCallback} and {@link ChildSessionCallback}.
      */
     public static final int IKE_OPTION_MOBIKE = 2;
 
@@ -140,8 +161,59 @@ public final class IkeSessionParams {
      */
     public static final int IKE_OPTION_FORCE_PORT_4500 = 3;
 
+    /**
+     * If set, the IKE library will send INITIAL_CONTACT notification to the peers.
+     *
+     * <p>If this option is set, the INITIAL_CONTACT notification payload is sent in IKE_AUTH. The
+     * client can use this option to assert to the peer that this IKE SA is the only IKE SA
+     * currently active between the authenticated identities.
+     *
+     * <p>@see "https://tools.ietf.org/html/rfc7296#section-2.4" RFC 7296, Internet Key Exchange
+     * Protocol Version 2 (IKEv2)
+     *
+     * <p>@see {@link Builder#addIkeOption(int)}
+     */
+    public static final int IKE_OPTION_INITIAL_CONTACT = 4;
+
+    /**
+     * If set, the IKE Session will attempt to handle IP address changes by rekeying with new
+     * addresses.
+     *
+     * <p>Upon IP address changes (including Network changes), the IKE session will initiate a
+     * standard rekey Child procedure using the new local address to replace the existing associated
+     * IPsec transforms with new transforms tied to the new addresses. At the same time the IKE
+     * library will notify the remote of the address change and implicitly migrate itself to the new
+     * address.
+     *
+     * <p>This capability is NOT negotiated; it is the responsibility of the caller to ensure that
+     * the remote supports rekey-based mobility. Failure to do so may lead to increased disruption
+     * during mobility events.
+     *
+     * <p>This option may be set together with {@link #IKE_OPTION_MOBIKE} as a fallback. If both
+     * {@link #IKE_OPTION_MOBIKE} and {@link #IKE_OPTION_REKEY_MOBILITY} are set:
+     *
+     * <ul>
+     *   <li>If the server has indicated MOBIKE support, MOBIKE will be used for mobility
+     *   <li>Otherwise, Rekey will be used for mobility
+     * </ul>
+     *
+     * <p>For callers targeting SDK {@link android.os.Build.VERSION_CODES#S_V2} or earlier, setting
+     * {@link #IKE_OPTION_MOBIKE} will implicitly set {@link #IKE_OPTION_REKEY_MOBILITY}.
+     *
+     * <p>If this option is set for an IKE Session, Transport-mode SAs will not be allowed in that
+     * Session.
+     *
+     * <p>Callers that need to perform migration of IPsec transforms and tunnels MUST implement
+     * migration specific methods in {@link IkeSessionCallback} and {@link ChildSessionCallback}.
+     *
+     * @see {@link IKE_OPTION_MOBIKE}
+     * @see {@link IkeSession#setNetwork(Network)}
+     * @hide
+     */
+    @SystemApi public static final int IKE_OPTION_REKEY_MOBILITY = 5;
+
     private static final int MIN_IKE_OPTION = IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
-    private static final int MAX_IKE_OPTION = IKE_OPTION_FORCE_PORT_4500;
+    private static final int MAX_IKE_OPTION = IKE_OPTION_REKEY_MOBILITY;
 
     /** @hide */
     @VisibleForTesting static final int IKE_HARD_LIFETIME_SEC_MINIMUM = 300; // 5 minutes
@@ -350,7 +422,7 @@ public final class IkeSessionParams {
         long ikeOptions = in.getLong(IKE_OPTIONS_KEY);
         for (int option = MIN_IKE_OPTION; option <= MAX_IKE_OPTION; option++) {
             if (hasIkeOption(ikeOptions, option)) {
-                builder.addIkeOption(option);
+                builder.addIkeOptionInternal(option);
             } else {
                 builder.removeIkeOption(option);
             }
@@ -1781,10 +1853,23 @@ public final class IkeSessionParams {
         @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addIkeOption(@IkeOption int ikeOption) {
+            return addIkeOptionInternal(ikeOption);
+        }
+
+        /** @hide */
+        @NonNull
+        public Builder addIkeOptionInternal(@IkeOption int ikeOption) {
             validateIkeOptionOrThrow(ikeOption);
-            if (ikeOption == IKE_OPTION_MOBIKE && !SdkLevel.isAtLeastS()) {
-                throw new UnsupportedOperationException("MOBIKE only supported for S+");
+            if (ikeOption == IKE_OPTION_MOBIKE || ikeOption == IKE_OPTION_REKEY_MOBILITY) {
+                if (!SdkLevel.isAtLeastS()) {
+                    throw new UnsupportedOperationException("Mobility only supported for S/S+");
+                } else if (!SdkLevel.isAtLeastT() && ikeOption == IKE_OPTION_MOBIKE) {
+                    // Automatically enable IKE_OPTION_REKEY_MOBILITY if S <= SDK < T for
+                    // compatibility
+                    mIkeOptions |= getOptionBitValue(IKE_OPTION_REKEY_MOBILITY);
+                }
             }
+
             mIkeOptions |= getOptionBitValue(ikeOption);
             return this;
         }
@@ -1848,6 +1933,18 @@ public final class IkeSessionParams {
                 if (!ikeAuthEapConfig.getEapConfig().areAllMethodsEapOnlySafe()) {
                     throw new IllegalArgumentException(
                             "Only EAP-only safe method allowed" + " when using EAP-only option.");
+                }
+            }
+
+            // as of today, the device_identity feature is only implemented for EAP-AKA
+            if ((mIke3gppExtension != null
+                    && mIke3gppExtension.getIke3gppParams().getMobileDeviceIdentity() != null)) {
+                if (!(mLocalAuthConfig instanceof IkeAuthEapConfig)
+                        || ((IkeAuthEapConfig) mLocalAuthConfig).getEapConfig().getEapAkaConfig()
+                                == null) {
+                    throw new IllegalArgumentException(
+                            "If device identity is set in Ike3gppParams, then EAP-KA MUST be"
+                                    + " configured as an acceptable authentication method");
                 }
             }
 

@@ -167,18 +167,19 @@ public final class IkeKePayload extends IkePayload {
         ByteBuffer inputBuffer = ByteBuffer.wrap(payloadBody);
 
         dhGroup = Short.toUnsignedInt(inputBuffer.getShort());
-        if (!PUBLIC_KEY_LEN_MAP.contains(dhGroup)) {
-            throw new IllegalArgumentException("Invalid DH group " + dhGroup);
-        }
 
         // Skip reserved field
         inputBuffer.getShort();
 
         int dataSize = payloadBody.length - KE_HEADER_LEN;
 
-        // Check if dataSize matches the DH group type
-        if (dataSize != PUBLIC_KEY_LEN_MAP.get(dhGroup)) {
-            throw new InvalidSyntaxException("Invalid KE payload length for provided DH group.");
+        // If DH group is recognized, check if dataSize matches the DH group type
+        if (PUBLIC_KEY_LEN_MAP.contains(dhGroup) && dataSize != PUBLIC_KEY_LEN_MAP.get(dhGroup)) {
+            throw new InvalidSyntaxException(
+                    "Expecting data size to be "
+                            + PUBLIC_KEY_LEN_MAP.get(dhGroup)
+                            + " but found "
+                            + dataSize);
         }
 
         keyExchangeData = new byte[dataSize];

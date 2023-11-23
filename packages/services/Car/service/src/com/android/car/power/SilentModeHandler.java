@@ -16,16 +16,19 @@
 
 package com.android.car.power;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.car.builtin.util.Slogf;
 import android.os.FileObserver;
 import android.os.SystemProperties;
-import android.util.IndentingPrintWriter;
 
 import com.android.car.CarLog;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.utils.Slogf;
 
 import libcore.io.IoUtils;
 
@@ -126,6 +129,7 @@ final class SilentModeHandler {
         }
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(IndentingPrintWriter writer) {
         synchronized (mLock) {
             writer.printf("Monitoring HW state signal: %b\n", mFileObserver != null);
@@ -259,6 +263,7 @@ final class SilentModeHandler {
         querySilentModeHwState();
     }
 
+    @GuardedBy("mLock")
     private void stopMonitoringSilentModeHwStateLocked() {
         if (mFileObserver != null) {
             mFileObserver.stopWatching();

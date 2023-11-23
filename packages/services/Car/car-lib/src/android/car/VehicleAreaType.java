@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 import android.car.hardware.CarPropertyConfig;
 
 import java.lang.annotation.Retention;
@@ -36,16 +37,22 @@ import java.lang.annotation.RetentionPolicy;
 // exactly be same as VehicleAreaType in /hardware/interfaces/automotive/vehicle/2.0/types.hal.
 public final class VehicleAreaType {
     /** Used for global properties */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_GLOBAL = 0;
     /** Area type is Window */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_WINDOW = 2;
     /** Area type is Seat */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_SEAT = 3;
     /** Area type is Door */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_DOOR = 4;
     /** Area type is Mirror */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_MIRROR = 5;
     /** Area type is Wheel */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int VEHICLE_AREA_TYPE_WHEEL = 6;
     private VehicleAreaType() {}
 

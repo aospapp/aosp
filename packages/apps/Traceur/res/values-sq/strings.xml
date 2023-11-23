@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Restauro kategoritë e parazgjedhura"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Kategoritë e parazgjedhura u restauruan"</string>
     <string name="default_categories" msgid="2117679794687799407">"E parazgjedhur"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d të zgjedhura</item>
-      <item quantity="one">%d të zgjedhura</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{Zgjedhur: #}other{Zgjedhur: #}}"</string>
     <string name="applications" msgid="521776761270770549">"Aplikacionet"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Nuk ka asnjë aplikacion të korrigjueshëm"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Madhësia e memories për njësi CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Përdor Perfetto (beta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Gjurmët e gjata"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Ruajtur në vazhdimësi në hapësirën ruajtëse të pajisjes"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Ruajtur vazhdimisht në hapësirën ruajtëse të pajisjes (nuk do të lidhet automatikisht me raportet e defekteve)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Madhësia maksimale e gjurmës së gjatë"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Kohëzgjatja maksimale e gjurmës së gjatë"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

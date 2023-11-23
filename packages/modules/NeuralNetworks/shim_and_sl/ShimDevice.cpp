@@ -40,6 +40,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -102,19 +103,19 @@ Capabilities getCapabilities(const NnApiSupportLibrary* nnapi, ANeuralNetworksDe
     Capabilities capabilities;
     SL_ANeuralNetworksPerformanceInfo performanceInfo;
 
-    nnapi->SL_ANeuralNetworksDevice_getPerformanceInfo(
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getPerformanceInfo(
             device, SL_ANEURALNETWORKS_CAPABILITIES_PERFORMANCE_RELAXED_SCALAR, &performanceInfo);
     capabilities.relaxedFloat32toFloat16PerformanceScalar = convertPerformanceInfo(performanceInfo);
 
-    nnapi->SL_ANeuralNetworksDevice_getPerformanceInfo(
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getPerformanceInfo(
             device, SL_ANEURALNETWORKS_CAPABILITIES_PERFORMANCE_RELAXED_TENSOR, &performanceInfo);
     capabilities.relaxedFloat32toFloat16PerformanceTensor = convertPerformanceInfo(performanceInfo);
 
-    nnapi->SL_ANeuralNetworksDevice_getPerformanceInfo(
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getPerformanceInfo(
             device, SL_ANEURALNETWORKS_CAPABILITIES_PERFORMANCE_IF, &performanceInfo);
     capabilities.ifPerformance = convertPerformanceInfo(performanceInfo);
 
-    nnapi->SL_ANeuralNetworksDevice_getPerformanceInfo(
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getPerformanceInfo(
             device, SL_ANEURALNETWORKS_CAPABILITIES_PERFORMANCE_WHILE, &performanceInfo);
     capabilities.whilePerformance = convertPerformanceInfo(performanceInfo);
 
@@ -126,7 +127,7 @@ Capabilities getCapabilities(const NnApiSupportLibrary* nnapi, ANeuralNetworksDe
         });
     };
 
-    nnapi->SL_ANeuralNetworksDevice_forEachOperandPerformanceInfo(
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_forEachOperandPerformanceInfo(
             device, static_cast<void*>(&capabilities.operandPerformance), fn);
 
     return capabilities;
@@ -136,8 +137,8 @@ NumberOfCacheFiles getNumberOfCacheFilesNeeded(const NnApiSupportLibrary* nnapi,
                                                ANeuralNetworksDevice* device) {
     uint32_t numModelCacheFiles;
     uint32_t numDataCacheFiles;
-    nnapi->SL_ANeuralNetworksDevice_getNumberOfCacheFilesNeeded(device, &numModelCacheFiles,
-                                                                &numDataCacheFiles);
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getNumberOfCacheFilesNeeded(
+            device, &numModelCacheFiles, &numDataCacheFiles);
     return {
             .numModelCache = static_cast<int32_t>(numModelCacheFiles),
             .numDataCache = static_cast<int32_t>(numDataCacheFiles),
@@ -147,7 +148,8 @@ NumberOfCacheFiles getNumberOfCacheFilesNeeded(const NnApiSupportLibrary* nnapi,
 std::vector<Extension> getVendorExtensions(const NnApiSupportLibrary* nnapi,
                                            ANeuralNetworksDevice* device) {
     uint32_t vendorExtensionCount;
-    nnapi->SL_ANeuralNetworksDevice_getVendorExtensionCount(device, &vendorExtensionCount);
+    nnapi->getFL5()->SL_ANeuralNetworksDevice_getVendorExtensionCount(device,
+                                                                      &vendorExtensionCount);
 
     std::vector<Extension> extensions(vendorExtensionCount);
 
@@ -156,8 +158,8 @@ std::vector<Extension> getVendorExtensions(const NnApiSupportLibrary* nnapi,
         auto& extension = extensions[vendorExtensionIndex];
 
         const char* extensionName;
-        nnapi->SL_ANeuralNetworksDevice_getVendorExtensionName(device, vendorExtensionIndex,
-                                                               &extensionName);
+        nnapi->getFL5()->SL_ANeuralNetworksDevice_getVendorExtensionName(
+                device, vendorExtensionIndex, &extensionName);
         extension.name = extensionName;
 
         constexpr auto fn = [](SL_ANeuralNetworksExtensionOperandTypeInformation info,
@@ -169,7 +171,7 @@ std::vector<Extension> getVendorExtensions(const NnApiSupportLibrary* nnapi,
                     .byteSize = static_cast<int32_t>(info.byteSize),
             });
         };
-        nnapi->SL_ANeuralNetworksDevice_forEachVendorExtensionOperandTypeInformation(
+        nnapi->getFL5()->SL_ANeuralNetworksDevice_forEachVendorExtensionOperandTypeInformation(
                 device, vendorExtensionIndex, static_cast<void*>(&extension.operandTypes), fn);
     }
 
@@ -256,8 +258,7 @@ class ShimBuffer : public BnBuffer {
         }
         const auto unsignedDimensions = ::android::nn::toUnsigned(dimensions);
         if (!unsignedDimensions.has_value()) {
-            return toAStatus(aidl_hal::ErrorStatus::INVALID_ARGUMENT,
-                             unsignedDimensions.error().message);
+            return toAStatus(ErrorStatus::INVALID_ARGUMENT, unsignedDimensions.error().message);
         }
 
         if (!validateDimensions(unsignedDimensions.value())) {
@@ -326,13 +327,13 @@ class ShimBuffer : public BnBuffer {
                          "ShimDriver::allocate -- passed invalid dimension values");
     }
     ANeuralNetworksMemoryDesc* slDesc = nullptr;
-    mNnapi->ANeuralNetworksMemoryDesc_create(&slDesc);
+    mNnapi->getFL5()->ANeuralNetworksMemoryDesc_create(&slDesc);
     const auto slDescGuard = ::android::base::make_scope_guard(
-            [this, slDesc] { mNnapi->ANeuralNetworksMemoryDesc_free(slDesc); });
+            [this, slDesc] { mNnapi->getFL5()->ANeuralNetworksMemoryDesc_free(slDesc); });
 
     auto unsignedDimensions = ::android::nn::toUnsigned(desc.dimensions).value();
-    if (mNnapi->ANeuralNetworksMemoryDesc_setDimensions(slDesc, desc.dimensions.size(),
-                                                        unsignedDimensions.data()) !=
+    if (mNnapi->getFL5()->ANeuralNetworksMemoryDesc_setDimensions(slDesc, desc.dimensions.size(),
+                                                                  unsignedDimensions.data()) !=
         ANEURALNETWORKS_NO_ERROR) {
         LOG(ERROR) << "ShimDriver::allocate -- ANeuralNetworksMemoryDesc_setDimensions fail.";
         return toAStatus(ErrorStatus::INVALID_ARGUMENT,
@@ -369,7 +370,7 @@ class ShimBuffer : public BnBuffer {
                              "ShimDriver::allocate -- nullptr model");
         }
 
-        auto result = mNnapi->ANeuralNetworksMemoryDesc_addInputRole(
+        auto result = mNnapi->getFL5()->ANeuralNetworksMemoryDesc_addInputRole(
                 slDesc, pmodel->getCompilation().getHandle(), role.ioIndex, role.probability);
 
         if (result != ANEURALNETWORKS_NO_ERROR) {
@@ -407,7 +408,7 @@ class ShimBuffer : public BnBuffer {
                              "ShimDriver::allocate -- nullptr model");
         }
 
-        auto result = mNnapi->ANeuralNetworksMemoryDesc_addOutputRole(
+        auto result = mNnapi->getFL5()->ANeuralNetworksMemoryDesc_addOutputRole(
                 slDesc, pmodel->getCompilation().getHandle(), role.ioIndex, role.probability);
 
         if (result != ANEURALNETWORKS_NO_ERROR) {
@@ -433,7 +434,7 @@ class ShimBuffer : public BnBuffer {
                          "possibly an extension type");
     }
 
-    mNnapi->ANeuralNetworksMemoryDesc_finish(slDesc);
+    mNnapi->getFL5()->ANeuralNetworksMemoryDesc_finish(slDesc);
     auto memory =
             std::make_shared<::android::nn::sl_wrapper::Memory>(mNnapi.get(), slDesc, *typeSize);
 
@@ -490,7 +491,7 @@ ndk::ScopedAStatus ShimDevice::getSupportedOperations(const Model& model,
     auto annModel = modelAndMemory->models[0].getHandle();
     auto supportedOps = std::make_unique<bool[]>(numOperations);
 
-    auto result = mNnapi->ANeuralNetworksModel_getSupportedOperationsForDevices(
+    auto result = mNnapi->getFL5()->ANeuralNetworksModel_getSupportedOperationsForDevices(
             annModel, &mDevice, /*numDevices=*/1, supportedOps.get());
     SLW2SAS_RETURN_IF_ERROR(result);
 
@@ -500,7 +501,7 @@ ndk::ScopedAStatus ShimDevice::getSupportedOperations(const Model& model,
 
 ndk::ScopedAStatus ShimDevice::getType(DeviceType* type) {
     int32_t deviceType;
-    auto result = mNnapi->ANeuralNetworksDevice_getType(mDevice, &deviceType);
+    auto result = mNnapi->getFL5()->ANeuralNetworksDevice_getType(mDevice, &deviceType);
     SLW2SAS_RETURN_IF_ERROR(result);
     *type = static_cast<DeviceType>(deviceType);
     return ndk::ScopedAStatus::ok();
@@ -508,7 +509,7 @@ ndk::ScopedAStatus ShimDevice::getType(DeviceType* type) {
 
 ndk::ScopedAStatus ShimDevice::getVersionString(std::string* versionString) {
     const char* buffer;
-    auto result = mNnapi->ANeuralNetworksDevice_getVersion(mDevice, &buffer);
+    auto result = mNnapi->getFL5()->ANeuralNetworksDevice_getVersion(mDevice, &buffer);
     SLW2SAS_RETURN_IF_ERROR(result);
 
     *versionString = std::string(buffer);
@@ -524,11 +525,12 @@ static std::vector<int> getIntFds(const std::vector<::ndk::ScopedFileDescriptor>
     return fds;
 }
 
-ndk::ScopedAStatus ShimDevice::prepareModel(
+ndk::ScopedAStatus ShimDevice::prepareModelCommon(
         const Model& model, ExecutionPreference preference, Priority priority, int64_t deadlineNs,
         const std::vector<::ndk::ScopedFileDescriptor>& modelCache,
         const std::vector<::ndk::ScopedFileDescriptor>& dataCache,
-        const std::vector<uint8_t>& token,
+        const std::vector<uint8_t>& token, const std::vector<TokenValuePair>& compilationHints,
+        const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix,
         const std::shared_ptr<IPreparedModelCallback>& callback) {
     // TODO(183398748): Run model preparation in detached thread.
     if (callback == nullptr) {
@@ -585,6 +587,31 @@ ndk::ScopedAStatus ShimDevice::prepareModel(
                                                      token),
                 callback);
     }
+    if (!compilationHints.empty() || !extensionNameToPrefix.empty()) {
+        std::unordered_map<uint16_t, std::string> prefixToName;
+        for (const auto [name, prefix] : extensionNameToPrefix) {
+            prefixToName.emplace(prefix, name);
+        }
+
+        for (const auto& [token, value] : compilationHints) {
+            const auto uToken = static_cast<uint32_t>(token);
+            const auto prefix = ::android::nn::getExtensionPrefix(uToken);
+            const auto attributeCodeWithinExtension = ::android::nn::getTypeWithinExtension(uToken);
+
+            const auto it = prefixToName.find(prefix);
+            if (it == prefixToName.end()) {
+                callback->notify(ErrorStatus::INVALID_ARGUMENT, nullptr);
+                return toAStatus(ErrorStatus::INVALID_ARGUMENT);
+            }
+            const std::string& extensionName = it->second;
+
+            SLW2SAS_OK_RETURN_AND_ERROR_CALLBACK_IF_ERROR(
+                    compilation.second.addExtensionAttribute(extensionName,
+                                                             attributeCodeWithinExtension, value),
+                    callback);
+        }
+    }
+
     SLW2SAS_OK_RETURN_AND_ERROR_CALLBACK_IF_ERROR(compilation.second.finish(), callback);
 
     const std::shared_ptr<ShimPreparedModel> preparedModel =
@@ -597,11 +624,32 @@ ndk::ScopedAStatus ShimDevice::prepareModel(
     return ndk::ScopedAStatus::ok();
 }
 
+ndk::ScopedAStatus ShimDevice::prepareModel(
+        const Model& model, ExecutionPreference preference, Priority priority, int64_t deadlineNs,
+        const std::vector<::ndk::ScopedFileDescriptor>& modelCache,
+        const std::vector<::ndk::ScopedFileDescriptor>& dataCache,
+        const std::vector<uint8_t>& token,
+        const std::shared_ptr<IPreparedModelCallback>& callback) {
+    return prepareModelCommon(model, preference, priority, deadlineNs, modelCache, dataCache, token,
+                              /*compilationHints=*/{}, /*extensionNameToPrefix=*/{}, callback);
+}
+
+ndk::ScopedAStatus ShimDevice::prepareModelWithConfig(
+        const Model& model, const PrepareModelConfig& config,
+        const std::shared_ptr<IPreparedModelCallback>& callback) {
+    return prepareModelCommon(model, config.preference, config.priority, config.deadlineNs,
+                              config.modelCache, config.dataCache, utils::toVec(config.cacheToken),
+                              config.compilationHints, config.extensionNameToPrefix, callback);
+}
+
 ndk::ScopedAStatus ShimDevice::prepareModelFromCache(
         int64_t /*deadlineNs*/, const std::vector<::ndk::ScopedFileDescriptor>& /*modelCache*/,
         const std::vector<::ndk::ScopedFileDescriptor>& /*dataCache*/,
         const std::vector<uint8_t>& /*token*/,
         const std::shared_ptr<IPreparedModelCallback>& callback) {
+    if (callback == nullptr) {
+        return toAStatus(ErrorStatus::INVALID_ARGUMENT);
+    }
     // The NNAPI runtime will attempt to call this before falling back to
     // ShimDevice::prepareModel(). This is not a LOG(ERROR) to avoid producing
     // misleading logcat messages on every compilation request because there is

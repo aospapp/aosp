@@ -32,7 +32,7 @@
 #include <android-base/logging.h>
 
 extern "C" {
-#include <netutils/checksum.h>
+#include <checksum.h>
 }
 
 using android::base::Error;
@@ -143,7 +143,7 @@ bool TunForwarder::addForwardingRule(const std::array<std::string, 2>& from,
 
 unique_fd TunForwarder::createTun(const std::string& ifname) {
     unique_fd fd(open("/dev/tun", O_RDWR | O_NONBLOCK | O_CLOEXEC));
-    if (!fd.ok() == -1) {
+    if (!fd.ok()) {
         return {};
     }
 

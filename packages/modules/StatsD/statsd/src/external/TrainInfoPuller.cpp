@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "external/StatsPuller.h"
@@ -36,18 +36,18 @@ TrainInfoPuller::TrainInfoPuller() :
     StatsPuller(util::TRAIN_INFO) {
 }
 
-bool TrainInfoPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
+PullErrorCode TrainInfoPuller::PullInternal(vector<shared_ptr<LogEvent>>* data) {
     vector<InstallTrainInfo> trainInfoList =
         StorageManager::readAllTrainInfo();
     if (trainInfoList.empty()) {
         ALOGW("Train info was empty.");
-        return true;
+        return PULL_SUCCESS;
     }
     for (InstallTrainInfo& trainInfo : trainInfoList) {
         auto event = make_shared<LogEvent>(getWallClockNs(), getElapsedRealtimeNs(), trainInfo);
         data->push_back(event);
     }
-    return true;
+    return PULL_SUCCESS;
 }
 
 }  // namespace statsd

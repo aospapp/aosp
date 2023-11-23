@@ -1009,7 +1009,7 @@ public class RotaryServiceTest {
         // Nudge up the controller.
         int validDisplayId = CarOccupantZoneManager.DISPLAY_TYPE_MAIN;
         KeyEvent nudgeUpEventActionDown =
-        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP);
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP);
         mRotaryService.onKeyEvents(validDisplayId,
                 Collections.singletonList(nudgeUpEventActionDown));
         KeyEvent nudgeUpEventActionUp =

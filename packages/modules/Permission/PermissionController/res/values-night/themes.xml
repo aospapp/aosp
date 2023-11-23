@@ -21,8 +21,6 @@
            parent="@android:style/Theme.DeviceDefault.Dialog.Alert">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="*android:windowFixedHeightMajor">100%</item>
-        <item name="*android:windowFixedHeightMinor">100%</item>
         <!-- The following attributes change the behavior of the dialog, hence they should not be
              themed -->
         <item name="android:windowIsTranslucent">true</item>

@@ -16,20 +16,21 @@
 
 package com.android.car.audio;
 
+import static android.telephony.TelephonyManager.CALL_STATE_OFFHOOK;
+import static android.telephony.TelephonyManager.CALL_STATE_RINGING;
+
 import static com.android.car.audio.CarAudioService.DEFAULT_AUDIO_CONTEXT;
 import static com.android.car.audio.CarAudioService.SystemClockWrapper;
 import static com.android.car.audio.CarAudioUtils.hasExpired;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
-import android.media.AudioAttributes.AttributeUsage;
 import android.media.AudioPlaybackConfiguration;
-import android.telephony.Annotation.CallState;
-import android.telephony.TelephonyManager;
 import android.util.SparseIntArray;
 
 import com.android.car.CarLog;
 import com.android.car.audio.CarAudioContext.AudioContext;
+import com.android.car.internal.annotation.AttributeUsage;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.Preconditions;
 
@@ -127,12 +128,16 @@ final class CarVolume {
     }
 
     /**
-     * Finds a {@link AudioContext} that should be adjusted based on the current
-     * {@link AudioPlaybackConfiguration}s, {@link CallState}, and active HAL usages. If an active
-     * context is found it be will saved and retrieved later on.
+     * Finds an active {@link AudioContext} that should be adjusted based on the current
+     * {@link AudioPlaybackConfiguration}s,
+     * {@code callState} (can be {@code CALL_STATE_OFFHOOK}, {@code CALL_STATE_RINGING}
+     * or {@code CALL_STATE_IDLE}). {@code callState} is used to determined if the call context
+     * or phone ringer context are active.
+     *
+     * <p> Note that if an active context is found it be will saved and retrieved later on.
      */
     @AudioContext int getSuggestedAudioContextAndSaveIfFound(
-            @NonNull List<Integer> activePlaybackContexts, @CallState int callState,
+            @NonNull List<Integer> activePlaybackContexts, int callState,
             @NonNull @AttributeUsage int[] activeHalUsages) {
 
         int activeContext = getAudioContextStillActive();
@@ -185,7 +190,7 @@ final class CarVolume {
     }
 
     public static boolean isAnyContextActive(@NonNull @AudioContext int [] contexts,
-            @NonNull List<Integer> activePlaybackContext, @CallState int callState,
+            @NonNull List<Integer> activePlaybackContext, int callState,
             @NonNull @AttributeUsage int[] activeHalUsages) {
         Objects.nonNull(contexts);
         Preconditions.checkArgument(contexts.length != 0,
@@ -201,17 +206,17 @@ final class CarVolume {
     }
 
     private static Set<Integer> getActiveContexts(@NonNull List<Integer> activePlaybackContexts,
-            @CallState int callState, @NonNull @AttributeUsage int[] activeHalUsages) {
+            int callState, @NonNull @AttributeUsage int[] activeHalUsages) {
         Objects.nonNull(activePlaybackContexts);
         Objects.nonNull(activeHalUsages);
 
         Set<Integer> contexts = CarAudioContext.getUniqueContextsForUsages(activeHalUsages);
 
         switch (callState) {
-            case TelephonyManager.CALL_STATE_RINGING:
+            case CALL_STATE_RINGING:
                 contexts.add(CarAudioContext.CALL_RING);
                 break;
-            case TelephonyManager.CALL_STATE_OFFHOOK:
+            case CALL_STATE_OFFHOOK:
                 contexts.add(CarAudioContext.CALL);
                 break;
         }

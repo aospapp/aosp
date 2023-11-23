@@ -38,7 +38,7 @@ android_test {
         "libstaticjvmtiagent",
     ],
     compile_multilib: "both",
-    min_sdk_version: "current",
-    target_sdk_version: "current",
+    target_sdk_version: "31",
+    min_sdk_version: "31",
     test_suites: ["general-tests", "mts-scheduling"],
 }

@@ -24,6 +24,7 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
+import androidx.preference.Preference;
 
 import com.android.car.settings.R;
 import com.android.car.ui.uxr.DrawableStateToggleButton;
@@ -38,6 +39,9 @@ public final class ToggleButtonActionItem extends BaseActionItem {
     @Nullable
     private Consumer<Boolean> mOnClickListener;
     @Nullable
+    private Consumer<Preference> mOnClickWhileDisabledListener;
+
+    @Nullable
     private Drawable mDrawable;
 
     public ToggleButtonActionItem(ActionItemInfoChangeListener actionItemInfoChangeListener) {
@@ -51,9 +55,24 @@ public final class ToggleButtonActionItem extends BaseActionItem {
      */
     @Override
     public void bindViewHolder(FrameLayout frameLayout) {
+        // Required to be effectively final for inner class access
+        final DrawableStateToggleButton toggleButton = getOptionalToggleButton(frameLayout);
+        toggleButton.setOnClickListener(null);
+        // Prevent "double calls" when checked status is changed
+        toggleButton.setOnCheckedChangeListener(null);
+        toggleButton.setButtonDrawable(mDrawable);
+        toggleButton.setChecked(mIsChecked);
+        toggleButton.setEnabled(isEnabled());
+        toggleButton.setAllowClickWhenDisabled(true);
+        toggleButton.setOnCheckedChangeListener((view, isChecked) -> {
+            onClick();
+            toggleButton.setChecked(mIsChecked);
+        });
+    }
+
+    private DrawableStateToggleButton getOptionalToggleButton(FrameLayout frameLayout) {
         DrawableStateToggleButton toggleButton =
                 frameLayout.findViewById(R.id.multi_action_preference_toggle_button);
-
 
         if (toggleButton == null) {
             toggleButton = createView(frameLayout.getContext(), frameLayout);
@@ -63,12 +82,7 @@ public final class ToggleButtonActionItem extends BaseActionItem {
             toggleButton.setTextOff(null);
             frameLayout.addView(toggleButton);
         }
-
-        toggleButton.setOnCheckedChangeListener(null);
-        toggleButton.setButtonDrawable(mDrawable);
-        toggleButton.setChecked(mIsChecked);
-        toggleButton.setEnabled(isEnabled());
-        toggleButton.setOnCheckedChangeListener((view, isChecked) -> onClick());
+        return toggleButton;
     }
 
     @Override
@@ -111,6 +125,16 @@ public final class ToggleButtonActionItem extends BaseActionItem {
     }
 
     /**
+     * Set the Consumer that should run when toggle button is clicked even when disabled.
+     */
+    public void setOnClickWhileDisabledListener(Consumer<Preference> listener) {
+        if (listener != mOnClickWhileDisabledListener) {
+            mOnClickWhileDisabledListener = listener;
+            update();
+        }
+    }
+
+    /**
      * Get the ToggleButton drawable.
      */
     public Drawable getDrawable() {
@@ -143,14 +167,14 @@ public final class ToggleButtonActionItem extends BaseActionItem {
      * Executes when ToggleButton is clicked.
      */
     public void onClick() {
-        if (isEnabled()) {
-            if (mIsPreferenceRestricted && mRestrictedOnClickListener != null
-                    && mPreference != null) {
-                mRestrictedOnClickListener.accept(mPreference);
-            } else if (!mIsPreferenceRestricted && mOnClickListener != null) {
-                mIsChecked = !mIsChecked;
-                mOnClickListener.accept(mIsChecked);
-            }
+        if (mIsRestricted && mPreference != null
+                && mRestrictedOnClickListener != null) {
+            mRestrictedOnClickListener.accept(mPreference);
+        } else if (isEnabled() && !mIsRestricted && mOnClickListener != null) {
+            mIsChecked = !mIsChecked;
+            mOnClickListener.accept(mIsChecked);
+        } else if (!isEnabled() && mOnClickWhileDisabledListener != null) {
+            mOnClickWhileDisabledListener.accept(mPreference);
         }
     }
 

@@ -22,6 +22,7 @@
     <color name="incident_reason_bullet_color">#de000000</color>
     <color name="divider_color_primary">#24000000</color>
     <color name="divider_color_secondary">#85FFFFFF</color>
+    <color name="safety_center_secondary">#FF777777</color>
 
     <!-- Auto related colors -->
     <color name="car_tint">#fff8f9fa</color>
@@ -29,4 +30,12 @@
     <color name="car_accent">#ff60a8f0</color>
     <color name="car_divider_color">#1fffffff</color>
 
+    <!-- Safety center colors -->
+    <color name="safety_center_card_background">#D3D3D3</color>
+    <color name="safety_center_info">#1E8E3E</color>
+    <color name="safety_center_recommend">#F9AB00</color>
+    <color name="safety_center_warn">#D93025</color>
+    <color name="safety_center_status_unfilled_wedge">#DADCE0</color> <!-- Material Gray 300 -->
+    <color name="safety_center_done">#767676</color>
+    <color name="safety_center_qs_background">#2f3133</color>
 </resources>

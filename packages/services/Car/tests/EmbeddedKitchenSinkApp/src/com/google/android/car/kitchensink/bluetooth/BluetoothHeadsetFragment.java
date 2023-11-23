@@ -16,17 +16,24 @@
 
 package com.google.android.car.kitchensink.bluetooth;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
 import android.bluetooth.BluetoothHeadsetClient;
-import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.telecom.Call;
+import android.telecom.PhoneAccount;
+import android.telecom.TelecomManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -41,6 +48,9 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
+import com.google.common.base.Objects;
+
+import java.util.List;
 
 public class BluetoothHeadsetFragment extends Fragment {
     private static final String TAG = "CAR.BLUETOOTH.KS";
@@ -50,19 +60,16 @@ public class BluetoothHeadsetFragment extends Fragment {
     TextView mPickedDeviceText;
     Button mDevicePicker;
     Button mConnect;
-    Button mDisconnect;
     Button mScoConnect;
     Button mScoDisconnect;
-    Button mEnableQuietMode;
     Button mHoldCall;
-    Button mEnableBVRA;
-    Button mDisableBVRA;
     Button mStartOutgoingCall;
     Button mEndOutgoingCall;
     EditText mOutgoingPhoneNumber;
 
     BluetoothHeadsetClient mHfpClientProfile;
-    BluetoothHeadsetClientCall mOutgoingCall;
+    InCallServiceImpl mInCallService;
+    ServiceConnection mInCallServiceConnection;
 
     // Intent for picking a Bluetooth device
     public static final String DEVICE_PICKER_ACTION =
@@ -76,20 +83,42 @@ public class BluetoothHeadsetFragment extends Fragment {
         mPickedDeviceText = (TextView) v.findViewById(R.id.bluetooth_device);
         mDevicePicker = (Button) v.findViewById(R.id.bluetooth_pick_device);
         mConnect = (Button) v.findViewById(R.id.bluetooth_headset_connect);
-        mDisconnect = (Button) v.findViewById(R.id.bluetooth_headset_disconnect);
         mScoConnect = (Button) v.findViewById(R.id.bluetooth_sco_connect);
         mScoDisconnect = (Button) v.findViewById(R.id.bluetooth_sco_disconnect);
-        mEnableQuietMode = (Button) v.findViewById(R.id.bluetooth_quiet_mode_enable);
         mHoldCall = (Button) v.findViewById(R.id.bluetooth_hold_call);
-        mEnableBVRA = (Button) v.findViewById(R.id.bluetooth_voice_recognition_enable);
-        mDisableBVRA = (Button) v.findViewById(R.id.bluetooth_voice_recognition_disable);
         mStartOutgoingCall = (Button) v.findViewById(R.id.bluetooth_start_outgoing_call);
         mEndOutgoingCall = (Button) v.findViewById(R.id.bluetooth_end_outgoing_call);
         mOutgoingPhoneNumber = (EditText) v.findViewById(R.id.bluetooth_outgoing_phone_number);
 
-        if (!BluetoothConnectionPermissionChecker.isPermissionGranted(
-                (KitchenSinkActivity) getHost())) {
-            BluetoothConnectionPermissionChecker.requestPermission(this,
+        checkPermissions();
+        setUpInCallServiceImpl();
+
+        // Connect profile
+        mConnect.setOnClickListener(view -> connect());
+
+        // Connect SCO
+        mScoConnect.setOnClickListener(view -> connectSco());
+
+        // Disconnect SCO
+        mScoDisconnect.setOnClickListener(view -> disconnectSco());
+
+        // Place the current call on hold
+        mHoldCall.setOnClickListener(view -> holdCall());
+
+        // Start an outgoing call
+        mStartOutgoingCall.setOnClickListener(view -> startCall());
+
+        // Stop an outgoing call
+        mEndOutgoingCall.setOnClickListener(view -> stopCall());
+
+        return v;
+    }
+
+    private void checkPermissions() {
+        if (!BluetoothPermissionChecker.isPermissionGranted(
+                (KitchenSinkActivity) getHost(), Manifest.permission.BLUETOOTH_CONNECT)) {
+            BluetoothPermissionChecker.requestPermission(Manifest.permission.BLUETOOTH_CONNECT,
+                    this,
                     this::setDevicePickerButtonClickable,
                     () -> {
                         setDevicePickerButtonUnclickable();
@@ -100,100 +129,33 @@ public class BluetoothHeadsetFragment extends Fragment {
                     }
             );
         }
+    }
 
-        // Connect profile
-        mConnect.setOnClickListener(new View.OnClickListener() {
+    private void setUpInCallServiceImpl() {
+        mInCallServiceConnection = new ServiceConnection() {
             @Override
-            public void onClick(View view) {
-                connect();
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                Log.i(TAG, "InCallServiceImpl is connected");
+                mInCallService = ((InCallServiceImpl.LocalBinder) service).getService();
             }
-        });
 
-        // Disonnect profile
-        mDisconnect.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                disconnect();
+            public void onServiceDisconnected(ComponentName name) {
+                Log.i(TAG, "InCallServiceImpl is disconnected");
+                mInCallService = null;
             }
-        });
+        };
 
-        // Connect SCO
-        mScoConnect.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                connectSco();
-            }
-        });
-
-        // Disconnect SCO
-        mScoDisconnect.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                disconnectSco();
-            }
-        });
-
-        // Enable quiet mode
-        mEnableQuietMode.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                mBluetoothAdapter.enableNoAutoConnect();
-            }
-        });
-
-        // Place the current call on hold
-        mHoldCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                holdCall();
-            }
-        });
-
-        // Enable Voice Recognition
-        mEnableBVRA.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                startBVRA();
-            }
-        });
-
-        // Disable Voice Recognition
-        mDisableBVRA.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                stopBVRA();
-            }
-        });
-
-        // Start a outgoing call
-        mStartOutgoingCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                startCall();
-            }
-        });
-
-        // Stop a outgoing call
-        mEndOutgoingCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                stopCall();
-            }
-        });
-
-        return v;
+        Intent intent = new Intent(this.getContext(), InCallServiceImpl.class);
+        intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
+        this.getContext().bindService(intent, mInCallServiceConnection, Context.BIND_AUTO_CREATE);
     }
 
     private void setDevicePickerButtonClickable() {
         mDevicePicker.setClickable(true);
 
         // Pick a bluetooth device
-        mDevicePicker.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                launchDevicePicker();
-            }
-        });
+        mDevicePicker.setOnClickListener(view -> launchDevicePicker());
     }
 
     private void setDevicePickerButtonUnclickable() {
@@ -221,145 +183,69 @@ public class BluetoothHeadsetFragment extends Fragment {
             Log.w(TAG, "HFP Profile proxy not available, cannot connect sco to " + mPickedDevice);
             return;
         }
-        mHfpClientProfile.connect(mPickedDevice);
-    }
-
-    void disconnect() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to connect sco!");
-            return;
-        }
-
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot connect sco to " + mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.disconnect(mPickedDevice);
+        mHfpClientProfile.setConnectionPolicy(mPickedDevice,
+                BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+        mPickedDevice.connect();
     }
 
     void connectSco() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to connect sco!");
-            return;
+        Call call = getFirstActiveCall();
+        if (call != null) {
+            // TODO(b/206035301): Use the public version of this string
+            call.sendCallEvent("com.android.bluetooth.hfpclient.SCO_CONNECT",
+                    /* extras= */ null);
         }
-
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot connect sco to " + mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.connectAudio(mPickedDevice);
     }
 
     void disconnectSco() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to disconnect sco!");
-            return;
+        Call call = getFirstActiveCall();
+        if (call != null) {
+            // TODO(b/206035301): Use the public version of this string
+            call.sendCallEvent("com.android.bluetooth.hfpclient.SCO_DISCONNECT",
+                    /* extras= */ null);
         }
-
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot disconnect sco to " +
-                mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.disconnectAudio(mPickedDevice);
     }
 
     void holdCall() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to put the call on hold!");
-            return;
+        Call call = getFirstActiveCall();
+        if (call != null) {
+            call.hold();
         }
-
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot put the call on hold " +
-                mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.holdCall(mPickedDevice);
-    }
-
-    void startBVRA() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to start voice recognition!");
-            return;
-        }
-
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot start voice recognition to "
-                    + mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.startVoiceRecognition(mPickedDevice);
-    }
-
-    void stopBVRA() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to stop voice recognition!");
-            return;
-        }
-
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot stop voice recognition to "
-                    + mPickedDevice);
-            return;
-        }
-        mHfpClientProfile.stopVoiceRecognition(mPickedDevice);
     }
 
     void startCall() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to start voice call!");
-            return;
+        TelecomManager telecomManager = getContext().getSystemService(TelecomManager.class);
+        if (!Objects.equal(telecomManager.getDefaultDialerPackage(),
+                getContext().getPackageName())) {
+            Log.w(TAG, "Kitchen Sink cannot manage phone calls unless it is the default "
+                    + "dialer app. This can be set in Settings>Apps>Default apps");
         }
 
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot start voice call to "
-                    + mPickedDevice);
-            return;
-        }
-
-        if (mOutgoingCall != null) {
-            Log.w(TAG, "Potential on-going call or a stale call " + mOutgoingCall);
-        }
-
-        String number = mOutgoingPhoneNumber.getText().toString();
-        mOutgoingCall = mHfpClientProfile.dial(mPickedDevice, number);
-        if (mOutgoingCall == null) {
-            Log.w(TAG, "Fail to dial number " + number + ". Make sure profile connect first.");
-        } else {
-            Log.d(TAG, "Succeed in creating outgoing call " + mOutgoingCall + " for number "
-                    + number);
-        }
+        Uri uri = Uri.fromParts(PhoneAccount.SCHEME_TEL, mOutgoingPhoneNumber.getText().toString(),
+                /* fragment= */ null);
+        telecomManager.placeCall(uri, /* extras= */ null);
     }
 
     void stopCall() {
-        if (mPickedDevice == null) {
-            Log.w(TAG, "Device null when trying to stop voice call!");
-            return;
+        Call call = getFirstActiveCall();
+        if (call != null) {
+            call.disconnect();
+        }
+    }
+
+    private Call getFirstActiveCall() {
+        if (mInCallService == null) {
+            Log.w(TAG, "InCallServiceImpl was not connected");
+            return null;
         }
 
-        // Check if we have the proxy and connect the device.
-        if (mHfpClientProfile == null) {
-            Log.w(TAG, "HFP Profile proxy not available, cannot stop voice call to "
-                    + mPickedDevice);
-            return;
+        List<Call> calls = mInCallService.getCalls();
+        if (calls == null || calls.size() == 0) {
+            Log.w(TAG, "No calls are currently connected");
+            return null;
         }
 
-        if (mOutgoingCall != null) {
-            if (mHfpClientProfile.terminateCall(mPickedDevice, mOutgoingCall)) {
-                Log.d(TAG, "Succeed in terminating outgoing call " + mOutgoingCall);
-                mOutgoingCall = null;
-            } else {
-                Log.d(TAG, "Fail to terminate outgoing call " + mOutgoingCall);
-            }
-        } else {
-            Log.w(TAG, "No outgoing call to terminate");
-        }
+        return mInCallService.getCalls().get(0);
     }
 
 
@@ -394,8 +280,8 @@ public class BluetoothHeadsetFragment extends Fragment {
         mBluetoothAdapter.getProfileProxy(
             getContext(), new ProfileServiceListener(), BluetoothProfile.HEADSET_CLIENT);
 
-        if (BluetoothConnectionPermissionChecker.isPermissionGranted(
-                (KitchenSinkActivity) getHost())) {
+        if (BluetoothPermissionChecker.isPermissionGranted(
+                (KitchenSinkActivity) getHost(), Manifest.permission.BLUETOOTH_CONNECT)) {
             setDevicePickerButtonClickable();
         } else {
             setDevicePickerButtonUnclickable();
@@ -405,6 +291,12 @@ public class BluetoothHeadsetFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        getContext().unbindService(mInCallServiceConnection);
+        super.onDestroy();
     }
 
     class ProfileServiceListener implements BluetoothProfile.ServiceListener {

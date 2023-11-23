@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_RUNTIME_EVENT_H
-#define ANDROID_FRAMEWORKS_ML_NN_RUNTIME_EVENT_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_EVENT_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_EVENT_H
 
 #include <android-base/logging.h>
 #include <nnapi/Types.h>
@@ -124,4 +124,4 @@ class SyncFenceEvent : public IEvent {
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_RUNTIME_EVENT_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_RUNTIME_EVENT_H

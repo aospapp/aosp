@@ -19,6 +19,7 @@ package com.android.server.wifi;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiMigration;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -89,6 +90,19 @@ public class WifiSettingsConfigStore {
             new Key<>("wifi_scoring_enabled", true);
 
     /**
+     * Whether Wifi Passpoint is enabled or not.
+     */
+    public static final Key<Boolean> WIFI_PASSPOINT_ENABLED =
+            new Key<>("wifi_passpoint_enabled", true);
+
+    /**
+     * Whether Wifi Multi Internet is enabled for multi ap, dbs or disabled.
+     */
+    public static final Key<Integer> WIFI_MULTI_INTERNET_MODE =
+            new Key<Integer>("wifi_multi_internet_mode",
+                    WifiManager.WIFI_MULTI_INTERNET_MODE_DISABLED);
+
+    /**
      * Store the STA factory MAC address retrieved from the driver on the first bootup.
      */
     public static final Key<String> WIFI_STA_FACTORY_MAC_ADDRESS =
@@ -99,6 +113,17 @@ public class WifiSettingsConfigStore {
      */
     public static final Key<String> WIFI_DEFAULT_COUNTRY_CODE =
             new Key<>("wifi_default_country_code", WifiCountryCode.getOemDefaultCountryCode());
+
+    /**
+     * Store the supported features retrieved from WiFi HAL and Supplicant HAL
+     */
+    public static final Key<Long> WIFI_NATIVE_SUPPORTED_FEATURES =
+            new Key<>("wifi_native_supported_features", 0L);
+
+    /**
+     * Store the static chip info retrieved from WiFi HAL
+     */
+    public static final Key<String> WIFI_STATIC_CHIP_INFO = new Key<>("wifi_static_chip_info", "");
 
     /******** Wifi shared pref keys ***************/
 

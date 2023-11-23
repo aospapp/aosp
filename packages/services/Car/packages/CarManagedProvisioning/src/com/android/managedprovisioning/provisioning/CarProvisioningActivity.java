@@ -31,7 +31,6 @@ import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecke
 import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.server.utils.Slogf;
 
@@ -122,8 +121,8 @@ public final class CarProvisioningActivity extends ProvisioningActivity {
      * {@code CarSetupWizardLayout}
      */
     @Override
-    protected void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
-            CustomizationParams params) {
+    protected void initializeLayoutParams(
+            int layoutResourceId, @Nullable Integer headerResourceId) {
         CarSetupWizardLayoutHelper layoutHelper = new CarSetupWizardLayoutHelper(this);
         layoutHelper.setBaseLayout(/* mainLayoutResId= */ layoutResourceId,
                 /* subLayoutId= */ R.layout.provision_layout,

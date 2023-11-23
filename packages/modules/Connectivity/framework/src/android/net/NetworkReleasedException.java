@@ -18,6 +18,8 @@ package android.net;
 
 import android.annotation.SystemApi;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Indicates that the {@link Network} was released and is no longer available.
  *
@@ -25,7 +27,7 @@ import android.annotation.SystemApi;
  */
 @SystemApi
 public class NetworkReleasedException extends Exception {
-    /** @hide */
+    @VisibleForTesting
     public NetworkReleasedException() {
         super("The network was released and is no longer available");
     }

@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"ডিফল্ট প্রিন্ট সার্ভিস"</string>
+    <string name="app_name" msgid="3551052199033657984">"ডিফল্ট প্রিন্ট পরিষেবা"</string>
     <string name="printer_busy" msgid="8604311528104955859">"ব্যস্ত"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"কাগজ ফুরিয়ে গেছে"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"কালি ফুরিয়ে গেছে"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"কানেকশন"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"ডিফল্ট প্রিন্ট পরিষেবা Wi-Fi ডাইরেক্ট প্রিন্টার খুঁজে পাচ্ছে না"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi ডাইরেক্ট বন্ধ করুন"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"আশেপাশের ডিভাইস খোঁজার জন্য ডিফল্ট প্রিন্ট পরিষেবাকে লোকেশন অ্যাক্সেসের অনুমতি দিতে হবে।"</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"আশপাশের প্রিন্টার খুঁজে পেতে ডিফল্ট প্রিন্টার পরিষেবার আশেপাশের ডিভাইসের অনুমতি প্রয়োজন।"</string>
     <string name="fix" msgid="7784394272611365393">"রিভিউ করার অনুমতি"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"ডিফল্ট প্রিন্ট পরিষেবার আশেপাশের ডিভাইস খুঁজে পেতে লোকেশন পরিষেবা চালু থাকতে হবে।"</string>
-    <string name="enable_location" msgid="3627841004298863140">"লোকেশন চালু করুন"</string>
     <string name="print" msgid="7851318072404916362">"প্রিন্ট করুন"</string>
 </resources>

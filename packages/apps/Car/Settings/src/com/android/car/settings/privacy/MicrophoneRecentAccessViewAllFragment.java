@@ -72,6 +72,6 @@ public class MicrophoneRecentAccessViewAllFragment extends SettingsFragment {
     }
 
     private void updateMenu() {
-        mShowHideSystemMenu.setTitle(mShowSystem ? R.string.hide_system : R.string.hide_system);
+        mShowHideSystemMenu.setTitle(mShowSystem ? R.string.hide_system : R.string.show_system);
     }
 }

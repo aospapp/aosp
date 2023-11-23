@@ -18,6 +18,7 @@ package {
 
 android_app {
     name: "BuiltInPrintService",
+    certificate: "platform",
     privileged: true,
     srcs: [
         "src/**/*.java",

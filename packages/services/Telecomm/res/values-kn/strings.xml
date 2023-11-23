@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ಪಾವತಿ ಫೋನ್‌ಗಳಿಂದ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"ಅಪರಿಚಿತ"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"ಗುರುತಿಸದ ಕರೆದಾರರಿಂದ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"ಲಭ್ಯವಿಲ್ಲ"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲದಿದ್ದಾಗ ಕರೆಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"ಕರೆ ನಿರ್ಬಂಧಿಸುವಿಕೆಯನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"ತುರ್ತು ಕರೆ ಮಾಡಲಾಗಿದೆ"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುವುದಕ್ಕಾಗಿ ತುರ್ತಾಗಿ ಪ್ರತಿಕ್ರಿಯಿಸುವವರ ಸಂಖ್ಯೆಯನ್ನು ನಿರ್ಬಂಧಿಸುವುದನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ."</string>
     <string name="developer_title" msgid="9146088855661672353">"ಟೆಲಿಕಾಂ ಡೆವಲಪರ್ ಮೆನು"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ತುರ್ತು ಕರೆಯಲ್ಲಿರುವಾಗ ಕರೆಗಳನ್ನು ಸ್ವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
+    <string name="cancel" msgid="6733466216239934756">"ರದ್ದುಮಾಡಿ"</string>
 </resources>

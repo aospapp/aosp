@@ -64,16 +64,17 @@ class GridOptionPreviewer {
         if (mSurfaceCallback != null) {
             mSurfaceCallback.cleanUp();
             mSurfaceCallback.resetLastSurface();
+            if (mGridOptionSurface != null) {
+                mGridOptionSurface.getHolder().removeCallback(mSurfaceCallback);
+            }
         }
-        if (mGridOptionSurface == null) {
-            mGridOptionSurface = new SurfaceView(mPreviewContainer.getContext());
-            mGridOptionSurface.setLayoutParams(new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            mGridOptionSurface.setZOrderMediaOverlay(true);
-            mSurfaceCallback = new GridOptionSurfaceHolderCallback(mGridOptionSurface,
-                    mGridOptionSurface.getContext());
-            mGridOptionSurface.getHolder().addCallback(mSurfaceCallback);
-        }
+        mGridOptionSurface = new SurfaceView(mPreviewContainer.getContext());
+        mGridOptionSurface.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        mGridOptionSurface.setZOrderMediaOverlay(true);
+        mSurfaceCallback = new GridOptionSurfaceHolderCallback(mGridOptionSurface,
+                mGridOptionSurface.getContext());
+        mGridOptionSurface.getHolder().addCallback(mSurfaceCallback);
         mPreviewContainer.addView(mGridOptionSurface);
     }
 

@@ -4,3 +4,6 @@ service evs_app /system/bin/evs_app
     user automotive_evs
     group automotive_evs
     disabled # will not automatically start with its class; must be explictly started.
+
+on late-init
+    start evs_app

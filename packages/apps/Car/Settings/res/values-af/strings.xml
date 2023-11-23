@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Kry toegang tot data deur selnetwerk"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Selnetwerk"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Gebruik mobiele data"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Af"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Skakel mobiele data af?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Keuse vereis"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Gebruik <xliff:g id="CARRIER">%1$s</xliff:g> vir mobiele data?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi-opsporing is aangeskakel"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Skakel outomaties oor na mobiele data"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Gebruik mobiele data wanneer Wi-Fi geen internettoegang het nie. Datagebruikheffings kan geld."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Soek en koppel aan wi-fi-netwerke"</string>
     <string name="learn_more" msgid="8214605928933358604">"Kom meer te wete"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Warmkolnaam"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Skakel tans <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> aan …"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Ander toestelle kan aan <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> koppel"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Warmkolwagwoord"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Sekuriteit"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-persoonlik"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-persoonlik"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Geen"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Toegangpuntband"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Programvoorkeure is teruggestel"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Vee alle data uit (fabriekterugstelling)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Vee alle data en profiele van die inligtingvermaakstelsel af uit"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Dit sal alle data van jou voertuig se inligtingvermaakstelsel af uitvee, insluitend:\n\n"<li>"Jou Google-rekening"</li>\n<li>"Stelsel- en programdata en -instellings"</li>\n<li>"Afgelaaide programme"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Dit sal alle data van jou voertuig se inligtingvermaakstelsel uitvee, insluitend:\n\n"<li>"Jou rekeninge en profiele"</li>\n<li>"Stelsel- en programdata en -instellings"</li>\n<li>"Afgelaaide programme"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Jy is tans aangemeld by die volgende rekeninge:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Ander profiele is vir hierdie voertuig opgestel."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Vee alle data uit"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Kies nuwe admin"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Jy het minstens een admin nodig. As jy hierdie een wil uitvee, moet jy eers \'n plaasvervanger kies."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Kies admin"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Gas"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Gas"</string>
     <string name="user_switch" msgid="6544839750534690781">"Wissel"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Jy (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Naam"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Rekeninge van <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sinkroniseer data outomaties"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Laat programme data outomaties herlaai"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Skakel dataoutosinkroniseer aan?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Enige veranderinge wat jy aan jou rekeninge op die web aanbring, sal outomaties na jou toestel toe gekopieer word.\n\nSommige rekeninge kan ook outomaties enige veranderinge wat jy op die foon maak, na die web toe kopieer. \'n Google-rekening werk só."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Skakel dataoutosinkroniseer af?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Laat outomatiese datasinkronisering toe?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Enige veranderinge wat jy op die web aan jou rekeninge maak, sal outomaties na jou voertuig gekopieer word.\n\nSommige rekeninge kan ook outomaties enige veranderinge wat jy op die voertuig maak, na die web kopieer."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Moenie outomatiese datasinkronisering toelaat nie?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Dit sal data bespaar, maar jy sal elke rekening self moet sinkroniseer om onlangse inligting in te samel. En jy sal nie kennisgewings ontvang wanneer opdaterings plaasvind nie."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Rekeninginligting"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Voeg rekening by"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privaatheid"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Inligtingvermaakstelseldata"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Beheer programtoegang tot jou ligging"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Kamera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Beheer programtoegang tot jou kameras"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofoon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Beheer programtoegang tot mikrofoon"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Inligtingvermaakstelseldata"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Kanselleer"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Bevestig"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Moet minstens 4 karakters lank wees"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Moet minstens <xliff:g id="COUNT">%d</xliff:g> karakters lank wees"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN moet minstens <xliff:g id="COUNT">%d</xliff:g> syfers hê"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Moet korter as <xliff:g id="NUMBER">%d</xliff:g> karakters wees"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Moet minder as <xliff:g id="NUMBER">%d</xliff:g> syfers hê"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Mag net syfers 0-9 bevat."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Toesteladministrateur laat nie toe dat \'n onlangse PIN gebruik word nie"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Jou IT-administrateur blokkeer algemene PIN\'e. Probeer \'n ander PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Toesteladministrateur laat nie toe dat \'n onlangse wagwoord gebruik word nie"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Kon nie wagwoord stoor nie"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Jou IT-administrateur blokkeer algemene wagwoorde. Probeer \'n ander wagwoord."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Stygende, dalende of herhalende groep syfers word nie toegelaat nie."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Moet minstens een letter bevat"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Moet minstens een syfer bevat"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Moet minstens een simbool bevat"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Moet minstens # letter bevat}other{Moet minstens # letters bevat}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Moet minstens # kleinletter bevat}other{Moet minstens # kleinletters bevat}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Moet minstens # hoofletter bevat}other{Moet minstens # hoofletters bevat}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Moet minstens # syfer bevat}other{Moet minstens # syfers bevat}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Moet minstens # spesiale simbool bevat}other{Moet minstens # spesiale simbole bevat}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Moet minstens # nieletterkarakter bevat}other{Moet minstens # nieletterkarakters bevat}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Moet minstens # nienumeriese karakter bevat}other{Moet minstens # nienumeriese karakters bevat}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Moet minstens # karakter bevat}other{Moet minstens # karakters bevat}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Moet minstens # syfer bevat}other{Moet minstens # syfers bevat}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Moet minder as # karakter wees}other{Moet minder as # karakters wees}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Moet minder as # syfer wees}other{Moet minder as # syfers wees}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Stygende, dalende of herhalende groep syfers word nie toegelaat nie"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Skermslotopsies"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> dae gelede"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Vee eiebewyse uit"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Verwyder"</string>
     <string name="cancel" msgid="750286395700355455">"Kanselleer"</string>
     <string name="allow" msgid="7519431342750394402">"Laat toe"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Moenie toelaat nie"</string>
     <string name="deny" msgid="340512788979930804">"Weier"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace-sleutel"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter-sleutel"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Aktiveer hierdie inligtingvermaakstelselprogram"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Deaktiveer en deïnstalleer"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Deaktiveer hierdie inligtingvermaakstelselprogram"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Meer besonderhede"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Die organisasiebestuurder kan programme en data wat met hierdie profiel geassosieer word, insluitend instellings, toestemmings, korporatiewe toegang, netwerkaktiwiteit en die voertuig se ligginginligting, monitor en bestuur."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Die organisasiebestuurder kan programme en data wat met hierdie profiel geassosieer word, insluitend instellings, toestemmings, korporatiewe toegang, netwerkaktiwiteit en die toestel se ligginginligting, monitor en bestuur."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Die organisasiebestuurder kan programme en data wat met hierdie inligtingvermaakstelsel geassosieer word, insluitend instellings, toestemmings, korporatiewe toegang, netwerkaktiwiteit en die voertuig se ligginginligting, monitor en bestuur."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> se voertuigbeleid"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Instellings wat deur die organisasiebestuurder bestuur word"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Kom meer te wete oor <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Inligting vir bestuurde voertuig"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Instellings bestuur deur vlootadmin"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Die vlootadmin kan instellings verander en sagteware in die inligtingvermaakstelsel installeer om toegang tot data in hierdie bestuurde voertuig te gee.\n\nKontak jou vloot se admin vir meer besonderhede."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Inligting wat jou vlootadmin kan sien"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Veranderinge wat jou vlootadmin gemaak het"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Data wat met jou bestuurde voertuig se rekening geassosieer word"</li>\n" "<li>"Lys programme in jou bestuurde voertuig"</li>\n" "<li>"Hoeveelheid tyd en data wat in elke program gebruik is"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Jou toegang tot die inligtingvermaakstelsel"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Lys programme in jou voertuig"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Aantal programme is geskat. Dit sluit dalk nie programme in wat buite die Play Winkel geïnstalleer is nie."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> programme</item>
+      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> program</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> programme</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> program</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Mees onlangse netwerkverkeerloglêer"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Mees onlangse foutverslag"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Mees onlangse sekuriteitloglêer"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Geen"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Programme is geïnstalleer"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Liggingtoestemmings"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Mikrofoontoestemmings"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Kameratoestemmings"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Verstekprogramme"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Versteksleutelbord"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Stel op <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Globale HTTP-instaanbediener is gestel"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Vertroude eiebewyse in jou persoonlike profiel"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Admin kan die inligtingvermaakstelsel sluit en die wagwoord terugstel"</li>\n" "<li>"Admin kan data in inligtingvermaakstelsel uitvee"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Mislukte wagwoordpogings voordat alle data in inligtingvermaakstelsel uitgevee word"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Mislukte wagwoordpogings voordat alle profieldata uitgevee word"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> pogings</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> poging</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Kameraprogramme</item>
+      <item quantity="one">Kameraprogram</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">E-poskliëntprogramme</item>
+      <item quantity="one">E-poskliëntprogram</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Foonprogramme</item>
+      <item quantity="one">Foonprogram</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Deel foutverslag?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Hierdie voertuig se organisasiebestuurder het \'n foutverslag versoek om met die foutsporing van hierdie toestel te help. Programme en data sal dalk gedeel word."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Hierdie voertuig se organisasiebestuurder het \'n foutverslag versoek om met die foutsporing van hierdie toestel te help. Programme en data sal dalk gedeel word en jou toestel sal dalk tydelik stadiger wees."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Hierdie foutverslag word met hierdie voertuig se organisasiebestuurder gedeel. Kontak hulle vir meer besonderhede."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Deel"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Wys af"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Stel die inligtingvermaakstelsel terug"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Jou stelsel het \'n versoek ontvang om \'n fabriekterugstelling te doen en alle data uit te vee. Jy kan dit nou terugstel of dit sal teruggestel word wanneer die motor weer begin. Jy kan dan \'n nuwe profiel opstel."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Stel nou terug"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Stel later terug"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Inligtingvermaakstelsel stel terug as kar begin."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Die motor moet geparkeer wees om terug te stel."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Hierdie instelling kan nie nou onmiddellik verander word nie"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Toeganklikheid"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Onderskrifte"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Swart op wit"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Geel op swart"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Geel op blou"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Skermleser"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Af"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Sê items op die skerm hardop"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Gebruik <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Opsies"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Instellings"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Kamera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Gebruik kamera"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Gee alle programme toegang tot jou kamera"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Bestuur kameratoestemmings"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Onlangs toegang gekry"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Geen onlangse programme nie"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 programme het toegang"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# van {total_count} programme het toegang}other{# van {total_count} programme het toegang}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Onlangs toegang gekry"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Bekyk alles"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Laai tans …"</string>
 </resources>

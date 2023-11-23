@@ -99,7 +99,7 @@ std::string UidIoStats::toString() const {
 }
 
 Result<void> UidIoStatsCollector::collect() {
-    if (!kEnabled) {
+    if (!mEnabled) {
         return Error() << "Can not access " << kPath;
     }
 

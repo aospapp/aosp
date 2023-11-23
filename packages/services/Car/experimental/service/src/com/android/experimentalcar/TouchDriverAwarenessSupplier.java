@@ -43,7 +43,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 /**
  * A driver awareness supplier that estimates the driver's current awareness level based on touches
  * on the headunit.

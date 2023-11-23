@@ -16,11 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wifi_eap_error_message_code_32760" msgid="1073938428568671170">"<xliff:g id="SSID">%1$s</xliff:g>: Je kunt buiten het dekkingsgebied van Verizon geen verbinding maken met Verizon Wi-Fi Access."</string>
-    <string name="wifi_eap_error_message_code_32761" msgid="5240496654119200117">"<xliff:g id="SSID">%1$s</xliff:g>: Je hebt geen abonnement op Verizon Wi-Fi Access. Bel ons op 800-922-0204."</string>
-    <string name="wifi_eap_error_message_code_32762" msgid="1380081181230313771">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem met je Verizon Wi-Fi Access-account. Bel ons op 800-922-0204."</string>
-    <string name="wifi_eap_error_message_code_32763" msgid="2668371888408710653">"<xliff:g id="SSID">%1$s</xliff:g>: Je hebt al verbinding met Verizon Wi-Fi Access."</string>
-    <string name="wifi_eap_error_message_code_32764" msgid="4857239018269450670">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij het maken van verbinding met Verizon Wi-Fi Access. Bel ons op 800-922-0204."</string>
-    <string name="wifi_eap_error_message_code_32765" msgid="3223606535554861258">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem met je Verizon Wi-Fi Access-account. Bel ons op 800-922-0204."</string>
-    <string name="wifi_eap_error_message_code_32766" msgid="2703925241673900110">"<xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access is niet beschikbaar op jouw locatie. Probeer het later opnieuw of ga naar een andere locatie."</string>
+    <string name="wifi_eap_error_message_code_32760" msgid="3261764688537859713">"<xliff:g id="SSID">%1$s</xliff:g>: Je kunt buiten het dekkingsgebied van Verizon geen verbinding maken met Verizon Wi-Fi Access. (Fout = 32760)"</string>
+    <string name="wifi_eap_error_message_code_32761" msgid="1871122777148389539">"<xliff:g id="SSID">%1$s</xliff:g>: Je hebt geen abonnement op Verizon Wi-Fi Access. Bel ons op 800-922-0204. (Fout = 32761)"</string>
+    <string name="wifi_eap_error_message_code_32762" msgid="7021976880137083261">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem met je Verizon Wi-Fi Access-account. Bel ons op 800-922-0204. (Fout = 32762)"</string>
+    <string name="wifi_eap_error_message_code_32763" msgid="6747866353019749815">"<xliff:g id="SSID">%1$s</xliff:g>: Je hebt al verbinding met Verizon Wi-Fi Access. (Fout = 32763)"</string>
+    <string name="wifi_eap_error_message_code_32764" msgid="5438673929477381203">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij het maken van verbinding met Verizon Wi-Fi Access. Bel ons op 800-922-0204. (Fout = 32764)"</string>
+    <string name="wifi_eap_error_message_code_32765" msgid="2927499260559495889">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem met je Verizon Wi-Fi Access-account. Bel ons op 800-922-0204. (Fout = 32765)"</string>
+    <string name="wifi_eap_error_message_code_32766" msgid="825723520633879152">"<xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access is niet beschikbaar op jouw locatie. Probeer het later opnieuw of ga naar een andere locatie. (Fout = 32766)"</string>
+    <string name="wifi_eap_error_message_code_32767" msgid="5227394021313254586">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij het maken van verbinding met Verizon Wi-Fi Access. Probeer het later opnieuw of ga naar een andere locatie."</string>
+    <string name="wifi_eap_error_message_code_32768" msgid="5139270879227638419"></string>
+    <string name="wifi_eap_error_message_code_32769" msgid="1736674109204049023"></string>
+    <string name="wifi_eap_error_message_code_16384" msgid="1100339784338115021">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij verbinding maken met Verizon Wi-Fi Access vanwege fout 16384."</string>
+    <string name="wifi_eap_error_message_code_16385" msgid="4279775601920162197">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij verbinding maken met Verizon Wi-Fi Access vanwege fout 16385."</string>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="3323018400668273886">"<xliff:g id="SSID">%1$s</xliff:g>: Er is een probleem bij het maken van verbinding met Verizon Wi-Fi Access."</string>
 </resources>

@@ -36,6 +36,8 @@ import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;
 import com.android.car.carlauncher.homescreen.ui.TextBlockView;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
 
 /**
  * Abstract class for a {@link Fragment} that implements the Home App's View interface.
@@ -217,6 +219,13 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
             ImageButton buttonView) {
         if (buttonContent != null) {
             buttonView.setImageDrawable(buttonContent.getIcon());
+            if (buttonContent.getIcon() != null) {
+                // update the button view according to icon's selected state
+                buttonView.setSelected(
+                        ArrayUtils.contains(buttonContent.getIcon().getState(),
+                                android.R.attr.state_selected)
+                );
+            }
             buttonView.setOnClickListener(buttonContent.getOnClickListener());
             buttonView.setVisibility(View.VISIBLE);
         } else {
@@ -300,5 +309,10 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
             mTextBlockTapForMore = mTextBlockLayoutView.findViewById(R.id.tap_for_more_text);
         }
         return mTextBlockLayoutView;
+    }
+
+    @VisibleForTesting
+    void setControlBarLeftButton(ImageButton controlBarLeftButton) {
+        mControlBarLeftButton = controlBarLeftButton;
     }
 }

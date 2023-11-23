@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"Notificacions que mostren les baixades completades o cancel·lades"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"Progrés de la baixada"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"Notificacions que mostren el progrés de les baixades de fitxers"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"S\'ha cancel·lat la baixada"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"El fitxer és massa gran i la baixada s\'ha cancel·lat."</string>
 </resources>

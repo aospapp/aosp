@@ -16,17 +16,24 @@
 
 package com.android.car.settings.accounts;
 
+import static android.app.Activity.RESULT_OK;
 import static android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
 
 import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.isDeviceManaged;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.content.Intent;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
+import com.android.car.settings.admin.NewUserDisclaimerActivity;
+import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.profiles.ProfileHelper;
 
@@ -37,7 +44,10 @@ import java.util.Set;
 /**
  * Business Logic for preference starts the add account flow.
  */
-public class AddAccountPreferenceController extends PreferenceController<Preference> {
+public class AddAccountPreferenceController extends PreferenceController<Preference>
+        implements ActivityResultCallback {
+    public static final int NEW_USER_DISCLAIMER_REQUEST = 1;
+    private static final Logger LOG = new Logger(AddAccountPreferenceController.class);
 
     private String[] mAuthorities;
     private String[] mAccountTypes;
@@ -68,8 +78,15 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
     @Override
     protected void onCreateInternal() {
         super.onCreateInternal();
-        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> getProfileHelper()
-                .runClickableWhileDisabled(getContext(), getFragmentController()));
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (!getProfileHelper().isNewUserDisclaimerAcknolwedged(getContext())) {
+                LOG.d("isNewUserDisclaimerAcknolwedged returns false, start activity");
+                startNewUserDisclaimerActivityForResult();
+                return;
+            }
+            getProfileHelper()
+                    .runClickableWhileDisabled(getContext(), getFragmentController());
+        });
     }
 
     @Override
@@ -83,21 +100,41 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
             helper.setAccountTypesFilter(
                     new HashSet<>(Arrays.asList(mAccountTypes)));
         }
+        launchAddAccount();
+        return true;
+    }
 
-        Set<String> authorizedAccountTypes = helper.getAuthorizedAccountTypes();
+    @Override
+    public void processActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (requestCode == NEW_USER_DISCLAIMER_REQUEST && resultCode == RESULT_OK) {
+            LOG.d("New user disclaimer acknowledged, launching add account.");
+            launchAddAccount();
+        }  else {
+            LOG.e("New user disclaimer failed with result " + resultCode);
+        }
+    }
 
-        if (authorizedAccountTypes.size() == 1) {
+    private void launchAddAccount() {
+        Set<String> authorizedAccountTypes = getAccountTypesHelper().getAuthorizedAccountTypes();
+
+        // Skip the choose account screen if there is only one account type and the device is not
+        // managed by a device owner.
+        // TODO (b/213894991) add check for profile owner when work profile is supported
+        if (authorizedAccountTypes.size() == 1 && !isDeviceManaged(getContext())) {
             String accountType = authorizedAccountTypes.iterator().next();
             getContext().startActivity(
                     AddAccountActivity.createAddAccountActivityIntent(getContext(), accountType));
         } else {
             getFragmentController().launchFragment(new ChooseAccountFragment());
         }
-        return true;
     }
 
     @Override
     protected int getAvailabilityStatus() {
+        if (isDeviceManaged(getContext())
+                && !getProfileHelper().isNewUserDisclaimerAcknolwedged(getContext())) {
+            return AVAILABLE_FOR_VIEWING;
+        }
         if (getProfileHelper().canCurrentProcessModifyAccounts()) {
             return AVAILABLE;
         }
@@ -106,6 +143,12 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
             return DISABLED_FOR_PROFILE;
         }
         return AVAILABLE_FOR_VIEWING;
+    }
+
+    private void startNewUserDisclaimerActivityForResult() {
+        getFragmentController().startActivityForResult(
+                new Intent(getContext(), NewUserDisclaimerActivity.class),
+                        NEW_USER_DISCLAIMER_REQUEST, /* callback= */ this);
     }
 
     @VisibleForTesting

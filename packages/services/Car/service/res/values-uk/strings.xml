@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Доступ до камер автомобіля."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"доступ до інформації про енергоспоживання автомобіля"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Доступ до інформації про енергоспоживання автомобіля."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"керувати параметрами заряджання електромобіля"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Керуйте параметрами заряджання електромобіля."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"коригувати залишок пробігу автомобіля"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Коригувати значення залишку пробігу автомобіля."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"доступ до системи клімат-контролю автомобіля"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Дозволити додатку оголошувати дії, які показуватимуться на панелі приладів"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Керування панеллю приладів"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Запуск додатків на панелі приладів"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Стан навігації групи інструментів"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Відстежуйте зміни стану навігації групи інструментів."</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Відображення панелі приладів"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Отримувати дані з панелі приладів"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Конфігурація обмежень використання функцій"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Дозволяє керувати графіком визначення присутності пасажира"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Сервіс даних про вхідні події автомобіля"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Обробка вхідних подій"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"Помилка CAN-шини"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-шина не відповідає. Від’єднайте та знову під’єднайте головний пристрій аудіосистеми й заведіть автомобіль ще раз"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Ця функція недоступна під час руху"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Щоб почати знову з безпечними функціями додатка, натисніть кнопку \"<xliff:g id="EXIT_BUTTON">%s</xliff:g>\"."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Назад"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Закрити додаток"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Назад"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"перегляд даних діагностики"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Перегляд даних діагностики автомобіля."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"очищення даних діагностики"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Керування сидіннями автомобіля."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"доступ до основної інформації про автомобіль"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Доступ до основної інформації про автомобіль."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"отримувати доступ до закритої інформації автомобіля"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Отримуйте доступ до закритої інформації автомобіля."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"мають доступ до інформації про дозволи виробника автомобіля"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Мають доступ до інформації про дозволи виробника автомобіля."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"перегляд стану зовнішніх світлових приладів автомобіля"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Читати правила щодо ввімкнення компонентів автомобіля."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"керувати правилами щодо ввімкнення компонентів автомобіля"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Керувати правилами щодо ввімкнення компонентів автомобіля."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"налаштовувати процес зупинки двигуна"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Налаштуйте процес зупинки двигуна."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"відображати шаблони"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Відображати шаблони."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"керувати додатками, що запускаються"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Керувати додатками, що запускаються."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"Помилка CAN-шини"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-шина не відповідає. Від’єднайте та знову під’єднайте головний пристрій аудіосистеми й заведіть автомобіль ще раз"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Мій пристрій"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Гість"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Пріоритет за умовчанням"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Високий пріоритет"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Потрібно скинути налаштування"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Усі дані інформаційно-розважальної системи буде видалено. Після цього ви зможете налаштувати новий профіль."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Докладніше"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Скиньте налаштування інформаційно-розважальної системи"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Система отримала запит скинути налаштування та видалити всі дані. Якщо ви не зробите цього зараз, налаштування буде скинуто, коли ви наступного разу заведете авто. Після цього ви зможете налаштувати новий профіль."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Скинути зараз"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Скинути пізніше"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Систему буде скинуто, коли ви наступного разу заведете авто."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Налаштування не можна скинути, доки ви за кермом."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"Додаток <xliff:g id="ID_1">^1</xliff:g> впливає на продуктивність системи"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Вимкніть додаток, щоб покращити продуктивність системи. Ви зможете знову ввімкнути його в налаштуваннях."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Пріоритезуйте додаток, щоб продовжувати користуватися ним."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Видаліть додаток, щоб покращити продуктивність системи."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Вимкнути додаток"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Пріоритезувати додаток"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Видалити додаток"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Додаток <xliff:g id="ID_1">^1</xliff:g> вимкнено. Ви можете знову ввімкнути його в налаштуваннях."</string>
 </resources>

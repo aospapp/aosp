@@ -25,9 +25,6 @@
                  tools:node="merge"
                  tools:replace="android:label">
 
-        <uses-library android:name="androidx.window.extensions" android:required="false"/>
-        <uses-library android:name="androidx.window.sidecar" android:required="false"/>
-
         <activity
             android:name=".CarDevelopmentSettingsDashboardActivity"
             android:enabled="false"
@@ -98,6 +95,15 @@
 
         <activity
             android:name="com.android.settings.Settings$NetworkDashboardActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$MobileNetworkActivity"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -179,6 +185,15 @@
 
         <activity
             android:name="com.android.settings.Settings$WifiDetailsSettingsActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$AdaptiveBrightnessActivity"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -296,6 +311,15 @@
 
         <activity
             android:name="com.android.settings.network.TetherProvisioningActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.network.TetherProvisioningCarrierDialogActivity"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -602,6 +626,15 @@
         </activity>
 
         <activity
+            android:name="com.android.settings.Settings$BlueToothPairingActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
             android:name="com.android.settings.SettingsLicenseActivity"
             android:enabled="false"
             android:exported="false"
@@ -774,6 +807,15 @@
 
         <activity
             android:name="com.android.settings.Settings$SecurityDashboardActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$SecurityAdvancedSettings"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -1737,6 +1779,14 @@
             <intent-filter tools:node="removeAll"/>
         </activity>
 
+        <activity android:name="com.android.settings.dream.DreamSetupActivity"
+                  android:enabled="false"
+                  android:exported="false"
+                  tools:node="merge"
+                  tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
         <activity
             android:name="com.android.settings.Settings$UserSettingsActivity"
             android:enabled="false"
@@ -1828,6 +1878,15 @@
         </activity>
 
         <activity
+            android:name="com.android.settings.Settings$TurnScreenOnSettingsActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
             android:name="com.android.settings.Settings$InteractAcrossProfilesSettingsActivity"
             android:enabled="false"
             android:exported="false"
@@ -1901,6 +1960,15 @@
 
         <activity
             android:name="com.android.settings.Settings$NotificationAppListActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$NotificationReviewPermissionsActivity"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -2106,6 +2174,14 @@
             <intent-filter tools:node="removeAll"/>
         </activity>
 
+        <activity android:name="com.android.settings.ActionDisabledByAppOpsDialog"
+                  android:enabled="false"
+                  android:exported="false"
+                  tools:node="merge"
+                  tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
         <activity
             android:name="com.android.settings.Settings$ManageExternalStorageActivity"
             android:enabled="false"
@@ -2243,6 +2319,24 @@
         </activity>
 
         <activity
+            android:name="com.android.settings.Settings$BluetoothBroadcastActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$BluetoothFindBroadcastsActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
             android:name="com.android.settings.panel.SettingsPanelActivity"
             android:enabled="false"
             android:exported="false"
@@ -2351,6 +2445,15 @@
         </activity>
 
         <activity
+            android:name="com.android.settings.Settings$ButtonNavigationSettingsActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported, android:enabled">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
             android:name="com.android.settings.Settings$MediaControlsSettingsActivity"
             android:enabled="false"
             android:exported="false"
@@ -2365,6 +2468,24 @@
             android:exported="false"
             tools:node="merge"
             tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settings.Settings$OneHandedSettingsActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported, android:enabled">
+            <intent-filter tools:node="removeAll"/>
+        </activity>
+
+        <activity
+            android:name="com.android.settingslib.qrcode.QrCodeScanModeActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported, android:enabled">
             <intent-filter tools:node="removeAll"/>
         </activity>
 
@@ -2460,6 +2581,15 @@
 
         <activity-alias
             android:name="com.android.settings.FontSizeSettingsForSetupWizardActivity"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </activity-alias>
+
+        <activity-alias
+            android:name="com.android.settings.TextReadingForSetupWizardActivity"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"
@@ -2684,6 +2814,15 @@
 
         <receiver
             android:name="com.android.settings.sim.receivers.SimCompleteBootReceiver"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="merge"
+            tools:replace="android:exported">
+            <intent-filter tools:node="removeAll"/>
+        </receiver>
+
+        <receiver
+            android:name="com.android.settings.safetycenter.SafetySourceBroadcastReceiver"
             android:enabled="false"
             android:exported="false"
             tools:node="merge"

@@ -75,6 +75,11 @@
           connection process. Disable this default to implement your own policy. -->
     <bool name="useDefaultBluetoothConnectionPolicy">true</bool>
 
+    <!--  Configuration to enable or disable the default Bluetooth Power Policy. This
+          policy determines when to enable and/or disable the Bluetooth adapter based on
+          CarPowerManager power states. Disable this default to implement your own policy. -->
+    <bool name="useDefaultBluetoothPowerPolicy">true</bool>
+
     <!--  Service responsible for displaying information on the car instrument cluster. -->
     <string name="instrumentClusterRendererService" translatable="false">android.car.cluster/.ClusterRenderingService</string>
 
@@ -91,7 +96,12 @@
     <bool name="enableActivityBlockingForSafety">true</bool>
     <!--  Activity to be presented when un-safe activity is launched. Take a look at the javadoc of the
           default implementation. -->
-    <string name="activityBlockingActivity" translatable="false">com.android.car/com.android.car.pm.ActivityBlockingActivity</string>
+    <string name="activityBlockingActivity" translatable="false">
+        com.android.systemui/com.android.systemui.car.activity.ActivityBlockingActivity
+    </string>
+    <string name="continuousBlankActivity" translatable="false">
+        com.android.systemui/com.android.systemui.car.activity.ContinuousBlankActivity
+    </string>
     <!--  Comma separated list of activities that need to be exempted from getting
           blocked in a UX restricted state.
           Format of each entry is either to specify package name to allowlist the whole package or
@@ -175,6 +185,14 @@
          recurring overuse.  -->
     <integer name="recurringResourceOveruseTimes">2</integer>
 
+    <!-- The number of top UID I/O usage summaries to report on car watchdog I/O usage
+         summary atom pull.  -->
+    <integer name="uidIoUsageSummaryTopCount">10</integer>
+
+    <!-- The minimum number of total bytes written to disk by the system required to
+         report the stats on car watchdog I/O usage summary atom pull. Currently 500 MiB.  -->
+    <integer name="ioUsageSummaryMinSystemTotalWrittenBytes">524288000</integer>
+
     <!-- The name of an intent to be notified by CarService whenever it detects too many
          samples with excessive I/O activity. Value must either be an empty string, which
          means that no notification will take place, or be in the format of a flattened
@@ -183,6 +201,15 @@
          strongly recommended that it be protected with the
          android.car.permission.STORAGE_MONITORING permission. -->
     <string name="intentReceiverForUnacceptableIoMetrics" translatable="false">com.google.android.car.defaultstoragemonitoringcompanionapp/.ExcessiveIoIntentReceiver</string>
+
+     <!-- The path to a file that contains lifetime estimation metrics for the eMMC storage on
+          this system, in the lifetimeA lifetimeB format, as defined by the eMMC extended CSD
+          register specification. -->
+     <string name="eMmcLifetimeFilePath" translatable="false">/sys/bus/mmc/devices/mmc0:0001/life_time</string>
+
+     <!-- The path to a file that contains end of life estimation metrics for the eMMC storage on
+          this system, in the format defined by the eMMC extended CSD register specification. -->
+     <string name="eMmcEolFilePath" translatable="false">/sys/bus/mmc/devices/mmc0:0001/pre_eol_info</string>
 
     <!-- The Model ID to advertise Bluetooth Fast Pair connections with.  Must be overlayed with
          device specific model id. A model id of 0 will disable Fast Pair-->
@@ -199,18 +226,6 @@
     <!-- Maximum allowed time to run garage mode. Note that 15 min (=900sec) is the minimum required
          duration and this should not be made shorter. -->
     <integer name="maxGarageModeRunningDurationInSecs">900</integer>
-
-    <!-- The garage mode configuration, specifying the time after shutdown to reboot into garage
-         mode and the number of attempts at that time to try before moving to the next wake up
-         time. This is intended to be a back-off pattern. -->
-    <string-array translatable="false" name="config_garageModeCadence">
-        <!-- <wake up after X min/hour/days>,<how many times> -->
-        <item>15m,1</item>
-        <item>6h,8</item>
-        <item>1d,5</item>
-        <item>3d,2</item>
-        <item>7d,3</item>
-    </string-array>
 
     <!-- The services that needs to be started earlier in the boot sequence and in particular order.
          Every item in this array contains a flatten component name of a service that needs to be
@@ -232,6 +247,8 @@
                asap - the service might be bound when user is not fully loaded, be careful with
                       this value, the service also needs to have directBootAware flag set to true
                userUnlocked - start service when user unlocked the device
+               userPostUnlocked - start service later after user unlocked. This is used when the
+                                  service is not urgent and can wait to start.
                The default value is 'userUnlocked'
 
          If the service bound/started for foreground user it will be unbound/stopped when user
@@ -261,6 +278,13 @@
          If this value is true then tethering is enabled. Otherwise, local-only hotspot will be
          created. -->
     <bool name="config_projectionAccessPointTethering" translatable="false">false</bool>
+
+    <!-- If projection Access Point is configured to not provide Internet access (not tethered,
+         see config_projectionAccessPointTethering) then this flag will be used to control
+         whether Wi-Fi configuration will persist reboots. By default new Wi-Fi credentials are
+         created for every local-only hotspot (LOHS) instantiation, changing this flag to true
+         will make LOHS credentials persistent. -->
+    <bool name="config_stableLocalOnlyHotspotConfig" translatable="false">false</bool>
 
     <!-- The package name of a service to be launched by CarService to bind to an active media
          service on the current  user.
@@ -338,7 +362,7 @@
          necessary permission for TYPE_APPLICATION_OVERLAY window type. The UI package should
          resolve permission by itself to use any higher priority window type.
          Setting this string to empty will disable the feature. -->
-    <string name="config_userNoticeUiService" translatable="false">com.google.android.car.kitchensink/.UserNoiticeDemoUiService</string>
+    <string name="config_userNoticeUiService" translatable="false">com.google.android.car.kitchensink/.UserNoticeDemoUiService</string>
 
     <!-- Configuration to enable media center to autoplay when the media source is changed.
          There are 3 supported configurations:
@@ -346,13 +370,13 @@
          1 - always play
          2 - retain per source, play based on last remembered playback state for the new source
          3 - retain previous state, play based on previous source's playback state -->
-    <integer name="config_mediaSourceChangedAutoplay">2</integer>
+    <integer name="config_mediaSourceChangedAutoplay">0</integer>
     <!-- Configuration to enable media center to autoplay on boot -->
     <integer name="config_mediaBootAutoplay">2</integer>
     <!-- Setting this flag to true allows for browsing a different source than the
          one that is currently playing audio. By default, there is only one active
          source in the car, for both playback and browse. -->
-    <bool name="config_mediaSourceIndependentPlayback">false</bool>
+    <bool name="config_mediaSourceIndependentPlayback">true</bool>
 
     <!--
         Specifies optional features that can be enabled by this image. Note that vhal can disable
@@ -402,7 +426,7 @@
     <bool name="enableProfileUserAssignmentForMultiDisplay" translatable="false">false</bool>
 
     <!-- The ComponentName of the media source that will be selected as the default -->
-    <string name="config_defaultMediaSource">com.android.bluetooth/com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService</string>
+    <string name="config_defaultMediaSource">com.android.car.radio/.service.RadioAppService</string>
 
     <!-- A configuration flag to enable ending an ongoing call using the physical Call button. -->
     <bool name="config_callButtonEndsOngoingCall">false</bool>
@@ -410,6 +434,18 @@
     <!-- Number of milliseconds to wait before the system goes into Suspend-to-RAM.
          The valid range is 0 to 3 * 60 * 1000. The default duration is 3 min (= 3 * 60 * 1000). -->
     <integer name="config_maxSuspendWaitDuration">180000</integer>
+
+    <!-- Number of milliseconds to wait until all listeners complete when PRE_SHUTDOWN_PREPARE is
+         notified -->
+    <integer name="config_preShutdownPrepareTimeout">5000</integer>
+
+    <!-- Number of milliseconds to wait until all listeners complete when SHUTDOWN_ENTER is
+         notified -->
+    <integer name="config_shutdownEnterTimeout">5000</integer>
+
+    <!-- Number of milliseconds to wait until all listeners complete when POST_SHUTDOWN_ENTER is
+         notified -->
+    <integer name="config_postShutdownEnterTimeout">5000</integer>
 
     <!-- A name of a camera device that provides the rearview through EVS service -->
     <string name="config_evsRearviewCameraId" translatable="false">/dev/video10</string>
@@ -421,6 +457,10 @@
     <!-- A configuration flag to adjust Wifi for suspend. -->
     <bool name="config_wifiAdjustmentForSuspend">false</bool>
 
+    <!-- A configuration flag to adjust enabling and disabling the GNSS Location Provider for Power
+         Management purposes such as Supsend to RAM. -->
+    <bool name="config_enableCarLocationServiceGnssControlsForPowerManagement" translatable="false">true</bool>
+
     <!-- A configuration flag to prevent the templated apps from showing dialogs. This is done in
          the view of driver safety as templated apps can potentially show a dialog with custom UI
          which can be a distraction hazard for the driver. -->
@@ -431,4 +471,23 @@
     <string name="config_template_activity_class_name">
         androidx.car.app.activity.CarAppActivity
     </string>
+
+    <!-- A flag to configure whether the ExternalCarTime VHAL property should be used to send
+         ExternalTimeSuggestions to the Android TimeManager service. -->
+    <bool name="config_enableExternalCarTimeToExternalTimeSuggestion">false</bool>
+
+    <!-- Configuration to set when pre-created users should be managed by CarService. Car Service
+         will make sure it has the number of pre-created users defined by the system properties
+         android.car.number_pre_created_users and android.car.number_pre_created_guests.
+         Supported flags:
+         1 - Before suspend
+         2 - After system start
+         Flags can be combined. In this case, 3 means manage pre-created users after system start
+         and before suspend. If pre-created users are managed after system start then
+         config_userPreCreationDelay will be used to wait before managing pre-created users. -->
+    <integer name="config_userPreCreationStage">3</integer>
+
+    <!-- How many milli-seconds CarService should wait before managing pre-created users after
+         system start. This property only applied when config_userPreCreationStage flag is 2. -->
+    <integer name="config_userPreCreationDelay">5000</integer>
 </resources>

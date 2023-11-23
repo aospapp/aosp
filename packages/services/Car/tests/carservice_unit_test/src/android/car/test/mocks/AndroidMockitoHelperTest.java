@@ -16,19 +16,23 @@
 
 package android.car.test.mocks;
 
+import static android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS;
 import static android.car.test.mocks.AndroidMockitoHelper.mockAmGetCurrentUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockBinderGetCallingUserHandle;
+import static android.car.test.mocks.AndroidMockitoHelper.mockContextCheckCallingOrSelfPermission;
 import static android.car.test.mocks.AndroidMockitoHelper.mockContextGetService;
+import static android.car.test.mocks.AndroidMockitoHelper.mockDpmLogoutUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockQueryService;
 import static android.car.test.mocks.AndroidMockitoHelper.mockSmGetService;
-import static android.car.test.mocks.AndroidMockitoHelper.mockUmCreateUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetAliveUsers;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetSystemUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUserHandles;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUserInfo;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmHasUserRestrictionForUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsHeadlessSystemUserMode;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsUserRunning;
-import static android.car.test.mocks.AndroidMockitoHelper.mockUmRemoveUserOrSetEphemeral;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmRemoveUserWhenPossible;
+import static android.content.pm.PackageManager.PERMISSION_DENIED;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 
@@ -38,6 +42,7 @@ import static org.mockito.Mockito.mock;
 
 import android.app.ActivityManager;
 import android.app.Service;
+import android.app.admin.DevicePolicyManager;
 import android.car.test.util.UserTestingHelper;
 import android.car.test.util.Visitor;
 import android.content.Context;
@@ -62,11 +67,16 @@ public final class AndroidMockitoHelperTest {
 
     private static final int TEST_USER_ID = 100;
 
-    private UserInfo mTestUser;
+    private final UserHandle mTestUserHandle = UserHandle.of(TEST_USER_ID);
+
+    //TODO(b/196179969): remove UserInfo
+    private final UserInfo mTestUserInfo = new UserInfo(TEST_USER_ID, "testUser", "",
+            UserInfo.FLAG_ADMIN, UserManager.USER_TYPE_FULL_SYSTEM);
 
     private StaticMockitoSession mMockSession;
 
     @Mock private UserManager mMockedUserManager;
+    @Mock private DevicePolicyManager mMockedDevicePolicyManager;
 
     @Before
     public void setUp() {
@@ -78,20 +88,11 @@ public final class AndroidMockitoHelperTest {
                 .spyStatic(ServiceManager.class)
                 .spyStatic(Binder.class)
                 .startMocking();
-
-        mTestUser = mockUmCreateUser(mMockedUserManager, "testUser",
-                UserManager.USER_TYPE_FULL_SYSTEM, UserInfo.FLAG_ADMIN, TEST_USER_ID);
     }
 
     @After
     public void tearDown() {
         mMockSession.finishMocking();
-    }
-
-    @Test
-    public void testMockUmCreateUser() {
-        assertThat(mMockedUserManager.createUser(mTestUser.name, mTestUser.userType,
-                mTestUser.flags).getUserHandle()).isEqualTo(mTestUser.getUserHandle());
     }
 
     @Test
@@ -117,9 +118,9 @@ public final class AndroidMockitoHelperTest {
 
     @Test
     public void testMockUmGetUserInfo() {
-        mockUmGetUserInfo(mMockedUserManager, mTestUser);
+        mockUmGetUserInfo(mMockedUserManager, mTestUserInfo);
 
-        assertThat(mMockedUserManager.getUserInfo(TEST_USER_ID)).isSameInstanceAs(mTestUser);
+        assertThat(mMockedUserManager.getUserInfo(TEST_USER_ID)).isSameInstanceAs(mTestUserInfo);
     }
 
     @Test
@@ -171,6 +172,37 @@ public final class AndroidMockitoHelperTest {
     }
 
     @Test
+    public void testMockUmHasUserRestrictionForUser() {
+        VisitorImpl<UserInfo> visitor = new VisitorImpl<>();
+
+        mockUmHasUserRestrictionForUser(mMockedUserManager, mTestUserHandle, "no_Homers_club",
+                /* value= */ true);
+
+        assertThat(mMockedUserManager.hasUserRestrictionForUser("no_Homers_club", mTestUserHandle))
+                .isTrue();
+    }
+
+    @Test
+    public void testMockUmRemoveUserWhenPossible() {
+        VisitorImpl<UserInfo> visitor = new VisitorImpl<>();
+
+        mockUmRemoveUserWhenPossible(mMockedUserManager, mTestUserInfo,
+                /* overrideDevicePolicy= */ true, /* result= */ 1, visitor);
+
+        mMockedUserManager.removeUserWhenPossible(UserHandle.of(TEST_USER_ID),
+                /* overrideDevicePolicy= */ true);
+
+        assertThat(visitor.mVisited).isEqualTo(mTestUserInfo);
+    }
+
+    @Test
+    public void testMockDpmLogoutUser() {
+        mockDpmLogoutUser(mMockedDevicePolicyManager, 42);
+
+        assertThat(mMockedDevicePolicyManager.logoutUser()).isEqualTo(42);
+    }
+
+    @Test
     public void testMockBinderGetCallingUserHandle() {
         mockBinderGetCallingUserHandle(TEST_USER_ID);
 
@@ -194,18 +226,6 @@ public final class AndroidMockitoHelperTest {
 
         assertThat(ServiceManager.getService("someServiceName")).isEqualTo(someBinder);
         assertThat(someBinder.queryLocalInterface("anyString")).isEqualTo(someService);
-    }
-
-    @Test
-    public void testMockUmRemoveUserOrSetEphemeral() {
-        VisitorImpl<UserInfo> visitor = new VisitorImpl<>();
-
-        mockUmRemoveUserOrSetEphemeral(mMockedUserManager, mTestUser,
-                /* evenWhenDisallowed= */ true, /* result= */ 1, visitor);
-
-        mMockedUserManager.removeUserOrSetEphemeral(TEST_USER_ID, /* evenWhenDisallowed= */ true);
-
-        assertThat(visitor.mVisited).isEqualTo(mTestUser);
     }
 
     private static final class VisitorImpl<T> implements Visitor<T> {
@@ -236,5 +256,16 @@ public final class AndroidMockitoHelperTest {
         mockContextGetService(context, PackageManager.class, packageManager);
 
         assertThat(context.getPackageManager()).isEqualTo(packageManager);
+    }
+
+    @Test
+    public void mockContextCheckCallingOrSelfPermission_returnsPermissionDenied() {
+        Context context = mock(Context.class);
+
+        mockContextCheckCallingOrSelfPermission(context, PERMISSION_CAR_CONTROL_AUDIO_SETTINGS,
+                PERMISSION_DENIED);
+
+        assertThat(context.checkCallingOrSelfPermission(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS))
+                .isEqualTo(PERMISSION_DENIED);
     }
 }

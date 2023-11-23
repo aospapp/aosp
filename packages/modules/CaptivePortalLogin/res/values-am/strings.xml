@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"የተጠናቀቁ ወይም የተሰረዙ ማውረዶችን የሚያሳዩ ማሳወቂያዎች"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"የማውረድ ግስጋሴ"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"የፋይል ማውረድ ግስጋሴን የሚያሳዩ ማሳወቂያዎች"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"ማውረድ ተሰርዟል"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ፋይል በጣም ትልቅ ነው፣ ማውረድ ተሰርዟል።"</string>
 </resources>

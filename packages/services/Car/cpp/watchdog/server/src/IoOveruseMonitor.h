@@ -19,7 +19,7 @@
 
 #include "IoOveruseConfigs.h"
 #include "PackageInfoResolver.h"
-#include "ProcStat.h"
+#include "ProcStatCollector.h"
 #include "UidStatsCollector.h"
 #include "WatchdogPerfService.h"
 
@@ -62,10 +62,10 @@ class IoOveruseMonitorPeer;
 std::tuple<int64_t, int64_t> calculateStartAndDuration(const time_t& currentTime);
 
 /**
- * IIoOveruseMonitor interface defines the methods that the I/O overuse monitoring module
+ * IoOveruseMonitorInterface interface defines the methods that the I/O overuse monitoring module
  * should implement.
  */
-class IIoOveruseMonitor : virtual public IDataProcessorInterface {
+class IoOveruseMonitorInterface : virtual public DataProcessorInterface {
 public:
     // Returns whether or not the monitor is initialized.
     virtual bool isInitialized() const = 0;
@@ -98,9 +98,10 @@ public:
     virtual void removeStatsForUser(userid_t userId) = 0;
 };
 
-class IoOveruseMonitor final : public IIoOveruseMonitor {
+class IoOveruseMonitor final : public IoOveruseMonitorInterface {
 public:
-    explicit IoOveruseMonitor(const android::sp<IWatchdogServiceHelper>& watchdogServiceHelper);
+    explicit IoOveruseMonitor(
+            const android::sp<WatchdogServiceHelperInterface>& watchdogServiceHelper);
 
     ~IoOveruseMonitor() { terminate(); }
 
@@ -109,13 +110,14 @@ public:
         return isInitializedLocked();
     }
 
-    // Below methods implement IDataProcessorInterface.
+    // Below methods implement DataProcessorInterface.
     std::string name() const override { return "IoOveruseMonitor"; }
     friend std::ostream& operator<<(std::ostream& os, const IoOveruseMonitor& monitor);
     android::base::Result<void> onBoottimeCollection(
             [[maybe_unused]] time_t time,
             [[maybe_unused]] const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            [[maybe_unused]] const android::wp<ProcStat>& procStat) override {
+            [[maybe_unused]] const android::wp<ProcStatCollectorInterface>& procStatCollector)
+            override {
         // No I/O overuse monitoring during boot-time.
         return {};
     }
@@ -123,16 +125,16 @@ public:
     android::base::Result<void> onPeriodicCollection(
             time_t time, SystemState systemState,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) override;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) override;
 
     android::base::Result<void> onCustomCollection(
             time_t time, SystemState systemState,
             const std::unordered_set<std::string>& filterPackages,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) override;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) override;
 
     android::base::Result<void> onPeriodicMonitor(
-            time_t time, const android::wp<IProcDiskStatsInterface>& procDiskStats,
+            time_t time, const android::wp<ProcDiskStatsCollectorInterface>& procDiskStatsCollector,
             const std::function<void()>& alertHandler) override;
 
     android::base::Result<void> onDump(int fd) const override;
@@ -228,11 +230,11 @@ private:
      */
     void writeConfigsToDiskAsyncLocked();
 
-    // Local IPackageInfoResolver instance. Useful to mock in tests.
-    sp<IPackageInfoResolver> mPackageInfoResolver;
+    // Local PackageInfoResolverInterface instance. Useful to mock in tests.
+    sp<PackageInfoResolverInterface> mPackageInfoResolver;
     // Minimum written bytes to sync the stats with the Watchdog service.
     double mMinSyncWrittenBytes;
-    android::sp<IWatchdogServiceHelper> mWatchdogServiceHelper;
+    android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper;
 
     // Makes sure only one collection is running at any given time.
     mutable std::shared_mutex mRwMutex;
@@ -242,7 +244,7 @@ private:
     bool mDidReadTodayPrevBootStats GUARDED_BY(mRwMutex);
 
     // Summary of configs available for all the components and system-wide overuse alert thresholds.
-    sp<IIoOveruseConfigs> mIoOveruseConfigs GUARDED_BY(mRwMutex);
+    sp<IoOveruseConfigsInterface> mIoOveruseConfigs GUARDED_BY(mRwMutex);
 
     /**
      * Delta of system-wide written kib across all disks from the last |mPeriodicMonitorBufferSize|

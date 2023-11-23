@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_SERVER_H
-#define ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_SERVER_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_EXECUTION_BURST_SERVER_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_EXECUTION_BURST_SERVER_H
 
 #include <android-base/macros.h>
 #include <android/hardware/neuralnetworks/1.0/types.h>
@@ -340,4 +340,4 @@ class ExecutionBurstServer : public hardware::neuralnetworks::V1_2::IBurstContex
 
 }  // namespace android::nn
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_COMMON_EXECUTION_BURST_SERVER_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_COMMON_EXECUTION_BURST_SERVER_H

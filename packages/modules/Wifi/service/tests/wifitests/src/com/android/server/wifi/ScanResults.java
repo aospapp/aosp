@@ -132,7 +132,7 @@ public class ScanResults {
             }
             List<String> anqpLines = new ArrayList<>();
             NetworkDetail nd = new NetworkDetail(bssid, ie, anqpLines, freq);
-            ScanDetail detail = new ScanDetail(nd, WifiSsid.createFromAsciiEncoded(ssid),
+            ScanDetail detail = new ScanDetail(nd, WifiSsid.fromUtf8Text(ssid),
                     bssid, "", rssi, freq,
                     // needed so that scan results aren't rejected because they are older than scan
                     // start.

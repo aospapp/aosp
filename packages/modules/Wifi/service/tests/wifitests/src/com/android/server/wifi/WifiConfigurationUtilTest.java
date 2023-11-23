@@ -16,12 +16,8 @@
 
 package com.android.server.wifi;
 
-import static android.net.wifi.WifiConfiguration.INVALID_NETWORK_ID;
 import static android.net.wifi.WifiEnterpriseConfig.OCSP_NONE;
 import static android.net.wifi.WifiEnterpriseConfig.OCSP_REQUIRE_CERT_STATUS;
-
-import static com.android.server.wifi.WifiConfigurationUtil.addSecurityTypeToNetworkId;
-import static com.android.server.wifi.WifiConfigurationUtil.convertWifiInfoSecurityTypeToWifiConfiguration;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -42,8 +38,6 @@ import android.os.PatternMatcher;
 import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
-
-import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Test;
 
@@ -70,6 +64,7 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     static final List<UserInfo> PROFILES = Arrays.asList(
             new UserInfo(CURRENT_USER_ID, "owner", 0),
             new UserInfo(CURRENT_USER_MANAGED_PROFILE_USER_ID, "managed profile", 0));
+    private static final long SUPPORTED_FEATURES_ALL = Long.MAX_VALUE;
 
     /**
      * Verify that new WifiEnterpriseConfig is detected.
@@ -196,25 +191,25 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidatePositiveCases_AsciiSsidString() {
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createOpenNetwork(),
+                WifiConfigurationTestUtil.createOpenNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createPskNetwork(),
+                WifiConfigurationTestUtil.createPskNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createWepNetwork(),
+                WifiConfigurationTestUtil.createWepNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createEapNetwork(),
+                WifiConfigurationTestUtil.createEapNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createOweNetwork(),
+                WifiConfigurationTestUtil.createOweNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createSaeNetwork(),
+                WifiConfigurationTestUtil.createSaeNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                WifiConfigurationTestUtil.createEapSuiteBNetwork(),
+                WifiConfigurationTestUtil.createEapSuiteBNetwork(), SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
@@ -227,7 +222,8 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
         config.SSID = "abcd1234555a";
         config.preSharedKey = "abcd123455151234556788990034556667332345667322344556676743233445";
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -237,9 +233,10 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     public void testValidatePositiveCases_AnyBssidString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
         config.BSSID = "any";
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                config, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
+                config, SUPPORTED_FEATURES_ALL, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
     }
 
     /**
@@ -249,12 +246,14 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidatePositiveCases_MaskedPskString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = WifiConfigurationUtil.PASSWORD_MASK;
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                config, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
+                config, SUPPORTED_FEATURES_ALL, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
     }
 
     /**
@@ -264,9 +263,11 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidatePositiveCases_OnlyUpdateIgnoresNullSsid() {
         WifiConfiguration config = new WifiConfiguration();
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                config, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
+                config, SUPPORTED_FEATURES_ALL, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
+
     }
 
     /**
@@ -275,12 +276,15 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadAsciiSsidLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.SSID = "\"abcdfefeeretretyetretetetetetrertertrsreqwrwe\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.SSID = "\"\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -289,12 +293,15 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadUtf8SsidLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.SSID = "\"가하아너너ㅓ저저ㅓ어아아다자저ㅓ더타아어어러두어\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.SSID = "\"\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -304,10 +311,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedAsciiSsidString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.SSID = "\"ab";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -316,12 +325,15 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadHexSsidLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.SSID = "abcdfe012345632423343543453456464545656464545646454ace34534545634535";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.SSID = "";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -331,10 +343,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedHexSsidString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.SSID = "hello";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -343,13 +357,16 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadAsciiPskLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "\"abcdffeeretretyetreteteteabe34tetrertertrsraaaaaaaaaaa345eqwrweewq"
                 + "weqe\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.preSharedKey = "\"454\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -358,13 +375,16 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadAsciiSaeLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "\"abcdffeeretretyetreteteteabe34tetrertertrsraaaaaaaaaaa345eqwrweewq"
                 + "weqe\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.preSharedKey = "\"\"";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -374,10 +394,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedAsciiPskString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "\"abcdfefeeretrety";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -387,10 +409,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedAsciiSaeString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "\"abcdfefeeretrety";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -399,12 +423,15 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadHexPskLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "abcd123456788990013453445345465465476546";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.preSharedKey = "";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -414,10 +441,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedHexPskString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "adbdfgretrtyrtyrty";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -427,10 +456,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_MalformedHexSaeString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createSaeNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.preSharedKey = "adbdfgretrtyrtyrty";
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -440,15 +471,17 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidatePositiveCases_MaskedWepKeysString() {
         WifiConfiguration config = WifiConfigurationTestUtil.createWepNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.wepKeys = new String[]{ WifiConfigurationUtil.PASSWORD_MASK,
                 WifiConfigurationUtil.PASSWORD_MASK,
                 WifiConfigurationUtil.PASSWORD_MASK,
                 WifiConfigurationUtil.PASSWORD_MASK};
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         assertTrue(WifiConfigurationUtil.validate(
-                config, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
+                config, SUPPORTED_FEATURES_ALL, WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
     }
 
     /**
@@ -457,15 +490,19 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadWepKeysLength() {
         WifiConfiguration config = WifiConfigurationTestUtil.createWepNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.wepKeys = new String[] {"\"abcd\""};
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         config.wepKeys = new String[] {"456"};
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         // Error scenario in b/169638868.
         config.wepKeys = new String[] {""};
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -474,10 +511,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadWepTxKeysIndex() {
         WifiConfiguration config = WifiConfigurationTestUtil.createWepNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         // Should be < wepKeys.length
         config.wepTxKeyIndex = config.wepKeys.length;
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -486,10 +525,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadKeyMgmtPskEap() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.IEEE8021X);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -498,10 +539,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadKeyMgmtOpenPsk() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -510,10 +553,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadKeyMgmt() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.IEEE8021X);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -522,11 +567,13 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_BadSuiteBKeyMgmt() {
         WifiConfiguration config = WifiConfigurationTestUtil.createEapSuiteBNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedKeyManagement.clear(WifiConfiguration.KeyMgmt.IEEE8021X);
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA2_PSK);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -539,11 +586,13 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
         IpConfiguration ipConfig =
                 WifiConfigurationTestUtil.createStaticIpConfigurationWithPacProxy();
         config.setIpConfiguration(ipConfig);
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         ipConfig.setStaticIpConfiguration(null);
         config.setIpConfiguration(ipConfig);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -552,10 +601,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidKeyMgmt() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.FT_EAP + 1);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -564,10 +615,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidKeyMgmtWithPreSharedKey() {
         WifiConfiguration config = WifiConfigurationTestUtil.createPskNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OSEN);
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
         // Verify we reset the KeyMgmt
         assertTrue(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK));
         assertFalse(config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.OSEN));
@@ -579,10 +632,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidProtocol() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedProtocols.set(4);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -592,10 +647,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidAuthAlgorithm() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.LEAP + 3);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -605,10 +662,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidGroupCipher() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.GTK_NOT_USED + 4);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -618,10 +677,12 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     @Test
     public void testValidateNegativeCases_InvalidPairwiseCipher() {
         WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
-        assertTrue(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP + 4);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -890,18 +951,18 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     }
 
     /**
-     * Verify that WifiConfigurationUtil.isSameNetwork returns true when two WifiConfiguration
+     * Verify that WifiConfigurationUtil.isSameNetwork returns false when two WifiConfiguration
      * objects have the different EAP anonymous(pseudonym) identity in EAP-SIM.
      */
     @Test
-    public void testIsSameNetworkReturnsTrueOnDifferentEapAnonymousIdentityInEapSim() {
+    public void testIsSameNetworkReturnsFalseOnDifferentEapAnonymousIdentityInEapSim() {
         WifiConfiguration network1 = WifiConfigurationTestUtil.createEapNetwork(TEST_SSID);
         WifiConfiguration network2 = WifiConfigurationTestUtil.createEapNetwork(TEST_SSID);
         network1.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
         network2.enterpriseConfig.setEapMethod(WifiEnterpriseConfig.Eap.SIM);
         network1.enterpriseConfig.setAnonymousIdentity("Identity1");
         network2.enterpriseConfig.setAnonymousIdentity("Identity2");
-        assertTrue(WifiConfigurationUtil.isSameNetwork(network1, network2));
+        assertFalse(WifiConfigurationUtil.isSameNetwork(network1, network2));
     }
 
     /**
@@ -1211,6 +1272,19 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
         assertFalse(WifiConfigurationUtil.isConfigForOpenNetwork(wapiCertConfig));
     }
 
+    /**
+     * Verify that a Passpoint config is not considered an OPEN config.
+     */
+    @Test
+    public void testPasspointConfigNotOpenConfig() {
+        WifiConfiguration passpointR1R2Config = new WifiConfiguration();
+        passpointR1R2Config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PASSPOINT_R1_R2);
+        assertFalse(WifiConfigurationUtil.isConfigForOpenNetwork(passpointR1R2Config));
+
+        WifiConfiguration passpointR3Config = new WifiConfiguration();
+        passpointR3Config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PASSPOINT_R3);
+        assertFalse(WifiConfigurationUtil.isConfigForOpenNetwork(passpointR3Config));
+    }
 
     /**
      * Verify that the validate method fails to validate WifiConfiguration with malformed
@@ -1222,13 +1296,16 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
         config.SSID = "\"someNetwork\"";
         config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
         // EAP method is kept as Eap.NONE - should not crash, but return invalid ID
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
 
         config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
     }
 
     /**
@@ -1239,121 +1316,52 @@ public class WifiConfigurationUtilTest extends WifiBaseTest {
     public void testValidateNegativeCases_NoIdentityOrPasswordEnterpriseConfig() {
         WifiConfiguration config = WifiConfigurationTestUtil.createEapNetwork();
         config.enterpriseConfig.setIdentity(null);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
-        assertFalse(WifiConfigurationUtil.validate(config,
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
 
         config = WifiConfigurationTestUtil.createEapNetwork();
         config.enterpriseConfig.setPassword(null);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
-        assertTrue(WifiConfigurationUtil.validate(config,
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
 
         config = WifiConfigurationTestUtil.createWpa3EnterpriseNetwork(TEST_SSID);
         config.enterpriseConfig.setIdentity(null);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
-        assertFalse(WifiConfigurationUtil.validate(config,
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
 
         config = WifiConfigurationTestUtil.createWpa3EnterpriseNetwork(TEST_SSID);
         config.enterpriseConfig.setPassword(null);
-        assertFalse(WifiConfigurationUtil.validate(config, WifiConfigurationUtil.VALIDATE_FOR_ADD));
-        assertTrue(WifiConfigurationUtil.validate(config,
+        assertFalse(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
+                WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, SUPPORTED_FEATURES_ALL,
                 WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
     }
 
     /**
-     * Verify the behavior of convertWifiInfoSecurityTypeToWifiConfiguration
+     * Verify that the validate method fails to validate WifiConfiguration with DPP AKM
+     * security type if DPP AKM is not supported by the device, and succeeds if it is supported.
      */
     @Test
-    public void testConvertWifiInfoSecurityTypeToWifiConfiguration() {
-        assertEquals(WifiConfiguration.SECURITY_TYPE_OPEN,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_OPEN));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_WEP,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_WEP));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_PSK,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_PSK));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_EAP,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_EAP));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_SAE,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_SAE));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
-                convertWifiInfoSecurityTypeToWifiConfiguration(
-                        WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_OWE,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_OWE));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_WAPI_PSK,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_WAPI_PSK));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_WAPI_CERT,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_WAPI_CERT));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE,
-                convertWifiInfoSecurityTypeToWifiConfiguration(
-                        WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_OSEN,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_OSEN));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_PASSPOINT_R1_R2,
-                convertWifiInfoSecurityTypeToWifiConfiguration(
-                        WifiInfo.SECURITY_TYPE_PASSPOINT_R1_R2));
-        assertEquals(WifiConfiguration.SECURITY_TYPE_PASSPOINT_R3,
-                convertWifiInfoSecurityTypeToWifiConfiguration(
-                        WifiInfo.SECURITY_TYPE_PASSPOINT_R3));
-        assertEquals(-1, convertWifiInfoSecurityTypeToWifiConfiguration(13));
-        assertEquals(-1,
-                convertWifiInfoSecurityTypeToWifiConfiguration(WifiInfo.SECURITY_TYPE_UNKNOWN));
-    }
+    public void testValidateSecurityTypeDppAkm() {
+        long supportedFeatures = SUPPORTED_FEATURES_ALL & ~WifiManager.WIFI_FEATURE_DPP_AKM;
+        WifiConfiguration config = WifiConfigurationTestUtil.createOpenNetwork();
+        config.setSecurityParams(WifiInfo.SECURITY_TYPE_DPP);
 
-    /**
-     * Verify that adding and removing the security type for network ID behaves correctly
-     */
-    @Test
-    public void testAddAndRemoveSecurityTypeForNetworkId() {
-        List<Integer> securityList = Arrays.asList(
-                WifiConfiguration.SECURITY_TYPE_OPEN,
-                WifiConfiguration.SECURITY_TYPE_WEP,
-                WifiConfiguration.SECURITY_TYPE_PSK,
-                WifiConfiguration.SECURITY_TYPE_EAP,
-                WifiConfiguration.SECURITY_TYPE_SAE,
-                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT,
-                WifiConfiguration.SECURITY_TYPE_OWE,
-                WifiConfiguration.SECURITY_TYPE_WAPI_PSK,
-                WifiConfiguration.SECURITY_TYPE_WAPI_CERT,
-                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE,
-                WifiConfiguration.SECURITY_TYPE_OSEN,
-                WifiConfiguration.SECURITY_TYPE_PASSPOINT_R1_R2,
-                WifiConfiguration.SECURITY_TYPE_PASSPOINT_R3
-        );
+        assertFalse(WifiConfigurationUtil.validate(config, supportedFeatures,
+                  WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertFalse(WifiConfigurationUtil.validate(config, supportedFeatures,
+                  WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
 
-        final int netId = 1;
-        if (!SdkLevel.isAtLeastS()) {
-            // INVALID_NET_ID should remain the same from either adding or removing
-            assertEquals(INVALID_NETWORK_ID, WifiConfigurationUtil.addSecurityTypeToNetworkId(
-                    INVALID_NETWORK_ID, WifiConfiguration.SECURITY_TYPE_OPEN));
-            assertEquals(INVALID_NETWORK_ID, WifiConfigurationUtil.removeSecurityTypeFromNetworkId(
-                    INVALID_NETWORK_ID));
-            // Add and then remove should result in the original netId
-            for (@WifiConfiguration.SecurityType int securityType : securityList) {
-                assertEquals(netId, WifiConfigurationUtil.removeSecurityTypeFromNetworkId(
-                        WifiConfigurationUtil.addSecurityTypeToNetworkId(
-                                netId, securityType)));
-            }
-            // Multiple removes should result in the same netId as a single remove
-            for (@WifiConfiguration.SecurityType int securityType : securityList) {
-                assertEquals(WifiConfigurationUtil.removeSecurityTypeFromNetworkId(netId),
-                        WifiConfigurationUtil.removeSecurityTypeFromNetworkId(
-                                WifiConfigurationUtil.removeSecurityTypeFromNetworkId(
-                                        WifiConfigurationUtil.addSecurityTypeToNetworkId(
-                                                netId, securityType))));
-            }
-            // A unique net id should be created for each security type added
-            assertEquals(securityList.size(), securityList.stream()
-                    .map(security -> addSecurityTypeToNetworkId(netId, security))
-                    .distinct()
-                    .count());
-        } else {
-            // Add should do nothing for SDK level S and above.
-            for (@WifiConfiguration.SecurityType int securityType : securityList) {
-                assertEquals(netId, addSecurityTypeToNetworkId(netId, securityType));
-            }
-        }
+        supportedFeatures = WifiManager.WIFI_FEATURE_DPP_AKM;
+        assertTrue(WifiConfigurationUtil.validate(config, supportedFeatures,
+                  WifiConfigurationUtil.VALIDATE_FOR_ADD));
+        assertTrue(WifiConfigurationUtil.validate(config, supportedFeatures,
+                  WifiConfigurationUtil.VALIDATE_FOR_UPDATE));
     }
 }

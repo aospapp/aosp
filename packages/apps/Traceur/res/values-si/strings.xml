@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"පෙරනිමි ප්‍රවර්ග ප්‍රතිසාධනය කරන්න"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"පෙරනිමි ප්‍රවර්ග ප්‍රතිසාධනය කරන ලදී"</string>
     <string name="default_categories" msgid="2117679794687799407">"පෙරනිමි"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%d තෝරන ලදි</item>
-      <item quantity="other">%d තෝරන ලදි</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{#ක් තෝරා ගන්නා ලදී}one{#ක් තෝරා ගන්නා ලදී}other{#ක් තෝරා ගන්නා ලදී}}"</string>
     <string name="applications" msgid="521776761270770549">"යෙදුම්"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"දෝෂහරණය කළ හැකි යෙදුම් ලබා ගත නොහැකිය"</string>
     <string name="buffer_size" msgid="3944311026715111454">"CPU එකකට අන්තරාචයන ප්‍රමාණය"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto භාවිතා කරන්න (බීටා)"</string>
     <string name="long_traces" msgid="5110949471775966329">"දීර්ඝ හඹා යෑම්"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"දිගටම උපාංග ආචයනයට සුරකිනු ලැබේ"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"උපාංග ගබඩාවට අඛණ්ඩව සුරකින ලදි (දෝෂ වාර්තාවලට ස්වයංක්‍රියව අමුණනු නොලැබේ)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"උපරිම දීර්ඝ හඹා යෑම් ප්‍රමාණය"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"උපරිම දීර්ඝ හඹා යෑම් කාලය"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

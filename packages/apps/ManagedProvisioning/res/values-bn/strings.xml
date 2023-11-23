@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"নিম্নলিখিত অ্যাপ্লিকেশানটি আপনার ডিভাইস পরিচালনা করবে:"</string>
     <string name="next" msgid="1004321437324424398">"পরবর্তী"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"কর্মস্থলের প্রোফাইল সেট-আপ করা হচ্ছে…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"আপনার আইটি অ্যাডমিন সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি এবং নেটওয়ার্ক অ্যাক্টিভিটি সহ ডিভাইসের লোকেশন, কলের ইতিহাস ও পরিচিতি সার্চ করার ইতিহাসের মতো এই প্রোফাইলের সাথে সম্পর্কিত ডেটা মনিটর ও ম্যানেজ করতে পারেন।<xliff:g id="LINE_BREAK">
-
-</xliff:g>আপনার সংস্থার গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আইটি অ্যাডমিনের সাথে যোগাযোগ করুন।"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"আপনার আইটি অ্যাডমিন সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি, ডেটা এবং এই প্রোফাইলের সাথে সম্পর্কিত নেটওয়ার্ক অ্যাক্টিভিটি সহ কলের ইতিহাস ও পরিচিতি সার্চ করার ইতিহাসের মতো ডেটা মনিটর ও ম্যানেজ করতে পারবেন। আপনার সংস্থার গোপনীয়তা নীতি সহ আরও তথ্য জানতে আইটি অ্যাডমিনের সাথে যোগাযোগ করুন।"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"আপনার আইটি অ্যাডমিন সেটিংস, কর্পোরেট অ্যাক্সেস, অ্যাপ, অনুমতি এবং নেটওয়ার্ক অ্যাক্টিভিটি সহ ডিভাইসের লোকেশন, কলের ইতিহাস ও পরিচিতি সার্চ করার ইতিহাসের মতো এই ডিভাইসের সাথে সম্পর্কিত ডেটা মনিটর ও ম্যানেজ করতে পারেন।<xliff:g id="LINE_BREAK">
 
 </xliff:g>আপনার সংস্থার গোপনীয়তা নীতি সহ আরও তথ্যের জন্য আইটি অ্যাডমিনের সাথে যোগাযোগ করুন।"</string>
@@ -162,7 +160,7 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"আপনার অ্যাকাউন্ট ম্যানেজ করা হবে"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"নিরাপত্তা সংক্রান্ত নীতি প্রয়োগ করার জন্য আপনার আইটি অ্যাডমিন মোবাইল ডিভাইস ম্যানেজমেন্ট ফিচার ব্যবহার করছেন"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"অফিসের জন্য ডিভাইসের সেট-আপ শুরু করা হচ্ছে…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"প্রথমে, আপনার অফিসের প্রোফাইল সেট-আপ করুন"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"প্রথমে, আপনার অফিস প্রোফাইল সেট-আপ করুন"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"অফিসের অ্যাপ আপনার অফিসের প্রোফাইলে রাখা হয়েছে"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"দিনের কাজ শেষ হয়ে গেলে, আপনার অফিসের অ্যাপ আপনি পজ করে দিতে পারেন"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"আপনার অফিস প্রোফাইলের ডেটা আইটি অ্যাডমিন দেখতে পান"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>, <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> অ্যাপটি ইনস্টল করতে পারেন যাতে আপনি এই ডিভাইসের জন্য পেমেন্ট করতে পারেন।"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"এই ডিভাইসের ব্যবহার সীমাবদ্ধ করা হতে পারে"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"আপনি পেমেন্ট না করলে <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> এই ডিভাইসের অ্যাক্সেস সীমাবদ্ধ করতে পারেন।"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"ডিভাইস সেট-আপ করা যাচ্ছে না। আপনার আইটি অ্যাডমিনের সাথে যোগাযোগ করুন এবং সমস্যার কারণ হিসেবে \"চেকসাম সঠিক নয়\" বিষয়টির রেফারেন্স দিন।"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"পরে আবার চেষ্টা করুন বা সহায়তা পেতে আপনার আইটি অ্যাডমিনের সাথে যোগাযোগ করুন"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"ডিভাইস সেট-আপ করা যাচ্ছে না। আপনার আইটি অ্যাডমিনের সাথে যোগাযোগ করুন এবং সমস্যার কারণ হিসেবে \"কম্পোনেন্টে সমস্যা আছে বা এটি নেই\" বিষয়টির রেফারেন্স দিন।"</string>
+    <string name="setting_up" msgid="1478847967385506664">"সেট আপ করা হচ্ছে…"</string>
 </resources>

@@ -155,6 +155,11 @@ class AdminIntegratedFlowPrepareManager implements ProvisioningControllerCallbac
         mHelper.error(titleId, messageId, factoryResetRequired);
     }
 
+    @Override
+    public void error(int titleId, String message, boolean factoryResetRequired) {
+        mHelper.error(titleId, message, factoryResetRequired);
+    }
+
     private AbstractProvisioningController getController(ProvisioningParams params) {
         return AdminIntegratedFlowPrepareController.createInstance(
                 mContext,

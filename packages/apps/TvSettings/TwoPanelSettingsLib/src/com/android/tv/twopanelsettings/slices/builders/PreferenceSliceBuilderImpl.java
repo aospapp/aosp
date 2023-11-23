@@ -41,11 +41,13 @@ import static androidx.slice.core.SliceHints.SUBTYPE_MILLIS;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.BUTTONSTYLE;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_ACTION_ID;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_ADD_INFO_STATUS;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_HAS_END_ICON;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PAGE_ID;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_IMAGE;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_SUMMARY;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TEXT;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TITLE_ICON;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER;
 
 import android.net.Uri;
 
@@ -147,6 +149,14 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
     @NonNull
     public void addScreenTitle(@NonNull RowBuilder builder) {
         addRow(builder, TYPE_PREFERENCE_SCREEN_TITLE);
+    }
+
+    /**
+     * Add an embedded preference placeholder where another slice can control the properties via
+     * setEmbeddedPreference.
+     */
+    public void addEmbeddedPreference(@NonNull RowBuilder builder) {
+        addRow(builder, TYPE_PREFERENCE_EMBEDDED_PLACEHOLDER);
     }
 
     /**
@@ -256,6 +266,7 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
         private SliceItem mInfoImageItem;
         private SliceItem mInfoTitleIconItem;
         private SliceItem mInfoSummaryItem;
+        private SliceItem mHasEndIconItem;
 
         /**
          *
@@ -339,6 +350,7 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
             if (builder.getInfoImage() != null) {
                 setInfoImage(builder.getInfoImage());
             }
+            setHasEndIcon(builder.hasEndIcon());
             setButtonStyle(builder.getButtonStyle());
             setSeekbarMin(builder.getSeekbarMin());
             setSeekbarMax(builder.getSeekbarMax());
@@ -475,6 +487,11 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
         public void setIconNeedsToBeProcessed(boolean needed) {
             mIconNeedsToBeProcessedItem = new SliceItem(
                     needed ? 1 : 0, FORMAT_INT, SUBTYPE_ICON_NEED_TO_BE_PROCESSED, new String[]{});
+        }
+
+        public void setHasEndIcon(boolean hasEndIcon) {
+            mHasEndIconItem = new SliceItem(
+                    hasEndIcon ? 1 : 0, FORMAT_INT, EXTRA_HAS_END_ICON, new String[]{});
         }
 
         /**
@@ -699,6 +716,9 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
             }
             if (mSeekbarValueItem != null) {
                 b.addItem(mSeekbarValueItem);
+            }
+            if (mHasEndIconItem != null) {
+                b.addItem(mHasEndIconItem);
             }
             for (int i = 0; i < mEndItems.size(); i++) {
                 Slice item = mEndItems.get(i);

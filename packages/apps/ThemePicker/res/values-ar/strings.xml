@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"رموز مستوحاة من موضوع معيّن"</string>
     <string name="beta_title" msgid="8703819523760746458">"تجريبي"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"تغيير شبكة التطبيقات"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"ألوان الخلفية"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"لون الخلفية"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"الألوان الأساسية"</string>
+    <string name="color_changed" msgid="7029571720331641235">"تم تغيير اللون."</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ألوان ديناميكية"</string>
 </resources>

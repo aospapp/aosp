@@ -16,8 +16,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.bugreport"
-          android:versionCode="13"
-          android:versionName="1.7.2">
+          android:versionCode="14"
+          android:versionName="1.7.3">
 
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
     <!-- Allow closing HVAC dialog when showing bugreport activity, used by
@@ -61,13 +61,15 @@
                   android:excludeFromRecents="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
-                <action android:name="com.android.car.bugreport.action.START_SILENT"/>
+                <action android:name="com.android.car.bugreport.action.START_AUDIO_FIRST"/>
             </intent-filter>
         </activity>
 
         <service android:name=".BugReportService"
                  android:exported="true">
             <intent-filter>
+                <action android:name="com.android.car.bugreport.action.START_AUDIO_LATER"/>
+                <!-- START_SILENT is deprecated. It's replaced with START_AUDIO_LATER. -->
                 <action android:name="com.android.car.bugreport.action.START_SILENT"/>
             </intent-filter>
         </service>

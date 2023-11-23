@@ -243,9 +243,9 @@ public class SipTransportController implements RcsFeatureController.Feature,
     @VisibleForTesting
     public interface SipDelegateControllerFactory {
         /** See {@link SipDelegateController} */
-        SipDelegateController create(int subId, DelegateRequest initialRequest, String packageName,
-                ISipTransport sipTransportImpl,  IImsRegistration registrationImpl,
-                ScheduledExecutorService executorService,
+        SipDelegateController create(int subId, int uid, DelegateRequest initialRequest,
+                String packageName, ISipTransport sipTransportImpl,
+                IImsRegistration registrationImpl, ScheduledExecutorService executorService,
                 ISipDelegateConnectionStateCallback stateCallback,
                 ISipDelegateMessageCallback messageCallback);
     }
@@ -364,17 +364,18 @@ public class SipTransportController implements RcsFeatureController.Feature,
      * {@link ISipDelegateConnectionStateCallback#onCreated(ISipDelegate)} must be called with
      * the AIDL instance corresponding to the remote {@link SipDelegate}.
      * @param subId the subId associated with the request.
+     * @param uid the uid associated with the request
      * @param request The request parameters used to create the {@link SipDelegate}.
      * @param delegateState The {@link DelegateConnectionStateCallback} Binder connection.
      * @param delegateMessage The {@link DelegateConnectionMessageCallback} Binder Connection
      * @throws ImsException if the request to create the {@link SipDelegate} did not complete.
      */
-    public void createSipDelegate(int subId, DelegateRequest request, String packageName,
+    public void createSipDelegate(int subId, int uid, DelegateRequest request, String packageName,
             ISipDelegateConnectionStateCallback delegateState,
             ISipDelegateMessageCallback delegateMessage) throws ImsException {
         logi("createSipDelegate: request= " + request + ", packageName= " + packageName);
         CompletableFuture<ImsException> result = new CompletableFuture<>();
-        mExecutorService.submit(() -> createSipDelegateInternal(subId, request, packageName,
+        mExecutorService.submit(() -> createSipDelegateInternal(subId, uid, request, packageName,
                 delegateState,
                 // Capture any ImsExceptions generated during the process.
                 delegateMessage, result::complete));
@@ -423,8 +424,8 @@ public class SipTransportController implements RcsFeatureController.Feature,
         return result;
     }
 
-    private void createSipDelegateInternal(int subId, DelegateRequest request, String packageName,
-            ISipDelegateConnectionStateCallback delegateState,
+    private void createSipDelegateInternal(int subId, int uid, DelegateRequest request,
+            String packageName, ISipDelegateConnectionStateCallback delegateState,
             ISipDelegateMessageCallback delegateMessage,
             Consumer<ImsException> startedErrorConsumer) {
         ISipTransport transport;
@@ -450,8 +451,9 @@ public class SipTransportController implements RcsFeatureController.Feature,
             return;
         }
 
-        SipDelegateController c = mDelegateControllerFactory.create(subId, request, packageName,
-                transport, registration, mExecutorService, delegateState, delegateMessage);
+        SipDelegateController c = mDelegateControllerFactory.create(subId, uid, request,
+                packageName, transport, registration, mExecutorService, delegateState,
+                delegateMessage);
         logi("createSipDelegateInternal: request= " + request + ", packageName= " + packageName
                 + ", controller created: " + c);
         addPendingCreateAndEvaluate(c);

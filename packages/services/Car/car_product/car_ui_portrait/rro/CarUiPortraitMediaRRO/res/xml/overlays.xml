@@ -30,6 +30,7 @@
     <item target="attr/layout_constraintStart_toStartOf" value="@attr/layout_constraintStart_toStartOf"/>
     <item target="attr/layout_constraintTop_toBottomOf" value="@attr/layout_constraintTop_toBottomOf"/>
     <item target="attr/layout_constraintTop_toTopOf" value="@attr/layout_constraintTop_toTopOf"/>
+    <item target="attr/aspect_ratio" value="@attr/aspect_ratio"/>
 
     <item target="bool/show_mini_playback_controls" value="@bool/show_mini_playback_controls" />
     <item target="bool/switch_to_playback_view_when_playable_item_is_clicked" value="@bool/switch_to_playback_view_when_playable_item_is_clicked" />
@@ -41,7 +42,21 @@
     <item target="id/ui_content_end_guideline" value="@id/ui_content_end_guideline" />
     <item target="id/ui_content_bottom_guideline" value="@id/ui_content_bottom_guideline" />
 
+    <item target="id/item_container" value="@id/item_container" />
+    <item target="id/thumbnail" value="@id/thumbnail" />
+    <item target="id/download_icon_with_title" value="@id/download_icon_with_title" />
+    <item target="id/explicit_icon_with_title" value="@id/explicit_icon_with_title" />
+    <item target="id/title" value="@id/title" />
+    <item target="id/download_icon_with_subtitle" value="@id/download_icon_with_subtitle" />
+    <item target="id/explicit_icon_with_subtitle" value="@id/explicit_icon_with_subtitle" />
+    <item target="id/subtitle" value="@id/subtitle" />
+    <item target="id/right_arrow" value="@id/right_arrow" />
+
     <item target="layout/fragment_error" value="@layout/fragment_error"/>
+    <item target="layout/media_browse_grid_icons_item" value="@layout/media_browse_grid_icons_item"/>
+    <item target="layout/media_browse_grid_item" value="@layout/media_browse_grid_item"/>
+    <item target="layout/media_browse_list_icons_item" value="@layout/media_browse_list_icons_item"/>
+    <item target="layout/media_browse_list_item" value="@layout/media_browse_list_item"/>
 
     <item target="style/MediaIconContainerStyle" value="@style/MediaIconContainerStyle" />
 </overlay>

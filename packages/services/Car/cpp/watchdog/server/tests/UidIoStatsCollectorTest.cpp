@@ -68,6 +68,8 @@ TEST(UidIoStatsCollectorTest, TestValidStatFile) {
     ASSERT_TRUE(WriteStringToFile(firstSnapshot, tf.path));
 
     UidIoStatsCollector collector(tf.path);
+    collector.init();
+
     ASSERT_TRUE(collector.enabled()) << "Temporary file is inaccessible";
     ASSERT_RESULT_OK(collector.collect());
 
@@ -112,6 +114,8 @@ TEST(UidIoStatsCollectorTest, TestErrorOnInvalidStatFile) {
     ASSERT_TRUE(WriteStringToFile(contents, tf.path));
 
     UidIoStatsCollector collector(tf.path);
+    collector.init();
+
     ASSERT_TRUE(collector.enabled()) << "Temporary file is inaccessible";
     EXPECT_FALSE(collector.collect().ok()) << "No error returned for invalid file";
 }

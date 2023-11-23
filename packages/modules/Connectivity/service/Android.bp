@@ -19,6 +19,81 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+aidl_interface {
+    name: "connectivity_native_aidl_interface",
+    local_include_dir: "binder",
+    vendor_available: true,
+    srcs: [
+        "binder/android/net/connectivity/aidl/*.aidl",
+    ],
+    backend: {
+        java: {
+            apex_available: [
+                "com.android.tethering",
+            ],
+            min_sdk_version: "30",
+        },
+        ndk: {
+            apex_available: [
+                "com.android.tethering",
+            ],
+            min_sdk_version: "30",
+        },
+    },
+    versions: ["1"],
+
+}
+
+cc_library_static {
+    name: "connectivity_native_aidl_interface-lateststable-ndk",
+    min_sdk_version: "30",
+    whole_static_libs: [
+        "connectivity_native_aidl_interface-V1-ndk",
+    ],
+    apex_available: [
+        "com.android.tethering",
+    ],
+}
+
+java_library {
+    name: "connectivity_native_aidl_interface-lateststable-java",
+    sdk_version: "system_current",
+    min_sdk_version: "30",
+    static_libs: [
+        "connectivity_native_aidl_interface-V1-java",
+    ],
+    apex_available: [
+        "com.android.tethering",
+    ],
+}
+
+// The library name match the service-connectivity jarjar rules that put the JNI utils in the
+// android.net.connectivity.com.android.net.module.util package.
+cc_library_shared {
+    name: "libandroid_net_connectivity_com_android_net_module_util_jni",
+    min_sdk_version: "30",
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-Wthread-safety",
+    ],
+    srcs: [
+        "jni/com_android_net_module_util/onload.cpp",
+    ],
+    static_libs: [
+        "libnet_utils_device_common_bpfjni",
+        "libnet_utils_device_common_bpfutils",
+    ],
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
+    ],
+    apex_available: [
+        "com.android.tethering",
+    ],
+}
+
 cc_library_shared {
     name: "libservice-connectivity",
     min_sdk_version: "30",
@@ -29,16 +104,31 @@ cc_library_shared {
         "-Wthread-safety",
     ],
     srcs: [
+        ":services.connectivity-netstats-jni-sources",
+        "jni/com_android_server_BpfNetMaps.cpp",
+        "jni/com_android_server_connectivity_ClatCoordinator.cpp",
         "jni/com_android_server_TestNetworkService.cpp",
         "jni/onload.cpp",
     ],
-    stl: "libc++_static",
     header_libs: [
-        "libbase_headers",
+        "bpf_connectivity_headers",
+    ],
+    static_libs: [
+        "libclat",
+        "libip_checksum",
+        "libmodules-utils-build",
+        "libnetjniutils",
+        "libnet_utils_device_common_bpfjni",
+        "libtraffic_controller",
+        "netd_aidl_interface-lateststable-ndk",
     ],
     shared_libs: [
+        "libbase",
+        "libcutils",
+        "libnetdutils",
         "liblog",
         "libnativehelper",
+        "libnetworkstats",
     ],
     apex_available: [
         "com.android.tethering",
@@ -53,30 +143,41 @@ java_library {
         "src/**/*.java",
         ":framework-connectivity-shared-srcs",
         ":services-connectivity-shared-srcs",
-        // TODO: move to net-utils-device-common, enable shrink optimization to avoid extra classes
-        ":net-module-utils-srcs",
+        // TODO: move to net-utils-device-common
+        ":connectivity-module-utils-srcs",
     ],
     libs: [
         "framework-annotations-lib",
-        "framework-connectivity.impl",
+        "framework-connectivity-pre-jarjar",
+        "framework-connectivity-t.stubs.module_lib",
         "framework-tethering.stubs.module_lib",
         "framework-wifi.stubs.module_lib",
         "unsupportedappusage",
         "ServiceConnectivityResources",
     ],
     static_libs: [
+        // Do not add libs here if they are already included
+        // in framework-connectivity
+        "connectivity_native_aidl_interface-lateststable-java",
         "dnsresolver_aidl_interface-V9-java",
-        "modules-utils-os",
+        "modules-utils-shell-command-handler",
         "net-utils-device-common",
-        "net-utils-framework-common",
+        "net-utils-device-common-bpf",
+        "net-utils-device-common-netlink",
+        "net-utils-services-common",
         "netd-client",
-        "netlink-client",
         "networkstack-client",
         "PlatformProperties",
         "service-connectivity-protos",
+        "NetworkStackApiStableShims",
     ],
     apex_available: [
         "com.android.tethering",
+    ],
+    lint: { strict_updatability_linting: true },
+    visibility: [
+        "//packages/modules/Connectivity/service-t",
+        "//packages/modules/Connectivity/tests:__subpackages__",
     ],
 }
 
@@ -94,24 +195,62 @@ java_library {
     apex_available: [
         "com.android.tethering",
     ],
+    lint: { strict_updatability_linting: true },
+}
+
+java_defaults {
+    name: "service-connectivity-defaults",
+    sdk_version: "system_server_current",
+    min_sdk_version: "30",
+    // This library combines system server jars that have access to different bootclasspath jars.
+    // Lower SDK service jars must not depend on higher SDK jars as that would let them
+    // transitively depend on the wrong bootclasspath jars. Sources also cannot be added here as
+    // they would transitively depend on bootclasspath jars that may not be available.
+    static_libs: [
+        "service-connectivity-pre-jarjar",
+        "service-connectivity-tiramisu-pre-jarjar",
+        "service-nearby-pre-jarjar",
+    ],
+    jarjar_rules: ":connectivity-jarjar-rules",
+    apex_available: [
+        "com.android.tethering",
+    ],
+    optimize: {
+        enabled: true,
+        shrink: true,
+        proguard_flags_files: ["proguard.flags"],
+    },
+    lint: { strict_updatability_linting: true },
+}
+
+// A special library created strictly for use by the tests as they need the
+// implementation library but that is not available when building from prebuilts.
+// Using a library with a different name to what is used by the prebuilts ensures
+// that this will never depend on the prebuilt.
+// Switching service-connectivity to a java_sdk_library would also have worked as
+// that has built in support for managing this but that is too big a change at this
+// point.
+java_library {
+    name: "service-connectivity-for-tests",
+    defaults: ["service-connectivity-defaults"],
 }
 
 java_library {
     name: "service-connectivity",
-    sdk_version: "system_server_current",
-    min_sdk_version: "30",
+    defaults: ["service-connectivity-defaults"],
     installable: true,
-    static_libs: [
-        "service-connectivity-pre-jarjar",
-    ],
-    jarjar_rules: "jarjar-rules.txt",
-    apex_available: [
-        "com.android.tethering",
-    ],
 }
 
 filegroup {
     name: "connectivity-jarjar-rules",
     srcs: ["jarjar-rules.txt"],
+    visibility: ["//packages/modules/Connectivity:__subpackages__"],
+}
+
+// TODO: This filegroup temporary exposes for NetworkStats. It should be
+// removed right after NetworkStats moves into mainline module.
+filegroup {
+    name: "traffic-controller-utils",
+    srcs: ["src/com/android/server/BpfNetMaps.java"],
     visibility: ["//packages/modules/Connectivity:__subpackages__"],
 }

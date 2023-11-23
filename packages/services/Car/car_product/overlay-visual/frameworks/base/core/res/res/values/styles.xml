@@ -15,12 +15,6 @@
 -->
 
 <resources>
-    <!-- The style for a Toast. This toast has an increased text size. -->
-    <style name="TextAppearance.Toast" parent="*android:TextAppearance">
-        <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:textSize">42sp</item>
-    </style>
-
     <!-- Override the default activity transitions. We have to do a full copy and not just inherit
          and override because we're replacing the default style across the system.
     -->

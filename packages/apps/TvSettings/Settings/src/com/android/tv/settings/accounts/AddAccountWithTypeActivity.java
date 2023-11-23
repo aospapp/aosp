@@ -31,7 +31,7 @@ import android.util.Log;
 
 import androidx.fragment.app.FragmentActivity;
 
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.io.IOException;
 

@@ -36,6 +36,8 @@ import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.telephony.AccessNetworkConstants.AccessNetworkType;
+import android.telephony.CarrierConfigManager;
+import android.telephony.CellInfo;
 import android.telephony.DataFailCause;
 import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
@@ -184,6 +186,7 @@ public class IwlanDataService extends DataService {
         private boolean mCarrierConfigReady = false;
         private EpdgSelector mEpdgSelector;
         private IwlanDataTunnelStats mTunnelStats;
+        private CellInfo mCellInfo = null;
 
         // apn to TunnelState
         // Lock this at public entry and exit points if:
@@ -463,6 +466,25 @@ public class IwlanDataService extends DataService {
                         Log.d(TAG, "On WIFI_CALLING_DISABLE_EVENT");
                         mWfcEnabled = false;
                         break;
+                    case IwlanEventListener.CELLINFO_CHANGED_EVENT:
+                        Log.d(TAG, "On CELLINFO_CHANGED_EVENT");
+                        List<CellInfo> cellInfolist = (List<CellInfo>) msg.obj;
+
+                        if (cellInfolist != null && isRegisteredCellInfoChanged(cellInfolist)) {
+                            int[] addrResolutionMethods =
+                                    IwlanHelper.getConfig(
+                                            CarrierConfigManager.Iwlan
+                                                    .KEY_EPDG_ADDRESS_PRIORITY_INT_ARRAY,
+                                            mContext,
+                                            getSlotIndex());
+                            for (int addrResolutionMethod : addrResolutionMethods) {
+                                if (addrResolutionMethod
+                                        == CarrierConfigManager.Iwlan.EPDG_ADDRESS_CELLULAR_LOC) {
+                                    dnsPrefetchCheck();
+                                }
+                            }
+                        }
+                        break;
                     default:
                         Log.d(TAG, "Unknown message received!");
                         break;
@@ -645,6 +667,7 @@ public class IwlanDataService extends DataService {
             events.add(IwlanEventListener.CARRIER_CONFIG_UNKNOWN_CARRIER_EVENT);
             events.add(IwlanEventListener.WIFI_CALLING_ENABLE_EVENT);
             events.add(IwlanEventListener.WIFI_CALLING_DISABLE_EVENT);
+            events.add(IwlanEventListener.CELLINFO_CHANGED_EVENT);
             IwlanEventListener.getInstance(mContext, slotIndex).addEventListener(events, mHandler);
         }
 
@@ -849,14 +872,46 @@ public class IwlanDataService extends DataService {
                                 + ", transport: "
                                 + sDefaultDataTransport);
 
-                if (networkConnected == false
-                        || mTunnelStateForApn.get(dataProfile.getApn()) != null) {
+                if (networkConnected == false) {
                     deliverCallback(
                             CALLBACK_TYPE_SETUP_DATACALL_COMPLETE,
                             5 /* DataServiceCallback.RESULT_ERROR_TEMPORARILY_UNAVAILABLE */,
                             callback,
                             null);
                     return;
+                }
+
+                TunnelState tunnelState = mTunnelStateForApn.get(dataProfile.getApn());
+
+                // Return the existing PDN if the pduSessionId is the same and the tunnel state is
+                // TUNNEL_UP.
+                if (tunnelState != null) {
+                    if (tunnelState.getPduSessionId() == pduSessionId
+                            && tunnelState.getState() == TunnelState.TUNNEL_UP) {
+                        Log.w(
+                                SUB_TAG,
+                                "The tunnel for " + dataProfile.getApn() + " already exists.");
+                        deliverCallback(
+                                CALLBACK_TYPE_SETUP_DATACALL_COMPLETE,
+                                DataServiceCallback.RESULT_SUCCESS,
+                                callback,
+                                apnTunnelStateToDataCallResponse(dataProfile.getApn()));
+                        return;
+                    } else {
+                        Log.e(
+                                SUB_TAG,
+                                "Force close the existing PDN. pduSessionId = "
+                                        + tunnelState.getPduSessionId()
+                                        + " Tunnel State = "
+                                        + tunnelState.getState());
+                        getTunnelManager().closeTunnel(dataProfile.getApn(), true /* forceClose */);
+                        deliverCallback(
+                                CALLBACK_TYPE_SETUP_DATACALL_COMPLETE,
+                                5 /* DataServiceCallback.RESULT_ERROR_TEMPORARILY_UNAVAILABLE */,
+                                callback,
+                                null);
+                        return;
+                    }
                 }
 
                 TunnelSetupRequest.Builder tunnelReqBuilder =
@@ -1049,6 +1104,21 @@ public class IwlanDataService extends DataService {
             }
         }
 
+        private boolean isRegisteredCellInfoChanged(List<CellInfo> cellInfoList) {
+            for (CellInfo cellInfo : cellInfoList) {
+                if (!cellInfo.isRegistered()) {
+                    continue;
+                }
+
+                if (mCellInfo == null || mCellInfo != cellInfo) {
+                    mCellInfo = cellInfo;
+                    Log.d(TAG, " Update cached cellinfo");
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void dnsPrefetchCheck() {
             boolean networkConnected =
                     mIwlanDataService.isNetworkConnected(
@@ -1206,6 +1276,7 @@ public class IwlanDataService extends DataService {
                     dp.dnsPrefetchCheck();
                     dp.updateNetwork(sNetwork);
                 }
+                IwlanHelper.updateCountryCodeWhenNetworkConnected();
             }
         } else {
             for (IwlanDataServiceProvider dp : sIwlanDataServiceProviderList) {
@@ -1341,6 +1412,7 @@ public class IwlanDataService extends DataService {
     public void onCreate() {
         setAppContext(getApplicationContext());
         IwlanBroadcastReceiver.startListening(mContext);
+        IwlanHelper.startCountryDetector(mContext);
     }
 
     @Override

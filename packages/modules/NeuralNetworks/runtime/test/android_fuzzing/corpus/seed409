@@ -1,75 +1,86 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_FLOAT16
-      dimensions {
-        dimension: 3
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 1
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 2378666352
-      }
-    }
-    operand {
-      type: TENSOR_INT32
-      dimensions {
-        dimension: 1
-        dimension: 2
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: CONSTANT_COPY
-      channel_quant {
-        scales {
+        scale: 0.5
+        zero_point: 127
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 416831809
-      }
-    }
-    operand {
-      type: TENSOR_FLOAT16
-      dimensions {
-        dimension: 7
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+        data {
+          random_seed: 2425519771
         }
-        channel_dim: 0
       }
-      data {
-        random_seed: 2798484407
+      operand {
+        type: TENSOR_INT32
+        dimensions {
+          dimension: 1
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          scalar: 0
+        }
+      }
+      operand {
+        type: BOOL
+        dimensions {
+        }
+        lifetime: CONSTANT_COPY
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 1772448071
+        }
+      }
+      operand {
+        type: TENSOR_QUANT8_ASYMM
+        dimensions {
+          dimension: 1
+        }
+        scale: 0.5
+        zero_point: 127
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2425519771
+        }
       }
     }
-  }
-  operations {
-    operation {
-      type: PAD
-      inputs {
-        index: 0
-        index: 1
-      }
-      outputs {
-        index: 2
+    operations {
+      operation {
+        type: REDUCE_MIN
+        inputs {
+          index: 0
+          index: 1
+          index: 2
+        }
+        outputs {
+          index: 3
+        }
       }
     }
+    input_indexes {
+      index: 0
+    }
+    output_indexes {
+      index: 3
+    }
   }
-  input_indexes {
-    index: 0
+  referenced {
   }
-  output_indexes {
-    index: 2
-  }
-  is_relaxed: false
 }

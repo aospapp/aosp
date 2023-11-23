@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <span>
+
 #include "netd_resolv/resolv.h"  // struct android_net_context
 #include "stats.pb.h"
 
 // Query dns with raw msg
-int resolv_res_nsend(const android_net_context* netContext, const uint8_t* msg, int msgLen,
-                     uint8_t* ans, int ansLen, int* rcode, uint32_t flags,
+int resolv_res_nsend(const android_net_context* netContext, std::span<const uint8_t> msg,
+                     std::span<uint8_t> ans, int* rcode, uint32_t flags,
                      android::net::NetworkDnsEventReported* event);

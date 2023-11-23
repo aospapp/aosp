@@ -29,6 +29,7 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
+using ::android::sp;
 using ::android::automotive::watchdog::internal::ApplicationCategoryType;
 using ::android::automotive::watchdog::internal::ComponentType;
 using ::android::automotive::watchdog::internal::PackageInfo;
@@ -65,12 +66,12 @@ std::string toString(const std::unordered_map<uid_t, PackageInfo>& mappings) {
 
 namespace internal {
 
-class PackageInfoResolverPeer {
+class PackageInfoResolverPeer final {
 public:
     PackageInfoResolverPeer() {
         PackageInfoResolver::getInstance();
         mPackageInfoResolver = PackageInfoResolver::sInstance;
-        mockWatchdogServiceHelper = new MockWatchdogServiceHelper();
+        mockWatchdogServiceHelper = sp<MockWatchdogServiceHelper>::make();
         mPackageInfoResolver->initWatchdogServiceHelper(mockWatchdogServiceHelper);
     }
 
@@ -108,12 +109,13 @@ private:
             const std::unordered_map<uid_t, std::string>& mapping) {
         clearMappingCache();
         for (const auto& it : mapping) {
-            char* packageName = new char[it.second.size() + 1];
+            size_t packageNameLen = it.second.size() + 1;
+            char* packageName = new char[packageNameLen];
             if (packageName == nullptr) {
                 continue;
             }
-            memset(packageName, 0, sizeof(packageName));
-            snprintf(packageName, it.second.size() + 1, "%s", it.second.c_str());
+            memset(packageName, 0, packageNameLen);
+            snprintf(packageName, packageNameLen, "%s", it.second.c_str());
 
             struct passwd pwd {
                 .pw_name = packageName, .pw_uid = it.first

@@ -15,7 +15,8 @@
 -->
 <configuration description="Runs Frameworks Networking Tests.">
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
-        <option name="test-file-name" value="FrameworksNetTests.apk" />
+      <option name="test-file-name" value="FrameworksNetTests.apk" />
+      <option name="install-arg" value="-t" />
     </target_preparer>
 
     <option name="test-suite-tag" value="apct" />

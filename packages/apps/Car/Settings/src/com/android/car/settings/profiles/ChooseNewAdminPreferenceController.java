@@ -22,6 +22,7 @@ import android.content.pm.UserInfo;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.car.internal.user.UserHelper;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.FragmentController;
@@ -82,7 +83,7 @@ public class ChooseNewAdminPreferenceController extends ProfilesBasePreferenceCo
 
     @VisibleForTesting
     void assignNewAdminAndRemoveOldAdmin(UserInfo profileToMakeAdmin) {
-        android.car.userlib.UserHelper.grantAdminPermissions(getContext(), profileToMakeAdmin);
+        UserHelper.grantAdminPermissions(getContext(), profileToMakeAdmin.getUserHandle());
         removeOldAdmin();
     }
 

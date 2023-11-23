@@ -49,12 +49,9 @@ public abstract class Category {
      * Shows the UI for picking wallpapers within this category.
      *
      * @param srcActivity
-     * @param factory     A factory for showing the picker activity for within this app. Only used for
-     *                    certain Category implementations that show a picker in-app (as opposed to launching an
-     *                    external intent).
      * @param requestCode Request code to pass in when starting the picker activity.
      */
-    public abstract void show(Activity srcActivity, PickerIntentFactory factory, int requestCode);
+    public abstract void show(Activity srcActivity, int requestCode);
 
     /**
      * Returns true if this Category contains an enumerable set of wallpapers which can be presented

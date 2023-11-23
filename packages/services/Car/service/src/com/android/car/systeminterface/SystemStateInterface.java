@@ -16,16 +16,16 @@
 
 package com.android.car.systeminterface;
 
+import static com.android.car.systeminterface.SystemPowerControlHelper.SUSPEND_RESULT_SUCCESS;
+
+import android.car.builtin.power.PowerManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Looper;
-import android.os.PowerManager;
 import android.util.Pair;
-import android.util.Slog;
 
-import com.android.car.internal.ICarServiceHelper;
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.procfsinspector.ProcfsInspector;
 import com.android.internal.annotations.VisibleForTesting;
@@ -33,7 +33,6 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +48,14 @@ public interface SystemStateInterface {
      * @return boolean true if suspend succeeded
      */
     boolean enterDeepSleep();
+
+    /**
+     * Puts the device into Suspend-to-disk (hibernation)
+     *
+     * @return boolean {@code true} if hibernation succeeded
+    */
+    boolean enterHibernation();
+
     void scheduleActionForBootCompleted(Runnable action, Duration delay);
 
     default boolean isWakeupCausedByTimer() {
@@ -59,17 +66,26 @@ public interface SystemStateInterface {
         return false;
     }
 
+    /**
+     * Gets whether the device supports deep sleep
+     */
     default boolean isSystemSupportingDeepSleep() {
-        //TODO should return by checking some kernel suspend control sysfs, bug: 32061842
         return true;
     }
 
-    default List<ProcessInfo> getRunningProcesses() {
-        return ProcfsInspector.readProcessTable();
+    /**
+     * Gets whether the device supports hibernation
+     */
+    default boolean isSystemSupportingHibernation() {
+        return true;
     }
 
-    default void setCarServiceHelper(ICarServiceHelper helper) {
-        // Do nothing
+    /**
+     * @deprecated see {@link ProcfsInspector}
+     */
+    @Deprecated
+    default List<ProcessInfo> getRunningProcesses() {
+        return ProcfsInspector.readProcessTable();
     }
 
     /**
@@ -81,10 +97,7 @@ public interface SystemStateInterface {
         private static final Duration MIN_BOOT_COMPLETE_ACTION_DELAY = Duration.ofSeconds(10);
         private static final int SUSPEND_TRY_TIMEOUT_MS = 1_000;
 
-        private ICarServiceHelper mICarServiceHelper; // mHelperLatch becomes 0 when this is set
-        private final CountDownLatch mHelperLatch = new CountDownLatch(1);
         private final Context mContext;
-        private final PowerManager mPowerManager;
         private List<Pair<Runnable, Duration>> mActionsList = new ArrayList<>();
         private ScheduledExecutorService mExecutorService;
         private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -93,7 +106,7 @@ public interface SystemStateInterface {
                 if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
                     for (Pair<Runnable, Duration> action : mActionsList) {
                         mExecutorService.schedule(action.first,
-                            action.second.toMillis(), TimeUnit.MILLISECONDS);
+                                action.second.toMillis(), TimeUnit.MILLISECONDS);
                     }
                 }
             }
@@ -102,56 +115,38 @@ public interface SystemStateInterface {
         @VisibleForTesting
         public DefaultImpl(Context context) {
             mContext = context;
-            mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         }
 
         @Override
         public void shutdown() {
-            mPowerManager.shutdown(false /* no confirm*/, null, true /* true */);
+            PowerManagerHelper.shutdown(mContext, /* confirm= */ false , /* reason= */ null,
+                    /* wait= */ true);
         }
 
         @Override
         public boolean enterDeepSleep() {
             // TODO(b/32061842) Set wake up time via VHAL
-            if (!canInvokeHelper()) {
-                return false;
-            }
 
             boolean deviceEnteredSleep = false;
             try {
-                int retVal = mICarServiceHelper.forceSuspend(SUSPEND_TRY_TIMEOUT_MS);
-                deviceEnteredSleep = retVal == 0;
+                int retVal = SystemPowerControlHelper.forceDeepSleep();
+                deviceEnteredSleep = retVal == SUSPEND_RESULT_SUCCESS;
             } catch (Exception e) {
-                Slog.e(TAG, "Unable to enter deep sleep", e);
+                Slogf.e(TAG, "Unable to enter deep sleep", e);
             }
             return deviceEnteredSleep;
         }
 
-        // Checks if mICarServiceHelper is available. (It might be unavailable if
-        // we are asked to shut down before we're completely up and running.)
-        // If the helper is null, wait for it to be set.
-        // Returns true if the helper is available.
-        private boolean canInvokeHelper() {
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                // We should not be called from the main thread!
-                throw new IllegalStateException("SystemStateInterface.enterDeepSleep() "
-                        + "was called from the main thread");
-            }
-            if (mICarServiceHelper != null) {
-                return true;
-            }
-            // We have no helper. If we wait, maybe we will get a helper.
+        @Override
+        public boolean enterHibernation() {
+            boolean deviceHibernated = false;
             try {
-                mHelperLatch.await(MAX_WAIT_FOR_HELPER_SEC, TimeUnit.SECONDS);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt(); // Restore interrupted status
+                int retVal = SystemPowerControlHelper.forceHibernate();
+                deviceHibernated = retVal == SUSPEND_RESULT_SUCCESS;
+            } catch (Exception e) {
+                Slogf.e(TAG, "Unable to enter hibernation", e);
             }
-            if (mICarServiceHelper != null) {
-                return true;
-            }
-            Slog.e(TAG, "Unable to enter deep sleep: ICarServiceHelper is still null "
-                    + "after waiting " + MAX_WAIT_FOR_HELPER_SEC + " seconds");
-            return false;
+            return deviceHibernated;
         }
 
         @Override
@@ -164,15 +159,20 @@ public interface SystemStateInterface {
                 final int corePoolSize = 1;
                 mExecutorService = Executors.newScheduledThreadPool(corePoolSize);
                 IntentFilter intentFilter = new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
-                mContext.registerReceiver(mBroadcastReceiver, intentFilter);
+                mContext.registerReceiver(mBroadcastReceiver, intentFilter,
+                        Context.RECEIVER_NOT_EXPORTED);
             }
             mActionsList.add(Pair.create(action, delay));
         }
 
         @Override
-        public void setCarServiceHelper(ICarServiceHelper helper) {
-            mICarServiceHelper = helper;
-            mHelperLatch.countDown();
+        public boolean isSystemSupportingDeepSleep() {
+            return SystemPowerControlHelper.isSystemSupportingDeepSleep();
+        }
+
+        @Override
+        public boolean isSystemSupportingHibernation() {
+            return SystemPowerControlHelper.isSystemSupportingHibernation();
         }
     }
 }

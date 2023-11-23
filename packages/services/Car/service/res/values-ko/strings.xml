@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"차량 카메라에 액세스"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"차량 에너지 정보 액세스"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"차량 에너지 정보에 액세스"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"차량의 EV 충전 설정 관리"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"차량의 EV 충전 설정을 관리합니다."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"차량의 잔여 주행거리 조정"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"차량의 잔여 주행거리를 조정하세요."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"차량 공조기에 액세스"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"애플리케이션이 계기판에 표시할 활동을 선언하도록 허용"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"계기판 제어"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"계기판에서 앱 실행"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"계기판 내비게이션 상태"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"계기판 내비게이션 상태 변화를 수신합니다."</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"계기판 렌더링"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"계기판 데이터 수신"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX 제한사항 설정"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Occupant Awareness System 감지 그래프의 시작 및 중지를 제어하는 것을 허용합니다."</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"차량 입력 서비스"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"입력 이벤트 처리"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN 버스 실패"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN 버스가 응답하지 않습니다. 헤드유닛 박스를 분리한 후 다시 연결한 다음 시동을 다시 걸어 보세요."</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"운전 중에는 이 기능을 사용하실 수 없습니다."</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"안전한 앱 기능으로 다시 시작하려면 <xliff:g id="EXIT_BUTTON">%s</xliff:g>을(를) 선택하세요."</string>
-    <string name="exit_button" msgid="5829638404777671253">"뒤로"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"앱 닫기"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"뒤로"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"진단 데이터 읽기"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"차량의 진단 데이터를 읽습니다."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"진단 데이터 삭제"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"차량 시트를 제어합니다."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"차량의 기본 정보에 액세스"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"차량의 기본 정보에 액세스합니다."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"차량의 기밀 정보 액세스"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"차량의 기밀 정보에 액세스합니다."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"차량 공급업체 권한 정보에 액세스합니다."</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"차량 공급업체 권한 정보에 액세스합니다."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"차량 외부 조명 상태 읽기"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"차량 전원 정책을 읽습니다."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"차량 전원 정책 관리"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"차량 전원 정책을 관리합니다."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"종료 프로세스 조정"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"종료 프로세스를 조정합니다."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"템플릿 렌더링"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"템플릿 렌더링"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"애플리케이션 실행을 제어합니다."</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"애플리케이션 실행을 제어합니다."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN 버스 실패"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN 버스가 응답하지 않습니다. 헤드유닛 박스를 분리한 후 다시 연결한 다음 시동을 다시 걸어 보세요."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"내 기기"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"게스트"</string>
-    <string name="importance_default" msgid="8587741629268312938">"중요도가 기본인 알림 채널"</string>
-    <string name="importance_high" msgid="3141530792377745041">"중요도가 높은 알림 채널"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"초기화해야 함"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"인포테인먼트 시스템의 모든 데이터가 삭제됩니다. 초기화 후 새 프로필을 설정할 수 있습니다."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"더보기"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"인포테인먼트 시스템 초기화"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"시스템 초기화 요청이 접수되었으며 모든 데이터가 삭제됩니다. 지금 초기화하지 않으면 다음에 차가 시동이 걸릴 때 초기화됩니다. 이후 새 프로필을 설정할 수 있습니다."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"지금 초기화"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"나중에 초기화"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"다음에 차 시동이 걸리면 인포테인먼트 시스템이 초기화됩니다."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"초기화하려면 차량이 주차된 상태여야 합니다."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> 앱이 시스템 성능에 영향을 미침"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"앱을 사용 중지하여 시스템 성능을 개선하세요. 설정에서 앱을 다시 한번 사용 설정할 수 있습니다."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"앱을 계속 사용하려면 앱을 우선순위로 지정하세요."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"앱을 제거하여 시스템 성능을 개선하세요."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"앱 사용 중지"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"앱 우선순위 지정"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"앱 제거"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> 앱이 사용 중지되었습니다. 설정에서 다시 사용 설정할 수 있습니다."</string>
 </resources>

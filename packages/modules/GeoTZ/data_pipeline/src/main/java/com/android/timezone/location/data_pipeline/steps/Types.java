@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 
 import com.android.timezone.location.common.LicenseSupport.License;
 import com.android.timezone.location.data_pipeline.steps.proto.S2Protos;
+
 import com.google.common.geometry.S2CellId;
 import com.google.common.geometry.S2CellUnion;
 import com.google.common.geometry.S2Loop;
@@ -129,13 +130,13 @@ public final class Types {
     }
 
     /** A basic pair class. */
-    public static class Pair<A, B> {
+    static class Pair<A, B> {
 
         public final A a;
 
         public final B b;
 
-        public Pair(A a, B b) {
+        Pair(A a, B b) {
             this.a = a;
             this.b = b;
         }
@@ -344,8 +345,8 @@ public final class Types {
         @Override
         public String toString() {
             return "TzS2CellUnion{"
-                    + "tzId='" + tzId + '\'' +
-                    ", s2CellUnion=" + s2CellUnion
+                    + "tzId='" + tzId + '\''
+                    + ", s2CellUnion=" + s2CellUnion
                     + '}';
         }
 

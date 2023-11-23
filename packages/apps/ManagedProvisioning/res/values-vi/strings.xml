@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ứng dụng sau sẽ quản lý thiết bị của bạn:"</string>
     <string name="next" msgid="1004321437324424398">"Tiếp theo"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Đang thiết lập hồ sơ công việc..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Quản trị viên CNTT của bạn có thể giám sát và quản lý tùy chọn cài đặt, quyền truy cập vào dữ liệu công ty, ứng dụng, quyền và dữ liệu liên kết với hồ sơ này, bao gồm cả hoạt động mạng cũng như vị trí của thiết bị, nhật ký cuộc gọi và lịch sử tìm kiếm liên hệ.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Hãy liên hệ với quản trị viên CNTT để biết thêm thông tin, kể cả chính sách quyền riêng tư của tổ chức bạn."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Quản trị viên IT của bạn có thể giám sát và quản lý cài đặt, quyền truy cập của công ty, ứng dụng, quyền, dữ liệu và hoạt động mạng được liên kết với hồ sơ này, cũng như lịch sử cuộc gọi và lịch sử tìm kiếm liên hệ của bạn. Liên hệ với quản trị viên IT của bạn để biết thêm thông tin và tìm hiểu thêm về các chính sách bảo mật của tổ chức bạn."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Quản trị viên CNTT của bạn có thể giám sát và quản lý tùy chọn cài đặt, quyền truy cập vào dữ liệu công ty, ứng dụng, quyền và dữ liệu liên kết với thiết bị này, bao gồm cả hoạt động mạng cũng như vị trí của thiết bị, nhật ký cuộc gọi và lịch sử tìm kiếm liên hệ.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Hãy liên hệ với quản trị viên CNTT để biết thêm thông tin, kể cả chính sách quyền riêng tư của tổ chức bạn."</string>
@@ -157,7 +155,7 @@
     <string name="device_owner_description" msgid="168013145812679664">"Tổ chức của bạn sẽ giữ an toàn và quản lý thiết bị này"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Đang chuẩn bị thiết lập thiết bị làm việc…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Thiết lập ứng dụng quản trị"</string>
-    <string name="brand_screen_header" msgid="8865808542690116648">"Thiết bị này thuộc sở hữu của tổ chức bạn"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Thiết bị này thuộc sở hữu của tổ chức của bạn"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Ứng dụng sau đây sẽ được dùng để quản lý và giám sát điện thoại này"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Tài khoản của bạn được quản lý"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Quản trị viên CNTT của bạn sẽ sử dụng tính năng quản lý thiết bị di động để thực thi các chính sách bảo mật"</string>
@@ -182,8 +180,8 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Quay lại màn hình trước hoặc đặt lại thiết bị này rồi trả lại cho quản trị viên CNTT của bạn."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Hủy quá trình thiết lập"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Đặt lại rồi trả lại thiết bị"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Ứng dụng công việc được lưu giữ trong hồ sơ công việc và do quản trị viên CNTT quản lý"</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Ứng ứng dụng cá nhân được lưu giữ riêng biệt và ẩn khỏi ứng dụng công việc"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc và do quản trị viên CNTT quản lý"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Các ứng dụng cá nhân được lưu giữ riêng biệt và ẩn khỏi ứng dụng công việc"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Quản trị viên CNTT có thể kiểm soát thiết bị này và chặn một số ứng dụng"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Các ứng dụng công việc được lưu giữ trong hồ sơ công việc của bạn và do quản trị viên CNTT quản lý. Những ứng dụng cá nhân được lưu giữ riêng biệt và ẩn khỏi các ứng dụng công việc. Quản trị viên CNTT có thể kiểm soát thiết bị này và chặn một số ứng dụng."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Hãy đợi giây lát…"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> có thể cài đặt ứng dụng <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> để bạn có thể thanh toán cho thiết bị này."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Thiết bị này có thể bị hạn chế"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> có thể hạn chế quyền truy cập vào thiết bị này nếu bạn không thanh toán."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Không thiết lập được thiết bị. Hãy liên hệ với quản trị viên CNTT và nêu sự cố \"Kết quả kiểm tra tổng không hợp lệ\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Hãy thử lại sau hoặc nhờ quản trị viên CNTT trợ giúp"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Không thiết lập được thiết bị. Hãy liên hệ với quản trị viên CNTT và nêu sự cố \"Thành phần bị thiếu hoặc bị lỗi\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Đang thiết lập…"</string>
 </resources>

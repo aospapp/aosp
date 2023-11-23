@@ -172,3 +172,19 @@ message NetworkStackQuirkReported {
     // Record each Quirk event
     optional .android.stats.connectivity.NetworkQuirkEvent event = 2;
 }
+
+/**
+ * Logs Neighbor Unreachability Detection probe event.
+ * Logged from:
+ * src/com/android/networkstack/metrics/IpReachabilityMonitorMetrics.java
+ */
+message NetworkIpReachabilityMonitorReported {
+    // Neighbor Unreachability Detection event.
+    optional .android.stats.connectivity.NudEventType event_type = 1;
+
+    // NUD probe based on IPv4 ARP or IPv6 ND packet.
+    optional .android.stats.connectivity.IpType ip_type = 2;
+
+    // NUD neighbor type, default gateway, DNS server or both.
+    optional .android.stats.connectivity.NudNeighborType neighbor_type = 3;
+}

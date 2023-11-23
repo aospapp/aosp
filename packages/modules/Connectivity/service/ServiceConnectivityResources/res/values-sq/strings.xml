@@ -35,7 +35,7 @@
   <string-array name="network_switch_type_name">
     <item msgid="3004933964374161223">"të dhënat celulare"</item>
     <item msgid="5624324321165953608">"Wi-Fi"</item>
-    <item msgid="5667906231066981731">"Bluetooth"</item>
+    <item msgid="5667906231066981731">"Bluetooth-i"</item>
     <item msgid="346574747471703768">"Eternet"</item>
     <item msgid="5734728378097476003">"VPN"</item>
   </string-array>

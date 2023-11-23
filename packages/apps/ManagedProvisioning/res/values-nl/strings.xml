@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Je apparaat wordt beheerd met de volgende app:"</string>
     <string name="next" msgid="1004321437324424398">"Volgende"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Werkprofiel instellen…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Je IT-beheerder kan instellingen, zakelijke toegang, apps, rechten en gegevens die zijn gekoppeld aan dit profiel (waaronder je netwerkactiviteit) bijhouden en beheren, evenals de locatie, gespreksgeschiedenis en zoekgeschiedenis voor contacten van je apparaat.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Neem contact op met je IT-beheerder voor meer informatie en bij vragen over het privacybeleid van je organisatie."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Je IT-beheerder kan instellingen, zakelijke toegang, apps, rechten, gegevens en netwerkactiviteit voor dit profiel bijhouden en beheren, plus je gespreksgeschiedenis en de zoekgeschiedenis voor contacten. Neem contact op met je IT-beheerder voor meer informatie, waaronder het privacybeleid van je organisatie."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Je IT-beheerder kan instellingen, zakelijke toegang, apps, rechten en gegevens die zijn gekoppeld aan dit apparaat (waaronder je netwerkactiviteit) bijhouden en beheren, evenals de locatie, gespreksgeschiedenis en zoekgeschiedenis voor contacten van je apparaat.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Neem contact op met je IT-beheerder voor meer informatie en bij vragen over het privacybeleid van je organisatie."</string>
@@ -40,7 +38,7 @@
     <string name="cancel_setup" msgid="2949928239276274745">"Annuleren"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Ik ga akkoord"</string>
-    <string name="url_error" msgid="5958494012986243186">"Kan deze link niet weergeven."</string>
+    <string name="url_error" msgid="5958494012986243186">"Kan deze link niet bekijken."</string>
     <string name="navigation_button_description" msgid="6106309408994461239">"Terug"</string>
     <string name="terms" msgid="8295436105384703903">"Voorwaarden"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informatie over werkprofiel"</string>
@@ -115,7 +113,7 @@
     <string name="your_org_app_used" msgid="5336414768293540831">"Dit apparaat wordt beheerd en bijgehouden door <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> met de volgende app:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Je organisatie"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"je organisatie"</string>
-    <string name="view_terms" msgid="7230493092383341605">"Servicevoorwaarden bekijken"</string>
+    <string name="view_terms" msgid="7230493092383341605">"Voorwaarden bekijken"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Akkoord en doorgaan"</string>
     <string name="back" msgid="6455622465896147127">"Terug"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Je apparaat instellen"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> kan de <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-app installeren zodat je betalingen kunt doen voor dit apparaat."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Dit apparaat kan worden beperkt"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan de toegang tot dit apparaat beperken als je geen betalingen doet."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Kan apparaat niet instellen. Neem contact op met je IT-beheerder en verwijs naar een ongeldige controlesom."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Probeer het later opnieuw of vraag je IT-beheerder om hulp"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Kan apparaat niet instellen. Neem contact op met je IT-beheerder en verwijs naar ontbrekende of beschadigde componenten."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Instellen…"</string>
 </resources>

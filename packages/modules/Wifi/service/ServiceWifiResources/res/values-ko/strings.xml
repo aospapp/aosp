@@ -70,15 +70,84 @@
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"설정이 업데이트되었습니다. 다시 연결해 보세요."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"개인정보 보호 설정을 변경할 수 없습니다."</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"네트워크를 찾을 수 없습니다."</string>
+    <string name="wifi_eap_error_message_code_32756" msgid="2620877003804313434">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32756"</string>
+    <!-- no translation found for wifi_eap_error_message_code_32756_carrier_overrides:0 (9114567205305206743) -->
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32760"</string>
+  <string-array name="wifi_eap_error_message_code_32760_carrier_overrides">
+    <item msgid="7582366019846559418">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon 서비스 지역 외부에서는 Verizon Wi-Fi Access에 연결할 수 없습니다. (오류 = 32760)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32761"</string>
+  <string-array name="wifi_eap_error_message_code_32761_carrier_overrides">
+    <item msgid="5173744897521799785">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access를 구독 중이 아닙니다. 800-922-0204번으로 문의하세요. (오류 = 32761)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32762" msgid="2381670648753465737">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32762"</string>
+  <string-array name="wifi_eap_error_message_code_32762_carrier_overrides">
+    <item msgid="2911560823350042826">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access 계정에 문제가 있습니다. 800-922-0204번으로 문의하세요. (오류 = 32762)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32763" msgid="4467733260757049969">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32763"</string>
+  <string-array name="wifi_eap_error_message_code_32763_carrier_overrides">
+    <item msgid="591026649262091217">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 이미 Verizon Wi-Fi Access에 연결되어 있습니다. (오류 = 32763)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32764" msgid="7349538467012877101">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32764"</string>
+  <string-array name="wifi_eap_error_message_code_32764_carrier_overrides">
+    <item msgid="3909719534712787947">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다. 800-922-0204번으로 문의하세요. (오류 = 32764)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32765" msgid="2167528358066037980">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32765"</string>
+  <string-array name="wifi_eap_error_message_code_32765_carrier_overrides">
+    <item msgid="7454136618636618962">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access 계정에 문제가 있습니다. 800-922-0204번으로 문의하세요. (오류 = 32765)"</item>
+  </string-array>
     <string name="wifi_eap_error_message_code_32766" msgid="2335996367705677670">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32766"</string>
+  <string-array name="wifi_eap_error_message_code_32766_carrier_overrides">
+    <item msgid="5876210184761573755">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 현재 위치에서는 Verizon Wi-Fi Access를 이용할 수 없습니다. 나중에 다시 시도하거나 다른 위치에서 시도해 보세요. (오류 = 32766)"</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32767"</string>
+  <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
+    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다. 나중에 다시 시도하거나 다른 위치에서 시도해 보세요."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 16384"</string>
+  <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
+    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 오류 16384로 인해 Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 16385"</string>
+  <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
+    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 오류 16385로 인해 Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+  </string-array>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류, 알 수 없는 오류 코드"</string>
+  <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
+    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+  </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"핫스팟이 사용 중지됨"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"연결된 기기가 없습니다. 수정하려면 탭하세요."</string>
     <string name="wifi_sim_required_title" msgid="2262227800991155459">"Wi-Fi 연결이 끊어졌습니다."</string>
     <string name="wifi_sim_required_message" msgid="284812212346125745">"<xliff:g id="SSID">%1$s</xliff:g>에 연결하려면 <xliff:g id="CARRIER_NAME">%2$s</xliff:g> SIM을 삽입하세요."</string>
+    <string name="wifi_interface_priority_title" msgid="5117627874976875544">"<xliff:g id="APP">%1$s</xliff:g>에서 네트워킹 리소스를 사용하려고 합니다."</string>
+    <string name="wifi_interface_priority_message" msgid="4253391172756140313">"<xliff:g id="APPS">%3$s</xliff:g>에 문제를 일으킬 수 있습니다."</string>
+    <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"다음 앱에서 문제를 일으킬 수 있습니다. <xliff:g id="APPS">%3$s</xliff:g>"</string>
+    <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"허용"</string>
+    <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"허용 안함"</string>
+    <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"신뢰하는 네트워크인가요?"</string>
+    <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"예, 연결"</string>
+    <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"연결 안 함"</string>
+    <string name="wifi_ca_cert_dialog_message_hint" msgid="5969214285536370126">"아래 정보가 올바른 경우에만 이 네트워크에 연결하도록 허용하세요.\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"서버 이름:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"발급기관 이름:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"조직:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"연락처:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"서명:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"네트워크 인증 필요"</string>
+    <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"연결하기 전에 <xliff:g id="SSID">%1$s</xliff:g>의 네트워크 세부정보를 확인하세요. 계속하려면 탭하세요."</string>
+    <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"인증서를 설치할 수 없습니다."</string>
+    <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"이 네트워크를 확인할 수 없음"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"무시하고 연결"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"연결 안 함"</string>
+    <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"<xliff:g id="SSID">%1$s</xliff:g> 네트워크에 인증서가 없습니다."</string>
+    <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"인증서 추가 방법 알아보기"</string>
+    <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"이 네트워크를 확인할 수 없음"</string>
+    <string name="wifi_ca_cert_notification_preT_message" msgid="4565553176090475724">"<xliff:g id="SSID">%1$s</xliff:g> 네트워크에 인증서가 없습니다. 인증서 추가 방법을 알아보려면 탭하세요."</string>
+    <string name="wifi_ca_cert_notification_preT_continue_text" msgid="1525418430746943670">"무시하고 연결"</string>
+    <string name="wifi_ca_cert_notification_preT_abort_text" msgid="8307996031461071854">"연결 안 함"</string>
+    <string name="wifi_enable_request_dialog_title" msgid="3577459145316177148">"<xliff:g id="APP_NAME">%1$s</xliff:g>에서 Wi‑Fi를 켜도록 허용하시겠습니까?"</string>
+    <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"빠른 설정에서 Wi‑Fi를 끌 수 있습니다."</string>
+    <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"허용"</string>
+    <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"허용 안함"</string>
 </resources>

@@ -10,12 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Відновити категорії за умовчанням"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Категорії за умовчанням відновлено"</string>
     <string name="default_categories" msgid="2117679794687799407">"За умовчанням"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">Вибрано: %d</item>
-      <item quantity="few">Вибрано: %d</item>
-      <item quantity="many">Вибрано: %d</item>
-      <item quantity="other">Вибрано: %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{Вибрано #}one{Вибрано #}few{Вибрано #}many{Вибрано #}other{Вибрано #}}"</string>
     <string name="applications" msgid="521776761270770549">"Додатки"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Немає додатків для налагодження"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Розмір буфера на ЦП"</string>
@@ -44,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Використовувати Perfetto (бета)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Довгі трасування"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Постійно зберігаються в пам’яті пристрою"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Постійно зберігається в пам’яті пристрою (ці дані не будуть автоматично долучатися до звітів про помилки)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Максимальний розмір журналу довгого трасування"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Максимальна тривалість довгого трасування"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 МБ"</string>

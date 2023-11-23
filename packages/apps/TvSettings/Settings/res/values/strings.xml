@@ -92,10 +92,11 @@
     <!-- Summary for main screen preference for accounts on device indicates no account is signed in[CHAR LIMIT=50] -->
     <string name="accounts_category_summary_no_account">No accounts</string>
     <!-- Summary for main screen preference for accounts on device indicates several accounts are signed in[CHAR LIMIT=50] -->
-    <plurals name="accounts_category_summary">
-        <item quantity="one"><xliff:g id="accounts_number">%1$d</xliff:g> account</item>
-        <item quantity="other"><xliff:g id="accounts_number">%1$d</xliff:g> accounts</item>
-    </plurals>
+    <string name="accounts_category_summary"> {count, plural,
+        =1    {# account}
+        other {# accounts}
+        }
+    </string>
     <!-- Summary for main screen preference for accounts on device slice [CHAR LIMIT=75] -->
     <string name="accounts_slice_summary">Media services, Assistant, Payments</string>
     <!-- Title for main screen preference for network and Internet [CHAR LIMIT=50] -->
@@ -108,13 +109,6 @@
     <string name="device_pref_category_title">Device Preferences</string>
     <!-- Title for main screen preference for remote and accessories [CHAR_LIMIT_50] -->
     <string name="remotes_and_accessories_category_title">Remotes &amp; accessories</string>
-    <!-- Summary for main screen preference for remote and accessories indicates no bluetooth device is connected [CHAR LIMIT=50] -->
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device">No connected Bluetooth devices</string>
-    <!-- Summary for main screen preference for remote and accessories indicates more than one devices connected[CHAR LIMIT=50] -->
-    <plurals name="remotes_and_accessories_category_summary">
-        <item quantity="one"><xliff:g id="accessories_number">%1$d</xliff:g> accessory</item>
-        <item quantity="other"><xliff:g id="accessories_number">%1$d</xliff:g> accessories</item>
-    </plurals>
     <!-- Title for main screen preference for display & sound [CHAR LIMIT=50] -->
     <string name="display_and_sound_category_title">Display &amp; Sound</string>
     <!-- Title for main screen preference for help and feedback [CHAR LIMIT=50] -->
@@ -233,7 +227,6 @@
     <string name="device_surround_sound">Surround sound</string>
     <!-- Preference and title which changes system sounds settings. [CHAR LIMIT=50] -->
     <string name="device_sound_effects">System sounds</string>
-    <string name="surround_sound_toggle_slice_uri" translatable="false" />
     <!-- Preference which manages apps. [CHAR LIMIT=50] -->
     <string name="device_apps">Applications</string>
     <!-- Preference which shows storage status. [CHAR LIMIT=50] -->
@@ -248,6 +241,12 @@
     <string name="device_calibration">Calibration</string>
     <!-- Preference which changes energy saver settings. [CHAR LIMIT=50] -->
     <string name="device_energy_saver">Energy saver</string>
+    <!-- Preference which shows internal settings. [CHAR LIMIT=50] -->
+    <string name="overlay_internal_slice_title"/>
+    <string name="overlay_internal_slice_uri" translatable="false"/>
+    <!-- Preference which shows fastpair settings. [CHAR LIMIT=50] -->
+    <string name="device_fastpair">Devices</string>
+    <string name="fastpair_slice_uri" translatable="false" />
 
     <!-- Display and sound screen -->
     <skip />
@@ -349,7 +348,6 @@
     <string name="advanced_display_settings_title">Advanced display settings</string>
     <!-- Title for HDMI-CEC settings entry. [CHAR LIMIT=20] -->
     <string name="hdmi_cec_settings_title">HDMI-CEC</string>
-    <string name="advanced_sound_settings_slice_uri" translatable="false" />
     <!-- Title for preference which when clicked lets the user configure advanced sound settings. [CHAR LIMIT=50] -->
     <string name="advanced_sound_settings_title">Advanced sound settings</string>
     <!-- Title for preference to allow game mode for display. [CHAR LIMIT=50] -->
@@ -454,10 +452,32 @@
     <string name="hdr_enabled_format_info_clicked">To disable, change the
         format selection to Manual.</string>
 
+    <!-- Title for preference for Resolution selection. [CHAR LIMIT=50] -->
+    <string name="resolution_selection_title">Resolution</string>
+    <!-- Title for Automatic preference for Resolution selection. [CHAR LIMIT=50] -->
+    <string name="resolution_selection_auto_title">Automatic</string>
+    <!-- Title for dialog that is shown when user changes the resolution. [CHAR LIMIT=150]-->
+    <string name="resolution_selection_dialog_title">Resolution has been changed</string>
+    <!-- Description for dialog that is shown when user changes the resolution.
+        [CHAR LIMIT=300]-->
+    <string name="resolution_selection_dialog_desc">Select OK to use %1$s from now on.</string>
+    <!-- Cancel button title for dialog that is shown when user changes the resolution.
+        [CHAR LIMIT=30]-->
+    <string name="resolution_selection_dialog_cancel">Cancel</string>
+    <!-- Ok button title for dialog that is shown when user changes the resolution.
+     [CHAR LIMIT=50]-->
+    <string name="resolution_selection_dialog_ok">OK</string>
+    <!-- Unit of refresh rate Hz. [CHAR LIMIT=15]-->
+    <string name="resolution_selection_hz">Hz</string>
+
     <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_title">Clear cached data?</string>
     <!-- Message of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_message">This will clear cached data for all apps.</string>
+
+    <!-- Title of settings entry for default audio output settings. -->
+    <string name="default_audio_output_settings_title" translatable="true"/>
+    <string name="default_audio_output_settings_slice_uri" translatable="false"/>
 
     <!-- Remote and Accessories -->
     <skip />
@@ -554,6 +574,12 @@
     <!-- Title for official remote control settings. Can be overlaid by OEM to something like as
         "Foobar Remote Settings". -->
     <string name="bluetooth_official_remote_entry_title">Remote control settings</string>
+    <!-- Uri to be overlaid by partner to show remote control infrared settings. -->
+    <string name="bluetooth_ir_entry_slice_uri" translatable="false" />
+    <!-- Title for remote control infrared settings. -->
+    <string name="bluetooth_ir_entry_title">Set up remote buttons</string>
+    <!-- Subtitle for remote control infrared settings. -->
+    <string name="bluetooth_ir_entry_subtitle">Control volume, power, input on TVs, receivers and soundbars</string>
     <!-- Text on button that allows users to connect their Bluetooth devices. [CHAR LIMIT=30] -->
     <string name="bluetooth_connect_action_title">Connect</string>
     <!-- Text asking users to confirm connecting their Bluetooth devices. [CHAR LIMIT=40] -->
@@ -628,6 +654,9 @@
     <string name="system_diagnostic">Usage &amp; diagnostics</string>
     <string name="cast_settings_title" translatable="false" />
     <string name="cast_settings_slice_uri" translatable="false" />
+    <string name="assistant_broadcast_title" translatable="false" />
+    <string name="assistant_broadcast_slice_uri" translatable="false" />
+    <string name="top_level_assistant_slice_uri" translatable="false" />
 
     <!-- Message when there are no available device admin apps to display -->
     <string name="no_device_admins">No device admin apps available</string>
@@ -644,11 +673,6 @@
     <!-- Summary of preference to manage device admin apps, informing the user that currently no device admin apps are installed and active -->
     <string name="number_of_device_admins_none">No active apps</string>
 
-    <!-- Summary of preference to manage device admin apps, informing the user how many device admin apps are installed and active -->
-    <plurals name="number_of_device_admins">
-        <item quantity="one"><xliff:g id="count">%d</xliff:g> active app</item>
-        <item quantity="other"><xliff:g id="count">%d</xliff:g> active apps</item>
-    </plurals>
 
     <!-- Summary for preference that has been disabled by because of the DevicePolicyAdmin, or because device encryption is enabled, or because there are credentials in the credential storage [CHAR LIMIT=50] -->
     <string name="unlock_set_unlock_disabled_summary">Disabled by admin, encryption policy, or
@@ -689,10 +713,11 @@
     <!-- Label explaining that the number of apps is an estimation. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_apps_count_estimation_info">Number of apps is estimated. It may not include apps installed outside of the Play Store.</string>
     <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. The number shown is a minimum as there may be additional apps we do not know about. [CHAR LIMIT=NONE] -->
-    <plurals name="enterprise_privacy_number_packages_lower_bound">
-        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> app</item>
-        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> apps</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound"> {count, plural,
+        =1    {Minimum # app}
+        other {Minimum # apps}
+        }
+    </string>
     <!-- Label indicating that the admin granted one or more apps access to the device's location. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_location_access">Location permissions</string>
     <!-- Label indicating that the admin granted one or more apps access to the microphone. [CHAR LIMIT=NONE] -->
@@ -702,10 +727,11 @@
     <!-- Label indicating that the admin set one or more apps as defaults for common actions (e.g. open browser, send e-mail). [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_enterprise_set_default_apps">Default apps</string>
     <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. [CHAR LIMIT=NONE] -->
-    <plurals name="enterprise_privacy_number_packages">
-        <item quantity="one"><xliff:g id="count">%d</xliff:g> app</item>
-        <item quantity="other"><xliff:g id="count">%d</xliff:g> apps</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages"> {count, plural,
+        =1    {# app}
+        other {# apps}
+        }
+    </string>
     <!-- Label explaining that the current input method was set by the admin. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_input_method">Default keyboard</string>
     <!-- Summary indicating the input method set by the admin. [CHAR LIMIT=NONE] -->
@@ -725,10 +751,11 @@
     <!-- Label explaining that the admin installed trusted CA certificates in work profile. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_ca_certs_work">Trusted credentials in your work profile</string>
     <!-- Summary indicating the number of trusted CA certificates installed by the admin. The number shown is a minimum as there may be additional CA certificates we do not know about. [CHAR LIMIT=NONE] -->
-    <plurals name="enterprise_privacy_number_ca_certs">
-        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> CA certificate</item>
-        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> CA certificates</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs"> {count, plural,
+        =1    {# CA certificate}
+        other {# CA certificates}
+        }
+    </string>
     <!-- Label explaining that the admin can lock the device and change the user's password. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_lock_device">Admin can lock the device and reset password</string>
     <!-- Label explaining that the admin can wipe the device remotely. [CHAR LIMIT=NONE] -->
@@ -738,10 +765,11 @@
     <!-- Label explaining that the admin configured the work profile to wipe itself when the password is mistyped too many times. [CHAR LIMIT=NONE] -->
     <string name="enterprise_privacy_failed_password_wipe_work">Failed password attempts before deleting work profile data</string>
     <!-- Summary indicating the number of mistyped passwords after which the device or work profile wipes itself. [CHAR LIMIT=NONE] -->
-    <plurals name="enterprise_privacy_number_failed_password_wipe">
-        <item quantity="one"><xliff:g id="count">%d</xliff:g> attempt</item>
-        <item quantity="other"><xliff:g id="count">%d</xliff:g> attempts</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe"> {count, plural,
+        =1    {# attempt}
+        other {# attempts}
+        }
+    </string>
     <!-- Message indicating that the device is enterprise-managed by a Device Owner [CHAR LIMIT=NONE] -->
     <string name="do_disclosure_generic">This device is managed by your organization.</string>
     <!-- Message indicating that the device is enterprise-managed by a Device Owner [CHAR LIMIT=NONE] -->
@@ -753,26 +781,29 @@
 
     <!-- Strings for displaying which applications were set as default for specific actions. -->
     <!-- Title for the apps that have been set as default handlers of camera-related intents. [CHAR LIMIT=30] -->
-    <plurals name="default_camera_app_title">
-        <item quantity="one">Camera app</item>
-        <item quantity="other">Camera apps</item>
-    </plurals>
+    <string name="default_camera_app_title"> {count, plural,
+        =1    {Camera app}
+        other {Camera apps}
+        }
+    </string>
     <!-- Title for the app that has been set as default handler of calendar-related intents. [CHAR LIMIT=30] -->
     <string name="default_calendar_app_title">Calendar app</string>
     <!-- Title for the app that has been set as default handler of contacts-related intents. [CHAR LIMIT=30] -->
     <string name="default_contacts_app_title">Contacts app</string>
     <!-- Title for the apps that have been set as default handlers of new email intents. [CHAR LIMIT=30] -->
-    <plurals name="default_email_app_title">
-        <item quantity="one">Email client app</item>
-        <item quantity="other">Email client apps</item>
-    </plurals>
+    <string name="default_email_app_title"> {count, plural,
+        =1    {Email client app}
+        other {Email client apps}
+        }
+    </string>
     <!-- Title for the app that has been set as default handler of geo-related intents. [CHAR LIMIT=30] -->
     <string name="default_map_app_title">Map app</string>
     <!-- Title for the apps that have been set as default handlers of call-related intents. [CHAR LIMIT=30] -->
-    <plurals name="default_phone_app_title">
-        <item quantity="one">Phone app</item>
-        <item quantity="other">Phone apps</item>
-    </plurals>
+    <string name="default_phone_app_title"> {count, plural,
+        =1    {Phone app}
+        other {Phone apps}
+        }
+    </string>
     <!-- Title for Default Browser settings [CHAR LIMIT=30] -->
     <string name="default_browser_title">Browser app</string>
     <!-- Template for concatenating two app names -->
@@ -819,10 +850,11 @@
     <!-- Preference which shows build version. [CHAR LIMIT=50] -->
     <string name="about_build">Android TV OS build</string>
     <!-- Device Info screen. Countdown for user taps to enable development settings [CHAR LIMIT=NONE] -->
-    <plurals name="show_dev_countdown">
-        <item quantity="one">You are now <xliff:g id="step_count">%1$d</xliff:g> step away from being a developer</item>
-        <item quantity="other">You are now <xliff:g id="step_count">%1$d</xliff:g> steps away from being a developer</item>
-    </plurals>
+    <string name="show_dev_countdown"> {count, plural,
+        =1    {You are now # step away from being a developer}
+        other {You are now # steps away from being a developer}
+        }
+    </string>
     <!-- Preference which shows ads settings. [CHAR LIMIT=50] -->
     <string name="about_ads">Ads</string>
     <!-- Ads info description outlining the Ads settings options [CHAR LIMIT=NONE] -->
@@ -858,27 +890,11 @@
     <!-- Button to close the SSL CA cert warning dialog box, meaning the user is done reading.  [CHAR LIMIT=NONE] -->
     <string name="done_button">Done</string>
     <!-- Title of Dialog warning users of SSL monitoring. [CHAR LIMIT=NONE] -->
-    <plurals name="ssl_ca_cert_dialog_title">
-        <item quantity="one">Trust or remove certificate</item>
-        <item quantity="other">Trust or remove certificates</item>
-    </plurals>
-    <!-- Text of message to show to device owner user whose administrator has installed a SSL CA Cert.  [CHAR LIMIT=NONE] -->
-    <plurals name="ssl_ca_cert_info_message_device_owner">
-        <item quantity="one"><xliff:g id="managing_domain">%s</xliff:g> has installed a certificate authority on your device, which may allow them to monitor your device network activity, including emails, apps, and secure websites.\n\nFor more information about this certificate, contact your admin.</item>
-        <item quantity="other"><xliff:g id="managing_domain">%s</xliff:g> has installed certificate authorities on your device, which may allow them to monitor your device network activity, including emails, apps, and secure websites.\n\nFor more information about these certificates, contact your admin.</item>
-    </plurals>
-    <!-- Text of message to show to work profile users whose administrator has installed a SSL CA Cert.  [CHAR LIMIT=NONE] -->
-    <plurals name="ssl_ca_cert_info_message">
-        <item quantity="one"><xliff:g id="managing_domain">%s</xliff:g> has installed a certificate authority for your work profile, which may allow them to monitor work network activity, including emails, apps, and secure websites.\n\nFor more information about this certificate, contact your admin.</item>
-        <item quantity="other"><xliff:g id="managing_domain">%s</xliff:g> has installed certificate authorities for your work profile, which may allow them to monitor work network activity, including emails, apps, and secure websites.\n\nFor more information about these certificates, contact your admin.</item>
-    </plurals>
-    <!-- Text of warning to show to users that have a SSL CA Cert installed.  [CHAR LIMIT=NONE] -->
-    <string name="ssl_ca_cert_warning_message">A third party is capable of monitoring your network activity, including emails, apps, and secure websites.\n\nA trusted credential installed on your device is making this possible.</string>
-    <!-- Label on button that will take the user to the Trusted Credentials settings page.  [CHAR LIMIT=NONE]-->
-    <plurals name="ssl_ca_cert_settings_button">
-        <item quantity="one">Check certificate</item>
-        <item quantity="other">Check certificates</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title"> {count, plural,
+        =1    {Trust or remove certificate}
+        other {Trust or remove certificates}
+        }
+    </string>
 
     <!-- About screen, title of the item to go into the device status screen -->
     <string name="device_status">Status</string>
@@ -1086,9 +1102,11 @@
     <string name="wifi_forget_network">Forget network</string>
     <!-- Description for action to forget the wifi network configuration [CHAR LIMIT=100] -->
     <string name="wifi_forget_network_description">This clears information used to connect to this network, including a saved password</string>
-    <!-- Description for action to scan a QR code [CHAR LIMIT=300] -->
+    <!-- Description for action to scan a QR code with your phone [CHAR LIMIT=300] -->
     <string name="wifi_scan_qr_code_description">
-        Join a Wifi by scanning the QR code from your mobile phone and follow the instruction.
+        Join a Wi-Fi by scanning the QR code from a mobile phone and follow the instructions.\n
+        \n
+        From an <b>Android Phone</b> go to Settings -> Network &amp; internet -> Wi-Fi -> Select a Wi-Fi -> Advanced -> Add device and then scan the QR code.
     </string>
     <!-- Description for action to scan a QR code [CHAR LIMIT=300] -->
     <string name="wifi_scan_qr_code_back_description">Press the back button to cancel</string>
@@ -1234,6 +1252,21 @@
     <string name="storage_removable_storage_section">Removable storage</string>
     <!-- Header title for device reset [CHAR_LIMIT=50] -->
     <string name="storage_reset_section">Reset</string>
+
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up">Free up storage</string>
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up_clear_cached_data">Clear cached data</string>
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up_clear_cached_data_summary">Free up <xliff:g id="space" example="100MB">%1$s</xliff:g></string>
+    <!-- Header title for free up storage[CHAR_LIMIT=500] -->
+    <string name="storage_free_up_clear_cached_data_info">Clears temporary files that take up space. Will not impact saved data like app preferences or offline videos, and you won\'t need to sign in to apps again.</string>
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up_clear_cached_data_confirm_title">Clear cached data?</string>
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up_clear_cached_data_confirm_description">This will clear cached data for all apps.</string>
+    <!-- Header title for free up storage[CHAR_LIMIT=50] -->
+    <string name="storage_free_up_uninstall_apps">Uninstall apps</string>
 
     <!-- Toast informing that storage mount operation was successful. [CHAR LIMIT=64]-->
     <string name="storage_mount_success"><xliff:g id="name" example="SD card">%1$s</xliff:g> is mounted</string>
@@ -1416,6 +1449,13 @@
     <string name="mic_toggle_title">Microphone access</string>
     <!-- Title for setting that opens the microphone permissions overview for all apps [CHAR LIMIT=50]-->
     <string name="open_mic_permissions">App access to microphone</string>
+    <!-- Title for info box warning that microphone hardware switch is turned off [CHAR LIMIT=50]-->
+    <string name="microphone_physical_privacy_enabled_title">Microphone access blocked</string>
+    <!-- Content for info box warning that microphone hardware switch is turned off [CHAR LIMIT=250]-->
+    <string name="microphone_physical_privacy_enabled_text">To unblock, move the privacy switch on
+        your device to the microphone on position to allow microphone access.</string>
+    <!-- Content text for info panel shown when the microphone hardware switch is turned off. [CHAR LIMIT=500]-->
+    <string name="microphone_physical_privacy_enabled_panel_text" translatable="false">@string/microphone_physical_privacy_enabled_text</string>
 
     <!-- Title for Camera settings [CHAR LIMIT=30] -->
     <string name="camera">Camera</string>
@@ -1423,6 +1463,14 @@
     <string name="camera_toggle_title">Camera access</string>
     <!-- Title for setting that opens the camera permissions overview for all apps [CHAR LIMIT=50]-->
     <string name="open_camera_permissions">App access to camera</string>
+
+    <!-- Title for info box warning that camera hardware switch is turned off [CHAR LIMIT=50]-->
+    <string name="camera_physical_privacy_enabled_title">Camera access blocked</string>
+    <!-- Content for info box warning that camera hardware switch is turned off [CHAR LIMIT=250]-->
+    <string name="camera_physical_privacy_enabled_text">To unblock, move the privacy switch on your
+        device to the camera on position to allow camera access.</string>
+    <!-- Content text for info panel shown when the camera hardware switch is turned off. [CHAR LIMIT=500]-->
+    <string name="camera_physical_privacy_enabled_panel_text" translatable="false">@string/camera_physical_privacy_enabled_text</string>
 
     <!-- Title of the info panel that is shown on the side when the microphone toggle is selected.
     The sensor_state is one of the following strings: sensor_toggle_info_on or sensor_toggle_info_off [CHAR LIMIT=30]-->
@@ -1585,6 +1633,11 @@
     <!-- Label for the color magenta. [CHAR LIMIT=35] -->
     <string name="color_magenta">Magenta</string>
 
+    <!-- Title for the accessibility preference to audio description. [CHAR LIMIT=35] -->
+    <string name="accessibility_toggle_audio_description_preference_title">Audio description</string>
+    <!-- Summary for the accessibility preference to audio description. [CHAR LIMIT=150] -->
+    <string name="accessibility_audio_description_summary">Hear a description of what\u2019s happening on screen in supported movies and shows</string>
+
     <!-- Title for accessibility service status [CHAR LIMIT=50] -->
     <string name="system_accessibility_status">Enable</string>
     <!-- Title for accessibility service configuration [CHAR LIMIT=50] -->
@@ -1625,6 +1678,8 @@
     <string name="system_apps">Apps</string>
     <!-- Title for Set Stay awake in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_stay_awake">Stay awake</string>
+    <!-- setting Checkbox summary whether to keep the screen on when plugged in  -->
+    <string name="keep_screen_on_summary">Screen will never sleep</string>
     <!-- Title for Set HDCP checking in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_hdcp_checking">HDCP checking</string>
     <!-- Title for HDMI optimization in System Settings Developer options [CHAR LIMIT=50] -->
@@ -1915,20 +1970,23 @@
     <!-- Description of TV auto power on [CHAR LIMIT=50] -->
     <string name="inputs_tv_auto_on_desc">Power on the TV with HDMI device</string>
     <!-- Header for connected TV input(s) [CHAR LIMIT=30] -->
-    <plurals name="inputs_header_connected_input">
-        <item quantity="one">Connected Input</item>
-        <item quantity="other">Connected Inputs</item>
-    </plurals>
+    <string name="inputs_header_connected_input"> {count, plural,
+        =1    {Connected Input}
+        other {Connected Inputs}
+        }
+    </string>
     <!-- Header for standby TV input(s) [CHAR LIMIT=30] -->
-    <plurals name="inputs_header_standby_input">
-        <item quantity="one">Standby Input</item>
-        <item quantity="other">Standby Inputs</item>
-    </plurals>
+    <string name="inputs_header_standby_input"> {count, plural,
+        =1    {Standby Input}
+        other {Standby Inputs}
+        }
+    </string>
     <!-- Header for disconnected TV input(s) [CHAR LIMIT=30] -->
-    <plurals name="inputs_header_disconnected_input">
-        <item quantity="one">Not Connected Input</item>
-        <item quantity="other">Not Connected Inputs</item>
-    </plurals>
+    <string name="inputs_header_disconnected_input"> {count, plural,
+        =1    {Not Connected Input}
+        other {Not Connected Inputs}
+        }
+    </string>
 
     <!-- Summary for add restricted profile entry in the choice dialog [CHAR LIMIT=none] -->
     <string name="user_add_profile_item_summary">Restrict access to apps and other content in your account</string>
@@ -1956,11 +2014,6 @@
     <string name="restricted_profile_configure_title" >Settings</string>
     <!-- Title for action to configure apps for a restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_configure_apps_title" >Allowed apps</string>
-    <!-- Description for action to configure apps for a restricted profile indicating number of allow apps will be ready in a moment [CHAR LIMIT=100] -->
-    <plurals name="restricted_profile_configure_apps_description">
-        <item quantity="one">1 app allowed</item>
-        <item quantity="other">%d apps allowed</item>
-    </plurals>
     <!-- An action label indicating the package will be or is allowed [CHAR LIMIT=100] -->
     <string name="restricted_profile_allowed" >Allowed</string>
     <!-- An action label indicating the package will be or is not allowed [CHAR LIMIT=100] -->
@@ -2060,6 +2113,8 @@
     <string name="device_apps_app_management_permissions">Permissions</string>
     <!-- Application management toast message when an app cannot be launched [CHAR LIMIT=100]-->
     <string name="device_apps_app_management_not_available">Application unavailable</string>
+    <!-- Label for showing apps that have not been used for months. [CHAR LIMIT=40]-->
+    <string name="unused_apps">Unused apps</string>
     <!-- General settings choice for agreeing to the displayed action [CHAR LIMIT=40] -->
     <string name="settings_ok">OK</string>
     <!-- General settings choice for confirming the displayed action [CHAR LIMIT=40] -->
@@ -2260,6 +2315,14 @@
     <!-- Summary of app not allowed to write system settings [CHAR LIMIT=45] -->
     <string name="write_settings_off">No</string>
 
+    <!-- Manage External Storage settings title [CHAR LIMIT=40] -->
+    <string name="manage_external_storage_title">All files access</string>
+    <!-- Label for a setting which controls whether an app can manage external storage [CHAR LIMIT=45] -->
+    <string name="permit_manage_external_storage">Allow access to manage all files</string>
+    <!-- Description for a setting which controls whether an app can manage external storage
+         [CHAR LIMIT=NONE] -->
+    <string name="allow_manage_external_storage_description">Allow this app to read, modify and delete all files on this device or any connected storage volumes. If granted, app may access files without your explicit knowledge.</string>
+
     <!-- Special access > Title for managing Picture-in-picture settings. [CHAR LIMIT=50] -->
     <string name="picture_in_picture_title">Picture-in-picture</string>
     <!-- Apps > App Details > Picture-in-picture > Switch title. [CHAR LIMIT=NONE] -->
@@ -2275,6 +2338,14 @@
         This lets the apps run in the background, which may use more power.\n\nIf this permission
         is off, existing alarms and time-based events scheduled by the app won\u2019t work.
     </string>
+
+    <!-- Special access > Title for managing turn screen on settings. [CHAR LIMIT=50] -->
+    <string name="turn_screen_on_title">Turn screen on</string>
+    <!-- Label for a setting which controls whether an app can turn the screen on [CHAR LIMIT=45] -->
+    <string name="allow_turn_screen_on">Allow turning the screen on</string>
+    <!-- Description for a setting which controls whether an app can turn the screen on
+         [CHAR LIMIT=NONE] -->
+    <string name="allow_turn_screen_on_description">Allow an app to turn the screen on. If granted, the app may turn on the screen at any time without your explicit intent.</string>
 
     <!-- [CHAR_LIMIT=60] Label for special access screen -->
     <string name="special_access">Special app access</string>
@@ -2323,7 +2394,10 @@
     <string name="title_data_alert">Data usage and alerts</string>
 
     <!-- Header info to educate users that they can connect to the internet via Wi-Fi, Ethernet, and phone's hotspot. [CHAR LIMIT=NONE] -->
-    <string name="data_saver_header_info">You can connect to the internet with Wi-Fi, Ethernet, or your phone\'s hotspot. For more help, visit <b>g.co/network</b>."</string>
+    <string name="data_saver_header_info">You can connect to the internet with Wi-Fi, Ethernet, or your phone\'s hotspot."</string>
+
+    <!-- Package name of slice rendering app -->
+    <string name="slice_rendering_app" translatable="false"/>
 
     <!-- Slice uri for "Accounts & Sign in" -->
     <string name="account_slice_uri" translatable="false"/>
@@ -2342,6 +2416,9 @@
     <!-- Slice uri and title for "Ambient mode" -->
     <string name="ambient_slice_uri" translatable="false" />
     <string name="ambient_settings_title" translatable="false" />
+
+    <!-- Slice uri for "Channels & Inputs" -->
+    <string name="channels_and_inputs_slice_uri" translatable="false"/>
 
     <!-- Slice uri for "Connected devices" -->
     <string name="connected_devices_slice_uri" translatable="false"/>
@@ -2508,4 +2585,7 @@
     <string name="font_sans_serif_light" translatable="false">sans-serif-light</string>
     <string name="font_sans_serif_thin" translatable="false">sans-serif-thin</string>
     <string name="font_sans_serif_condensed" translatable="false">sans-serif-condensed</string>
+
+    <!-- Adb wireless pairing device dialog ethernet pairing code label [CHAR LIMIT=60] -->
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label">Ethernet pairing code</string>
 </resources>

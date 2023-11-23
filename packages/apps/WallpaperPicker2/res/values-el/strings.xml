@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Ρύθμιση ταπετσαρίας σε"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Αρχική οθόνη"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Οθόνη κλειδώματος"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Αρχική οθόνη και οθόνη κλειδώματος"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Αρχική οθόνη και οθόνη κλειδώματος"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Ταπετσαρία περιστρεφόμενης εικόνας"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Προκειμένου να εμφανιστεί η τρέχουσα ταπετσαρία εδώ, η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> θα πρέπει να έχει πρόσβαση στον αποθηκευτικό χώρο της συσκευής σας."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Προκειμένου να εμφανιστεί η τρέχουσα ταπετσαρία εδώ, η εφαρμογή \"Ταπετσαρίες\" θα πρέπει να έχει πρόσβαση στον αποθηκευτικό χώρο της συσκευής σας.\n\nΓια να αλλάξετε αυτήν τη ρύθμιση, μεταβείτε στην περιοχή \"Άδειες\" της εφαρμογής \"Ταπετσαρίες\"."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Προεπισκόπηση"</string>
     <string name="tab_info" msgid="818614080690111416">"Πληροφορίες"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Προσαρμογή"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Εφέ"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Οι φωτογραφίες μου"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Ρυθμίσεις…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Διαγραφή"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Διαγραφή αυτής της ταπετσαρίας από το τηλέφωνό σας;"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Ταπετσαρία"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Προεπισκόπηση ταπετσαρίας"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Η συλλογή δεν υπάρχει."</string>
+    <string name="cancel" msgid="4970902691067201584">"Ακύρωση"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Απόκρυψη προεπ/σης διεπ.χρήστη"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Η διεπαφή χρήστη είναι κρυφή σε προεπισκόπηση. Διπλό πάτημα για κατάργηση απόκρυψης"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Εμφάνιση προεπ/σης διεπ.χρήστη"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Το πλαίσιο Προσαρμογή είναι ορατό."</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Το πλαίσιο Πληροφορίες είναι κρυφό."</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Το πλαίσιο Πληροφορίες είναι ορατό."</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Ενεργοποιήστε την άδεια Αρχεία και μέσα στις ρυθμίσεις."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Ενεργοποίηση"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Άνοιγμα των φωτογραφιών μου"</string>
 </resources>

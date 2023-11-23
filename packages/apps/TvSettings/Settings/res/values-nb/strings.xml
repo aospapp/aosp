@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"Legg til kontoer"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"Kontoer og pålogging"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Ingen kontoer"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> kontoer</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> konto</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# konto}other{# kontoer}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Medietjenester, assistent, betalinger"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Nettverk og internett"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"Lyd"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"Apper"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"Enhetsinnstillinger"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Fjernkontroller og tilbehør"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Ingen tilkoblede Bluetooth-enheter"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> tilbehør</item>
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> tilbehør</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Skjerm og lyd"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Hjelp og tilbakemelding"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Personvern"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"Tilbakestilling til fabrikkstandard"</string>
     <string name="device_calibration" msgid="2907914144048739705">"Kalibrering"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Strømsparing"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"Enheter"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Velg formater"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"Surround-lyd"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"AKTIVERTE FORMATER"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"DEAKTIVERTE FORMATER"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"For å deaktivere, endre formatvalget til Manuelt."</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"Oppløsning"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"Automatisk"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"Oppløsningen er endret"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"Velg OK for å bruke %1$s fra nå av."</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"Avbryt"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"OK"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"Vil du slette bufrede data?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"Dette sletter bufrede data for alle apper."</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"Legg til tilbehør"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"Kobler til ..."</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"Kobler til …"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"Tilbehør"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"Fjernkontroll"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"Fjernkontroll-innstillinger"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"Konfigurer fjernkontrollknapper"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"Kontrollér volum, av/på-knappen og innenheter på TV-er, mottakere og lydplanker"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"Koble til"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"Koble til %1$s"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"Koble fra"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Ikke tilgjengelig"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"Apper for enhetsadministrator"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Ingen aktive apper"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aktive apper</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aktiv app</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Avslått av admin, krypteringsregel eller legitimasjonslager"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Informasjon om administrert enhet"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"Endringer og innstillinger administreres av organisasjonen din"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"Ingen"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Installerte apper"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"Antall apper er anslått. Det inkluderer muligens ikke apper som er installert utenfor Play-butikken."</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> apper</item>
-      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> app</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{Minimum # app}other{Minimum # apper}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Posisjonstillatelser"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Mikrofontillatelser"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Kameratillatelser"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Standardapper"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apper</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> app</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# app}other{# apper}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Standardtastatur"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"Satt til <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"Alltid-på VPN-er slått på"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"Pålitelig legitimasjon"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Pålitelig legitimasjon i den personlige profilen din"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Pålitelig legitimasjon i jobbprofilen din"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> CA-sertifikater</item>
-      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> CA-sertifikat</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{# CA-sertifikat}other{# CA-sertifikater}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"Administratoren kan låse enheten og tilbakestille passordet"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"Administratoren kan slette alle enhetsdata"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Antall mislykkede forsøk på å oppgi passordet før alle enhetsdataene slettes"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"Antall mislykkede forsøk på å oppgi passordet før jobbprofildataene slettes"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> forsøk</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> forsøk</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{# forsøk}other{# forsøk}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Denne enheten administreres av organisasjonen din."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Denne enheten administreres av <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"Finn ut mer"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">Kamera-apper</item>
-      <item quantity="one">Kamera-app</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{Kameraapp}other{Kameraapper}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Kalender-app"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"Kontakter-app"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">E-postapper</item>
-      <item quantity="one">E-postapp</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{E-postapp}other{E-postapper}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"Kart-app"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">Telefon-apper</item>
-      <item quantity="one">Telefon-app</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{Telefonapp}other{Telefonapper}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"Nettleserapp"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"Android TV OS-versjon"</string>
     <string name="about_serial" msgid="3432319328808745459">"Serienummer"</string>
     <string name="about_build" msgid="8467840394761634575">"Android TV OS-delversjon"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">Du er nå <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> trinn fra å bli utvikler</item>
-      <item quantity="one">Du er nå <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> trinn fra å bli utvikler</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{Du er nå # trinn fra å bli utvikler}other{Nå er du # trinn fra å bli utvikler}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"Annonser"</string>
     <string name="ads_description" msgid="8081069475265061074">"Admin. annonseinnst., f.eks. tilbakestilling av annonserings-ID."</string>
     <string name="ads_content_description" msgid="1006489792324920289">"Annonser, Administrer annonseinnstillinger, f.eks. tilbakestilling av annonserings-ID-en din."</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Flere systemoppdateringer"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"Nettverket blir muligens overvåket"</string>
     <string name="done_button" msgid="616159688526431451">"Ferdig"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">Stol på eller fjern sertifikatene</item>
-      <item quantity="one">Stol på eller fjern sertifikatet</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> har installert sertifiseringsinstanser på enheten din. Dette kan gi disse instansene tillatelse til å overvåke nettverksaktiviteten på enheten, inkludert e-poster, apper og sikre nettsteder.\n\nKontakt administratoren din for å få mer informasjon om disse sertifikatene.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> har installert en sertifiseringsinstans på enheten din. Dette kan gi denne instansen tillatelse til å overvåke nettverksaktiviteten på enheten, inkludert e-poster, apper og sikre nettsteder.\n\nKontakt administratoren din for å få mer informasjon om dette sertifikatet.</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> har installert sertifiseringsinstanser for jobbprofilen din. Dette kan gi disse instansene tillatelse til å overvåke nettverksaktiviteten på jobben, inkludert e-poster, apper og sikre nettsteder.\n\nKontakt administratoren din for å få mer informasjon om disse sertifikatene.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> har installert en sertifiseringsinstans for jobbprofilen din. Dette kan gi denne instansen tillatelse til å overvåke nettverksaktiviteten på jobben, inkludert e-poster, apper og sikre nettsteder.\n\nKontakt administratoren din for å få mer informasjon om dette sertifikatet.</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"En utenforstående kan overvåke nettverksaktiviteten din, inkludert e-poster, apper og sikre nettsteder.\n\nPålitelig legitimasjon, som er installert på enheten din, gjør dette mulig."</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">Sjekk sertifikatene</item>
-      <item quantity="one">Sjekk sertifikatet</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{Stol på eller fjern sertifikatet}other{Stol på eller fjern sertifikatene}}"</string>
     <string name="device_status" msgid="8266002761193692207">"Status"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Nettverk, serienumre og annen informasjon"</string>
     <string name="manual" msgid="5683935624321864999">"Brukerveiledning"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"Koble til"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"Glem nettverket"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"Dette sletter informasjonen som brukes til å koble til dette nettverket, inkludert lagrede passord"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"Koble til et Wi-Fi-nettverk ved å skanne QR-koden fra mobiltelefonen og følge veiledningen."</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" Koble til et Wi-Fi-nettverk ved å skanne QR-koden fra en mobiltelefon og følge veiledningen.\n \n Fra en "<b>"Android-telefon"</b>" går du til Innstillinger -&gt; Nettverk og internett -&gt; Wi-Fi -&gt; Velg et Wi-Fi-nettverk -&gt; Avansert -&gt; Legg til en enhet og skanner QR-koden."</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"Trykk på tilbakeknappen for å avbryte"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"OK"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"Fortsett"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"Lagring på enheten"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Flyttbar lagring"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Tilbakestill"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"Frigjør lagringsplass"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"Slett bufrede data"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"Frigjør <xliff:g id="SPACE">%1$s</xliff:g>"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"Sletter midlertidige filer som tar opp plass. Dette påvirker ikke lagrede data som appinnstillinger eller videoer uten nett, og du trenger ikke å logge på apper igjen."</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"Vil du slette bufrede data?"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"Dette sletter bufrede data for alle apper."</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"Avinstaller apper"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g> er satt inn"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"Kunne ikke sette inn <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"USB-lagringen er koblet til på nytt"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"Mikrofon"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"Mikrofontilgang"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"Apptilgang til mikrofon"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"Mikrofontilgang er blokkert"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"For å oppheve blokkeringen, sett personvernbryteren på enheten til mikrofon på-posisjonen for å gi mikrofontilgang."</string>
     <string name="camera" msgid="1226671478936288283">"Kamera"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"Kameratilgang"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"Apptilgang til kamera"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"Kameratilgang er blokkert"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"For å oppheve blokkeringen, sett personvernbryteren på enheten til kamera på-posisjonen for å gi kameratilgang."</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"Mikrofontilgang: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"Når dette er slått på, har alle apper og tjenester med tillatelse tilgang til alle mikrofoner på denne enheten.\n\nEksterne lydenheter med egendefinert protokoll blir ikke påvirket av denne innstillingen."</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"Kameratilgang: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"Cyan"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Gul"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Magenta"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"Lydbeskrivelse"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"Få beskrivelse av det som skjer på skjermen, i filmer og TV-serier som støttes"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"Aktivér"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Konfigurasjon"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Vil du bruke <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
@@ -717,7 +690,8 @@
     <string name="system_drawing" msgid="5802739024643871942">"Tegning"</string>
     <string name="system_monitoring" msgid="7997260748312620855">"Overvåking"</string>
     <string name="system_apps" msgid="8481888654606868074">"Apper"</string>
-    <string name="system_stay_awake" msgid="5935117574414511413">"Ikke lås skjermen"</string>
+    <string name="system_stay_awake" msgid="5935117574414511413">"Hold våken"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"Skjermen starter aldri hvilemodus"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"HDCP-kontroll"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"HDMI-optimalisering"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"Vil du starte på nytt nå?"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"Slå av HDMI-enheter med TV-en"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"Automatisk påslåing av TV"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"Slå på TV-en med HDMI-enheter"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">Inngangene er tilkoblet</item>
-      <item quantity="one">Inngangen er tilkoblet</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">Venter på inngangene</item>
-      <item quantity="one">Venter på inngangen</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">Inngangene er ikke tilkoblet</item>
-      <item quantity="one">Inngangen er ikke tilkoblet</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{Tilkoblet innenhet}other{Tilkoblede innenheter}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{Innenhet i hvilemodus}other{Innenheter i hvilemodus}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{Ikke-tilkoblet innenhet}other{Ikke-tilkoblede innenheter}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Begrens tilgangen til apper og annet innhold i kontoen din"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Begrenset profil"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"Kontrollert av <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"Opprett en begrenset profil"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"Innstillinger"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"Tillatte apper"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d apper tillatt</item>
-      <item quantity="one">1 app tillatt</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"Tillatt"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"Ikke tillatt"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"Tilpass begrensninger"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"Tredjepartskilde"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"Tillatelser"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"Appen er utilgjengelig"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"Ubrukte apper"</string>
     <string name="settings_ok" msgid="5950888975075541964">"OK"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"Bekreft"</string>
     <string name="settings_cancel" msgid="576094334743686152">"Avbryt"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"Med denne tillatelsen kan apper endre systeminnstillingene."</string>
     <string name="write_settings_on" msgid="71675710746513956">"Ja"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"Nei"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"Tilgang til alle filer"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"Kan administrere alle filer"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"Gi denne appen tillatelse til å lese, endre og slette alle filer på denne enheten eller tilkoblede lagringsvolum. Hvis du gir appen denne tillatelsen, kan den få tilgang til filer uten at du er klar over det."</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"Bilde-i-bilde"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"Tillat bilde-i-bilde"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"Ingen av de installerte appene støtter bilde-i-bilde"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"La apper opprette et bilde-i-bilde-vindu mens appen er åpen, eller etter at du har gått ut av den (for eksempel for å fortsette å se en video). Dette vinduet vises over andre apper du bruker."</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"Gi apper tillatelse til å angi alarmer og planlegge tidssensitive handlinger. Dette gir appene tillatelse til å kjøre i bakgrunnen, noe som kan bruke mer batteri.\n\nHvis denne tillatelsen er av, fungerer ikke eksisterende alarmer og tidsbaserte hendelser som er planlagt av appene."</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"Slå på skjermen"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"Tillat å slå på skjermen"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"Tillat at en app slår på skjermen. Hvis tillatelsen gis, kan appen slå på skjermen når som helst uten din eksplisitte intensjon."</string>
     <string name="special_access" msgid="21806055758289916">"Spesiell apptilgang"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Lyd"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"Datasparing"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"Juster videokvalitet automatisk for å bruke mindre mobildata"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"Databruk og -varsler"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"Du kan koble til internett med Wi-Fi, Ethernet eller telefonens Wi-Fi-sone. Hvis du trenger mer hjelp, kan du gå til "<b>"g.co/network"</b>","</string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"Du kan koble til internett med Wi-Fi, Ethernet eller telefonens Wi-Fi-sone."</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Handlingen er ikke tillatt"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Kan ikke endre volumet"</string>
@@ -1049,7 +1017,7 @@
     <string name="decline_remote_bugreport_action" msgid="2130779396296090961">"Avslå"</string>
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"Enhet som skal brukes med <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Fant ingen enheter. Sørg for at enhetene er slått på og tilgjengelige for tilkobling."</string>
-    <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Prøv igjen"</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Prøv på nytt"</string>
     <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Noe dukket opp. Appen har kansellert forespørselen om å velge en enhet."</string>
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"Tilkoblingen var vellykket"</string>
     <string name="network_connection_request_dialog_showall" msgid="2653775399674126208">"Vis alle"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"Kraft og energi"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"Funksjonalitet ved oppstart"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"Tilbakestill"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"Tilkoblingskode for Ethernet"</string>
 </resources>

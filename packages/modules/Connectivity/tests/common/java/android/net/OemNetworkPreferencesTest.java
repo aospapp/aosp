@@ -27,6 +27,7 @@ import android.os.Build;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.testutils.ConnectivityModuleTest;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 import com.android.testutils.DevSdkIgnoreRunner;
 
@@ -38,6 +39,7 @@ import java.util.Map;
 @IgnoreUpTo(Build.VERSION_CODES.R)
 @RunWith(DevSdkIgnoreRunner.class)
 @SmallTest
+@ConnectivityModuleTest
 public class OemNetworkPreferencesTest {
 
     private static final int TEST_PREF = OemNetworkPreferences.OEM_NETWORK_PREFERENCE_UNINITIALIZED;

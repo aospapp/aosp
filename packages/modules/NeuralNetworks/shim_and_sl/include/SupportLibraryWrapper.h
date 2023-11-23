@@ -55,27 +55,27 @@ class Memory {
     Memory(const NnApiSupportLibrary* nnapi, size_t size, int protect, int fd, size_t offset,
            bool ownsFd = false)
         : mNnApi(nnapi), mOwnedFd(ownsFd ? std::optional<int>{fd} : std::nullopt), mSize(size) {
-        mValid = mNnApi->ANeuralNetworksMemory_createFromFd(size, protect, fd, offset, &mMemory) ==
-                 ANEURALNETWORKS_NO_ERROR;
+        mValid = mNnApi->getFL5()->ANeuralNetworksMemory_createFromFd(
+                         size, protect, fd, offset, &mMemory) == ANEURALNETWORKS_NO_ERROR;
     }
 
     // Create from a buffer, may take ownership.
     Memory(const NnApiSupportLibrary* nnapi, AHardwareBuffer* buffer, bool ownAHWB, size_t size)
         : mNnApi(nnapi), mOwnedAHWB(ownAHWB ? buffer : nullptr), mSize(size) {
-        mValid = mNnApi->ANeuralNetworksMemory_createFromAHardwareBuffer(buffer, &mMemory) ==
-                 ANEURALNETWORKS_NO_ERROR;
+        mValid = mNnApi->getFL5()->ANeuralNetworksMemory_createFromAHardwareBuffer(
+                         buffer, &mMemory) == ANEURALNETWORKS_NO_ERROR;
     }
 
     // Create from a desc
     Memory(const NnApiSupportLibrary* nnapi, ANeuralNetworksMemoryDesc* desc, size_t size)
         : mNnApi(nnapi), mSize(size) {
-        mValid = mNnApi->ANeuralNetworksMemory_createFromDesc(desc, &mMemory) ==
+        mValid = mNnApi->getFL5()->ANeuralNetworksMemory_createFromDesc(desc, &mMemory) ==
                  ANEURALNETWORKS_NO_ERROR;
     }
 
     virtual ~Memory() {
         if (mMemory) {
-            mNnApi->ANeuralNetworksMemory_free(mMemory);
+            mNnApi->getFL5()->ANeuralNetworksMemory_free(mMemory);
         }
         if (mOwnedFd) {
             close(*mOwnedFd);
@@ -98,7 +98,7 @@ class Memory {
     Memory& operator=(Memory&& other) {
         if (this != &other) {
             if (mMemory) {
-                mNnApi->ANeuralNetworksMemory_free(mMemory);
+                mNnApi->getFL5()->ANeuralNetworksMemory_free(mMemory);
             }
             if (mOwnedFd) {
                 close(*mOwnedFd);
@@ -124,7 +124,8 @@ class Memory {
     bool isValid() const { return mValid; }
     size_t getSize() const { return mSize; }
     Result copyTo(Memory& other) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksMemory_copy(mMemory, other.mMemory));
+        return static_cast<Result>(
+                mNnApi->getFL5()->ANeuralNetworksMemory_copy(mMemory, other.mMemory));
     }
 
    private:
@@ -139,11 +140,11 @@ class Memory {
 class Model {
    public:
     Model(const NnApiSupportLibrary* nnapi) : mNnApi(nnapi) {
-        mValid = mNnApi->ANeuralNetworksModel_create(&mModel) == ANEURALNETWORKS_NO_ERROR;
+        mValid = mNnApi->getFL5()->ANeuralNetworksModel_create(&mModel) == ANEURALNETWORKS_NO_ERROR;
     }
     ~Model() {
         if (mModel) {
-            mNnApi->ANeuralNetworksModel_free(mModel);
+            mNnApi->getFL5()->ANeuralNetworksModel_free(mModel);
         }
     }
 
@@ -160,7 +161,7 @@ class Model {
     Model& operator=(Model&& other) {
         if (this != &other) {
             if (mModel != nullptr) {
-                mNnApi->ANeuralNetworksModel_free(mModel);
+                mNnApi->getFL5()->ANeuralNetworksModel_free(mModel);
             }
             mNnApi = other.mNnApi;
             mModel = other.mModel;
@@ -182,7 +183,8 @@ class Model {
 
     Result finish() {
         if (mValid) {
-            auto result = static_cast<Result>(mNnApi->ANeuralNetworksModel_finish(mModel));
+            auto result =
+                    static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksModel_finish(mModel));
             if (result != Result::NO_ERROR) {
                 mValid = false;
             }
@@ -194,7 +196,7 @@ class Model {
     }
 
     uint32_t addOperand(const OperandType* type) {
-        if (mNnApi->ANeuralNetworksModel_addOperand(mModel, &type->operandType) !=
+        if (mNnApi->getFL5()->ANeuralNetworksModel_addOperand(mModel, &type->operandType) !=
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         } else {
@@ -202,7 +204,7 @@ class Model {
         }
 
         if (type->channelQuant) {
-            if (mNnApi->ANeuralNetworksModel_setOperandSymmPerChannelQuantParams(
+            if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandSymmPerChannelQuantParams(
                         mModel, mNextOperandId, &type->channelQuant.value().params) !=
                 ANEURALNETWORKS_NO_ERROR) {
                 mValid = false;
@@ -230,7 +232,7 @@ class Model {
     }
 
     void setOperandValue(uint32_t index, const void* buffer, size_t length) {
-        if (mNnApi->ANeuralNetworksModel_setOperandValue(mModel, index, buffer, length) !=
+        if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandValue(mModel, index, buffer, length) !=
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
@@ -244,21 +246,21 @@ class Model {
 
     void setOperandValueFromMemory(uint32_t index, const Memory* memory, uint32_t offset,
                                    size_t length) {
-        if (mNnApi->ANeuralNetworksModel_setOperandValueFromMemory(
+        if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandValueFromMemory(
                     mModel, index, memory->get(), offset, length) != ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
     }
 
     void setOperandValueFromModel(uint32_t index, const Model* value) {
-        if (mNnApi->ANeuralNetworksModel_setOperandValueFromModel(mModel, index, value->mModel) !=
-            ANEURALNETWORKS_NO_ERROR) {
+        if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandValueFromModel(
+                    mModel, index, value->mModel) != ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
     }
 
     void setOperandValueFromModel(uint32_t index, ANeuralNetworksModel* value) {
-        if (mNnApi->ANeuralNetworksModel_setOperandValueFromModel(mModel, index, value) !=
+        if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandValueFromModel(mModel, index, value) !=
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
@@ -266,7 +268,7 @@ class Model {
 
     void addOperation(ANeuralNetworksOperationType type, const std::vector<uint32_t>& inputs,
                       const std::vector<uint32_t>& outputs) {
-        if (mNnApi->ANeuralNetworksModel_addOperation(
+        if (mNnApi->getFL5()->ANeuralNetworksModel_addOperation(
                     mModel, type, static_cast<uint32_t>(inputs.size()), inputs.data(),
                     static_cast<uint32_t>(outputs.size()),
                     outputs.data()) != ANEURALNETWORKS_NO_ERROR) {
@@ -275,7 +277,7 @@ class Model {
     }
     void identifyInputsAndOutputs(const std::vector<uint32_t>& inputs,
                                   const std::vector<uint32_t>& outputs) {
-        if (mNnApi->ANeuralNetworksModel_identifyInputsAndOutputs(
+        if (mNnApi->getFL5()->ANeuralNetworksModel_identifyInputsAndOutputs(
                     mModel, static_cast<uint32_t>(inputs.size()), inputs.data(),
                     static_cast<uint32_t>(outputs.size()),
                     outputs.data()) != ANEURALNETWORKS_NO_ERROR) {
@@ -287,15 +289,15 @@ class Model {
     }
 
     void relaxComputationFloat32toFloat16(bool isRelax) {
-        if (mNnApi->ANeuralNetworksModel_relaxComputationFloat32toFloat16(mModel, isRelax) ==
-            ANEURALNETWORKS_NO_ERROR) {
+        if (mNnApi->getFL5()->ANeuralNetworksModel_relaxComputationFloat32toFloat16(
+                    mModel, isRelax) == ANEURALNETWORKS_NO_ERROR) {
             mRelaxed = isRelax;
         }
     }
 
     void getExtensionOperandType(const std::string& extensionName,
                                  uint16_t operandCodeWithinExtension, int32_t* type) {
-        if (mNnApi->ANeuralNetworksModel_getExtensionOperandType(
+        if (mNnApi->getFL5()->ANeuralNetworksModel_getExtensionOperandType(
                     mModel, extensionName.c_str(), operandCodeWithinExtension, type) !=
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
@@ -305,7 +307,7 @@ class Model {
     void getExtensionOperationType(const std::string& extensionName,
                                    uint16_t operandCodeWithinExtension,
                                    ANeuralNetworksOperationType* type) {
-        if (mNnApi->ANeuralNetworksModel_getExtensionOperationType(
+        if (mNnApi->getFL5()->ANeuralNetworksModel_getExtensionOperationType(
                     mModel, extensionName.c_str(), operandCodeWithinExtension, type) !=
             ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
@@ -313,8 +315,8 @@ class Model {
     }
 
     void setOperandExtensionData(int32_t operandId, const void* data, size_t length) {
-        if (mNnApi->ANeuralNetworksModel_setOperandExtensionData(mModel, operandId, data, length) !=
-            ANEURALNETWORKS_NO_ERROR) {
+        if (mNnApi->getFL5()->ANeuralNetworksModel_setOperandExtensionData(
+                    mModel, operandId, data, length) != ANEURALNETWORKS_NO_ERROR) {
             mValid = false;
         }
     }
@@ -356,13 +358,13 @@ class Compilation {
             const std::vector<const ANeuralNetworksDevice*>& devices) {
         ANeuralNetworksCompilation* compilation = nullptr;
         const Result result =
-                static_cast<Result>(nnapi->ANeuralNetworksCompilation_createForDevices(
+                static_cast<Result>(nnapi->getFL5()->ANeuralNetworksCompilation_createForDevices(
                         model->getHandle(), devices.empty() ? nullptr : devices.data(),
                         devices.size(), &compilation));
         return {result, Compilation(nnapi, compilation)};
     }
 
-    ~Compilation() { mNnApi->ANeuralNetworksCompilation_free(mCompilation); }
+    ~Compilation() { mNnApi->getFL5()->ANeuralNetworksCompilation_free(mCompilation); }
 
     // Disallow copy semantics to ensure the runtime object can only be freed
     // once. Copy semantics could be enabled if some sort of reference counting
@@ -377,7 +379,7 @@ class Compilation {
     Compilation& operator=(Compilation&& other) {
         if (this != &other) {
             mNnApi = other.mNnApi;
-            mNnApi->ANeuralNetworksCompilation_free(mCompilation);
+            mNnApi->getFL5()->ANeuralNetworksCompilation_free(mCompilation);
             mCompilation = other.mCompilation;
             other.mCompilation = nullptr;
         }
@@ -385,25 +387,25 @@ class Compilation {
     }
 
     Result setPreference(ExecutePreference preference) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksCompilation_setPreference(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksCompilation_setPreference(
                 mCompilation, static_cast<int32_t>(preference)));
     }
 
     Result setPriority(ExecutePriority priority) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksCompilation_setPriority(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksCompilation_setPriority(
                 mCompilation, static_cast<int32_t>(priority)));
     }
 
     Result setTimeout(uint64_t durationNs) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksCompilation_setTimeout(mCompilation, durationNs));
+                mNnApi->getFL5()->ANeuralNetworksCompilation_setTimeout(mCompilation, durationNs));
     }
 
     Result setCaching(const std::string& cacheDir, const std::vector<uint8_t>& token) {
         if (token.size() != ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN) {
             return Result::BAD_DATA;
         }
-        return static_cast<Result>(mNnApi->ANeuralNetworksCompilation_setCaching(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksCompilation_setCaching(
                 mCompilation, cacheDir.c_str(), token.data()));
     }
 
@@ -413,9 +415,10 @@ class Compilation {
         if (token.size() != ANEURALNETWORKS_BYTE_SIZE_OF_CACHE_TOKEN) {
             return Result::BAD_DATA;
         }
-        return static_cast<Result>(mNnApi->SL_ANeuralNetworksCompilation_setCachingFromFds(
-                mCompilation, modelCacheFds.data(), modelCacheFds.size(), dataCacheFds.data(),
-                dataCacheFds.size(), token.data()));
+        return static_cast<Result>(
+                mNnApi->getFL5()->SL_ANeuralNetworksCompilation_setCachingFromFds(
+                        mCompilation, modelCacheFds.data(), modelCacheFds.size(),
+                        dataCacheFds.data(), dataCacheFds.size(), token.data()));
     }
 
     Result setCachingFromFds(const std::vector<base::unique_fd>& modelCacheOwnedFds,
@@ -432,32 +435,42 @@ class Compilation {
     }
 
     Result finish() {
-        return static_cast<Result>(mNnApi->ANeuralNetworksCompilation_finish(mCompilation));
+        return static_cast<Result>(
+                mNnApi->getFL5()->ANeuralNetworksCompilation_finish(mCompilation));
     }
 
     Result getPreferredMemoryAlignmentForInput(uint32_t index, uint32_t* alignment) const {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksCompilation_getPreferredMemoryAlignmentForInput(
+                mNnApi->getFL5()->ANeuralNetworksCompilation_getPreferredMemoryAlignmentForInput(
                         mCompilation, index, alignment));
     };
 
     Result getPreferredMemoryPaddingForInput(uint32_t index, uint32_t* padding) const {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksCompilation_getPreferredMemoryPaddingForInput(
+                mNnApi->getFL5()->ANeuralNetworksCompilation_getPreferredMemoryPaddingForInput(
                         mCompilation, index, padding));
     };
 
     Result getPreferredMemoryAlignmentForOutput(uint32_t index, uint32_t* alignment) const {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksCompilation_getPreferredMemoryAlignmentForOutput(
+                mNnApi->getFL5()->ANeuralNetworksCompilation_getPreferredMemoryAlignmentForOutput(
                         mCompilation, index, alignment));
     };
 
     Result getPreferredMemoryPaddingForOutput(uint32_t index, uint32_t* padding) const {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksCompilation_getPreferredMemoryPaddingForOutput(
+                mNnApi->getFL5()->ANeuralNetworksCompilation_getPreferredMemoryPaddingForOutput(
                         mCompilation, index, padding));
     };
+
+    Result addExtensionAttribute(const std::string& extensionName,
+                                 uint16_t attributeCodeWithinExtension,
+                                 const std::vector<uint8_t>& extensionAttributeData) {
+        return static_cast<Result>(
+                mNnApi->getFL8()->ANeuralNetworksCompilation_addExtensionAttribute(
+                        mCompilation, extensionName.c_str(), attributeCodeWithinExtension,
+                        extensionAttributeData.data(), extensionAttributeData.size()));
+    }
 
     ANeuralNetworksCompilation* getHandle() const { return mCompilation; }
 
@@ -474,7 +487,8 @@ class Execution {
    public:
     Execution(const NnApiSupportLibrary* nnapi, const Compilation* compilation)
         : mNnApi(nnapi), mCompilation(compilation->getHandle()) {
-        int result = mNnApi->ANeuralNetworksExecution_create(compilation->getHandle(), &mExecution);
+        int result = mNnApi->getFL5()->ANeuralNetworksExecution_create(compilation->getHandle(),
+                                                                       &mExecution);
         if (result != 0) {
             // TODO Handle the error
         }
@@ -482,7 +496,7 @@ class Execution {
 
     ~Execution() {
         if (mExecution) {
-            mNnApi->ANeuralNetworksExecution_free(mExecution);
+            mNnApi->getFL5()->ANeuralNetworksExecution_free(mExecution);
         }
     }
 
@@ -499,7 +513,7 @@ class Execution {
     Execution& operator=(Execution&& other) {
         if (this != &other) {
             if (mExecution != nullptr) {
-                mNnApi->ANeuralNetworksExecution_free(mExecution);
+                mNnApi->getFL5()->ANeuralNetworksExecution_free(mExecution);
             }
             mNnApi = other.mNnApi;
             mCompilation = other.mCompilation;
@@ -512,8 +526,8 @@ class Execution {
 
     Result setInput(uint32_t index, const void* buffer, size_t length,
                     const ANeuralNetworksOperandType* type = nullptr) {
-        return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_setInput(mExecution, index, type, buffer, length));
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_setInput(
+                mExecution, index, type, buffer, length));
     }
 
     template <typename T>
@@ -525,13 +539,13 @@ class Execution {
 
     Result setInputFromMemory(uint32_t index, const Memory* memory, uint32_t offset,
                               uint32_t length, const ANeuralNetworksOperandType* type = nullptr) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksExecution_setInputFromMemory(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_setInputFromMemory(
                 mExecution, index, type, memory->get(), offset, length));
     }
 
     Result setOutput(uint32_t index, void* buffer, size_t length,
                      const ANeuralNetworksOperandType* type = nullptr) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksExecution_setOutput(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_setOutput(
                 mExecution, index, type, buffer, length));
     }
 
@@ -543,38 +557,39 @@ class Execution {
 
     Result setOutputFromMemory(uint32_t index, const Memory* memory, uint32_t offset,
                                uint32_t length, const ANeuralNetworksOperandType* type = nullptr) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksExecution_setOutputFromMemory(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_setOutputFromMemory(
                 mExecution, index, type, memory->get(), offset, length));
     }
 
     Result setLoopTimeout(uint64_t duration) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_setLoopTimeout(mExecution, duration));
+                mNnApi->getFL5()->ANeuralNetworksExecution_setLoopTimeout(mExecution, duration));
     }
 
     Result setMeasureTiming(bool measure) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_setMeasureTiming(mExecution, measure));
+                mNnApi->getFL5()->ANeuralNetworksExecution_setMeasureTiming(mExecution, measure));
     }
 
     Result setTimeout(uint64_t duration) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_setTimeout(mExecution, duration));
+                mNnApi->getFL5()->ANeuralNetworksExecution_setTimeout(mExecution, duration));
     }
 
     Result getDuration(Duration durationCode, uint64_t* duration) {
-        return static_cast<Result>(mNnApi->ANeuralNetworksExecution_getDuration(
+        return static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_getDuration(
                 mExecution, static_cast<int32_t>(durationCode), duration));
     }
 
     Result enableInputAndOutputPadding(bool enable) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_enableInputAndOutputPadding(mExecution, enable));
+                mNnApi->getFL5()->ANeuralNetworksExecution_enableInputAndOutputPadding(mExecution,
+                                                                                       enable));
     }
 
     Result setReusable(bool reusable) {
         return static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_setReusable(mExecution, reusable));
+                mNnApi->getFL5()->ANeuralNetworksExecution_setReusable(mExecution, reusable));
     }
 
     // By default, compute() uses the synchronous API. Either an argument or
@@ -592,30 +607,31 @@ class Execution {
     Result compute(ComputeMode computeMode = mComputeMode) {
         switch (computeMode) {
             case ComputeMode::SYNC: {
-                return static_cast<Result>(mNnApi->ANeuralNetworksExecution_compute(mExecution));
+                return static_cast<Result>(
+                        mNnApi->getFL5()->ANeuralNetworksExecution_compute(mExecution));
             }
             case ComputeMode::BURST: {
                 ANeuralNetworksBurst* burst = nullptr;
                 Result result = static_cast<Result>(
-                        mNnApi->ANeuralNetworksBurst_create(mCompilation, &burst));
+                        mNnApi->getFL5()->ANeuralNetworksBurst_create(mCompilation, &burst));
                 if (result != Result::NO_ERROR) {
                     return result;
                 }
                 result = static_cast<Result>(
-                        mNnApi->ANeuralNetworksExecution_burstCompute(mExecution, burst));
-                mNnApi->ANeuralNetworksBurst_free(burst);
+                        mNnApi->getFL5()->ANeuralNetworksExecution_burstCompute(mExecution, burst));
+                mNnApi->getFL5()->ANeuralNetworksBurst_free(burst);
                 return result;
             }
             case ComputeMode::FENCED: {
                 ANeuralNetworksEvent* event = nullptr;
                 Result result = static_cast<Result>(
-                        mNnApi->ANeuralNetworksExecution_startComputeWithDependencies(
+                        mNnApi->getFL5()->ANeuralNetworksExecution_startComputeWithDependencies(
                                 mExecution, nullptr, 0, 0, &event));
                 if (result != Result::NO_ERROR) {
                     return result;
                 }
-                result = static_cast<Result>(mNnApi->ANeuralNetworksEvent_wait(event));
-                mNnApi->ANeuralNetworksEvent_free(event);
+                result = static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksEvent_wait(event));
+                mNnApi->getFL5()->ANeuralNetworksEvent_free(event);
                 return result;
             }
         }
@@ -634,16 +650,26 @@ class Execution {
 
     Result getOutputOperandDimensions(uint32_t index, std::vector<uint32_t>* dimensions) {
         uint32_t rank = 0;
-        Result result = static_cast<Result>(
-                mNnApi->ANeuralNetworksExecution_getOutputOperandRank(mExecution, index, &rank));
+        Result result =
+                static_cast<Result>(mNnApi->getFL5()->ANeuralNetworksExecution_getOutputOperandRank(
+                        mExecution, index, &rank));
         dimensions->resize(rank);
         if ((result != Result::NO_ERROR && result != Result::OUTPUT_INSUFFICIENT_SIZE) ||
             rank == 0) {
             return result;
         }
-        result = static_cast<Result>(mNnApi->ANeuralNetworksExecution_getOutputOperandDimensions(
-                mExecution, index, dimensions->data()));
+        result = static_cast<Result>(
+                mNnApi->getFL5()->ANeuralNetworksExecution_getOutputOperandDimensions(
+                        mExecution, index, dimensions->data()));
         return result;
+    }
+
+    Result addExtensionAttribute(const std::string& extensionName,
+                                 uint16_t attributeCodeWithinExtension,
+                                 const std::vector<uint8_t>& extensionAttributeData) {
+        return static_cast<Result>(mNnApi->getFL8()->ANeuralNetworksExecution_addExtensionAttribute(
+                mExecution, extensionName.c_str(), attributeCodeWithinExtension,
+                extensionAttributeData.data(), extensionAttributeData.size()));
     }
 
     ANeuralNetworksExecution* getHandle() { return mExecution; };

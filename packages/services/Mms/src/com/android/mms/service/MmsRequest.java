@@ -27,16 +27,14 @@ import android.os.Bundle;
 import android.service.carrier.CarrierMessagingService;
 import android.service.carrier.CarrierMessagingServiceWrapper.CarrierMessagingCallback;
 import android.telephony.AnomalyReporter;
-import android.telephony.PhoneStateListener;
 import android.telephony.PreciseDataConnectionState;
-import android.telephony.TelephonyCallback;
-import android.telephony.data.ApnSetting;
-import android.telephony.ims.feature.MmTelFeature;
-import android.telephony.ims.ImsMmTelManager;
-import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.telephony.SmsManager;
+import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
+import android.telephony.data.ApnSetting;
+import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 
 import com.android.mms.service.exception.ApnException;
 import com.android.mms.service.exception.MmsHttpException;
@@ -99,8 +97,6 @@ public abstract class MmsRequest {
     protected String mCreator;
     // MMS config
     protected Bundle mMmsConfig;
-    // MMS config overrides that will be applied to mMmsConfig when we eventually load it.
-    protected Bundle mMmsConfigOverrides;
     // Context used to get TelephonyManager.
     protected Context mContext;
     protected long mMessageId;
@@ -125,46 +121,17 @@ public abstract class MmsRequest {
     }
 
     public MmsRequest(RequestManager requestManager, int subId, String creator,
-            Bundle configOverrides, Context context, long messageId) {
+            Bundle mmsConfig, Context context, long messageId) {
         mRequestManager = requestManager;
         mSubId = subId;
         mCreator = creator;
-        mMmsConfigOverrides = configOverrides;
-        mMmsConfig = null;
+        mMmsConfig = mmsConfig;
         mContext = context;
         mMessageId = messageId;
     }
 
     public int getSubId() {
         return mSubId;
-    }
-
-    private boolean ensureMmsConfigLoaded() {
-        if (mMmsConfig == null) {
-            // Not yet retrieved from mms config manager. Try getting it.
-            final Bundle config = MmsConfigManager.getInstance().getMmsConfigBySubId(mSubId);
-            if (config != null) {
-                mMmsConfig = config;
-                // TODO: Make MmsConfigManager authoritative for user agent and don't consult
-                // TelephonyManager.
-                final TelephonyManager telephonyManager = ((TelephonyManager) mContext
-                        .getSystemService(Context.TELEPHONY_SERVICE))
-                        .createForSubscriptionId(mSubId);
-                final String userAgent = telephonyManager.getMmsUserAgent();
-                if (!TextUtils.isEmpty(userAgent)) {
-                    config.putString(SmsManager.MMS_CONFIG_USER_AGENT, userAgent);
-                }
-                final String userAgentProfileUrl = telephonyManager.getMmsUAProfUrl();
-                if (!TextUtils.isEmpty(userAgentProfileUrl)) {
-                    config.putString(SmsManager.MMS_CONFIG_UA_PROF_URL, userAgentProfileUrl);
-                }
-                // Apply overrides
-                if (mMmsConfigOverrides != null) {
-                    mMmsConfig.putAll(mMmsConfigOverrides);
-                }
-            }
-        }
-        return mMmsConfig != null;
     }
 
     /**
@@ -181,10 +148,7 @@ public abstract class MmsRequest {
         byte[] response = null;
         // TODO: add mms data channel check back to fast fail if no way to send mms,
         // when telephony provides such API.
-        if (!ensureMmsConfigLoaded()) { // Check mms config
-            LogUtil.e(requestId, "mms config is not loaded yet");
-            result = SmsManager.MMS_ERROR_CONFIGURATION_ERROR;
-        } else if (!prepareForHttpRequest()) { // Prepare request, like reading pdu data from user
+        if (!prepareForHttpRequest()) { // Prepare request, like reading pdu data from user
             LogUtil.e(requestId, "Failed to prepare for request");
             result = SmsManager.MMS_ERROR_IO_ERROR;
         } else { // Execute
@@ -334,7 +298,13 @@ public abstract class MmsRequest {
                 String message = "MMS failed";
                 LogUtil.i(this.toString(),
                         message + " with error: " + result + " httpStatus:" + httpStatusCode);
-                AnomalyReporter.reportAnomaly(generateUUID(result, httpStatusCode), message);
+                TelephonyManager telephonyManager =
+                        mContext.getSystemService(TelephonyManager.class)
+                                .createForSubscriptionId(mSubId);
+                AnomalyReporter.reportAnomaly(
+                        generateUUID(result, httpStatusCode),
+                        message,
+                        telephonyManager.getSimCarrierId());
                 break;
             default:
                 break;

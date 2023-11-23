@@ -28,6 +28,9 @@ import static android.provider.Telephony.ServiceStateTable.getUriForSubscription
 import static android.provider.Telephony.ServiceStateTable.getUriForSubscriptionIdAndField;
 
 import android.Manifest;
+import android.app.compat.CompatChanges;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
@@ -230,6 +233,15 @@ public class ServiceStateProvider extends ContentProvider {
      */
     public static final String OPERATOR_ALPHA_SHORT_RAW = "operator_alpha_short_raw";
 
+    /**
+     * If the change Id is enabled, location permission is required to access location sensitive
+     * columns in the ServiceStateTable.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.R)
+    @VisibleForTesting
+    /* package */ static final long ENFORCE_LOCATION_PERMISSION_CHECK = 191911306;
+
     private final HashMap<Integer, ServiceState> mServiceStates = new HashMap<>();
 
     @VisibleForTesting
@@ -398,7 +410,8 @@ public class ServiceStateProvider extends ContentProvider {
                 return null;
             }
 
-            // TODO(b/182384053): replace targetSdk check with CompatChanges#isChangeEnabled
+            final boolean enforceLocationPermission =
+                    CompatChanges.isChangeEnabled(ENFORCE_LOCATION_PERMISSION_CHECK);
             final boolean targetingAtLeastS = TelephonyPermissions.getTargetSdk(getContext(),
                     getCallingPackage()) >= Build.VERSION_CODES.S;
             final boolean canReadPrivilegedPhoneState = getContext().checkCallingOrSelfPermission(
@@ -406,37 +419,51 @@ public class ServiceStateProvider extends ContentProvider {
 
             final String[] availableColumns;
             final ServiceState ss;
-            if (targetingAtLeastS && !canReadPrivilegedPhoneState) {
+            if (enforceLocationPermission && targetingAtLeastS && !canReadPrivilegedPhoneState) {
                 // targetSdkVersion S+ without read privileged phone state permission can only
                 // access public columns which have no location sensitive info.
                 availableColumns = PUBLIC_COLUMNS;
                 ss = unredactedServiceState;
             } else {
                 availableColumns = ALL_COLUMNS;
-
-                final boolean hasLocationPermission = hasLocationPermission();
-                if (hasLocationPermission) {
-                    // No matter the targetSdkVersion, return unredacted ServiceState if caller does
-                    // have location permission.
+                if (!enforceLocationPermission) {
+                    // No matter the targetSdkVersion, return unredacted ServiceState if location
+                    // permission enforcement is not introduced
                     ss = unredactedServiceState;
                 } else {
-                    // The caller has targetSdkVersion S+ but no location permission. It explicitly
-                    // requires location protected columns. Throw SecurityException to fail loudly.
-                    if (targetingAtLeastS && projection != null) {
+                    boolean implicitlyQueryLocation = projection == null;
+                    boolean explicitlyQueryLocation = false;
+                    if (projection != null) {
                         for (String requiredColumn : projection) {
                             if (LOCATION_PROTECTED_COLUMNS_SET.contains(requiredColumn)) {
-                                throw new SecurityException("Column " + requiredColumn
-                                        + "requires location permissions to access.");
+                                explicitlyQueryLocation = true;
+                                break;
                             }
                         }
                     }
 
-                    // In all other cases, return the redacted ServiceState.
-                    // The caller has no location permission but only requires columns without
-                    // location sensitive info or "all" columns, return result that scrub out all
-                    // sensitive info. In later case, we will not know which columns will be fetched
-                    // from the returned cursor until the result has been returned.
-                    ss = getLocationRedactedServiceState(unredactedServiceState);
+                    // Check location permission only when location sensitive info are queried
+                    // (either explicitly or implicitly) to avoid caller get blamed with location
+                    // permission when query non sensitive info.
+                    if (implicitlyQueryLocation || explicitlyQueryLocation) {
+                        if (hasLocationPermission()) {
+                            ss = unredactedServiceState;
+                        } else {
+                            if (targetingAtLeastS) {
+                                // Throw SecurityException to fail loudly if caller is targetSDK S+
+                                throw new SecurityException(
+                                        "Querying location sensitive info requires location "
+                                                + "permissions");
+                            } else {
+                                // For backward compatibility, return redacted value for old SDK
+                                ss = getLocationRedactedServiceState(unredactedServiceState);
+                            }
+                        }
+                    } else {
+                        // The caller is not interested in location sensitive info, return result
+                        // that scrub out all sensitive info. And no permission check is needed.
+                        ss = getLocationRedactedServiceState(unredactedServiceState);
+                    }
                 }
             }
 
@@ -687,8 +714,6 @@ public class ServiceStateProvider extends ContentProvider {
     /* package */ static ServiceState getLocationRedactedServiceState(ServiceState serviceState) {
         ServiceState ss =
                 serviceState.createLocationInfoSanitizedCopy(true /*removeCoarseLocation*/);
-        // TODO(b/188061647): remove the additional redaction once it is fixed in SS
-        ss.setCdmaSystemAndNetworkId(ServiceState.UNKNOWN_ID, ServiceState.UNKNOWN_ID);
         return ss;
     }
 }

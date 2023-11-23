@@ -16,96 +16,89 @@
 
 package com.android.car.garagemode;
 
-import static com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
-import android.app.job.JobScheduler;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.power.CarPowerManager;
-import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
-import android.car.hardware.power.CarPowerManager.CarPowerStateListenerWithCompletion;
+import android.car.hardware.power.ICarPowerStateListener;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
+import android.util.Log;
 
 import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
-import com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.power.CarPowerManagementService;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.server.utils.Slogf;
-
-import java.io.PrintWriter;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Main controller for GarageMode. It controls all the flows of GarageMode and defines the logic.
  */
-public class Controller implements CarPowerStateListenerWithCompletion {
+public class Controller extends ICarPowerStateListener.Stub {
 
     private static final String TAG = CarLog.tagFor(GarageMode.class) + "_"
             + Controller.class.getSimpleName();
+    private static final boolean DBG = Slogf.isLoggable(TAG, Log.DEBUG);
 
-    @VisibleForTesting final WakeupPolicy mWakeupPolicy;
     private final GarageMode mGarageMode;
     private final Handler mHandler;
     private final Context mContext;
-    private CarPowerManager mCarPowerManager;
+    private CarPowerManagementService mCarPowerService;
 
     public Controller(Context context, Looper looper) {
-        this(context, looper, null, null, null);
+        this(context, looper, /* handler= */ null, /* garageMode= */ null);
     }
 
-    public Controller(
-            Context context,
-            Looper looper,
-            WakeupPolicy wakeupPolicy,
-            Handler handler,
-            GarageMode garageMode) {
+    public Controller(Context context, Looper looper, Handler handler, GarageMode garageMode) {
         mContext = context;
-        mHandler = (handler == null ? new Handler(looper) : handler);
-        mWakeupPolicy =
-                (wakeupPolicy == null ? WakeupPolicy.initFromResources(context) : wakeupPolicy);
-        mGarageMode = (garageMode == null ? new GarageMode(this) : garageMode);
+        mHandler = (handler == null) ? new Handler(looper) : handler;
+        mGarageMode = (garageMode == null) ? new GarageMode(context, this) : garageMode;
     }
 
     /** init */
     public void init() {
-        mCarPowerManager = CarLocalServices.createCarPowerManager(mContext);
-        mCarPowerManager.setListenerWithCompletion(Controller.this);
+        mCarPowerService = CarLocalServices.getService(CarPowerManagementService.class);
+        mCarPowerService.registerInternalListener(Controller.this);
         mGarageMode.init();
     }
 
     /** release */
     public void release() {
-        mCarPowerManager.clearListener();
+        mCarPowerService.unregisterInternalListener(Controller.this);
         mGarageMode.release();
     }
 
     @Override
-    public void onStateChanged(int state, CompletableFuture<Void> future) {
+    public void onStateChanged(int state, long expirationTimeMs) {
+        if (DBG) {
+            Slogf.d(TAG, "CPM state changed to %s",
+                    CarPowerManagementService.powerStateToString(state));
+        }
         switch (state) {
-            case CarPowerStateListener.SHUTDOWN_CANCELLED:
-                Slogf.d(TAG, "CPM state changed to SHUTDOWN_CANCELLED");
-                handleShutdownCancelled();
+            case CarPowerManager.STATE_SHUTDOWN_CANCELLED:
+                resetGarageMode();
                 break;
-            case CarPowerStateListener.SHUTDOWN_ENTER:
-                Slogf.d(TAG, "CPM state changed to SHUTDOWN_ENTER");
-                handleShutdownEnter();
+            case CarPowerManager.STATE_SHUTDOWN_ENTER:
+            case CarPowerManager.STATE_SUSPEND_ENTER:
+            case CarPowerManager.STATE_HIBERNATION_ENTER:
+                resetGarageMode();
+                mCarPowerService.completeHandlingPowerStateChange(state, Controller.this);
                 break;
-            case CarPowerStateListener.SHUTDOWN_PREPARE:
-                Slogf.d(TAG, "CPM state changed to SHUTDOWN_PREPARE");
-                handleShutdownPrepare(future);
+            case CarPowerManager.STATE_PRE_SHUTDOWN_PREPARE:
+            case CarPowerManager.STATE_POST_SHUTDOWN_ENTER:
+            case CarPowerManager.STATE_POST_SUSPEND_ENTER:
+            case CarPowerManager.STATE_POST_HIBERNATION_ENTER:
+                mCarPowerService.completeHandlingPowerStateChange(state, Controller.this);
                 break;
-            case CarPowerStateListener.SUSPEND_ENTER:
-                Slogf.d(TAG, "CPM state changed to SUSPEND_ENTER");
-                handleSuspendEnter();
+            case CarPowerManager.STATE_SHUTDOWN_PREPARE:
+                initiateGarageMode(() -> mCarPowerService.completeHandlingPowerStateChange(state,
+                        Controller.this));
                 break;
-            case CarPowerStateListener.SUSPEND_EXIT:
-                Slogf.d(TAG, "CPM state changed to SUSPEND_EXIT");
-                handleSuspendExit();
-                break;
-            default:
         }
     }
 
@@ -120,7 +113,7 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      * Prints Garage Mode's status, including what jobs it is waiting for
      */
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
-    void dump(PrintWriter writer) {
+    void dump(IndentingPrintWriter writer) {
         mGarageMode.dump(writer);
     }
 
@@ -131,15 +124,10 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      */
     void sendBroadcast(Intent i) {
         SystemInterface systemInterface = CarLocalServices.getService(SystemInterface.class);
-        Slogf.d(TAG, "Sending broadcast with action: %s", i.getAction());
+        if (DBG) {
+            Slogf.d(TAG, "Sending broadcast with action: %s", i.getAction());
+        }
         systemInterface.sendBroadcastAsUser(i, UserHandle.ALL);
-    }
-
-    /**
-     * @return JobSchedulerService instance
-     */
-    JobScheduler getJobSchedulerService() {
-        return (JobScheduler) mContext.getSystemService(Context.JOB_SCHEDULER_SERVICE);
     }
 
     /**
@@ -153,9 +141,8 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      * Initiates GarageMode flow which will set the system idleness to true and will start
      * monitoring jobs which has idleness constraint enabled.
      */
-    void initiateGarageMode(CompletableFuture<Void> future) {
-        mWakeupPolicy.incrementCounter();
-        mGarageMode.enterGarageMode(future);
+    void initiateGarageMode(Runnable completor) {
+        mGarageMode.enterGarageMode(completor);
     }
 
     /**
@@ -163,45 +150,10 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      */
     void resetGarageMode() {
         mGarageMode.cancel();
-        mWakeupPolicy.resetCounter();
     }
 
     @VisibleForTesting
     void finishGarageMode() {
         mGarageMode.finish();
-    }
-
-    @VisibleForTesting
-    void setCarPowerManager(CarPowerManager cpm) {
-        mCarPowerManager = cpm;
-    }
-
-    void scheduleNextWakeup() {
-        if (mWakeupPolicy.getNextWakeUpInterval() <= 0) {
-            // Either there is no policy or nothing left to schedule
-            return;
-        }
-        int seconds = mWakeupPolicy.getNextWakeUpInterval();
-        mCarPowerManager.scheduleNextWakeupTime(seconds);
-    }
-
-    private void handleSuspendExit() {
-        resetGarageMode();
-    }
-
-    private void handleSuspendEnter() {
-        resetGarageMode();
-    }
-
-    private void handleShutdownEnter() {
-        resetGarageMode();
-    }
-
-    private void handleShutdownPrepare(CompletableFuture<Void> future) {
-        initiateGarageMode(future);
-    }
-
-    private void handleShutdownCancelled() {
-        resetGarageMode();
     }
 }

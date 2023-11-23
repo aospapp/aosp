@@ -24,15 +24,13 @@
 #include <queue>
 #include <thread>
 
-namespace android {
-namespace automotive {
-namespace evs {
+namespace android::automotive::evs {
 
 /*
  * This class defines the thread that handles callbacks from the native Extended
  * View System service.
  */
-class EvsCallbackThread {
+class EvsCallbackThread final {
     using Task = std::function<void(JNIEnv*)>;
 
     JavaVM* mVm;
@@ -59,8 +57,6 @@ public:
     void stop();
 };
 
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs
 
 #endif  // ANDROID_CARSERVICE_EVSCALLBACKTHREAD_H

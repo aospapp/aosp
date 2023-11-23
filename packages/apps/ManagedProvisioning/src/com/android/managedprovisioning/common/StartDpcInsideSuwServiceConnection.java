@@ -144,6 +144,12 @@ public class StartDpcInsideSuwServiceConnection implements ServiceConnection {
                 mNetworkInterceptServiceBindingInitiated = true;
             } else {
                 ProvisionLogger.loge("Failed to bind to SUW NetworkInterceptService");
+                // Unbind even when binding failed to avoid leaking ServiceConnection
+                try {
+                    context.unbindService(this);
+                } catch (IllegalArgumentException e) {
+                    ProvisionLogger.loge("unbindService failed after failed bindService", e);
+                }
             }
         } catch(SecurityException e) {
             ProvisionLogger.loge("Access denied to SUW NetworkInterceptService", e);

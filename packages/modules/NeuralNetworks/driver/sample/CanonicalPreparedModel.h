@@ -41,16 +41,20 @@ class PreparedModel final : public IPreparedModel,
 
     ExecutionResult<std::pair<std::vector<OutputShape>, Timing>> execute(
             const Request& request, MeasureTiming measure, const OptionalTimePoint& deadline,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration, const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<std::pair<SyncFence, ExecuteFencedInfoCallback>> executeFenced(
             const Request& request, const std::vector<SyncFence>& waitFor, MeasureTiming measure,
             const OptionalTimePoint& deadline, const OptionalDuration& loopTimeoutDuration,
-            const OptionalDuration& timeoutDurationAfterFence) const override;
+            const OptionalDuration& timeoutDurationAfterFence,
+            const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<nn::SharedExecution> createReusableExecution(
             const Request& request, MeasureTiming measure,
-            const OptionalDuration& loopTimeoutDuration) const override;
+            const OptionalDuration& loopTimeoutDuration, const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<SharedBurst> configureExecutionBurst() const override;
 

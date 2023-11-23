@@ -25,11 +25,23 @@ import com.android.internal.net.eap.exceptions.simaka.EapSimInvalidAtRandExcepti
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.ShortBufferException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * EapSimAkaAttribute represents a single EAP SIM/AKA Attribute.
@@ -45,6 +57,7 @@ public abstract class EapSimAkaAttribute {
     static final int LENGTH_SCALING = 4;
 
     private static final int MIN_ATTR_LENGTH = 4;
+    private static final int ATTR_HEADER_LEN = 4;
 
     public static final int SKIPPABLE_ATTRIBUTE_RANGE_START = 128;
 
@@ -1197,6 +1210,174 @@ public abstract class EapSimAkaAttribute {
 
             int flagToWrite = doesServerSupportEapAkaPrime ? SUPPORTS_EAP_AKA_PRIME_MASK : 0;
             byteBuffer.putShort((short) flagToWrite);
+        }
+    }
+
+    /** AtIv represents the AT_IV attribute defined in RFC 4187#10.12 */
+    public static class AtIv extends EapSimAkaReservedBytesAttribute {
+        private static final int ATTR_LENGTH = 5 * LENGTH_SCALING;
+
+        /** EAP-AKA uses AES-CBC,so IV is 128bit(16B) */
+        private static final int IV_LENGTH = 16;
+
+        public final byte[] iv = new byte[IV_LENGTH];
+
+        public AtIv(int lengthInBytes, ByteBuffer byteBuffer)
+                throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_IV, ATTR_LENGTH, byteBuffer);
+            if (lengthInBytes != ATTR_LENGTH) {
+                throw new EapSimAkaInvalidAttributeException("Invalid Length, AtIv must be 20B");
+            }
+
+            byteBuffer.get(iv);
+        }
+
+        public AtIv(SecureRandom secureRandom) throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_IV, ATTR_LENGTH);
+            secureRandom.nextBytes(iv);
+            if (iv.length != IV_LENGTH) {
+                throw new EapSimAkaInvalidAttributeException("IV length must be 16B");
+            }
+        }
+
+        @Override
+        public void encode(ByteBuffer byteBuffer) {
+            super.encode(byteBuffer);
+
+            byteBuffer.put(iv);
+        }
+    }
+
+    /** AtEncrData represents the AT_ENCR_DATA attribute defined in RFC 4187#10.12 */
+    public static class AtEncrData extends EapSimAkaReservedBytesAttribute {
+        private static final String CIPHER_ALGORITHM = "AES_128/CBC/NoPadding";
+        public static final int CIPHER_BLOCK_LENGTH = 16;
+
+        public final byte[] encrData;
+
+        public AtEncrData(int lengthInBytes, ByteBuffer byteBuffer)
+                throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_ENCR_DATA, lengthInBytes, byteBuffer);
+            int encrDataLength = lengthInBytes - ATTR_HEADER_LEN;
+            if (encrDataLength % CIPHER_BLOCK_LENGTH != 0) {
+                throw new EapSimAkaInvalidAttributeException(
+                        "encrData len needs to be multiple of 16B");
+            }
+            encrData = new byte[encrDataLength];
+            byteBuffer.get(encrData);
+        }
+
+        public AtEncrData(byte[] plainData, byte[] key, byte[] iv)
+                throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_ENCR_DATA, plainData.length + ATTR_HEADER_LEN);
+            if (plainData.length % CIPHER_BLOCK_LENGTH != 0) {
+                throw new EapSimAkaInvalidAttributeException(
+                        "encrData len needs to be multiple of 16B");
+            }
+            this.encrData = doCipherOperation(plainData, key, iv, Cipher.ENCRYPT_MODE);
+        }
+
+        @Override
+        public void encode(ByteBuffer byteBuffer) {
+            super.encode(byteBuffer);
+
+            byteBuffer.put(encrData);
+        }
+
+        /**
+         * getDecryptedData returns decrypted data of AT_ENCR_DATA.
+         *
+         * @param key K_encr with byte array
+         * @parma iv IV from AT_IV
+         * @return decrypted data with byte array
+         */
+        public byte[] getDecryptedData(byte[] key, byte[] iv)
+                throws EapSimAkaInvalidAttributeException {
+            byte[] decryptedEncr = doCipherOperation(encrData, key, iv, Cipher.DECRYPT_MODE);
+            return decryptedEncr;
+        }
+
+        private byte[] doCipherOperation(byte[] inputBytes, byte[] key, byte[] iv, int opmode)
+                throws EapSimAkaInvalidAttributeException {
+            Cipher cipherAlgorithm;
+            try {
+                cipherAlgorithm = Cipher.getInstance(CIPHER_ALGORITHM);
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+                throw new EapSimAkaInvalidAttributeException(
+                        "Failed to construct Cihper for EAP SIMAKA");
+            }
+            try {
+                SecretKeySpec secretKey = new SecretKeySpec(key, CIPHER_ALGORITHM);
+                IvParameterSpec ivParam = new IvParameterSpec(iv);
+                cipherAlgorithm.init(opmode, secretKey, ivParam);
+                ByteBuffer inputBuffer = ByteBuffer.wrap(inputBytes);
+                ByteBuffer outputBuffer = ByteBuffer.allocate(inputBytes.length);
+                cipherAlgorithm.doFinal(inputBuffer, outputBuffer);
+                return outputBuffer.array();
+            } catch (InvalidKeyException
+                    | InvalidAlgorithmParameterException
+                    | BadPaddingException
+                    | ShortBufferException
+                    | IllegalBlockSizeException e) {
+                throw new EapSimAkaInvalidAttributeException("Failed to decrypt data: ", e);
+            }
+        }
+    }
+
+    /** AtNextReauthId represents the AT_NEXT_REAUTH_ID attribute defined in RFC 4187#10.11 */
+    public static class AtNextReauthId extends EapSimAkaAttribute {
+        private static final String TAG = AtNextReauthId.class.getSimpleName();
+
+        public final byte[] reauthId;
+
+        public AtNextReauthId(int lengthInBytes, ByteBuffer byteBuffer)
+                throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_NEXT_REAUTH_ID, lengthInBytes);
+            int identityLength = Short.toUnsignedInt(byteBuffer.getShort());
+            reauthId = new byte[identityLength];
+
+            byteBuffer.get(reauthId);
+            StringBuilder builder = new StringBuilder();
+            for (byte data : reauthId) {
+                builder.append(String.format("%02X ", data));
+            }
+            LOG.d(TAG, "Next re-authId:" + builder);
+
+            int bytesUsed = ATTR_HEADER_LEN + identityLength;
+            consumePadding(bytesUsed, byteBuffer);
+        }
+
+        private AtNextReauthId(int lengthInBytes, byte[] identity)
+                throws EapSimAkaInvalidAttributeException {
+            super(EAP_AT_NEXT_REAUTH_ID, lengthInBytes);
+            this.reauthId = identity;
+        }
+
+        @Override
+        public void encode(ByteBuffer byteBuffer) {
+            encodeAttributeHeader(byteBuffer);
+            byteBuffer.putShort((short) reauthId.length);
+            byteBuffer.put(reauthId);
+
+            int bytesUsed = ATTR_HEADER_LEN + reauthId.length;
+            addPadding(bytesUsed, byteBuffer);
+        }
+
+        /**
+         * Creates and returns an AtNextReauthId instance for the given identity.
+         *
+         * @param identity byte-array representing the identity for the AtNextReauthId
+         * @return AtNextReauthId instance for the given identity byte-array
+         */
+        @VisibleForTesting
+        public static AtNextReauthId getAtNextReauthId(byte[] identity)
+                throws EapSimAkaInvalidAttributeException {
+            int lengthInBytes = ATTR_HEADER_LEN + identity.length;
+            if (lengthInBytes % LENGTH_SCALING != 0) {
+                lengthInBytes += LENGTH_SCALING - (lengthInBytes % LENGTH_SCALING);
+            }
+
+            return new AtNextReauthId(lengthInBytes, identity);
         }
     }
 }

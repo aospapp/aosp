@@ -2,7 +2,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="system_tracing" msgid="4719188511746319848">"सिस्टम ट्रेस करने की सुविधा"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"यह सिस्टम की गतिविधि रिकॉर्ड करता है और बाद में इसका विश्लेषण कर सिस्टम की परफ़ॉर्मेंस को बेहतर बनाता है"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"यह सिस्टम की गतिविधि रिकॉर्ड करता है और परफ़ॉर्मेंस बेहतर बनाने के लिए, बाद में इसका विश्लेषण करता है"</string>
     <string name="record_trace" msgid="6416875085186661845">"ट्रेस रिकॉर्ड करें"</string>
     <string name="start_new_trace" msgid="8177130420802170353">"नया ट्रेस शुरू करें"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"डीबग करने के लिए ऐप्लिकेशन ट्रेस करें"</string>
@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"डिफ़ॉल्ट श्रेणियां बहाल करें"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"डिफ़ॉल्ट श्रेणियां बहाल की गईं"</string>
     <string name="default_categories" msgid="2117679794687799407">"डिफ़ॉल्ट"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%d चुने गए</item>
-      <item quantity="other">%d चुने गए</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# चुनी गई}one{# चुनी गई}other{# चुनी गईं}}"</string>
     <string name="applications" msgid="521776761270770549">"ऐप्लिकेशन"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"डीबग करने के लिए कोई ऐप्लिकेशन उपलब्ध नहीं है"</string>
     <string name="buffer_size" msgid="3944311026715111454">"हर सीपीयू का बफ़र आकार"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"परफ़ेटो का बीटा वर्शन इस्तेमाल करें"</string>
     <string name="long_traces" msgid="5110949471775966329">"लंबे ट्रेस"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"लगातार डिवाइस की मेमोरी में सेव किया गया"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"डिवाइस के स्टोरेज में लगातार सेव किए जाते हैं (इन्हें गड़बड़ी की रिपोर्ट में अपने-आप अटैच नहीं किया जाएगा)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"सबसे लंबा ट्रेस आकार"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"सबसे लंबे ट्रेस की अवधि"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 एमबी"</string>

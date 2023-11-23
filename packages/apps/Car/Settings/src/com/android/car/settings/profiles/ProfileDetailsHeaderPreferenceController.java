@@ -45,8 +45,8 @@ public class ProfileDetailsHeaderPreferenceController extends
 
     @Override
     protected void updateState(Preference preference) {
-        Drawable icon = new ProfileIconProvider().getRoundedProfileIcon(getUserInfo(),
-                getContext());
+        Drawable icon = new ProfileIconProvider().getDrawableWithBadge(getContext(), getUserInfo());
+
         preference.setIcon(icon);
         preference.setTitle(ProfileUtils.getProfileDisplayName(getContext(), getUserInfo()));
         preference.setSummary(getSummary());

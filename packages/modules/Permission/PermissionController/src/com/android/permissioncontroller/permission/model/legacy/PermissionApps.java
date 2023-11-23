@@ -30,7 +30,6 @@ import android.os.UserManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
-import android.util.Pair;
 import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
@@ -39,11 +38,13 @@ import androidx.annotation.Nullable;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionGroup;
+import com.android.permissioncontroller.permission.utils.SubattributionUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @deprecated Use classes from permission.ui.model instead
@@ -269,7 +270,7 @@ public class PermissionApps {
                         continue;
                     }
 
-                    Pair<String, Drawable> appData = null;
+                    AppDataCache.AppData appData = null;
                     if (mAppDataCache != null && !mSkipUi) {
                         appData = mAppDataCache.getAppData(user.getIdentifier(),
                                 app.applicationInfo);
@@ -279,7 +280,7 @@ public class PermissionApps {
                     if (mSkipUi) {
                         label = app.packageName;
                     } else if (appData != null) {
-                        label = appData.first;
+                        label = appData.getLabel();
                     } else {
                         label = app.applicationInfo.loadLabel(mPm).toString();
                     }
@@ -287,14 +288,23 @@ public class PermissionApps {
                     Drawable icon = null;
                     if (!mSkipUi) {
                         if (appData != null) {
-                            icon = appData.second;
+                            icon = appData.getIcon();
                         } else {
                             icon = Utils.getBadgedIcon(mContext, app.applicationInfo);
                         }
                     }
 
+                    Map<Integer, String> attributionLabels = null;
+                    if (!mSkipUi) {
+                        if (appData != null) {
+                            attributionLabels = appData.getAttributionLabels();
+                        } else {
+                            attributionLabels = SubattributionUtils.getAttributionLabels(mContext,
+                                    app);
+                        }
+                    }
                     PermissionApp permApp = new PermissionApp(app.packageName, group, label, icon,
-                            app.applicationInfo);
+                            app.applicationInfo, attributionLabels);
 
                     permApps.add(permApp);
                     break; // move to the next app.
@@ -355,14 +365,17 @@ public class PermissionApps {
         private String mLabel;
         private Drawable mIcon;
         private final ApplicationInfo mInfo;
+        private @Nullable Map<Integer, String> mAttributionLabels;
 
         public PermissionApp(String packageName, AppPermissionGroup appPermissionGroup,
-                String label, Drawable icon, ApplicationInfo info) {
+                String label, Drawable icon, ApplicationInfo info,
+                Map<Integer, String> attributionLabels) {
             mPackageName = packageName;
             mAppPermissionGroup = appPermissionGroup;
             mLabel = label;
             mIcon = icon;
             mInfo = info;
+            mAttributionLabels = attributionLabels;
         }
 
         public ApplicationInfo getAppInfo() {
@@ -379,6 +392,11 @@ public class PermissionApps {
 
         public Drawable getIcon() {
             return mIcon;
+        }
+
+        @Nullable
+        public Map<Integer, String> getAttributionLabels() {
+            return mAttributionLabels;
         }
 
         public boolean areRuntimePermissionsGranted() {
@@ -422,15 +440,17 @@ public class PermissionApps {
         }
 
         /**
-         * Load this app's label and icon if they were not previously loaded.
+         * Load this app's label, icon and may be attribtion labels, if they were not previously
+         * loaded.
          *
-         * @param appDataCache the cache of already-loaded labels and icons.
+         * @param appDataCache the cache of already-loaded app data.
          */
-        public void loadLabelAndIcon(@NonNull AppDataCache appDataCache) {
+        public void loadAppData(@NonNull AppDataCache appDataCache) {
             if (mInfo.packageName.equals(mLabel) || mIcon == null) {
-                Pair<String, Drawable> appData = appDataCache.getAppData(getUid(), mInfo);
-                mLabel = appData.first;
-                mIcon = appData.second;
+                AppDataCache.AppData appData = appDataCache.getAppData(getUid(), mInfo);
+                mLabel = appData.getLabel();
+                mIcon = appData.getIcon();
+                mAttributionLabels = appData.getAttributionLabels();
             }
         }
 
@@ -495,7 +515,39 @@ public class PermissionApps {
      * instances, and should not be retained across UI refresh.
      */
     public static class AppDataCache {
-        private final @NonNull SparseArray<ArrayMap<String, Pair<String, Drawable>>> mCache =
+        /** Data holder for the app information in the cache. */
+        public static class AppData {
+            private final String mLabel;
+            private final Drawable mIcon;
+            private final @Nullable Map<Integer, String> mAttributionLabels;
+
+            private AppData(String label, Drawable icon,
+                    @Nullable Map<Integer, String> attributionLabels) {
+                mLabel = label;
+                mIcon = icon;
+                mAttributionLabels = attributionLabels;
+            }
+
+            public String getLabel() {
+                return mLabel;
+            }
+
+            public Drawable getIcon() {
+                return mIcon;
+            }
+
+            @Nullable
+            public Map<Integer, String> getAttributionLabels() {
+                return mAttributionLabels;
+            }
+
+            static AppData create(String label, Drawable icon,
+                    @Nullable Map<Integer, String> attributionLabels) {
+                return new AppData(label, icon, attributionLabels);
+            }
+        }
+
+        private final @NonNull SparseArray<ArrayMap<String, AppData>> mCache =
                 new SparseArray<>();
         private final @NonNull PackageManager mPm;
         private final @NonNull Context mContext;
@@ -513,17 +565,18 @@ public class PermissionApps {
          *
          * @return a pair of the label and icon.
          */
-        public @NonNull Pair<String, Drawable> getAppData(int userId,
+        public @NonNull AppData getAppData(int userId,
                 @NonNull ApplicationInfo app) {
-            ArrayMap<String, Pair<String, Drawable>> dataForUser = mCache.get(userId);
+            ArrayMap<String, AppData> dataForUser = mCache.get(userId);
             if (dataForUser == null) {
                 dataForUser = new ArrayMap<>();
                 mCache.put(userId, dataForUser);
             }
-            Pair<String, Drawable> data = dataForUser.get(app.packageName);
+            AppData data = dataForUser.get(app.packageName);
             if (data == null) {
-                data = Pair.create(app.loadLabel(mPm).toString(),
-                        Utils.getBadgedIcon(mContext, app));
+                data = AppData.create(app.loadLabel(mPm).toString(),
+                        Utils.getBadgedIcon(mContext, app),
+                        SubattributionUtils.getAttributionLabels(mContext, app));
                 dataForUser.put(app.packageName, data);
             }
             return data;
@@ -552,7 +605,7 @@ public class PermissionApps {
             AppDataCache appDataCache = new AppDataCache(mContext.getPackageManager(), mContext);
             int numArgs = args.length;
             for (int i = 0; i < numArgs; i++) {
-                args[i].loadLabelAndIcon(appDataCache);
+                args[i].loadAppData(appDataCache);
             }
             return null;
         }

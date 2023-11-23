@@ -51,10 +51,8 @@ abstract class CarLandingActivityBridgeImpl implements LandingActivityBridge {
         int mainLayoutId = CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID;
         int subLayoutId = R.layout.empty_layout;
 
-        CustomizationParams customizationParams =
-                CustomizationParams.createInstance(getParams(), activity, getUtils());
         getInitializeLayoutParamsConsumer()
-                .initializeLayoutParams(mainLayoutId, headerResId, customizationParams);
+                .initializeLayoutParams(mainLayoutId, headerResId);
 
         CarSetupWizardLayoutHelper layoutHelper = getLayoutHelper();
         CarSetupWizardCompatLayout layout = layoutHelper.setBaseLayout(
@@ -66,6 +64,8 @@ abstract class CarLandingActivityBridgeImpl implements LandingActivityBridge {
         TextView descriptionTitle = activity.findViewById(R.id.description_title);
         descriptionTitle.setText(headerResId);
         TextView description = activity.findViewById(R.id.description);
+        CustomizationParams customizationParams =
+                CustomizationParams.createInstance(getParams(), activity, getUtils());
         handleSupportUrl(activity, customizationParams, description, getUtils());
     }
 

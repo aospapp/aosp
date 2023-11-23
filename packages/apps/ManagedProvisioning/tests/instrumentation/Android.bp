@@ -34,3 +34,28 @@ android_test {
     test_suites: ["device-tests"],
 
 }
+
+android_library {
+   name: "ManagedProvisioningTestsLib",
+   srcs: ["src/**/*.java"],
+   manifest: "AndroidManifest.xml",
+   libs: [
+        "android.test.runner",
+        "android.test.base",
+        "android.test.mock",
+    ],
+   static_libs: [
+        "androidx.test.rules",
+        "mockito-target-minus-junit4",
+        "androidx.test.espresso.core",
+        "androidx.test.espresso.contrib",
+        "androidx.test.espresso.intents",
+        "truth-prebuilt",
+        "testng",
+        "ub-uiautomator",
+        "TestApp",
+        "ctstestrunner-axt",
+        "Harrier",
+        "ManagedProvisioningLib",
+    ],
+}

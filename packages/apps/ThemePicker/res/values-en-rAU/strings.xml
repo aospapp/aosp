@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"Wallpaper &amp; style"</string>
+    <string name="app_name" msgid="1647136562008520313">"Wallpaper and style"</string>
     <string name="theme_title" msgid="2144932106319405101">"Style"</string>
     <string name="clock_title" msgid="2126046720254613991">"Clock"</string>
     <string name="grid_title" msgid="1688173478777254123">"App grid"</string>
@@ -68,7 +68,7 @@
     <string name="use_style_instead_title" msgid="1578754995763917502">"Use <xliff:g id="ID_1">%1$s</xliff:g> instead?"</string>
     <string name="use_style_instead_body" msgid="3051937045807471496">"The components you chose match the <xliff:g id="ID_1">%1$s</xliff:g> style. Do you want to use <xliff:g id="ID_2">%1$s</xliff:g> instead?"</string>
     <string name="use_style_button" msgid="1754493078383627019">"Use <xliff:g id="ID_1">%1$s</xliff:g>"</string>
-    <string name="no_thanks" msgid="7286616980115687627">"No thanks"</string>
+    <string name="no_thanks" msgid="7286616980115687627">"No, thanks"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> clock preview"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Oops! Something went wrong."</string>
     <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Colour/Icons"</string>
@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"Themed icons"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Change app grid"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"Wallpaper colours"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"Wallpaper colour"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"Basic colours"</string>
+    <string name="color_changed" msgid="7029571720331641235">"Colour changed"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"Dynamic"</string>
 </resources>

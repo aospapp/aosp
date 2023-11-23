@@ -19,7 +19,6 @@ package com.android.tv.settings.device.apps.specialaccess;
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FlavorUtils;
 import com.android.tv.settings.system.SecurityFragment;
 
 /**
@@ -33,7 +32,8 @@ public class AlarmsAndRemindersActivity extends TvSettingsActivity {
             finish();
             return null;
         } else {
-            return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
                     .newSettingsFragment(AlarmsAndReminders.class.getName(), null);
         }
     }

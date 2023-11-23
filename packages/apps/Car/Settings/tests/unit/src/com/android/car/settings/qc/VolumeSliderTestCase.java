@@ -35,8 +35,6 @@ import android.car.media.CarAudioManager;
 import android.content.Context;
 import android.content.Intent;
 
-import androidx.test.core.app.ApplicationProvider;
-
 import com.android.car.qc.QCRow;
 import com.android.car.qc.QCSlider;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
@@ -47,7 +45,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
-public abstract class VolumeSliderTestCase {
+public abstract class VolumeSliderTestCase extends BaseSettingsQCItemTestCase {
     protected static final int GROUP_ID = 0;
     protected static final int TEST_MIN_VOLUME = 0;
     protected static final int TEST_VOLUME = 40;
@@ -55,7 +53,6 @@ public abstract class VolumeSliderTestCase {
     protected static final int TEST_MAX_VOLUME = 100;
 
     private MockitoSession mSession;
-    protected Context mContext = ApplicationProvider.getApplicationContext();
 
     @Mock
     private Car mCar;
@@ -110,5 +107,19 @@ public abstract class VolumeSliderTestCase {
         intent.putExtra(BaseVolumeSlider.EXTRA_GROUP_ID, groupId);
         slider.onNotifyChange(intent);
         verify(mCarAudioManager).setGroupVolume(eq(groupId), eq(TEST_NEW_VOLUME), anyInt());
+    }
+
+    protected void verifyBaseUmRestriction(QCRow row) {
+        QCSlider slider = row.getSlider();
+        assertThat(slider).isNotNull();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isFalse();
+    }
+
+    protected void verifyUmRestriction(QCRow row) {
+        QCSlider slider = row.getSlider();
+        assertThat(slider).isNotNull();
+        assertThat(slider.isEnabled()).isFalse();
+        assertThat(slider.isClickableWhileDisabled()).isTrue();
     }
 }

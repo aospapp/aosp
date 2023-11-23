@@ -17,10 +17,10 @@
 #pragma once
 
 #include <stdint.h>
+#include <span>
 
-// TODO: use netdutils::Slice for (msg, len).
-void res_pquery(const uint8_t* msg, int len);
-
+void res_pquery(std::span<const uint8_t> msg);
+std::string bytesToHexStr(std::span<const uint8_t> bytes);
 // Thread-unsafe functions returning pointers to static buffers :-(
 // TODO: switch all res_debug to std::string
 const char* p_type(int type);

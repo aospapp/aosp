@@ -74,7 +74,7 @@ import java.util.Set;
 @RunWith(MockitoJUnitRunner.class)
 @SmallTest
 public class VmsBrokerServiceTest {
-    private static final int USER_ID = 10;
+    private static final int USER_ID = 100;
 
     private static final String TEST_PACKAGE1 = "test.package1";
     private static final String TEST_PACKAGE2 = "test.package2";

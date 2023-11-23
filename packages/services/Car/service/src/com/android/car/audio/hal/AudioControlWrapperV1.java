@@ -20,16 +20,16 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.car.builtin.util.Slogf;
 import android.hardware.automotive.audiocontrol.MutingInfo;
 import android.hardware.automotive.audiocontrol.V1_0.IAudioControl;
 import android.os.RemoteException;
-import android.util.IndentingPrintWriter;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 import com.android.car.audio.CarAudioContext;
 import com.android.car.audio.CarDuckingInfo;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -76,6 +76,18 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
     }
 
     @Override
+    public void registerAudioGainCallback(HalAudioGainCallback gainCallback) {
+        throw new UnsupportedOperationException(
+                "Audio Gain Callback is unsupported for IAudioControl@1.0");
+    }
+
+    @Override
+    public void unregisterAudioGainCallback() {
+        throw new UnsupportedOperationException(
+                "Audio Gain Callback is unsupported for IAudioControl@1.0");
+    }
+
+    @Override
     public boolean supportsFeature(int feature) {
         return false;
     }
@@ -98,7 +110,7 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
         try {
             mAudioControlV1.setFadeTowardFront(value);
         } catch (RemoteException e) {
-            Slog.e(TAG, "setFadeTowardFront failed", e);
+            Slogf.e(TAG, "setFadeTowardFront failed", e);
         }
     }
 
@@ -107,7 +119,7 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
         try {
             mAudioControlV1.setBalanceTowardRight(value);
         } catch (RemoteException e) {
-            Slog.e(TAG, "setBalanceTowardRight failed", e);
+            Slogf.e(TAG, "setBalanceTowardRight failed", e);
         }
     }
 
@@ -138,7 +150,7 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
         try {
             return mAudioControlV1.getBusForContext(audioContext);
         } catch (RemoteException e) {
-            Slog.e(TAG, "Failed to query IAudioControl HAL to get bus for context", e);
+            Slogf.e(TAG, "Failed to query IAudioControl HAL to get bus for context", e);
             throw new IllegalStateException("Failed to query IAudioControl#getBusForContext", e);
         }
     }
@@ -164,7 +176,7 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
     }
 
     private void serviceDied(long cookie) {
-        Slog.w(TAG, "IAudioControl@1.0 died. Fetching new handle");
+        Slogf.w(TAG, "IAudioControl@1.0 died. Fetching new handle");
         mAudioControlV1 = AudioControlWrapperV1.getService();
         linkToDeath(mDeathRecipient);
         if (mDeathRecipient != null) {

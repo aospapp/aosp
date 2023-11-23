@@ -14,138 +14,116 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAPROXY_H
-#define ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAPROXY_H
+#ifndef CPP_EVS_MANAGER_1_1_VIRTUALCAMERA_H_
+#define CPP_EVS_MANAGER_1_1_VIRTUALCAMERA_H_
 
-#include <android/hardware/automotive/evs/1.1/types.h>
 #include <android/hardware/automotive/evs/1.1/IEvsCamera.h>
 #include <android/hardware/automotive/evs/1.1/IEvsCameraStream.h>
 #include <android/hardware/automotive/evs/1.1/IEvsDisplay.h>
+#include <android/hardware/automotive/evs/1.1/types.h>
+#include <utils/Mutex.h>
 
 #include <deque>
 #include <set>
-#include <thread>
+#include <thread>  // NOLINT
 #include <unordered_map>
 
-#include <utils/Mutex.h>
+namespace android::automotive::evs::V1_1::implementation {
 
-
-using namespace std;
-using namespace ::android::hardware::automotive::evs::V1_1;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::hidl_handle;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::automotive::evs::V1_0::EvsResult;
-using ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
-using BufferDesc_1_0 = ::android::hardware::automotive::evs::V1_0::BufferDesc;
-using BufferDesc_1_1 = ::android::hardware::automotive::evs::V1_1::BufferDesc;
-using IEvsCamera_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsCamera;
-using IEvsCamera_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsCamera;
-using IEvsCameraStream_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsCameraStream;
-using IEvsCameraStream_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsCameraStream;
-using IEvsDisplay_1_0 = ::android::hardware::automotive::evs::V1_0::IEvsDisplay;
-using IEvsDisplay_1_1 = ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
-
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
-
-
-class HalCamera;        // From HalCamera.h
-
+class HalCamera;  // From HalCamera.h
 
 // This class represents an EVS camera to the client application.  As such it presents
 // the IEvsCamera interface, and also proxies the frame delivery to the client's
 // IEvsCameraStream object.
-class VirtualCamera : public IEvsCamera_1_1 {
+class VirtualCamera : public hardware::automotive::evs::V1_1::IEvsCamera {
 public:
-    explicit          VirtualCamera(const std::vector<sp<HalCamera>>& halCameras);
-    virtual           ~VirtualCamera();
+    explicit VirtualCamera(const std::vector<sp<HalCamera>>& halCameras);
+    virtual ~VirtualCamera();
 
-    unsigned          getAllowedBuffers() { return mFramesAllowed; };
-    bool              isStreaming()       { return mStreamState == RUNNING; }
-    bool              getVersion() const  { return (int)(mStream_1_1 != nullptr); }
-    vector<sp<HalCamera>>
-                      getHalCameras();
-    void              setDescriptor(CameraDesc* desc) { mDesc = desc; }
+    unsigned getAllowedBuffers() { return mFramesAllowed; }
+    bool isStreaming() { return mStreamState == RUNNING; }
+    bool getVersion() const { return static_cast<int>(mStream_1_1 != nullptr); }
+    std::vector<sp<HalCamera>> getHalCameras();
+    void setDescriptor(hardware::automotive::evs::V1_1::CameraDesc* desc) { mDesc = desc; }
 
     // Proxy to receive frames and forward them to the client's stream
-    bool              notify(const EvsEventDesc& event);
-    bool              deliverFrame(const BufferDesc& bufDesc);
+    bool notify(const hardware::automotive::evs::V1_1::EvsEventDesc& event);
+    bool deliverFrame(const hardware::automotive::evs::V1_1::BufferDesc& bufDesc);
 
-    // Methods from ::android::hardware::automotive::evs::V1_0::IEvsCamera follow.
-    Return<void>      getCameraInfo(getCameraInfo_cb _hidl_cb)  override;
-    Return<EvsResult> setMaxFramesInFlight(uint32_t bufferCount) override;
-    Return<EvsResult> startVideoStream(const ::android::sp<IEvsCameraStream_1_0>& stream) override;
-    Return<void>      doneWithFrame(const BufferDesc_1_0& buffer) override;
-    Return<void>      stopVideoStream() override;
-    Return<int32_t>   getExtendedInfo(uint32_t opaqueIdentifier) override;
-    Return<EvsResult> setExtendedInfo(uint32_t opaqueIdentifier, int32_t opaqueValue) override;
+    // Methods from hardware::automotive::evs::V1_0::IEvsCamera follow.
+    hardware::Return<void> getCameraInfo(getCameraInfo_cb _hidl_cb) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> setMaxFramesInFlight(
+            uint32_t bufferCount) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> startVideoStream(
+            const ::android::sp<hardware::automotive::evs::V1_0::IEvsCameraStream>& stream)
+            override;
+    hardware::Return<void> doneWithFrame(
+            const hardware::automotive::evs::V1_0::BufferDesc& buffer) override;
+    hardware::Return<void> stopVideoStream() override;
+    hardware::Return<int32_t> getExtendedInfo(uint32_t opaqueIdentifier) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> setExtendedInfo(
+            uint32_t opaqueIdentifier, int32_t opaqueValue) override;
 
-    // Methods from ::android::hardware::automotive::evs::V1_1::IEvsCamera follow.
-    Return<void>      getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb)  override;
-    Return<void>      getPhysicalCameraInfo(const hidl_string& deviceId,
-                                            getPhysicalCameraInfo_cb _hidl_cb)  override;
-    Return<EvsResult> doneWithFrame_1_1(const hardware::hidl_vec<BufferDesc_1_1>& buffer) override;
-    Return<EvsResult> pauseVideoStream() override { return EvsResult::UNDERLYING_SERVICE_ERROR; }
-    Return<EvsResult> resumeVideoStream() override { return EvsResult::UNDERLYING_SERVICE_ERROR; }
-    Return<EvsResult> setMaster() override;
-    Return<EvsResult> forceMaster(const sp<IEvsDisplay_1_0>& display) override;
-    Return<EvsResult> unsetMaster() override;
-    Return<void>      getParameterList(getParameterList_cb _hidl_cb) override;
-    Return<void>      getIntParameterRange(CameraParam id,
-                                           getIntParameterRange_cb _hidl_cb) override;
-    Return<void>      setIntParameter(CameraParam id, int32_t value,
-                                      setIntParameter_cb _hidl_cb) override;
-    Return<void>      getIntParameter(CameraParam id,
-                                      getIntParameter_cb _hidl_cb) override;
-    Return<EvsResult> setExtendedInfo_1_1(uint32_t opaqueIdentifier,
-                                          const hidl_vec<uint8_t>& opaqueValue) override;
-    Return<void>      getExtendedInfo_1_1(uint32_t opaqueIdentifier,
-                                          getExtendedInfo_1_1_cb _hidl_cb) override;
-    Return<void>      importExternalBuffers(const hidl_vec<BufferDesc_1_1>& buffers,
-                                            importExternalBuffers_cb _hidl_cb) override;
+    // Methods from hardware::automotive::evs::V1_1::IEvsCamera follow.
+    hardware::Return<void> getCameraInfo_1_1(getCameraInfo_1_1_cb _hidl_cb) override;
+    hardware::Return<void> getPhysicalCameraInfo(const hardware::hidl_string& deviceId,
+                                                 getPhysicalCameraInfo_cb _hidl_cb) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> doneWithFrame_1_1(
+            const hardware::hidl_vec<hardware::automotive::evs::V1_1::BufferDesc>& buffer) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> pauseVideoStream() override {
+        return hardware::automotive::evs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> resumeVideoStream() override {
+        return hardware::automotive::evs::V1_0::EvsResult::UNDERLYING_SERVICE_ERROR;
+    }
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> setMaster() override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> forceMaster(
+            const sp<hardware::automotive::evs::V1_0::IEvsDisplay>& display) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> unsetMaster() override;
+    hardware::Return<void> getParameterList(getParameterList_cb _hidl_cb) override;
+    hardware::Return<void> getIntParameterRange(hardware::automotive::evs::V1_1::CameraParam id,
+                                                getIntParameterRange_cb _hidl_cb) override;
+    hardware::Return<void> setIntParameter(hardware::automotive::evs::V1_1::CameraParam id,
+                                           int32_t value, setIntParameter_cb _hidl_cb) override;
+    hardware::Return<void> getIntParameter(hardware::automotive::evs::V1_1::CameraParam id,
+                                           getIntParameter_cb _hidl_cb) override;
+    hardware::Return<hardware::automotive::evs::V1_0::EvsResult> setExtendedInfo_1_1(
+            uint32_t opaqueIdentifier, const hardware::hidl_vec<uint8_t>& opaqueValue) override;
+    hardware::Return<void> getExtendedInfo_1_1(uint32_t opaqueIdentifier,
+                                               getExtendedInfo_1_1_cb _hidl_cb) override;
+    hardware::Return<void> importExternalBuffers(
+            const hardware::hidl_vec<hardware::automotive::evs::V1_1::BufferDesc>& buffers,
+            importExternalBuffers_cb _hidl_cb) override;
 
     // Dump current status to a given file descriptor
-    std::string       toString(const char* indent = "") const;
-
+    std::string toString(const char* indent = "") const;
 
 private:
     void shutdown();
 
     // The low level camera interface that backs this proxy
-    unordered_map<string,
-                 wp<HalCamera>> mHalCamera;
+    std::unordered_map<std::string, wp<HalCamera>> mHalCamera;
 
-    sp<IEvsCameraStream_1_0>    mStream;
-    sp<IEvsCameraStream_1_1>    mStream_1_1;
+    sp<hardware::automotive::evs::V1_0::IEvsCameraStream> mStream;
+    sp<hardware::automotive::evs::V1_1::IEvsCameraStream> mStream_1_1;
 
-    unsigned                    mFramesAllowed  = 1;
+    unsigned mFramesAllowed = 1;
     enum {
         STOPPED,
         RUNNING,
         STOPPING,
-    }                           mStreamState;
+    } mStreamState;
 
-    unordered_map<string,
-         deque<BufferDesc_1_1>> mFramesHeld;
-    thread                      mCaptureThread;
-    CameraDesc*                 mDesc;
+    std::unordered_map<std::string, std::deque<hardware::automotive::evs::V1_1::BufferDesc>>
+            mFramesHeld;
+    std::thread mCaptureThread;
+    hardware::automotive::evs::V1_1::CameraDesc* mDesc;
 
-    mutable std::mutex          mFrameDeliveryMutex;
-    std::condition_variable     mFramesReadySignal;
-    std::set<std::string>       mSourceCameras GUARDED_BY(mFrameDeliveryMutex);
-
+    mutable std::mutex mFrameDeliveryMutex;
+    std::condition_variable mFramesReadySignal;
+    std::set<std::string> mSourceCameras GUARDED_BY(mFrameDeliveryMutex);
 };
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation
 
-#endif  // ANDROID_AUTOMOTIVE_EVS_V1_1_CAMERAPROXY_H
+#endif  // CPP_EVS_MANAGER_1_1_VIRTUALCAMERA_H_

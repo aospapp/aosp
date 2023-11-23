@@ -391,7 +391,7 @@ public class ONSNetworkScanCtlr {
                     CarrierConfigManager.KEY_OPPORTUNISTIC_NETWORK_EXIT_THRESHOLD_RSRP_INT);
 
             mSsRsrpEntryThreshold = getIntCarrierConfig(
-                    CarrierConfigManager.KEY_OPPORTUNISTIC_NETWORK_EXIT_THRESHOLD_SS_RSRP_INT);
+                    CarrierConfigManager.OpportunisticNetwork.KEY_ENTRY_THRESHOLD_SS_RSRP_INT);
 
             /* start new scan */
             networkScan = mTelephonyManager.requestNetworkScan(networkScanRequest,

@@ -16,20 +16,24 @@
 
 package com.android.car.telemetry.publisher;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.StatsManager;
 import android.app.StatsManager.StatsUnavailableException;
 
 /** Proxy for {@link StatsManager}, as it's marked as final and can't be used in tests. */
 public interface StatsManagerProxy {
     /** See {@link StatsManager#getReports(long)}. */
+    @Nullable
     byte[] getReports(long configKey) throws StatsUnavailableException;
 
     /** See {@link StatsManager#addConfig(long, byte[])}. */
-    void addConfig(long configKey, byte[] data) throws StatsUnavailableException;
+    void addConfig(long configKey, @NonNull byte[] data) throws StatsUnavailableException;
 
     /** See {@link StatsManager#removeConfig(long)}. */
     void removeConfig(long configKey) throws StatsUnavailableException;
 
     /** See {@link StatsManager#getStatsMetadata()}. */
+    @Nullable
     byte[] getStatsMetadata() throws StatsUnavailableException;
 }

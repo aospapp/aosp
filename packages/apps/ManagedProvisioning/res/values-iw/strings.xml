@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"המכשיר שלך ינוהל על ידי האפליקציה הבאה:"</string>
     <string name="next" msgid="1004321437324424398">"הבא"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"המערכת מגדירה פרופיל עבודה…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"‏מנהל ה-IT יכול לעקוב אחר הגדרות, גישה ארגונית, אפליקציות, הרשאות ונתונים המשויכים לפרופיל הזה, ולנהל אותם. זה כולל את הפעילות שלך ברשת, מיקום המכשיר, היסטוריית השיחות והיסטוריית חיפוש אנשי הקשר.<xliff:g id="LINE_BREAK">
-
-</xliff:g>למידע נוסף יש לפנות אל מנהל ה-IT, כולל לגבי מדיניות הפרטיות של הארגון."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"‏מנהל ה-IT יכול לעקוב אחרי ההגדרות, הגישה הארגונית, האפליקציות, ההרשאות, הנתונים והפעילות שלך ברשת המשויכים לפרופיל הזה, כולל היסטוריית השיחות והיסטוריית החיפושים של אנשי הקשר, ולנהל אותם. לקבלת מידע נוסף ומידע על מדיניות הפרטיות של הארגון, אפשר לפנות למנהל ה-IT."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"‏מנהל ה-IT שלך יכול לעקוב אחר הגדרות, גישה ארגונית, אפליקציות, הרשאות ונתונים המשויכים למכשיר הזה, ולנהל אותם. זה כולל את הפעילות שלך ברשת, כמו גם מיקום המכשיר, היסטוריית השיחות והיסטוריית חיפוש אנשי הקשר.<xliff:g id="LINE_BREAK">
 
 </xliff:g>למידע נוסף יש לפנות אל מנהל ה-IT, כולל לגבי מדיניות הפרטיות של הארגון."</string>
@@ -164,7 +162,7 @@
     <string name="downloading_administrator_header" msgid="8660294318893902915">"בהכנה להגדרת פרופיל העבודה…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"נתחיל בהגדרת פרופיל העבודה שלך"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"אפליקציות לעבודה נשמרות בפרופיל העבודה"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"השהיית אפליקציות עבודה בסוף היום"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"השהיה של האפליקציות לעבודה בסוף היום"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"‏הנתונים בפרופיל העבודה שלך גלויים למנהל ה-IT"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"המערכת מגדירה את פרופיל העבודה שלך…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"‏אפליקציות לעבודה נשמרות בפרופיל העבודה שלך. אפשר להשהות את האפליקציות לעבודה בסוף היום. הנתונים בפרופיל העבודה שלך גלויים למנהל ה-IT."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"ספק האשראי <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> יכול להתקין את האפליקציה <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> כדי לבצע תשלומים עבור המכשיר הזה."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"אפשר להגביל את המכשיר הזה"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"ספק האשראי <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> יכול להגביל את הגישה למכשיר הזה אם לא מתבצעים תשלומים."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"‏לא ניתן להגדיר את המכשיר. יש לפנות למנהל ה‑IT ולציין \'סיכום ביקורת לא חוקי\'."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"‏יש לנסות שוב או לפנות למנהל ה‑IT לקבלת עזרה"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"‏לא ניתן להגדיר את המכשיר. יש לפנות למנהל ה‑IT ולציין \'רכיבים פגומים או חסרים\'."</string>
+    <string name="setting_up" msgid="1478847967385506664">"ההגדרה מתבצעת…"</string>
 </resources>

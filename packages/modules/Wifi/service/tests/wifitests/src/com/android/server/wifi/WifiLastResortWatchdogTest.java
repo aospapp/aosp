@@ -79,7 +79,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
     private static final int TEST_NETWORK_ID = 47;
     private static final int TEST_NETWORK_ID_2 = 54;
     private static final WifiSsid TEST_WIFI_SSID =
-            WifiSsid.createFromByteArray(new byte[]{'a', 'b', 'c'});
+            WifiSsid.fromBytes(new byte[]{'a', 'b', 'c'});
 
     @Before
     public void setUp() throws Exception {
@@ -118,7 +118,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
         long timeStamp = System.currentTimeMillis();
         for (int index = 0; index < ssids.length; index++) {
             String ssid = ssids[index].replaceAll("^\"+", "").replaceAll("\"+$", "");
-            ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssid),
+            ScanDetail scanDetail = new ScanDetail(WifiSsid.fromUtf8Text(ssid),
                     bssids[index], caps[index], levels[index], frequencies[index], timeStamp,
                     0);
             WifiConfiguration config = null;
@@ -142,7 +142,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
         long timeStamp = System.currentTimeMillis();
         for (int index = 0; index < ssids.length; index++) {
             String ssid = ssids[index].replaceAll("^\"+", "").replaceAll("\"+$", "");
-            ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssid),
+            ScanDetail scanDetail = new ScanDetail(WifiSsid.fromUtf8Text(ssid),
                     bssids[index], caps[index], levels[index], frequencies[index], timeStamp,
                     0);
             WifiConfiguration config = null;
@@ -1654,7 +1654,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
         List<Pair<ScanDetail, WifiConfiguration>> candidates =
                 new ArrayList<Pair<ScanDetail, WifiConfiguration>>();
         String ssid = mSsids[0].replaceAll("^\"+", "").replaceAll("\"+$", "");
-        ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssid),
+        ScanDetail scanDetail = new ScanDetail(WifiSsid.fromUtf8Text(ssid),
                 mBssids[0], mCaps[0], mLevels[0], mFrequencies[0], System.currentTimeMillis(), 0);
         WifiConfiguration config = mock(WifiConfiguration.class);
         WifiConfiguration.NetworkSelectionStatus networkSelectionStatus =
@@ -1691,7 +1691,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
         List<Pair<ScanDetail, WifiConfiguration>> candidates =
                 new ArrayList<Pair<ScanDetail, WifiConfiguration>>();
         String ssid = mSsids[0].replaceAll("^\"+", "").replaceAll("\"+$", "");
-        ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssid),
+        ScanDetail scanDetail = new ScanDetail(WifiSsid.fromUtf8Text(ssid),
                 mBssids[0], mCaps[0], mLevels[0], mFrequencies[0], System.currentTimeMillis(), 0);
         WifiConfiguration configHasEverConnectedFalse = mock(WifiConfiguration.class);
         WifiConfiguration.NetworkSelectionStatus networkSelectionStatusFalse =
@@ -1739,7 +1739,7 @@ public class WifiLastResortWatchdogTest extends WifiBaseTest {
         List<Pair<ScanDetail, WifiConfiguration>> candidates =
                 new ArrayList<Pair<ScanDetail, WifiConfiguration>>();
         String ssid = mSsids[0].replaceAll("^\"+", "").replaceAll("\"+$", "");
-        ScanDetail scanDetail = new ScanDetail(WifiSsid.createFromAsciiEncoded(ssid),
+        ScanDetail scanDetail = new ScanDetail(WifiSsid.fromUtf8Text(ssid),
                 mBssids[0], mCaps[0], mLevels[0], mFrequencies[0], System.currentTimeMillis(), 0);
 
         WifiConfiguration configHasEverConnectedTrue = mock(WifiConfiguration.class);

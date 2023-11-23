@@ -51,7 +51,7 @@ cc_binary {
         "libhardware",
         "libpng",
         "libcamera_metadata",
-        "android.frameworks.automotive.telemetry-V1-ndk_platform",
+        "android.frameworks.automotive.telemetry-V1-ndk",
         "android.hardware.camera.device@3.2",
         "android.hardware.automotive.evs@1.0",
         "android.hardware.automotive.evs@1.1",
@@ -63,6 +63,7 @@ cc_binary {
     static_libs: [
         "libmath",
         "libjsoncpp",
+        "libvhalclient",
     ],
 
     required: [
@@ -72,6 +73,8 @@ cc_binary {
     ],
 
     init_rc: ["evs_app.rc"],
+
+    defaults: ["vhalclient_defaults"],
 
     cflags: ["-DLOG_TAG=\"EvsApp\""] + [
         "-DGL_GLEXT_PROTOTYPES",

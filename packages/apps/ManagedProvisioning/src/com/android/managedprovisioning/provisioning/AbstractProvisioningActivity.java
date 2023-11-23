@@ -156,6 +156,18 @@ public abstract class AbstractProvisioningActivity extends SetupGlifLayoutActivi
     }
 
     @Override
+    public void error(int titleId, String errorMessage, boolean resetRequired) {
+        SimpleDialog.Builder dialogBuilder = new SimpleDialog.Builder()
+                .setTitle(titleId)
+                .setMessage(errorMessage)
+                .setCancelable(false)
+                .setPositiveButtonMessage(resetRequired
+                        ? R.string.reset : android.R.string.ok);
+
+        showDialog(dialogBuilder, resetRequired ? ERROR_DIALOG_RESET : ERROR_DIALOG_OK);
+    }
+
+    @Override
     protected void showDialog(DialogBuilder builder, String tag) {
         // Whenever a dialog is shown, stop listening for further updates
         getProvisioningManager().unregisterListener(this);

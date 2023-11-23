@@ -17,12 +17,18 @@
 package com.android.tv.settings.enterprise;
 
 import android.content.Context;
+import android.icu.text.MessageFormat;
 
 import androidx.preference.Preference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.R;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public abstract class CaCertsPreferenceControllerBase extends AbstractPreferenceController {
 
@@ -37,8 +43,13 @@ public abstract class CaCertsPreferenceControllerBase extends AbstractPreference
     @Override
     public void updateState(Preference preference) {
         final int certs = getNumberOfCaCerts();
-        preference.setSummary(mContext.getResources().getQuantityString(
-                R.plurals.enterprise_privacy_number_ca_certs, certs, certs));
+        MessageFormat msgFormat = new MessageFormat(
+                mContext.getResources().getString(
+                        R.string.enterprise_privacy_number_ca_certs),
+                Locale.getDefault());
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("count", certs);
+        preference.setSummary(msgFormat.format(arguments));
     }
 
     @Override

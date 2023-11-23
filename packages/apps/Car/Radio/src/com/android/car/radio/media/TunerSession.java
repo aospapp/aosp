@@ -149,6 +149,7 @@ public class TunerSession {
 
         @Override
         public void onPlay() {
+            mAppService.tuneToDefaultIfNeeded();
             mAppService.setMuted(false);
         }
 

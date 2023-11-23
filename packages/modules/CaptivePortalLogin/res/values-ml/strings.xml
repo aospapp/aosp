@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"പൂർത്തിയായതോ റദ്ദാക്കിയതായോ ആയ ഡൗൺലോഡുകൾ കാണിക്കുന്ന അറിയിപ്പുകൾ"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"ഡൗൺലോഡിന്റെ പുരോഗതി"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"ഫയൽ ഡൗൺലോഡുകളുടെ പുരോഗതി കാണിക്കുന്ന അറിയിപ്പുകൾ"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"ഡൗൺലോഡ് റദ്ദാക്കി"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ഫയൽ വളരെ വലുതാണ്, ഡൗൺലോഡ് റദ്ദാക്കി."</string>
 </resources>

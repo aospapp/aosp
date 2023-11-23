@@ -51,7 +51,7 @@ import com.android.cellbroadcastservice.CellBroadcastStatsLog;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
-
+import java.util.Arrays;
 
 public class CellBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "CellBroadcastReceiver";
@@ -68,6 +68,9 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
 
     // Key to access the shared preference of service state.
     private static final String SERVICE_STATE = "service_state";
+
+    // Key to access the shared preference of roaming operator.
+    private static final String ROAMING_OPERATOR_SUPPORTED = "roaming_operator_supported";
 
     // shared preference under developer settings
     private static final String ENABLE_ALERT_MASTER_PREF = "enable_alerts_master_toggle";
@@ -93,6 +96,11 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
 
     public static final String ACTION_TESTING_MODE_CHANGED =
             "com.android.cellbroadcastreceiver.intent.ACTION_TESTING_MODE_CHANGED";
+
+    // System property to set roaming network config which can be multiple items split by
+    // comma, and matched in sequence. This config will insert before the overlay.
+    private static final String ROAMING_PLMN_SUPPORTED_PROPERTY_KEY =
+            "persist.cellbroadcast.roaming_plmn_supported";
 
     private Context mContext;
 
@@ -121,6 +129,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
         } else if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)) {
             if (!intent.getBooleanExtra(
                     "android.telephony.extra.REBROADCAST_ON_UNLOCK", false)) {
+                resetCellBroadcastChannelRanges();
                 int subId = intent.getIntExtra(CarrierConfigManager.EXTRA_SUBSCRIPTION_INDEX,
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
                 initializeSharedPreference(context, subId);
@@ -146,11 +155,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
             // configurations once moving back from APM. This should be fixed in lower layer
             // going forward.
             int ss = intent.getIntExtra(EXTRA_VOICE_REG_STATE, ServiceState.STATE_IN_SERVICE);
-            if (ss != ServiceState.STATE_POWER_OFF
-                    && getServiceState(context) == ServiceState.STATE_POWER_OFF) {
-                startConfigServiceToEnableChannels();
-            }
-            setServiceState(ss);
+            onServiceStateChanged(context, res, ss);
         } else if (SubscriptionManager.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED.equals(action)) {
             startConfigServiceToEnableChannels();
         } else if (Telephony.Sms.Intents.ACTION_SMS_EMERGENCY_CB_RECEIVED.equals(action) ||
@@ -178,7 +183,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                 setTestingMode(!isTestingMode(mContext));
                 int msgId = (isTestingMode(mContext)) ? R.string.testing_mode_enabled
                         : R.string.testing_mode_disabled;
-                String msg =  res.getString(msgId);
+                String msg = res.getString(msgId);
                 Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
                 LocalBroadcastManager.getInstance(mContext)
                         .sendBroadcast(new Intent(ACTION_TESTING_MODE_CHANGED));
@@ -191,21 +196,74 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                         provider.resyncToSmsInbox(mContext);
                         return true;
                     });
-        } else if (TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED.equals(action)) {
-            int sim_state = intent.getIntExtra(
-                TelephonyManager.EXTRA_SIM_STATE, TelephonyManager.SIM_STATE_UNKNOWN);
-
-            if (sim_state == TelephonyManager.SIM_STATE_ABSENT
-                || sim_state == TelephonyManager.SIM_STATE_PRESENT) {
-                CellBroadcastChannelManager.clearAllCellBroadcastChannelRanges();
-            }
         } else {
             Log.w(TAG, "onReceive() unexpected action " + action);
         }
     }
 
+    private void onServiceStateChanged(Context context, Resources res, int ss) {
+        logd("onServiceStateChanged, ss: " + ss);
+        // check whether to support roaming network
+        String roamingOperator = null;
+        if (ss == ServiceState.STATE_IN_SERVICE || ss == ServiceState.STATE_EMERGENCY_ONLY) {
+            TelephonyManager tm = context.getSystemService(TelephonyManager.class);
+            String networkOperator = tm.getNetworkOperator();
+            logd("networkOperator: " + networkOperator);
+
+            // check roaming config only if the network oprator is not empty as the config
+            // is based on operator numeric
+            if (!networkOperator.isEmpty()) {
+                // No roaming supported by default
+                roamingOperator = "";
+                if ((tm.isNetworkRoaming() || ss == ServiceState.STATE_EMERGENCY_ONLY)
+                        && !networkOperator.equals(tm.getSimOperator())) {
+                    String propRoamingPlmn = SystemProperties.get(
+                            ROAMING_PLMN_SUPPORTED_PROPERTY_KEY, "").trim();
+                    String[] roamingNetworks = propRoamingPlmn.isEmpty() ? res.getStringArray(
+                            R.array.cmas_roaming_network_strings) : propRoamingPlmn.split(",");
+                    logd("roamingNetworks: " + Arrays.toString(roamingNetworks));
+
+                    for (String r : roamingNetworks) {
+                        r = r.trim();
+                        if (r.equals("XXXXXX")) {
+                            //match any roaming network, store mcc+mnc
+                            roamingOperator = networkOperator;
+                            break;
+                        } else if (r.equals("XXX")) {
+                            //match any roaming network, only store mcc
+                            roamingOperator = networkOperator.substring(0, 3);
+                            break;
+                        }  else if (networkOperator.startsWith(r)) {
+                            roamingOperator = r;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ((ss != ServiceState.STATE_POWER_OFF
+                && getServiceState(context) == ServiceState.STATE_POWER_OFF)
+                || (roamingOperator != null && !roamingOperator.equals(
+                getRoamingOperatorSupported(context)))) {
+            startConfigServiceToEnableChannels();
+        }
+        setServiceState(ss);
+
+        if (roamingOperator != null) {
+            log("update supported roaming operator as " + roamingOperator);
+            setRoamingOperatorSupported(roamingOperator);
+        }
+    }
+
     /**
      * Send an intent to reset the users WEA settings if there is a new carrier on the default subId
+     *
+     * The settings will be reset only when a new carrier is detected on the default subId. So it
+     * tracks the previous carrier id, and ignores the case that the current carrier id is changed
+     * to invalid. In case of the first boot with a sim on the new device, FDR, or upgrade from Q,
+     * the carrier id will be stored as there is no previous carrier id, but the settings will not
+     * be reset.
      *
      * Do nothing in other cases:
      *   - SIM insertion for the non-default subId
@@ -215,9 +273,17 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
      * @param context the context
      * @param subId subId of the carrier config event
      */
-    private void resetSettingsIfCarrierChanged(Context context, int subId) {
+    private void resetSettingsAsNeeded(Context context, int subId) {
+        final int defaultSubId = SubscriptionManager.getDefaultSubscriptionId();
+
         // subId may be -1 if carrier config broadcast is being sent on SIM removal
         if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            if (defaultSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                Log.d(TAG, "ignoring carrier config broadcast because subId=-1 and it's not"
+                        + " defaultSubId when device is support multi-sim");
+                return;
+            }
+
             if (getPreviousCarrierIdForDefaultSub() == NO_PREVIOUS_CARRIER_ID) {
                 // on first boot only, if no SIM is inserted we save the carrier ID -1.
                 // This allows us to detect the carrier change from -1 to the carrier of the first
@@ -228,7 +294,6 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
             return;
         }
 
-        final int defaultSubId = SubscriptionManager.getDefaultSubscriptionId();
         Log.d(TAG, "subId=" + subId + " defaultSubId=" + defaultSubId);
         if (defaultSubId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
             Log.d(TAG, "ignoring carrier config broadcast because defaultSubId=-1");
@@ -258,6 +323,17 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
             return;
         }
 
+        /** When user_build_mode is true and alow_testing_mode_on_user_build is false
+         *  then testing_mode is not able to be true at all.
+         */
+        Resources res = getResourcesMethod();
+        if (!res.getBoolean(R.bool.allow_testing_mode_on_user_build)
+                && SystemProperties.getInt("ro.debuggable", 0) == 0
+                && CellBroadcastReceiver.isTestingMode(context)) {
+            Log.d(TAG, "it can't be testing_mode at all");
+            setTestingMode(false);
+        }
+
         if (carrierId != previousCarrierId) {
             saveCarrierIdForDefaultSub(carrierId);
             startConfigService(context,
@@ -273,12 +349,17 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                 .getInt(CARRIER_ID_FOR_DEFAULT_SUB_PREF, NO_PREVIOUS_CARRIER_ID);
     }
 
-    private void saveCarrierIdForDefaultSub(int carrierId) {
+
+    /**
+     * store carrierId corresponding to the default subId.
+     */
+    @VisibleForTesting
+    public void saveCarrierIdForDefaultSub(int carrierId) {
         getDefaultSharedPreferences().edit().putInt(CARRIER_ID_FOR_DEFAULT_SUB_PREF, carrierId)
                 .apply();
     }
 
-        /**
+    /**
      * Enable/disable cell broadcast receiver testing mode.
      *
      * @param on {@code true} if testing mode is on, otherwise off.
@@ -309,11 +390,27 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
     }
 
     /**
+     * Store the roaming operator
+     */
+    private void setRoamingOperatorSupported(String roamingOperator) {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
+        sp.edit().putString(ROAMING_OPERATOR_SUPPORTED, roamingOperator).commit();
+    }
+
+    /**
      * @return the stored voice registration service state
      */
     private static int getServiceState(Context context) {
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
         return sp.getInt(SERVICE_STATE, ServiceState.STATE_IN_SERVICE);
+    }
+
+    /**
+     * @return the supported roaming operator
+     */
+    public static String getRoamingOperatorSupported(Context context) {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+        return sp.getString(ROAMING_OPERATOR_SUPPORTED, "");
     }
 
     /**
@@ -369,7 +466,7 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
         if (isSystemUser()) {
             Log.d(TAG, "initializeSharedPreference");
 
-            resetSettingsIfCarrierChanged(context, subId);
+            resetSettingsAsNeeded(context, subId);
 
             SharedPreferences sp = getDefaultSharedPreferences();
 
@@ -622,8 +719,22 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
         }
     }
 
+    /**
+     * Reset cached CellBroadcastChannelRanges
+     *
+     * This method's purpose is to enable unit testing
+     */
+    @VisibleForTesting
+    public void resetCellBroadcastChannelRanges() {
+        CellBroadcastChannelManager.clearAllCellBroadcastChannelRanges();
+    }
+
     private static void log(String msg) {
         Log.d(TAG, msg);
+    }
+
+    private static void logd(String msg) {
+        if (DBG) Log.d(TAG, msg);
     }
 
     private static void loge(String msg) {

@@ -16,8 +16,6 @@
 
 package com.android.managedprovisioning.parser;
 
-import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
-
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.content.Context;
@@ -43,8 +41,8 @@ public class MessageParser implements ProvisioningDataParser {
     private final SettingsFacade mSettingsFacade;
     private final Context mContext;
 
-    public MessageParser(Context context) {
-        this(context, new Utils(), new ParserUtils(), new SettingsFacade());
+    public MessageParser(Context context, Utils utils) {
+        this(context, utils, new ParserUtils(), new SettingsFacade());
     }
 
     @VisibleForTesting
@@ -59,16 +57,11 @@ public class MessageParser implements ProvisioningDataParser {
     @Override
     public ProvisioningParams parse(Intent provisioningIntent)
             throws IllegalProvisioningArgumentException {
-        return getParser(provisioningIntent).parse(provisioningIntent);
+        return getParser().parse(provisioningIntent);
     }
 
     @VisibleForTesting
-    ProvisioningDataParser getParser(Intent provisioningIntent) {
-        if (ACTION_NDEF_DISCOVERED.equals(provisioningIntent.getAction())) {
-            return new PropertiesProvisioningDataParser(mContext, mParserUtils, mSettingsFacade);
-        } else {
-            return new ExtrasProvisioningDataParser(
-                    mContext, mUtils, mParserUtils, mSettingsFacade);
-        }
+    ProvisioningDataParser getParser() {
+        return new ExtrasProvisioningDataParser(mContext, mUtils, mParserUtils, mSettingsFacade);
     }
 }

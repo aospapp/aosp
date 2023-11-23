@@ -32,18 +32,26 @@
     <bool name="config_show_standby_timeout">false</bool>
 
     <!-- Determines whether the entire "Quick Settings" section is available or not. -->
-    <bool name="config_quick_settings_enabled" translatable="false">true</bool>
+    <bool name="config_quick_settings_enabled">true</bool>
 
     <!-- Determines whether the "Take bug report" option is shown in quick settings. -->
-    <bool name="config_quick_settings_show_take_bugreport" translatable="false">true</bool>
+    <bool name="config_quick_settings_show_take_bugreport">true</bool>
 
     <!-- Flavor of TvSettings. -->
     <string name="config_tvSettingsFlavor" translatable="false">Classic</string>
+
+    <!-- Determines whether "Quick connect" menu item is visible (if supported by hardware) -->
+    <bool name="config_easyconnect_enabled">true</bool>
 
     <!-- Allow overlay to specify known/official device names using the return value of
         BluetoothDevice # getName() so that it is hidden from the generic bluetooth accessories
         section and is only visible in OEM-implemented Slice. -->
     <string-array name="known_bluetooth_device_labels" translatable="false">
+    </string-array>
+
+    <!-- known_bluetooth_device_labels used to be named as known_remote_labels, for backward
+        compatibility, we will keep supporting this option. -->
+    <string-array name="known_remote_labels" translatable="false">
     </string-array>
 
     <!-- Whether to show the bluetooth toggle. Please be very careful with this config as setting it
@@ -74,4 +82,6 @@
             android.view.Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS -->
     <integer name="hdr10plus">4</integer>
 
+    <!-- Determines whether the device should optimise wifi scanning. -->
+    <bool name="wifi_scan_optimisation_enabled">false</bool>
 </resources>

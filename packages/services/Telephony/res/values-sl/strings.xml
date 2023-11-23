@@ -637,18 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Način povratnega klica v sili"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Podatkovno povezovanje onemogočeno"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Podatkovne povezave ne bo do <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">Telefon bo v načinu povratnega klica v sili <xliff:g id="COUNT_1">%s</xliff:g> minuto. V tem načinu ni mogoče uporabljati aplikacij, ki uporabljajo podatkovno povezavo. Ali želite zapreti?</item>
-      <item quantity="two">Telefon bo v načinu povratnega klica v sili <xliff:g id="COUNT_1">%s</xliff:g> minuti. V tem načinu ni mogoče uporabljati aplikacij, ki uporabljajo podatkovno povezavo. Ali želite zapreti?</item>
-      <item quantity="few">Telefon bo v načinu povratnega klica v sili <xliff:g id="COUNT_1">%s</xliff:g> minute. V tem načinu ni mogoče uporabljati aplikacij, ki uporabljajo podatkovno povezavo. Ali želite zapreti?</item>
-      <item quantity="other">Telefon bo v načinu povratnega klica v sili <xliff:g id="COUNT_1">%s</xliff:g> minut. V tem načinu ni mogoče uporabljati aplikacij, ki uporabljajo podatkovno povezavo. Ali želite zapreti?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">Izbrano dejanje ni na voljo v načinu povratnega klica v sili. Telefon bo v tem načinu <xliff:g id="COUNT_1">%s</xliff:g> minuto. Ali želite zapreti?</item>
-      <item quantity="two">Izbrano dejanje ni na voljo v načinu povratnega klica v sili. Telefon bo v tem načinu <xliff:g id="COUNT_1">%s</xliff:g> minuti. Ali želite zapreti?</item>
-      <item quantity="few">Izbrano dejanje ni na voljo v načinu povratnega klica v sili. Telefon bo v tem načinu <xliff:g id="COUNT_1">%s</xliff:g> minute. Ali želite zapreti?</item>
-      <item quantity="other">Izbrano dejanje ni na voljo v načinu povratnega klica v sili. Telefon bo v tem načinu <xliff:g id="COUNT_1">%s</xliff:g> minut. Ali želite zapreti?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Izbrano dejanje ni na voljo med klicanjem v sili."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Izhod iz načina za povratni klic v sili"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Da"</string>
@@ -656,12 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Opusti"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefon je v načinu za povratni klic v sili"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Do <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">Telefon bo v načinu za povratni klic v sili čez <xliff:g id="COUNT_1">%s</xliff:g> minuto.\nAli želite zapustiti ta način?</item>
-      <item quantity="two">Telefon bo v načinu za povratni klic v sili čez <xliff:g id="COUNT_1">%s</xliff:g> minuti.\nAli želite zapustiti ta način?</item>
-      <item quantity="few">Telefon bo v načinu za povratni klic v sili čez <xliff:g id="COUNT_1">%s</xliff:g> minute.\nAli želite zapustiti ta način?</item>
-      <item quantity="other">Telefon bo v načinu za povratni klic v sili čez <xliff:g id="COUNT_1">%s</xliff:g> minut.\nAli želite zapustiti ta način?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Storitev"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Nastavitev"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Ni nastavljeno&gt;"</string>
@@ -689,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Funkcije za ljudi s posebnimi potrebami"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Klic prek Wi-Fi-ja osebe"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Klic Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Znova se dotaknite, če želite odpreti"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Napaka pri dekodiranju sporočila."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Kartica SIM je aktivirala vašo storitev in posodobila zmožnosti telefona za gostovanje."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Preveč aktivnih klicev. Preden začnete nov klic, končajte ali združite obstoječe klice."</string>
@@ -833,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Klica ni mogoče opraviti, ker že poteka vzpostavljanje drugega odhodnega klica."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Klica ni mogoče opraviti, ker imate dohodni klic, na katerega še niste odgovorili. Preden začnete z opravljanjem novega klica, sprejmite ali zavrnite dohodni klic."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Klica ni mogoče opraviti, ker je klicanje onemogočeno zaradi sistemske lastnosti ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Klica ni mogoče opraviti, ker potekata že dva klica. Preden začnete z opravljanjem novega klica, prekinite enega od klicev ali ju združite v konferenčni klic."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Klica ni mogoče opraviti, ker potekata že dva klica. Preden začnete nov klic, prekinite enega od klicev ali ju združite v konferenčni klic."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Če želite uporabiti storitev <xliff:g id="SUPP_SERVICE">%s</xliff:g>, najprej preverite, ali je vklopljen prenos podatkov v mobilnem omrežju. To izbiro lahko spremenite v nastavitvah mobilnega omrežja."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Če želite uporabiti storitev <xliff:g id="SUPP_SERVICE">%s</xliff:g>, najprej preverite, ali sta vklopljena prenos podatkov v mobilnem omrežju in podatkovno gostovanje. Ti izbiri lahko spremenite v nastavitvah mobilnega omrežja."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Če želite uporabiti storitev <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, najprej preverite, ali je prenos podatkov v mobilnem omrežju vklopljen za kartico SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. To izbiro lahko spremenite v nastavitvah mobilnega omrežja."</string>
@@ -851,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Če želite spremeniti to nastavitev, znova zaženite napravo."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Vnovičen zagon"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Prekliči"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Nastavi izmenljivo kartico e-SIM kot privzeto"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Moč radia mobilne naprave"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Prikaži imenik na kartici SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Prikaži številke za zaporo odhodnih klicev"</string>
@@ -905,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Izbira radijskega območja"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Vrsta glasovnega omrežja:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Vrsta podatkovnega omrežja:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Preglasi vrsto omrežja:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Izberite indeks telefona"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Nastavitev vrste prednostnega omrežja:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Preverjanje imena gostitelja (www.google.com) za IPv4:"</string>
@@ -916,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Osveži"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Preklop preverjanja DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informacije/nastavitve za OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"Razpoložljivo za EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Omejeno za DCNR:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"Razpoložljivo za NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Stanje NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"Razpoložljivo za EN-DC (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"Omejeno za DCNR (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"Razpoložljivo za NR (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Stanje NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frekvenca NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Nastavljanje načina radijskega območja"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Nalaganje seznama frekvenčnih pasov …"</string>

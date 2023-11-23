@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"سيدير التطبيق التالي جهازك:"</string>
     <string name="next" msgid="1004321437324424398">"التالي"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"جارٍ إعداد الملف الشخصي للعمل..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الملف الشخصي، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">
-
-</xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"يمكن لمشرف تكنولوجيا المعلومات مراقبة وإدارة الإعدادات، وإمكانية الوصول إلى الشركات، والتطبيقات، والأذونات، والبيانات وأنشطة الشبكة المرتبطة بهذا الملف الشخصي، بالإضافة إلى سجلّ المكالمات وسجلّ البحث في جهات الاتصال. تواصَل مع مشرف تكنولوجيا المعلومات للحصول على مزيد من المعلومات ولمعرفة المزيد حول سياسات الخصوصية التي تُطبّقها مؤسستك."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الجهاز، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">
 
 </xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
@@ -162,10 +160,10 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"حسابك مُدار"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"يستخدم مشرف تكنولوجيا المعلومات في مؤسستك إدارة الأجهزة الجوّالة لتنفيذ سياسات الأمان."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"جارٍ إعداد الجهاز للاستخدام في العمل…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"لنبدأ في إعداد الملف الشخصي للعمل."</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل."</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"لنبدأ إعداد الملف الشخصي للعمل"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"إيقاف تطبيقات العمل مؤقتًا عند انتهاء مهام يوم العمل"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"تكون البيانات في ملفك الشخصي للعمل مرئية لمشرف تكنولوجيا المعلومات في مؤسستك."</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"البيانات في ملفك الشخصي للعمل تظهر لمشرف تكنولوجيا المعلومات في مؤسستك"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"جارٍ إعداد الملف الشخصي للعمل…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل. يمكنك إيقاف تطبيقات العمل مؤقتًا عند انتهاء مهام يوم العمل. إنّ بيانات ملفك الشخصي للعمل مرئية لمشرف تكنولوجيا المعلومات في مؤسستك."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"حان وقت إعداد جهاز العمل."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"يمكن لشركة بيع الأجهزة بالائتمان <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> تثبيت تطبيق <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> لتتمكّن من سداد الدفعات مقابل شراء هذا الجهاز."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"يمكن حظر هذا الجهاز"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"يمكن لشركة بيع الأجهزة بالائتمان <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> حظر الوصول إلى هذا الجهاز إذا لم تسدد الدفعات."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"يتعذّر ضبط إعدادات الجهاز. يُرجى التواصل مع مشرف تكنولوجيا المعلومات والإشارة إلى ظهور الرسالة \"المجموع الاختباري غير الصالح\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"يُرجى إعادة المحاولة في وقت لاحق أو طلب المساعدة من مشرف تكنولوجيا المعلومات."</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"يتعذّر ضبط إعدادات الجهاز. يُرجى التواصل مع مشرف تكنولوجيا المعلومات والإشارة إلى ظهور الرسالة \"بعض المكونات مفقودة أو تالفة\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"جارٍ الإعداد…"</string>
 </resources>

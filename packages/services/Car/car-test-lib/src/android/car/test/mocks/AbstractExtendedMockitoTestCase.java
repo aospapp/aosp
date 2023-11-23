@@ -37,6 +37,7 @@ import android.os.HandlerThread;
 import android.os.Trace;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Slog;
 import android.util.TimingsTraceLog;
@@ -60,8 +61,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -90,7 +93,17 @@ public abstract class AbstractExtendedMockitoTestCase {
     private static final String TAG = AbstractExtendedMockitoTestCase.class.getSimpleName();
 
     private static final boolean TRACE = false;
-    private static final boolean VERBOSE = false;
+
+    @SuppressWarnings("IsLoggableTagLength")
+    private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
+
+    /**
+     * Should be used on constructors for test case whose object under test doesn't make any logging
+     * call.
+     */
+    protected static final String[] NO_LOG_TAGS = new String[] {
+            "I can't believe a test case is using this String as a log TAG! Well done!"
+    };
 
     private final List<Class<?>> mStaticSpiedClasses = new ArrayList<>();
 
@@ -103,10 +116,36 @@ public abstract class AbstractExtendedMockitoTestCase {
     @Nullable
     private final TimingsTraceLog mTracer;
 
+    @Nullable
+    private final ArraySet<String> mLogTags;
+
     @Rule
     public final WtfCheckerRule mWtfCheckerRule = new WtfCheckerRule();
 
-    protected AbstractExtendedMockitoTestCase() {
+    /**
+     * Default constructor.
+     *
+     * @param logTags tags to be checked for issues (like {@code wtf()} calls); use
+     * {@link #NO_LOG_TAGS} when object under test doesn't log anything.
+     */
+    protected AbstractExtendedMockitoTestCase(String... logTags) {
+        Objects.requireNonNull(logTags, "logTags cannot be null");
+
+        String prefix = getClass().getSimpleName();
+        if (Arrays.equals(logTags, NO_LOG_TAGS)) {
+            if (VERBOSE) {
+                Log.v(TAG, prefix + ": not checking for wtf logs");
+            }
+            mLogTags = null;
+        } else {
+            if (VERBOSE) {
+                Log.v(TAG, prefix + ": checking for wtf calls on tags " + Arrays.toString(logTags));
+            }
+            mLogTags = new ArraySet<>(logTags.length);
+            for (String logTag: logTags) {
+                mLogTags.add(logTag);
+            }
+        }
         mTracer = TRACE ? new TimingsTraceLog(TAG, Trace.TRACE_TAG_APP) : null;
     }
 
@@ -160,7 +199,9 @@ public abstract class AbstractExtendedMockitoTestCase {
             }
         }
         ArrayList<SyncRunnable> syncs = new ArrayList<>(handlerThreads.size());
-        Log.i(TAG, "will wait for " + handlerThreads.size() + " HandlerThreads");
+        if (VERBOSE) {
+            Log.v(TAG, "will wait for " + handlerThreads.size() + " HandlerThreads");
+        }
         for (int i = 0; i < handlerThreads.size(); i++) {
             Handler handler = new Handler(handlerThreads.get(i).getLooper());
             SyncRunnable sr = new SyncRunnable(() -> { });
@@ -321,12 +362,19 @@ public abstract class AbstractExtendedMockitoTestCase {
         doAnswer((invocation) -> {
             return addWtf(invocation);
         }).when(() -> Slog.wtf(anyString(), anyString(), any(Throwable.class)));
+        // NOTE: android.car.builtin.util.Slogf calls android.util.Slog behind the scenes, so no
+        // need to check for calls of the former...
     }
 
     private Object addWtf(InvocationOnMock invocation) {
         String message = "Called " + invocation;
         Log.d(TAG, message); // Log always, as some test expect it
-        mWtfs.add(new IllegalStateException(message));
+        String actualTag = (String) invocation.getArguments()[0];
+        if (mLogTags != null && mLogTags.contains(actualTag)) {
+            mWtfs.add(new IllegalStateException(message));
+        } else if (VERBOSE) {
+            Log.v(TAG, "ignoring WTF invocation on tag " + actualTag);
+        }
         return null;
     }
 
@@ -424,13 +472,17 @@ public abstract class AbstractExtendedMockitoTestCase {
                 public void evaluate() throws Throwable {
                     String testName = description.getMethodName();
                     if (VERBOSE) Log.v(TAG, "running " + testName);
-                    beginTrace("evaluate-" + testName);
-                    base.evaluate();
-                    endTrace();
 
                     Method testMethod = AbstractExtendedMockitoTestCase.this.getClass()
                             .getMethod(testName);
                     ExpectWtf expectWtfAnnotation = testMethod.getAnnotation(ExpectWtf.class);
+                    Preconditions.checkState(expectWtfAnnotation == null || mLogTags != null,
+                            "Must call constructor that pass logTags on %s to use @%s",
+                            description.getTestClass(), ExpectWtf.class.getSimpleName());
+
+                    beginTrace("evaluate-" + testName);
+                    base.evaluate();
+                    endTrace();
 
                     beginTrace("verify-wtfs");
                     try {
@@ -450,7 +502,10 @@ public abstract class AbstractExtendedMockitoTestCase {
     }
 
     // TODO (b/155523104): Add log
-    // TODO (b/156033195): Clean settings API
+    // TODO (b/156033195): Clean settings API. For example, don't mock xyzForUser() methods (as
+    // they should not be used due to mainline) and explicitly use a MockSettings per user or
+    // something like that (to make sure the code being test is passing the writer userId to
+    // Context.createContextAsUser())
     private static final class MockSettings {
         private static final int INVALID_DEFAULT_INDEX = -1;
         private HashMap<String, Object> mSettingsMapping = new HashMap<>();
@@ -468,11 +523,17 @@ public abstract class AbstractExtendedMockitoTestCase {
 
             when(Settings.Global.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
 
+            when(Settings.System.putInt(any(), any(), anyInt())).thenAnswer(insertObjectAnswer);
+
+            when(Settings.System.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
+
             when(Settings.Secure.putIntForUser(any(), any(), anyInt(), anyInt()))
                     .thenAnswer(insertObjectAnswer);
 
             when(Settings.Secure.getIntForUser(any(), any(), anyInt(), anyInt()))
                     .thenAnswer(getIntAnswer);
+
+            when(Settings.Secure.getInt(any(), any(), anyInt())).thenAnswer(getIntAnswer);
 
             when(Settings.Secure.putStringForUser(any(), anyString(), anyString(), anyInt()))
                     .thenAnswer(insertObjectAnswer);
@@ -489,6 +550,9 @@ public abstract class AbstractExtendedMockitoTestCase {
                     .thenAnswer(getIntAnswer);
 
             when(Settings.System.putStringForUser(any(), any(), anyString(), anyInt()))
+                    .thenAnswer(insertObjectAnswer);
+
+            when(Settings.System.putString(any(), any(), any()))
                     .thenAnswer(insertObjectAnswer);
         }
 

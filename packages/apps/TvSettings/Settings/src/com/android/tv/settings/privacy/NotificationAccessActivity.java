@@ -16,20 +16,20 @@
 
 package com.android.tv.settings.privacy;
 
-import static com.android.tv.settings.overlay.FlavorUtils.ALL_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.ALL_FLAVORS_MASK;
 
 import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
 import com.android.tv.settings.device.apps.specialaccess.NotificationAccess;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /** The Activity that shows notification access settings UI. */
 public class NotificationAccessActivity extends TvSettingsActivity {
 
     @Override
-    protected Fragment createSettingsFragment()  {
-        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+    protected Fragment createSettingsFragment() {
+        return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                this).getSettingsFragmentProvider()
                 .newSettingsFragment(NotificationAccess.class.getName(), null);
     }
 

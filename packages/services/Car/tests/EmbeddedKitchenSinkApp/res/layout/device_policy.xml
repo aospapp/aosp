@@ -13,182 +13,178 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical" >
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+    android:orientation="vertical">
+    <LinearLayout android:layout_width="match_parent"
+                  android:layout_height="match_parent"
+                  android:orientation="vertical" >
+
         <!--  Current user info -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="Current User"/>
+        <com.google.android.car.kitchensink.users.UserInfoView
+            android:id="@+id/current_user"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+        <!--  Existing users... -->
+        <com.google.android.car.kitchensink.users.ExistingUsersView
+            android:layout_marginTop="80dp"
+            android:id="@+id/current_users"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <!--  ...and actions on them -->
+        <LinearLayout android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" >
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="Current User"/>
-            <com.google.android.car.kitchensink.users.UserInfoView
-                android:id="@+id/current_user"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-
-            <!--  Existing users... -->
-            <com.google.android.car.kitchensink.users.ExistingUsersView
-                android:layout_marginTop="80dp"
-                android:id="@+id/current_users"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <!--  ...and actions on them -->
-            <LinearLayout android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <Button
-                    android:id="@+id/remove_user"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Remove"/>
-                <Button
-                    android:id="@+id/start_user_in_background"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Start In Background"/>
-                <Button
-                    android:id="@+id/stop_user"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Stop"/>
-            </LinearLayout>
-
-            <!-- New user section -->
-            <TextView
-                android:layout_marginTop="80dp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" android:text="New User"/>
-            <LinearLayout android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="Name: "/>
-                <EditText
-                    android:id="@+id/new_user_name"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:maxLength="25"
-                    android:text=""/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="Is admin? "/>
-                <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:id="@+id/new_user_is_admin"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="Is guest? "/>
-                <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:id="@+id/new_user_is_guest"/>
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <Button
-                    android:id="@+id/create_user"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="Create"/>
-            </LinearLayout>
-
-            <!-- Non user-related actions -->
-            <TextView
-                android:layout_marginTop="80dp"
+            android:orientation="horizontal" >
+            <Button
+                android:id="@+id/remove_user"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Other actions"/>
-            <LinearLayout android:layout_width="match_parent"
+                android:text="Remove"/>
+            <Button
+                android:id="@+id/start_user_in_background"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Password"/>
-                <EditText
-                    android:id="@+id/password"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:maxLength="10"
-                    android:text=""/>
-                <Button
-                    android:id="@+id/reset_password"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Reset"/>
-                <Button
-                    android:id="@+id/lock_now"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Lock Now"/>
-            </LinearLayout>
-
-            <LinearLayout android:layout_width="match_parent"
+                android:text="Start In Background"/>
+            <Button
+                android:id="@+id/stop_user"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Wipe data"/>
-                <EditText
-                    android:id="@+id/wipe_data_flags"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:maxLength="10"
-                    android:text=""/>
-                <Button
-                    android:id="@+id/wipe_data"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Do it"/>
-            </LinearLayout>
-
-            <LinearLayout android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Lock tasks"/>
-                <Button
-                    android:id="@+id/check_lock_tasks"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Check"/>
-                <Button
-                    android:id="@+id/start_lock_tasks"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Start"/>
-                <Button
-                    android:id="@+id/stop_lock_tasks"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Stop"/>
-            </LinearLayout>
-
-            <LinearLayout android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" >
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Add admin"/>
-                <Spinner
-                    android:id="@+id/device_admin_apps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-                <Button
-                    android:id="@+id/set_device_admin_app"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Set"/>
-            </LinearLayout>
+                android:text="Stop"/>
         </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+
+        <!-- New user section -->
+        <TextView
+            android:layout_marginTop="80dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="New User"/>
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Name: "/>
+            <EditText
+                android:id="@+id/new_user_name"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:maxLength="25"
+                android:text=""/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Is admin? "/>
+            <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:id="@+id/new_user_is_admin"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Is guest? "/>
+            <CheckBox android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:id="@+id/new_user_is_guest"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <Button
+                android:id="@+id/create_user"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="Create"/>
+        </LinearLayout>
+
+        <!-- Non user-related actions -->
+        <TextView
+            android:layout_marginTop="80dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Other actions"/>
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Password"/>
+            <EditText
+                android:id="@+id/password"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:maxLength="10"
+                android:text=""/>
+            <Button
+                android:id="@+id/reset_password"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Reset"/>
+            <Button
+                android:id="@+id/lock_now"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lock Now"/>
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Wipe data"/>
+            <EditText
+                android:id="@+id/wipe_data_flags"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:maxLength="10"
+                android:text=""/>
+            <Button
+                android:id="@+id/wipe_data"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Do it"/>
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lock tasks"/>
+            <Button
+                android:id="@+id/check_lock_tasks"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Check"/>
+            <Button
+                android:id="@+id/start_lock_tasks"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Start"/>
+            <Button
+                android:id="@+id/stop_lock_tasks"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Stop"/>
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Add admin"/>
+            <Spinner
+                android:id="@+id/device_admin_apps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+            <Button
+                android:id="@+id/set_device_admin_app"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Set"/>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

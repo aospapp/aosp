@@ -18,8 +18,8 @@ package com.android.wallpaper.testing;
 
 import android.app.WallpaperManager;
 import android.content.Context;
+import android.os.Build;
 
-import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.model.WallpaperMetadata;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.WallpaperPreferences;
@@ -45,7 +45,7 @@ public class TestWallpaperRefresher implements WallpaperRefresher {
 
         WallpaperPreferences prefs = InjectorProvider.getInjector().getPreferences(mAppContext);
 
-        if (BuildCompat.isAtLeastN() && prefs.getLockWallpaperId() > 0) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && prefs.getLockWallpaperId() > 0) {
             listener.onRefreshed(
                     new WallpaperMetadata(
                             prefs.getHomeWallpaperAttributions(),

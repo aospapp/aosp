@@ -16,13 +16,13 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="{{RRO_PACKAGE_NAME}}">
+          package="will.be.replaced">
     <application android:hasCode="false"/>
     <overlay android:priority="10"
              android:targetName="car-ui-lib"
-             android:targetPackage="{{TARGET_PACKAGE_NAME}}"
+             android:targetPackage="will.be.replaced.too"
              android:resourcesMap="@xml/overlays"
              android:isStatic="true"
-             android:requiredSystemPropertyName="ro.build.characteristics"
-             android:requiredSystemPropertyValue="automotive"/>
+             android:requiredSystemPropertyName="ro.build.car_ui_rros_enabled"
+             android:requiredSystemPropertyValue="true"/>
 </manifest>

@@ -26,7 +26,7 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus.DisableReasonInfo;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NetworkSelectionDisableReason;
-import android.net.wifi.WifiManager;
+import android.net.wifi.WifiSsid;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.LocalLog;
@@ -34,6 +34,7 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.util.WifiPermissionsUtil;
 import com.android.wifi.resources.R;
 
 import java.io.FileDescriptor;
@@ -124,6 +125,7 @@ public class WifiBlocklistMonitor {
     private final WifiScoreCard mWifiScoreCard;
     private final ScoringParams mScoringParams;
     private final WifiMetrics mWifiMetrics;
+    private final WifiPermissionsUtil mWifiPermissionsUtil;
     private final Map<Integer, BssidDisableReason> mBssidDisableReasons =
             buildBssidDisableReasons();
     private final SparseArray<DisableReasonInfo> mDisableReasonInfo;
@@ -138,6 +140,7 @@ public class WifiBlocklistMonitor {
 
     // Map of ssid to Allowlist SSIDs
     private Map<String, List<String>> mSsidAllowlistMap = new ArrayMap<>();
+    private Set<WifiSsid> mSsidsAllowlistForNetworkSelection = new ArraySet<>();
 
     /**
      * Verbose logging flag. Toggled by developer options.
@@ -196,7 +199,8 @@ public class WifiBlocklistMonitor {
      */
     WifiBlocklistMonitor(Context context, WifiConnectivityHelper connectivityHelper,
             WifiLastResortWatchdog wifiLastResortWatchdog, Clock clock, LocalLog localLog,
-            WifiScoreCard wifiScoreCard, ScoringParams scoringParams, WifiMetrics wifiMetrics) {
+            WifiScoreCard wifiScoreCard, ScoringParams scoringParams, WifiMetrics wifiMetrics,
+            WifiPermissionsUtil wifiPermissionsUtil) {
         mContext = context;
         mConnectivityHelper = connectivityHelper;
         mWifiLastResortWatchdog = wifiLastResortWatchdog;
@@ -206,6 +210,7 @@ public class WifiBlocklistMonitor {
         mScoringParams = scoringParams;
         mDisableReasonInfo = DISABLE_REASON_INFOS.clone();
         mWifiMetrics = wifiMetrics;
+        mWifiPermissionsUtil = wifiPermissionsUtil;
         loadCustomConfigsForDisableReasonInfos();
     }
 
@@ -280,16 +285,43 @@ public class WifiBlocklistMonitor {
         return status;
     }
 
-    private boolean isValidNetworkAndFailureReason(String bssid, String ssid,
-            @FailureReason int reasonCode) {
-        if (bssid == null || ssid == null || WifiManager.UNKNOWN_SSID.equals(ssid)
+    /**
+     * Set a list of SSIDs that will always be enabled for network selection.
+     */
+    public void setSsidsAllowlist(@NonNull List<WifiSsid> ssids) {
+        mSsidsAllowlistForNetworkSelection = new ArraySet<>(ssids);
+    }
+
+    /**
+     * Get the list of SSIDs that will always be enabled for network selection.
+     */
+    public List<WifiSsid> getSsidsAllowlist() {
+        return new ArrayList<>(mSsidsAllowlistForNetworkSelection);
+    }
+
+    private boolean isValidNetworkAndFailureReasonForBssidBlocking(String bssid,
+            WifiConfiguration config, @FailureReason int reasonCode) {
+        if (bssid == null || config == null
                 || bssid.equals(ClientModeImpl.SUPPLICANT_BSSID_ANY)
                 || reasonCode < 0 || reasonCode >= NUMBER_REASON_CODES) {
-            Log.e(TAG, "Invalid input: BSSID=" + bssid + ", SSID=" + ssid
+            Log.e(TAG, "Invalid input: BSSID=" + bssid + ", config=" + config
                     + ", reasonCode=" + reasonCode);
             return false;
         }
-        return true;
+        return !isConfigExemptFromBlocklist(config);
+    }
+
+    private boolean isConfigExemptFromBlocklist(@NonNull WifiConfiguration config) {
+        try {
+            // Only enterprise owned configs that are in the doNoBlocklist are exempt from
+            // blocklisting.
+            WifiSsid wifiSsid = WifiSsid.fromString(config.SSID);
+            return mSsidsAllowlistForNetworkSelection.contains(wifiSsid)
+                    && mWifiPermissionsUtil.isAdmin(config.creatorUid, config.creatorName);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Failed to convert raw ssid=" + config.SSID + " to WifiSsid");
+            return false;
+        }
     }
 
     private boolean shouldWaitForWatchdogToTriggerFirst(String bssid,
@@ -305,20 +337,21 @@ public class WifiBlocklistMonitor {
      * This is meant to be used by features that need wifi to avoid a BSSID for a certain duration,
      * and thus will not increase the failure streak counters.
      * @param bssid identifies the AP to block.
-     * @param ssid identifies the SSID the AP belongs to.
+     * @param config identifies the WifiConfiguration.
      * @param durationMs duration in millis to block.
      * @param blockReason reason for blocking the BSSID.
      * @param rssi the latest RSSI observed.
      */
-    public void blockBssidForDurationMs(@NonNull String bssid, @NonNull String ssid,
+    public void blockBssidForDurationMs(@NonNull String bssid, WifiConfiguration config,
             long durationMs, @FailureReason int blockReason, int rssi) {
-        if (durationMs <= 0 || !isValidNetworkAndFailureReason(bssid, ssid, blockReason)) {
-            Log.e(TAG, "Invalid input: BSSID=" + bssid + ", SSID=" + ssid
+        if (durationMs <= 0 || !isValidNetworkAndFailureReasonForBssidBlocking(
+                bssid, config, blockReason)) {
+            Log.e(TAG, "Invalid input: BSSID=" + bssid + ", config=" + config
                     + ", durationMs=" + durationMs + ", blockReason=" + blockReason
                     + ", rssi=" + rssi);
             return;
         }
-        BssidStatus status = getOrCreateBssidStatus(bssid, ssid);
+        BssidStatus status = getOrCreateBssidStatus(bssid, config.SSID);
         if (status.isInBlocklist
                 && status.blocklistEndTimeMs - mClock.getWallClockMillis() > durationMs) {
             // Return because this BSSID is already being blocked for a longer time.
@@ -413,11 +446,12 @@ public class WifiBlocklistMonitor {
      * Note a failure event on a bssid and perform appropriate actions.
      * @return True if the blocklist has been modified.
      */
-    public boolean handleBssidConnectionFailure(String bssid, String ssid,
+    public boolean handleBssidConnectionFailure(String bssid, WifiConfiguration config,
             @FailureReason int reasonCode, int rssi) {
-        if (!isValidNetworkAndFailureReason(bssid, ssid, reasonCode)) {
+        if (!isValidNetworkAndFailureReasonForBssidBlocking(bssid, config, reasonCode)) {
             return false;
         }
+        String ssid = config.SSID;
         BssidDisableReason bssidDisableReason = mBssidDisableReasons.get(reasonCode);
         if (bssidDisableReason == null) {
             Log.e(TAG, "Bssid disable reason not found. ReasonCode=" + reasonCode);
@@ -641,11 +675,13 @@ public class WifiBlocklistMonitor {
     /**
      * Attempts to re-enable BSSIDs that likely experienced failures due to low RSSI.
      * @param scanDetails
+     * @return the list of ScanDetails for which BSSIDs were re-enabled.
      */
-    public void tryEnablingBlockedBssids(List<ScanDetail> scanDetails) {
+    public @NonNull List<ScanDetail> tryEnablingBlockedBssids(List<ScanDetail> scanDetails) {
         if (scanDetails == null) {
-            return;
+            return Collections.EMPTY_LIST;
         }
+        List<ScanDetail> results = new ArrayList<>();
         for (ScanDetail scanDetail : scanDetails) {
             ScanResult scanResult = scanDetail.getScanResult();
             if (scanResult == null) {
@@ -657,13 +693,20 @@ public class WifiBlocklistMonitor {
                 continue;
             }
             int sufficientRssi = mScoringParams.getSufficientRssi(scanResult.frequency);
-            if (status.lastRssi < sufficientRssi && scanResult.level >= sufficientRssi
-                    && scanResult.level - status.lastRssi >= MIN_RSSI_DIFF_TO_UNBLOCK_BSSID) {
+            int goodRssi = mScoringParams.getGoodRssi(scanResult.frequency);
+            boolean rssiMinDiffAchieved = scanResult.level - status.lastRssi
+                    >= MIN_RSSI_DIFF_TO_UNBLOCK_BSSID;
+            boolean sufficientRssiBreached =
+                    status.lastRssi < sufficientRssi && scanResult.level >= sufficientRssi;
+            boolean goodRssiBreached = status.lastRssi < goodRssi && scanResult.level >= goodRssi;
+            if (rssiMinDiffAchieved && (sufficientRssiBreached || goodRssiBreached)) {
                 mBssidBlocklistMonitorLogger.logBssidUnblocked(
                         status, "rssi significantly improved");
                 mBssidStatusMap.remove(status.bssid);
+                results.add(scanDetail);
             }
         }
+        return results;
     }
 
     private boolean isLowRssiSensitiveFailure(int blockReason) {
@@ -793,10 +836,14 @@ public class WifiBlocklistMonitor {
 
         private StringBuilder createStringBuilderWithLogTime() {
             StringBuilder sb = new StringBuilder();
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTimeInMillis(mClock.getWallClockMillis());
-            sb.append("logTimeMs=" + String.format("%tm-%td %tH:%tM:%tS.%tL", calendar, calendar,
-                    calendar, calendar, calendar, calendar));
+            Calendar c = Calendar.getInstance();
+            c.setTimeInMillis(mClock.getWallClockMillis());
+            sb.append("logTime=").append(c.get(Calendar.MONTH)).append("-")
+                    .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                    .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                    .append(c.get(Calendar.MINUTE)).append(":")
+                    .append(c.get(Calendar.SECOND)).append(".")
+                    .append(c.get(Calendar.MILLISECOND));
             return sb;
         }
 
@@ -816,6 +863,10 @@ public class WifiBlocklistMonitor {
             pw.println("WifiBlocklistMonitor - Bssid blocklist logs begin ----");
             for (String line : mLogBuffer) {
                 pw.println(line);
+            }
+            pw.println("List of SSIDs to never block:");
+            for (WifiSsid ssid : mSsidsAllowlistForNetworkSelection) {
+                pw.println(ssid.toString());
             }
             pw.println("WifiBlocklistMonitor - Bssid blocklist logs end ----");
         }
@@ -874,15 +925,21 @@ public class WifiBlocklistMonitor {
             if (isInBlocklist) {
                 sb.append(", blockReason=" + getFailureReasonString(blockReason));
                 sb.append(", lastRssi=" + lastRssi);
-                Calendar calendar = Calendar.getInstance();
-                calendar.setTimeInMillis(blocklistStartTimeMs);
-                sb.append(", blocklistStartTimeMs="
-                        + String.format("%tm-%td %tH:%tM:%tS.%tL", calendar, calendar,
-                        calendar, calendar, calendar, calendar));
-                calendar.setTimeInMillis(blocklistEndTimeMs);
-                sb.append(", blocklistEndTimeMs="
-                        + String.format("%tm-%td %tH:%tM:%tS.%tL", calendar, calendar,
-                        calendar, calendar, calendar, calendar));
+                Calendar c = Calendar.getInstance();
+                c.setTimeInMillis(blocklistStartTimeMs);
+                sb.append(", blocklistStartTime=").append(c.get(Calendar.MONTH)).append("-")
+                        .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                        .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                        .append(c.get(Calendar.MINUTE)).append(":")
+                        .append(c.get(Calendar.SECOND)).append(".")
+                        .append(c.get(Calendar.MILLISECOND));
+                c.setTimeInMillis(blocklistEndTimeMs);
+                sb.append(", blocklistEndTime=").append(c.get(Calendar.MONTH)).append("-")
+                        .append(c.get(Calendar.DAY_OF_MONTH)).append(" ")
+                        .append(c.get(Calendar.HOUR_OF_DAY)).append(":")
+                        .append(c.get(Calendar.MINUTE)).append(":")
+                        .append(c.get(Calendar.SECOND)).append(".")
+                        .append(c.get(Calendar.MILLISECOND));
             }
             return sb.toString();
         }
@@ -989,6 +1046,12 @@ public class WifiBlocklistMonitor {
         }
         NetworkSelectionStatus networkStatus = config.getNetworkSelectionStatus();
         if (reason != NetworkSelectionStatus.DISABLED_NONE) {
+            // Do not disable if in the exception list
+            if (reason != NetworkSelectionStatus.DISABLED_BY_WIFI_MANAGER
+                    && isConfigExemptFromBlocklist(config)) {
+                return false;
+            }
+
             // Do not update SSID blocklist with information if this is the only
             // SSID be observed. By ignoring it we will cause additional failures
             // which will trigger Watchdog.
@@ -1069,7 +1132,9 @@ public class WifiBlocklistMonitor {
 
         // Clear out all the disable reason counters.
         status.clearDisableReasonCounter();
-        config.status = WifiConfiguration.Status.ENABLED;
+        if (config.status == WifiConfiguration.Status.DISABLED) {
+            config.status = WifiConfiguration.Status.ENABLED;
+        }
     }
 
     /**

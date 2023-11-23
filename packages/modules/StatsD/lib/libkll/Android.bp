@@ -43,6 +43,7 @@ cc_library {
     export_include_dirs: ["include"],
     apex_available: [
         "com.android.os.statsd",
+        "test_com.android.os.statsd",
         "//apex_available:platform",
     ],
     min_sdk_version: "30",

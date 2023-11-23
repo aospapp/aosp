@@ -77,7 +77,7 @@
         style="@style/SystemBarButton"
         systemui:highlightWhenSelected="true"
         systemui:icon="@drawable/car_ic_notification"
-        systemui:longIntent="intent:#Intent;component=com.android.car.bugreport/.BugReportActivity;end"/>
+        systemui:longIntent="intent:#Intent;action=com.android.car.bugreport.action.START_AUDIO_FIRST;component=com.android.car.bugreport/.BugReportActivity;end"/>
 
     <LinearLayout
         android:layout_width="match_parent"

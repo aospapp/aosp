@@ -27,8 +27,6 @@ cc_library_static {
         "encoder.cpp",
         "varint.cpp",
     ],
-    static_libs: [
-    ],
     cflags: [
         "-Wall",
         "-Werror",
@@ -36,10 +34,12 @@ cc_library_static {
     ],
     apex_available: [
         "com.android.os.statsd",
+        "test_com.android.os.statsd",
         "//apex_available:platform",
     ],
     min_sdk_version: "30",
 }
+
 
 cc_test {
     name: "libkll-encoder_test",

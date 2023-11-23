@@ -368,7 +368,7 @@
         </Node>
         <Node>
           <NodeName>UpdateMethod</NodeName>
-          <Value>SSP-ClientInitiated</Value>
+          <Value>SPP-ClientInitiated</Value>
         </Node>
         <Node>
           <NodeName>Restriction</NodeName>

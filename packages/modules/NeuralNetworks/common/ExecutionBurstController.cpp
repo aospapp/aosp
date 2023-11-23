@@ -398,7 +398,10 @@ hardware::Return<void> ExecutionBurstController::ExecutionBurstCallback::getMemo
     // get all memories
     hardware::hidl_vec<hardware::hidl_memory> memories(slots.size());
     std::transform(slots.begin(), slots.end(), memories.begin(), [this](int32_t slot) {
-        return slot < mMemoryCache.size() ? mMemoryCache[slot] : hardware::hidl_memory{};
+        if (slot < 0 || static_cast<size_t>(slot) >= mMemoryCache.size()) {
+            return hardware::hidl_memory{};
+        }
+        return mMemoryCache[slot];
     });
 
     // ensure all memories are valid

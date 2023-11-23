@@ -16,11 +16,13 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
+
 /**
  * Class for exceptions that occur when converting statsd data.
  */
 public class StatsConversionException extends Exception {
-    StatsConversionException(String errorMsg) {
+    StatsConversionException(@NonNull String errorMsg) {
         super(errorMsg);
     }
 }

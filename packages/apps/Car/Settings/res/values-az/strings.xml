@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Mobil internetə giriş"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Mobil şəbəkə"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Mobil data istifadə edin"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Deaktiv"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Mobil data söndürülsün?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Seçim tələb olunur"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Mobil data üçün <xliff:g id="CARRIER">%1$s</xliff:g> istifadə edilsin?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi skanı aktiv edildi"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Mobil dataya avtomatik keçin"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi-Fi internetə qoşulmayanda mobil datadan istifadə edin. Xidmət haqqı tutula bilər."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi‑Fi şəbəkələrini tapın və qoşulun"</string>
     <string name="learn_more" msgid="8214605928933358604">"Ətraflı məlumat"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Hotspot adı"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> aktiv edilir..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Digər cihazlar <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> şəbəkəsinə qoşula bilər"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Hotspot parolu"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Güvənlik"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Şəxsi"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Şəxsi"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Şəxsi"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Yoxdur"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP Diapazonu"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Tətbiq tərcihləri sıfırlanıb"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Bütün datanı silin (zavod sıfırlaması)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Məlumat-əyləncə sistemindəki bütün data və profilləri silin"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Bu, avtomobilin məlumat-əyləncə sistemindəki bütün datanı, eləcə də bunları siləcək:\n\n"<li>"Google Hesabınız"</li>\n<li>"Sistem və tətbiq datası və ayarları"</li>\n<li>"Endirilmiş tətbiqlər"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Bu, avtomobilinizin məlumat-əyləncə sistemindən, o cümlədən aşağıdakı bölmələrdən bütün datanı siləcək:\n\n"<li>"Hesablarınız və profilləriniz"</li>\n<li>"Sistem və tətbiq datası və ayarları"</li>\n<li>"Endirilmiş tətbiqlər"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Hazırda bu hesablara daxil olmusunuz:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Bu avtomobil üçün digər profillər ayarlanıb."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Bütün məlumatlar silinsin"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Yeni admin seçin"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Ən azı bir admininiz olmalıdır. Bunu silmək üçün ilk növbədə əvəzləyici seçin."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Admin seçin"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Qonaq"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Qonaq"</string>
     <string name="user_switch" msgid="6544839750534690781">"Dəyişin"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Siz (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Ad"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> üçün hesablar"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Datanı avtomatik sinxronizasiya edin"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Tətbiqlərə datanı avtomatik yeniləmək icazəsi verin"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Data avto-sinx aktiv edilsin?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Vebdə hesabınıza etdiyiniz istənilən dəyişiklik avtomatik cihazınıza kopyalayacaq.\n\nBəzi hesablar telefonda etdiyiniz dəyişiklikləri avtomatik vebə kopyalaya bilər. Google Hesabı bu cür işləyir."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Data avto-sinx deaktiv edilsin?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Avtomatik data sinxronizasiyasına icazə verilsin?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Vebdə hesabınıza etdiyiniz istənilən dəyişiklik avtomatik olaraq avtomobilinizə kopyalanacaq.\n\nBəzi hesablar avtomobildə etdiyiniz dəyişiklikləri avtomatik olaraq vebə kopyalaya bilər."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Avtomatik data sinxronizasiyasına icazə verilməsin?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Trafik və enerji sərfiyyatı azalacaq, lakin yeni datanın əldə edilməsi üçün hesab əl ilə sinxronlaşdırılmalı olacaq. Yeni güncəllənmə olanda sizə bildiriş gəlməyəcək."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Hesab məlumatı"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Hesab əlavə edin"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Məxfilik"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Məlumat-əyləncə sistemi datası"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Məkanınıza tətbiqin girişinə nəzarət edin"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Kamera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Tətbiqin kameralarınıza girişinə nəzarət edin"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Tətbiqin mikrofona girişinə nəzarət edin"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Məlumat-əyləncə sistemi datası"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Ləğv edin"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Təsdiq edin"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Ən azı 4 simvol olmalıdır"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Ən az <xliff:g id="COUNT">%d</xliff:g> simvol olmalıdır"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN kod ən azı <xliff:g id="COUNT">%d</xliff:g> rəqəm olmalıdır"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"<xliff:g id="NUMBER">%d</xliff:g> simvoldan az olmalıdır"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g> rəqəmdən az olmalıdır"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Yalnız 0-9 aralığında olmalıdır."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Cihaz admini son vaxtlardakı PIN kodu istifadə etməyə icazə vermir"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Ümumi PIN kodlar IT admini tərəfindən blok edilib. Fərqli PIN kod sınayın."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Cihaz admini son vaxtlardakı parolu istifadə etməyə icazə vermir"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Parolu saxlamaqla bağlı problem var"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Ümumi parollar IT admini tərəfindən blok edilib. Fərqli parolu sınayın."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Artan, azalan və ya təkrarlanan rəqəm ardıcıllığı qadağandır."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Ən azı bir hərf olmalıdır"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Ən azı bir rəqəm olmalıdır"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Ən azı bir simvol olmalıdır"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Ən azı # hərf olmalıdır}other{Ən azı # hərf olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Ən azı # kiçik hərf olmalıdır}other{Ən azı # kiçik hərf olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Ən azı # böyük hərf olmalıdır}other{Ən azı # böyük hərf olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Ən azı # rəqəm olmalıdır}other{Ən azı # rəqəm olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Ən azı # xüsusi simvol olmalıdır}other{Ən azı # xüsusi simvol olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Ən azı hərf olmayan # simvol olmalıdır}other{Ən azı hərf olmayan # simvol olmalıdır}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Ən azı rəqəm olmayan # simvol olmalıdır}other{Ən azı rəqəm olmayan # simvol olmalıdır}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Ən azı # simvol olmalıdır}other{Ən azı # simvol olmalıdır}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Ən azı # rəqəm olmalıdır}other{Ən azı # rəqəm olmalıdır}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{# simvoldan az olmalıdır}other{# simvoldan az olmalıdır}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# rəqəmdən az olmalıdır}other{# rəqəmdən az olmalıdır}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Artan, azalan və ya təkrarlanan rəqəm ardıcıllığı qadağandır"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Ekran kilidi seçimləri"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> gün əvvəl"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Kimlik bilgilərini silin"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Silin"</string>
     <string name="cancel" msgid="750286395700355455">"Ləğv edin"</string>
     <string name="allow" msgid="7519431342750394402">"İcazə verin"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"İcazə verməyin"</string>
     <string name="deny" msgid="340512788979930804">"Rədd edin"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace düyməsi"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter düyməsi"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Bu məlumat-əyləncə sistemi tətbiqini aktiv edin"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Deaktiv edin və sistemdən silin"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Bu məlumat-əyləncə sistemi tətbiqini deaktiv edin"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Daha ətraflı"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Təşkilat meneceriniz ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və avtomobilin məkan məlumatı da daxil olmaqla bu profil ilə əlaqəli tətbiqlər və dataya nəzarət edə və idarə edə bilər."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Təşkilat meneceriniz ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və cihazın məkan məlumatı da daxil olmaqla bu profil ilə əlaqəli tətbiqlər və dataya nəzarət edə və idarə edə bilər."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Təşkilat meneceri ayarlar, icazələr, korporativ giriş, şəbəkə fəaliyyəti və avtomobilin məkan məlumatı da daxil olmaqla bu məlumat-əyləncə sistemi ilə əlaqəli tətbiqlər və dataya nəzarət edə və idarə edə bilər."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> avtomobil siyasəti"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Ayarlar təşkilat meneceri tərəfindən idarə edilir"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> haqqında ətraflı məlumat"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"İdarə olunan avtomobil haqqında məlumat"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Ayarlar avtopark admini tərəfindən idarə olunur"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Bu idarə olunan avtomobilə aid məlumatlara girişi təmin etmək üçün avtopark admini ayarları dəyişə və məlumat-əyləncə sistemində proqram quraşdıra bilər.\n\nƏtraflı məlumat üçün avtopark admini ilə əlaqə saxlayın."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Avtopark admininizin görə biləcəyi məlumatlar"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Avtopark admininizin etdiyi dəyişikliklər"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"İdarə olunan avtomobil hesabınızla əlaqəli data"</li>\n" "<li>"İdarə olunan avtomobilinizdəki tətbiqlərin siyahısı"</li>\n" "<li>"Hər bir tətbiqdə sərf olunan vaxt və data miqdarı"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Məlumat-əyləncə sisteminə girişiniz"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Avtomobilinizdəki tətbiqlərin siyahısı"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Tətbiq sayı hesablanır. Siyahıya Play Mağazadan quraşdırılmayan tətbiqlər də daxil ola bilər."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> tətbiq</item>
+      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> tətbiq</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tətbiq</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> tətbiq</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Ən son şəbəkə trafiki qeydi"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Ən son baq hesabatı"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Ən son təhlükəsizlik jurnalı"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Heç bir"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Tətbiqlər quraşdırıldı"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Məkan icazələri"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Mikrofon icazələri"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Kamera icazələri"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Defolt tətbiqlər"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Defolt klaviatura"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> kimi ayarlandı"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Qlobal HTTP proksi ayarlandı"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Şəxsi profilinizdəki etibarlı kredensiallar"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Admin məlumat-əyləncə sistemini kilidləyə və parolu sıfırlaya bilər"</li>\n" "<li>"Admin məlumat-əyləncə sistemindəki məlumatları silə bilər"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Məlumat-əyləncə sistemindəki bütün məlumatları silməzdən əvvəlki uğursuz parol cəhdləri"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Profil datasını silmədən əvvəlki uğursuz parol daxil etmə cəhdləri"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> cəhd</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> cəhd</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Kamera tətbiqləri</item>
+      <item quantity="one">Kamera tətbiqi</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">E-poçt klient tətbiqləri</item>
+      <item quantity="one">E-poçt klient tətbiqi</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Telefon tətbiqləri</item>
+      <item quantity="one">Telefon tətbiqi</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Baq hesabatı paylaşılsın?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Bu avtomobilin təşkilat meneceri bu cihazda nasazlıqların aşkarlanması üçün baq hesabatı sorğusu göndərdi. Tətbiqlər və data paylaşıla bilər."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Bu avtomobilin təşkilat meneceri bu cihazda nasazlıqların aşkarlanması üçün baq hesabatı sorğusu göndərdi. Tətbiqlər və data paylaşıla və cihazınızın surəti müvəqqəti azala bilər."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Bu baq hesabatı bu avtomobilin təşkilat meneceri ilə paylaşılır. Ətraflı məlumat üçün onunla əlaqə saxlayın."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Paylaşın"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"İmtina edin"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Məlumat-əyləncə sistemini sıfırlayın"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Sisteminiz zavod sıfırlaması etmək və bütün məlumatları silmək sorğusu alıb. Onu indi sıfırlaya bilərsiniz və ya avtomobil növbəti dəfə işə düşəndə sıfırlanacaq. Sonra yeni profil ayarlaya bilərsiniz."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"İndi sıfırlayın"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Sonra sıfırlayın"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Məlumat-əyləncə sistemi avtomobil növbəti dəfə işə düşəndə sıfırlanacaq."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Sıfırlamanı başlatmaq üçün avtomobil park edilməlidir."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Bu ayar hazırda dəyişdirilə bilməz"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Əlçatımlılıq"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Altyazılar"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Ağ üstündə qara"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Qara üstündə sarı"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Mavi üstündə sarı"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Ekran oxuyucusu"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Deaktiv"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Ekrandakı elementləri səsləndirin"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> istifadə edin"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Seçimlər"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Ayarlar"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Kamera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Kameradan istifadə"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Bütün tətbiqlərin kameraya girişinə icazə verin"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Kamera icazələrini idarə edin"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Son vaxtlar giriş edilib"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Son tətbiq yoxdur"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 tətbiqin girişi var"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{#/{total_count} tətbiqin girişi var}other{#/{total_count} tətbiqin girişi var}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Son vaxtlar giriş edilib"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Hamısına baxın"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Yüklənir…"</string>
 </resources>

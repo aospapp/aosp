@@ -53,14 +53,6 @@ public class Colors extends DreamService implements SurfaceHolder.Callback {
 
         setInteractive(false);
 
-        mSurfaceView = new SurfaceView(this);
-        mSurfaceView.getHolder().addCallback(this);
-
-        if (mRendererHandlerThread == null) {
-            mRendererHandlerThread = new HandlerThread(TAG);
-            mRendererHandlerThread.start();
-            mRendererHandler = new Handler(mRendererHandlerThread.getLooper());
-        }
     }
 
     @Override
@@ -68,6 +60,10 @@ public class Colors extends DreamService implements SurfaceHolder.Callback {
         super.onAttachedToWindow();
         setInteractive(false);
         setFullscreen(true);
+
+        mSurfaceView = new SurfaceView(this);
+        mSurfaceView.getHolder().addCallback(this);
+
         setContentView(mSurfaceView);
     }
 
@@ -75,6 +71,10 @@ public class Colors extends DreamService implements SurfaceHolder.Callback {
     public void surfaceCreated(SurfaceHolder holder) {
         LOG("surfaceCreated(%s, %d, %d)", holder.getSurface(),
                 holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
+
+        mRendererHandlerThread = new HandlerThread(TAG);
+        mRendererHandlerThread.start();
+        mRendererHandler = new Handler(mRendererHandlerThread.getLooper());
 
         mRendererHandler.post(new Runnable() {
             @Override

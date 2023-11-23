@@ -153,7 +153,7 @@ class CollapsedAlarmViewHolder private constructor(itemView: View) : AlarmItemVi
             createExpandingAnimator(newHolder, duration)
         }
         changeAnimatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 clock.visibility = View.VISIBLE
                 onOff.visibility = View.VISIBLE
                 arrow.visibility = View.VISIBLE
@@ -226,7 +226,7 @@ class CollapsedAlarmViewHolder private constructor(itemView: View) : AlarmItemVi
         val animatorSet = AnimatorSet()
         animatorSet.playTogether(alphaAnimatorSet, boundsAnimator, arrowAnimation)
         animatorSet.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationStart(animator: Animator?) {
+            override fun onAnimationStart(animator: Animator) {
                 AnimatorUtils.startDrawableAnimation(arrow)
             }
         })

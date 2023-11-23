@@ -16,13 +16,6 @@
 
 package android.car.usb.handler;
 
-import static android.car.AoapService.KEY_DEVICE;
-import static android.car.AoapService.KEY_RESULT;
-import static android.car.AoapService.MSG_CAN_SWITCH_TO_AOAP;
-import static android.car.AoapService.MSG_CAN_SWITCH_TO_AOAP_RESPONSE;
-import static android.car.AoapService.MSG_NEW_DEVICE_ATTACHED;
-import static android.car.AoapService.MSG_NEW_DEVICE_ATTACHED_RESPONSE;
-
 import android.annotation.Nullable;
 import android.annotation.WorkerThread;
 import android.car.AoapService;
@@ -52,6 +45,14 @@ import java.util.concurrent.TimeoutException;
 /** Manages connections to {@link android.car.AoapService} (AOAP handler apps). */
 public class AoapServiceManager {
     private static final String TAG = AoapServiceManager.class.getSimpleName();
+
+    // Keep in sync with android.car.AoapService.java.
+    private static final String KEY_DEVICE = "usb-device";
+    private static final String KEY_RESULT = "result";
+    private static final int MSG_CAN_SWITCH_TO_AOAP = 3;
+    private static final int MSG_CAN_SWITCH_TO_AOAP_RESPONSE = 4;
+    private static final int MSG_NEW_DEVICE_ATTACHED = 1;
+    private static final int MSG_NEW_DEVICE_ATTACHED_RESPONSE = 2;
 
     private static final int MSG_DISCONNECT = 1;
     private static final int DISCONNECT_DELAY_MS = 30000;

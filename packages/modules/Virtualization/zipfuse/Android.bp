@@ -14,6 +14,8 @@ rust_defaults {
         "libfuse_rust",
         "liblibc",
         "libzip",
+        "libscopeguard",
+        "liblog_rust",
     ],
     // libfuse_rust, etc don't support 32-bit targets
     multilib: {
@@ -26,6 +28,7 @@ rust_defaults {
 rust_binary {
     name: "zipfuse",
     defaults: ["zipfuse.defaults"],
+    bootstrap: true,
 }
 
 rust_test {

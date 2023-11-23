@@ -18,6 +18,7 @@ package com.android.server.telecom.tests;
 
 import static android.provider.CallLog.Calls.MISSED_REASON_NOT_MISSED;
 import static android.provider.CallLog.Calls.USER_MISSED_CALL_FILTERS_TIMEOUT;
+import static android.provider.CallLog.Calls.USER_MISSED_NO_VIBRATE;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -209,7 +210,8 @@ public class AnalyticsTests extends TelecomSystemTest {
         assertEquals(0, callAnalytics2.endTime);
         long missedReason1 = callAnalytics1.missedReason;
         assertTrue(missedReason1 == MISSED_REASON_NOT_MISSED
-                || missedReason1 == USER_MISSED_CALL_FILTERS_TIMEOUT);
+                || ((missedReason1 & USER_MISSED_CALL_FILTERS_TIMEOUT) > 0)
+                || ((missedReason1 & USER_MISSED_NO_VIBRATE) > 0));
         assertEquals(MISSED_REASON_NOT_MISSED, callAnalytics2.missedReason);
 
         assertEquals(Analytics.INCOMING_DIRECTION, callAnalytics1.callDirection);

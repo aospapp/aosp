@@ -19,9 +19,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.android.wallpaper.compat.WallpaperManagerCompat;
+import com.android.wallpaper.effects.EffectsController;
+import com.android.wallpaper.effects.EffectsController.EffectsServiceListener;
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.monitor.PerformanceMonitor;
@@ -44,8 +47,6 @@ public interface Injector {
     CurrentWallpaperInfoFactory getCurrentWallpaperFactory(Context context);
 
     ExploreIntentChecker getExploreIntentChecker(Context context);
-
-    FormFactorChecker getFormFactorChecker(Context context);
 
     LoggingOptInStatusProvider getLoggingOptInStatusProvider(Context context);
 
@@ -99,4 +100,10 @@ public interface Injector {
      * @return the singleton instance of {@link DisplayUtils}
      */
     DisplayUtils getDisplayUtils(Context context);
+
+    /**
+     * @return the singleton instance of {@link EffectsController}
+     */
+    @Nullable
+    EffectsController createEffectsController(Context context, EffectsServiceListener listener);
 }

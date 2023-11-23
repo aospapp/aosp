@@ -16,10 +16,9 @@
 
 package com.android.networkstack.tethering;
 
-import static android.net.netlink.NetlinkSocket.DEFAULT_RECV_BUFSIZE;
-import static android.net.netlink.StructNlMsgHdr.NLM_F_DUMP;
-import static android.net.netlink.StructNlMsgHdr.NLM_F_REQUEST;
-
+import static com.android.net.module.util.netlink.NetlinkSocket.DEFAULT_RECV_BUFSIZE;
+import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_DUMP;
+import static com.android.net.module.util.netlink.StructNlMsgHdr.NLM_F_REQUEST;
 import static com.android.networkstack.tethering.OffloadHardwareInterface.IPCTNL_MSG_CT_GET;
 import static com.android.networkstack.tethering.OffloadHardwareInterface.IPCTNL_MSG_CT_NEW;
 import static com.android.networkstack.tethering.OffloadHardwareInterface.NFNL_SUBSYS_CTNETLINK;
@@ -29,7 +28,6 @@ import static com.android.networkstack.tethering.OffloadHardwareInterface.NF_NET
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.net.netlink.StructNlMsgHdr;
 import android.net.util.SharedLog;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -39,6 +37,8 @@ import android.system.Os;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.netlink.StructNlMsgHdr;
 
 import org.junit.Before;
 import org.junit.Test;

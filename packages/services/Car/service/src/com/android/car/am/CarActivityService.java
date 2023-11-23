@@ -16,22 +16,50 @@
 
 package com.android.car.am;
 
+import static android.Manifest.permission.MANAGE_ACTIVITY_TASKS;
+import static android.car.content.pm.CarPackageManager.BLOCKING_INTENT_EXTRA_DISPLAY_ID;
+
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.app.ActivityManager;
+import android.app.ActivityOptions;
+import android.app.TaskInfo;
 import android.car.Car;
 import android.car.app.CarActivityManager;
 import android.car.app.ICarActivityService;
+import android.car.builtin.app.ActivityManagerHelper;
+import android.car.builtin.app.TaskInfoHelper;
+import android.car.builtin.content.ContextHelper;
+import android.car.builtin.os.UserManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Binder;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.util.IndentingPrintWriter;
+import android.util.ArrayMap;
+import android.util.Log;
+import android.util.SparseArray;
+import android.view.Display;
 
+import com.android.car.CarLog;
 import com.android.car.CarServiceBase;
+import com.android.car.CarServiceUtils;
+import com.android.car.SystemActivityMonitoringService;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.ICarServiceHelper;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Service responsible for Activities in Car.
@@ -39,12 +67,37 @@ import com.android.internal.annotations.VisibleForTesting;
 public final class CarActivityService extends ICarActivityService.Stub
         implements CarServiceBase {
 
+    private static final String TAG = CarLog.TAG_AM;
+    private static final boolean DBG = Slogf.isLoggable(TAG, Log.DEBUG);
+
     private final Context mContext;
 
     private final Object mLock = new Object();
 
     @GuardedBy("mLock")
     ICarServiceHelper mICarServiceHelper;
+
+    @GuardedBy("mLock")
+    private final SparseArray<TaskInfo> mTasks = new SparseArray<>();
+    @GuardedBy("mLock")
+    private final ArrayMap<IBinder, IBinder.DeathRecipient> mTokens = new ArrayMap<>();
+    @GuardedBy("mLock")
+    private IBinder mCurrentMonitor;
+
+    public interface ActivityLaunchListener {
+        /**
+         * Notify launch of activity.
+         *
+         * @param topTask Task information for what is currently launched.
+         */
+        void onActivityLaunch(TaskInfo topTask);
+    }
+    @GuardedBy("mLock")
+    private ActivityLaunchListener mActivityLaunchListener;
+
+    private final HandlerThread mMonitorHandlerThread = CarServiceUtils.getHandlerThread(
+            SystemActivityMonitoringService.class.getSimpleName());
+    private final Handler mHandler = new Handler(mMonitorHandlerThread.getLooper());
 
     public CarActivityService(Context context) {
         mContext = context;
@@ -73,7 +126,7 @@ public final class CarActivityService extends ICarActivityService.Stub
             throw new SecurityException("Requires " + Car.PERMISSION_CONTROL_CAR_APP_LAUNCH);
         }
         int caller = getCaller();
-        if (caller != UserHandle.USER_SYSTEM && caller != ActivityManager.getCurrentUser()) {
+        if (caller != UserManagerHelper.USER_SYSTEM && caller != ActivityManager.getCurrentUser()) {
             return CarActivityManager.RESULT_INVALID_USER;
         }
 
@@ -89,9 +142,253 @@ public final class CarActivityService extends ICarActivityService.Stub
 
     @VisibleForTesting
     int getCaller() {  // Non static for mocking.
-        return UserHandle.getUserId(Binder.getCallingUid());
+        return UserManagerHelper.getUserId(Binder.getCallingUid());
+    }
+
+    public void registerActivityLaunchListener(ActivityLaunchListener listener) {
+        synchronized (mLock) {
+            mActivityLaunchListener = listener;
+        }
     }
 
     @Override
-    public void dump(IndentingPrintWriter writer) {}
+    public void registerTaskMonitor(IBinder token) {
+        if (DBG) Slogf.d(TAG, "registerTaskMonitor: %s", token);
+        ensurePermission();
+
+        IBinder.DeathRecipient deathRecipient = new IBinder.DeathRecipient() {
+            @Override
+            public void binderDied() {
+                cleanUpToken(token);
+            }
+        };
+        synchronized (mLock) {
+            try {
+                token.linkToDeath(deathRecipient, /* flags= */ 0);
+            } catch (RemoteException e) {
+                // 'token' owner might be dead already.
+                Slogf.e(TAG, "failed to linkToDeath: %s", token);
+                return;
+            }
+            mTokens.put(token, deathRecipient);
+            mCurrentMonitor = token;
+            // When new TaskOrganizer takes the control, it'll get the status of the whole tasks
+            // in the system again. So drops the old status.
+            mTasks.clear();
+        }
+    }
+
+    private void ensurePermission() {
+        if (mContext.checkCallingOrSelfPermission(MANAGE_ACTIVITY_TASKS)
+                != PackageManager.PERMISSION_GRANTED) {
+            throw new SecurityException("requires permission " + MANAGE_ACTIVITY_TASKS);
+        }
+    }
+
+    private void cleanUpToken(IBinder token) {
+        synchronized (mLock) {
+            if (mCurrentMonitor == token) {
+                mCurrentMonitor = null;
+            }
+            IBinder.DeathRecipient deathRecipient = mTokens.remove(token);
+            if (deathRecipient != null) {
+                token.unlinkToDeath(deathRecipient, /* flags= */ 0);
+            }
+        }
+    }
+
+    @Override
+    public void onTaskAppeared(IBinder token, ActivityManager.RunningTaskInfo taskInfo) {
+        if (DBG) {
+            Slogf.d(TAG, "onTaskAppeared: %s, %s", token, TaskInfoHelper.toString(taskInfo));
+        }
+        ensurePermission();
+        synchronized (mLock) {
+            if (!isAllowedToUpdateLocked(token)) {
+                return;
+            }
+            mTasks.put(taskInfo.taskId, taskInfo);
+        }
+        if (TaskInfoHelper.isVisible(taskInfo)) {
+            mHandler.post(() -> notifyActivityLaunch(taskInfo));
+        }
+    }
+
+    private void notifyActivityLaunch(TaskInfo taskInfo) {
+        ActivityLaunchListener listener;
+        synchronized (mLock) {
+            listener = mActivityLaunchListener;
+        }
+        if (listener != null) {
+            listener.onActivityLaunch(taskInfo);
+        }
+    }
+
+    @GuardedBy("mLock")
+    private boolean isAllowedToUpdateLocked(IBinder token) {
+        if (mCurrentMonitor == token) {
+            return true;
+        }
+        // Fallback during no current Monitor exists.
+        boolean allowed = (mCurrentMonitor == null && mTokens.containsKey(token));
+        if (!allowed) {
+            Slogf.w(TAG, "Report with the invalid token: %s", token);
+        }
+        return allowed;
+    }
+
+    @Override
+    public void onTaskVanished(IBinder token, ActivityManager.RunningTaskInfo taskInfo) {
+        if (DBG) {
+            Slogf.d(TAG, "onTaskVanished: %s, %s", token, TaskInfoHelper.toString(taskInfo));
+        }
+        ensurePermission();
+        synchronized (mLock) {
+            if (!isAllowedToUpdateLocked(token)) {
+                return;
+            }
+            mTasks.remove(taskInfo.taskId);
+        }
+    }
+
+    @Override
+    public void onTaskInfoChanged(IBinder token, ActivityManager.RunningTaskInfo taskInfo) {
+        if (DBG) {
+            Slogf.d(TAG, "onTaskInfoChanged: %s, %s", token, TaskInfoHelper.toString(taskInfo));
+        }
+        ensurePermission();
+        synchronized (mLock) {
+            if (!isAllowedToUpdateLocked(token)) {
+                return;
+            }
+            TaskInfo oldTaskInfo = null;
+            int index = mTasks.indexOfKey(taskInfo.taskId);
+            if (index >= 0) {
+                oldTaskInfo = mTasks.valueAt(index);
+                mTasks.setValueAt(index, taskInfo);
+            } else {
+                mTasks.put(taskInfo.taskId, taskInfo);
+            }
+            if ((oldTaskInfo == null || !TaskInfoHelper.isVisible(oldTaskInfo)
+                    || !Objects.equals(oldTaskInfo.topActivity, taskInfo.topActivity))
+                    && TaskInfoHelper.isVisible(taskInfo)) {
+                mHandler.post(() -> notifyActivityLaunch(taskInfo));
+            }
+        }
+    }
+
+    @Override
+    public void unregisterTaskMonitor(IBinder token) {
+        if (DBG) Slogf.d(TAG, "unregisterTaskMonitor: %s", token);
+        ensurePermission();
+        cleanUpToken(token);
+    }
+
+    public List<TaskInfo> getTopTasks() {
+        ArrayList<TaskInfo> tasks = new ArrayList<>();
+        synchronized (mLock) {
+            for (int i = 0, n = mTasks.size(); i < n; ++i) {
+                TaskInfo taskInfo = mTasks.valueAt(i);
+                // Activities launched in the private display or non-focusable display can't be
+                // focusable. So we just monitor all visible Activities/Tasks.
+                if (TaskInfoHelper.isVisible(taskInfo)) {
+                    tasks.add(taskInfo);
+                }
+            }
+        }
+        return tasks;
+    }
+
+    /**
+     * Attempts to restart a task.
+     *
+     * <p>Restarts a task by sending an empty intent with flag
+     * {@link Intent#FLAG_ACTIVITY_CLEAR_TASK} to its root activity. If the task does not exist, do
+     * nothing.
+     *
+     * @param taskId id of task to be restarted.
+     */
+    public void restartTask(int taskId) {
+        TaskInfo task;
+        synchronized (mLock) {
+            task = mTasks.get(taskId);
+        }
+        if (task == null) {
+            Slogf.e(CarLog.TAG_AM, "Could not find root activity with task id " + taskId);
+            return;
+        }
+
+        Intent intent = (Intent) task.baseIntent.clone();
+        // Clear the task the root activity is running in and start it in a new task.
+        // Effectively restart root activity.
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        int userId = TaskInfoHelper.getUserId(task);
+        if (Slogf.isLoggable(CarLog.TAG_AM, Log.INFO)) {
+            Slogf.i(CarLog.TAG_AM, "restarting root activity with user id " + userId);
+        }
+        mContext.startActivityAsUser(intent, UserHandle.of(userId));
+    }
+
+    public TaskInfo getTaskInfoForTopActivity(ComponentName activity) {
+        synchronized (mLock) {
+            for (int i = 0, size = mTasks.size(); i < size; ++i) {
+                TaskInfo info = mTasks.valueAt(i);
+                if (activity.equals(info.topActivity)) {
+                    return info;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Block the current task: Launch new activity with given Intent and finish the current task.
+     *
+     * @param currentTask task to finish
+     * @param newActivityIntent Intent for new Activity
+     */
+    public void blockActivity(TaskInfo currentTask, Intent newActivityIntent) {
+        mHandler.post(() -> handleBlockActivity(currentTask, newActivityIntent));
+    }
+
+    /**
+     * block the current task with the provided new activity.
+     */
+    private void handleBlockActivity(TaskInfo currentTask, Intent newActivityIntent) {
+        int displayId = newActivityIntent.getIntExtra(BLOCKING_INTENT_EXTRA_DISPLAY_ID,
+                Display.DEFAULT_DISPLAY);
+        if (Slogf.isLoggable(CarLog.TAG_AM, Log.DEBUG)) {
+            Slogf.d(CarLog.TAG_AM, "Launching blocking activity on display: " + displayId);
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchDisplayId(displayId);
+        ContextHelper.startActivityAsUser(mContext, newActivityIntent, options.toBundle(),
+                UserHandle.of(TaskInfoHelper.getUserId(currentTask)));
+        // Now make stack with new activity focused.
+        findTaskAndGrantFocus(newActivityIntent.getComponent());
+    }
+
+    private void findTaskAndGrantFocus(ComponentName activity) {
+        TaskInfo taskInfo = getTaskInfoForTopActivity(activity);
+        if (taskInfo != null) {
+            ActivityManagerHelper.setFocusedRootTask(taskInfo.taskId);
+            return;
+        }
+        Slogf.i(CarLog.TAG_AM, "cannot give focus, cannot find Activity:" + activity);
+    }
+
+    @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public void dump(IndentingPrintWriter writer) {
+        writer.println("*CarActivityService*");
+        writer.println(" Tasks:");
+        synchronized (mLock) {
+            for (int i = 0; i < mTasks.size(); i++) {
+                writer.println("  " + TaskInfoHelper.toString(mTasks.valueAt(i)));
+            }
+        }
+    }
 }

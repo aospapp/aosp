@@ -16,12 +16,18 @@
 
 package com.android.server;
 
+import static android.net.ConnectivityManager.FIREWALL_CHAIN_DOZABLE;
+import static android.net.ConnectivityManager.FIREWALL_CHAIN_LOW_POWER_STANDBY;
+import static android.net.ConnectivityManager.FIREWALL_CHAIN_POWERSAVE;
+import static android.net.ConnectivityManager.FIREWALL_CHAIN_RESTRICTED;
+import static android.net.ConnectivityManager.FIREWALL_CHAIN_STANDBY;
 import static android.util.DebugUtils.valueToString;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -32,6 +38,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.annotation.NonNull;
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.INetd;
 import android.net.INetdUnsolicitedEventListener;
 import android.net.LinkAddress;
@@ -71,6 +78,7 @@ import java.util.function.BiFunction;
 public class NetworkManagementServiceTest {
     private NetworkManagementService mNMService;
     @Mock private Context mContext;
+    @Mock private ConnectivityManager mCm;
     @Mock private IBatteryStats.Stub mBatteryStatsService;
     @Mock private INetd.Stub mNetdService;
 
@@ -113,6 +121,9 @@ public class NetworkManagementServiceTest {
         MockitoAnnotations.initMocks(this);
         doNothing().when(mNetdService)
                 .registerUnsolicitedEventListener(mUnsolListenerCaptor.capture());
+        doReturn(Context.CONNECTIVITY_SERVICE).when(mContext).getSystemServiceName(
+                eq(ConnectivityManager.class));
+        doReturn(mCm).when(mContext).getSystemService(eq(Context.CONNECTIVITY_SERVICE));
         // Start the service and wait until it connects to our socket.
         mNMService = NetworkManagementService.create(mContext, mDeps);
     }
@@ -239,6 +250,7 @@ public class NetworkManagementServiceTest {
         mNMService.setUidOnMeteredNetworkDenylist(TEST_UID, true);
         assertTrue("Should be true since mobile data usage is restricted",
                 mNMService.isNetworkRestricted(TEST_UID));
+        verify(mCm).addUidToMeteredNetworkDenyList(TEST_UID);
 
         mNMService.setDataSaverModeEnabled(true);
         verify(mNetdService).bandwidthEnableDataSaver(true);
@@ -246,13 +258,16 @@ public class NetworkManagementServiceTest {
         mNMService.setUidOnMeteredNetworkDenylist(TEST_UID, false);
         assertTrue("Should be true since data saver is on and the uid is not allowlisted",
                 mNMService.isNetworkRestricted(TEST_UID));
+        verify(mCm).removeUidFromMeteredNetworkDenyList(TEST_UID);
 
         mNMService.setUidOnMeteredNetworkAllowlist(TEST_UID, true);
         assertFalse("Should be false since data saver is on and the uid is allowlisted",
                 mNMService.isNetworkRestricted(TEST_UID));
+        verify(mCm).addUidToMeteredNetworkAllowList(TEST_UID);
 
         // remove uid from allowlist and turn datasaver off again
         mNMService.setUidOnMeteredNetworkAllowlist(TEST_UID, false);
+        verify(mCm).removeUidFromMeteredNetworkAllowList(TEST_UID);
         mNMService.setDataSaverModeEnabled(false);
         verify(mNetdService).bandwidthEnableDataSaver(false);
         assertFalse("Network should not be restricted when data saver is off",
@@ -267,31 +282,38 @@ public class NetworkManagementServiceTest {
         isRestrictedForDozable.put(NetworkPolicyManager.FIREWALL_RULE_DEFAULT, true);
         isRestrictedForDozable.put(INetd.FIREWALL_RULE_ALLOW, false);
         isRestrictedForDozable.put(INetd.FIREWALL_RULE_DENY, true);
-        expected.put(INetd.FIREWALL_CHAIN_DOZABLE, isRestrictedForDozable);
+        expected.put(FIREWALL_CHAIN_DOZABLE, isRestrictedForDozable);
         // Powersaver chain
         final ArrayMap<Integer, Boolean> isRestrictedForPowerSave = new ArrayMap<>();
         isRestrictedForPowerSave.put(NetworkPolicyManager.FIREWALL_RULE_DEFAULT, true);
         isRestrictedForPowerSave.put(INetd.FIREWALL_RULE_ALLOW, false);
         isRestrictedForPowerSave.put(INetd.FIREWALL_RULE_DENY, true);
-        expected.put(INetd.FIREWALL_CHAIN_POWERSAVE, isRestrictedForPowerSave);
+        expected.put(FIREWALL_CHAIN_POWERSAVE, isRestrictedForPowerSave);
         // Standby chain
         final ArrayMap<Integer, Boolean> isRestrictedForStandby = new ArrayMap<>();
         isRestrictedForStandby.put(NetworkPolicyManager.FIREWALL_RULE_DEFAULT, false);
         isRestrictedForStandby.put(INetd.FIREWALL_RULE_ALLOW, false);
         isRestrictedForStandby.put(INetd.FIREWALL_RULE_DENY, true);
-        expected.put(INetd.FIREWALL_CHAIN_STANDBY, isRestrictedForStandby);
+        expected.put(FIREWALL_CHAIN_STANDBY, isRestrictedForStandby);
         // Restricted mode chain
         final ArrayMap<Integer, Boolean> isRestrictedForRestrictedMode = new ArrayMap<>();
         isRestrictedForRestrictedMode.put(NetworkPolicyManager.FIREWALL_RULE_DEFAULT, true);
         isRestrictedForRestrictedMode.put(INetd.FIREWALL_RULE_ALLOW, false);
         isRestrictedForRestrictedMode.put(INetd.FIREWALL_RULE_DENY, true);
-        expected.put(INetd.FIREWALL_CHAIN_RESTRICTED, isRestrictedForRestrictedMode);
+        expected.put(FIREWALL_CHAIN_RESTRICTED, isRestrictedForRestrictedMode);
+        // Low Power Standby chain
+        final ArrayMap<Integer, Boolean> isRestrictedForLowPowerStandby = new ArrayMap<>();
+        isRestrictedForLowPowerStandby.put(NetworkPolicyManager.FIREWALL_RULE_DEFAULT, true);
+        isRestrictedForLowPowerStandby.put(INetd.FIREWALL_RULE_ALLOW, false);
+        isRestrictedForLowPowerStandby.put(INetd.FIREWALL_RULE_DENY, true);
+        expected.put(FIREWALL_CHAIN_LOW_POWER_STANDBY, isRestrictedForLowPowerStandby);
 
         final int[] chains = {
-                INetd.FIREWALL_CHAIN_STANDBY,
-                INetd.FIREWALL_CHAIN_POWERSAVE,
-                INetd.FIREWALL_CHAIN_DOZABLE,
-                INetd.FIREWALL_CHAIN_RESTRICTED
+                FIREWALL_CHAIN_STANDBY,
+                FIREWALL_CHAIN_POWERSAVE,
+                FIREWALL_CHAIN_DOZABLE,
+                FIREWALL_CHAIN_RESTRICTED,
+                FIREWALL_CHAIN_LOW_POWER_STANDBY
         };
         final int[] states = {
                 INetd.FIREWALL_RULE_ALLOW,
@@ -306,12 +328,14 @@ public class NetworkManagementServiceTest {
         for (int chain : chains) {
             final ArrayMap<Integer, Boolean> expectedValues = expected.get(chain);
             mNMService.setFirewallChainEnabled(chain, true);
+            verify(mCm).setFirewallChainEnabled(chain, true /* enabled */);
             for (int state : states) {
                 mNMService.setFirewallUidRule(chain, TEST_UID, state);
                 assertEquals(errorMsg.apply(chain, state),
                         expectedValues.get(state), mNMService.isNetworkRestricted(TEST_UID));
             }
             mNMService.setFirewallChainEnabled(chain, false);
+            verify(mCm).setFirewallChainEnabled(chain, false /* enabled */);
         }
     }
 }

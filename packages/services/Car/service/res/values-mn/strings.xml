@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Машиныхаа камерт хандана уу."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"машины эрчим хүчний мэдээлэлд хандах"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Машиныхаа эрчим хүчний мэдээлэлд хандана уу."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Машины EV цэнэглэлтийн тохиргоог хянаарай"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Машиныхаа EV цэнэглэлтийн тохиргоог хянаарай."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"автомашины туулах замын үлдсэн утгыг тохируулах"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Автомашины туулах замын үлдсэн утгыг тохируулна."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"машины халаалт, агааржуулалт болон aгаар цэвэршүүлэгчид хандах"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Үйл ажиллагааг хяналтын самбарт мэдэгдэхийг аппад зөвшөөрөх"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Хяналтын самбарын хяналт"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Аппуудыг хяналтын самбарт эхлүүлэх"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Хяналтын самбарын навигацын төлөв"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Хяналтын самбарын навигацын төлөвийн өөрчлөлтийг сонсоно уу"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Хяналтын самбарын буулгалт"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Хяналтын самбарын өгөгдлийг хүлээн авах"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX Хязгаарлалтын тохируулга"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Оршин суугчийн дохионы мэдээллийн системийн илрүүлэлтийн графикийг эхлүүлэх, зогсоохыг хянах боломж олгодог"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Машины оролтын үйлчилгээ"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Оролтын арга хэмжээг боловсруулах"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN bus амжилтгүй болсон"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus хариу өгөхгүй байна. Хөгжим тоглуулагчийн хайрцгийг салгаад, дахин залгаж, машиныг дахин эхлүүлнэ үү"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Та энэ онцлогийг жолоо барьж байхдаа ашиглах боломжгүй"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Аппын аюулгүй онцлогуудтайгаар дахин эхлүүлэхийн тулд <xliff:g id="EXIT_BUTTON">%s</xliff:g>-г сонгоно уу."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Буцах"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Аппыг хаах"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Буцах"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"оношилгооны өгөгдлийг унших"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Машины оношилгооны өгөгдлийг унших."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"оношилгооны өгөгдлийг устгах"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Машины суудлыг хянах."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"машины ерөнхий мэдээлэлд хандах"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Машины ерөнхий мэдээлэлд хандах."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"машины тусгай эрхтэй мэдээлэлд хандах"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Машины тусгай эрхтэй мэдээлэлд хандана."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"машин нийлүүлэгчийн зөвшөөрлийн мэдээлэлд хандах"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Машин нийлүүлэгчийн зөвшөөрлийн мэдээлэлд хандана уу."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"машины гадна талын гэрлийн төлөвийг унших"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Машины асаах/унтраах бодлогыг уншина."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"машины асаах/унтраах бодлогыг хянана"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Машины асаах/унтраах бодлогыг хянана."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"унтраах явцыг тохируулах"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Унтраах явцыг тохируулна уу."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"загварыг буулгах"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Загварыг буулгана."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"аппликэйшн эхлүүлэхийг хянаарай"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Аппликэйшн эхлүүлэхийг хянаарай."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN bus амжилтгүй болсон"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN bus хариу өгөхгүй байна. Хөгжим тоглуулагчийн хайрцгийг салгаад, дахин залгаж, машиныг дахин эхлүүлнэ үү"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Миний төхөөрөмж"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Зочин"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Өгөгдмөл ач холбогдол"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Өндөр ач холбогдолтой"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Үйлдвэрийн тохиргоонд шинэчлэх шаардлагатай"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Инфотэйнмент систем дэх бүх өгөгдлийг устгана. Шинэчилсний дараа та шинэ профайл тохируулах боломжтой."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Бусад"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Инфотэйнмент системийг шинэчлэх"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Таны систем үйлдвэрийн тохиргоонд шинэчлэх болон бүх өгөгдлийг устгах хүсэлт хүлээн авсан. Та үүнийг одоо шинэчлэх боломжтой. Эсвэл машиныг дараагийн удаа асаахад үүнийг шинэчилнэ. Та дараа нь шинэ профайл тохируулах боломжтой."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Одоо шинэчлэх"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Дараа шинэчлэх"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Машин дараа асахад инфотэйнмент системийг шинэчилнэ"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Шинэчилж эхлэхэд машиныг зогсоосон байх ёстой."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> нь таны системийн гүйцэтгэлд нөлөөлж байна"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Системийн гүйцэтгэлийг сайжруулахын тулд аппыг идэвхгүй болгоно уу. Та аппыг Тохиргоо хэсэгт дахин идэвхжүүлэх боломжтой."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Аппыг үргэлжлүүлэн ашиглахын тулд аппыг эрэмбэлнэ үү."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Системийн гүйцэтгэлийг сайжруулахын тулд аппыг устгана уу."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Aппыг идэвхгүй болгох"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Аппыг эрэмбэлэх"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Аппыг устгах"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g>-г идэвхгүй болгосон. Та үүнийг Тохиргоо хэсэгт дахин идэвхжүүлэх боломжтой."</string>
 </resources>

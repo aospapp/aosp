@@ -18,6 +18,7 @@ package com.android.internal.net.ipsec.ike.message;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
 
+import android.annotation.NonNull;
 import android.annotation.StringDef;
 import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
@@ -38,7 +39,12 @@ import java.security.ProviderException;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -121,13 +127,13 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
                 HASH_ALGORITHM_RSA_SHA2_384,
                 HASH_ALGORITHM_RSA_SHA2_512
             };
-    private static final Set<Short> ALL_SIGNATURE_ALGO_TYPES_SET = new ArraySet<>();
+    private static final Map<Short, String> SIGNATURE_ALGO_TYPE_TO_NAME = new HashMap<>();
 
     static {
-        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA1);
-        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_256);
-        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_384);
-        ALL_SIGNATURE_ALGO_TYPES_SET.add(HASH_ALGORITHM_RSA_SHA2_512);
+        SIGNATURE_ALGO_TYPE_TO_NAME.put(HASH_ALGORITHM_RSA_SHA1, SIGNATURE_ALGO_RSA_SHA1);
+        SIGNATURE_ALGO_TYPE_TO_NAME.put(HASH_ALGORITHM_RSA_SHA2_256, SIGNATURE_ALGO_RSA_SHA2_256);
+        SIGNATURE_ALGO_TYPE_TO_NAME.put(HASH_ALGORITHM_RSA_SHA2_384, SIGNATURE_ALGO_RSA_SHA2_384);
+        SIGNATURE_ALGO_TYPE_TO_NAME.put(HASH_ALGORITHM_RSA_SHA2_512, SIGNATURE_ALGO_RSA_SHA2_512);
     }
 
     public final String signatureAndHashAlgos;
@@ -169,10 +175,9 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
      *
      * <p>Caller MUST validate that the signatureAlgoName is supported by IKE library.
      *
-     * @param signatureAlgoName the name of the algorithm requested. See the Signature section in
-     *     the <a href= "{@docRoot}/../technotes/guides/security/StandardNames.html#Signature"> Java
-     *     Cryptography Architecture Standard Algorithm Name Documentation</a> for information about
-     *     standard algorithm names.
+     * @param genericSignAuthAlgos peer supported signature hash algorithms that can be used with
+     *     AUTH_METHOD_GENERIC_DIGITAL_SIGN, or an empty set if peer does not support
+     *     AUTH_METHOD_GENERIC_DIGITAL_SIGN
      * @param privateKey the private key of the identity whose signature is going to be generated.
      * @param ikeInitBytes IKE_INIT request for calculating IKE initiator's SignedOctets.
      * @param nonce nonce of IKE responder for calculating IKE initiator's SignedOctets.
@@ -182,16 +187,29 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
      * @param prfKeyBytes the negotiated PRF initiator key.
      */
     public IkeAuthDigitalSignPayload(
-            String signatureAlgoName,
+            Set<Short> genericSignAuthAlgos,
             PrivateKey privateKey,
             byte[] ikeInitBytes,
             byte[] nonce,
             byte[] idPayloadBodyBytes,
             IkeMacPrf ikePrf,
             byte[] prfKeyBytes) {
-        super(false, IkeAuthPayload.AUTH_METHOD_GENERIC_DIGITAL_SIGN);
+        super(false, getAuthMethod(genericSignAuthAlgos));
+
         byte[] dataToSignBytes =
                 getSignedOctets(ikeInitBytes, nonce, idPayloadBodyBytes, ikePrf, prfKeyBytes);
+
+        String signatureAlgoName = null;
+        switch (authMethod) {
+            case AUTH_METHOD_RSA_DIGITAL_SIGN:
+                signatureAlgoName = SIGNATURE_ALGO_RSA_SHA1;
+                break;
+            case AUTH_METHOD_GENERIC_DIGITAL_SIGN:
+                signatureAlgoName = selectGenericSignAuthAlgo(genericSignAuthAlgos);
+                break;
+            default:
+                throw new IllegalStateException("Invalid auth method: " + authMethod);
+        }
 
         try {
             Signature signGen = Signature.getInstance(signatureAlgoName);
@@ -209,6 +227,25 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
                             + " or "
                             + signatureAlgoName);
         }
+    }
+
+    private static int getAuthMethod(Set<Short> genericSignAuthAlgos) {
+        if (genericSignAuthAlgos.isEmpty()) {
+            return AUTH_METHOD_RSA_DIGITAL_SIGN;
+        }
+        return AUTH_METHOD_GENERIC_DIGITAL_SIGN;
+    }
+
+    @VisibleForTesting
+    static String selectGenericSignAuthAlgo(Set<Short> genericSignAuthAlgos) {
+        List<Short> algoList = new ArrayList<>(genericSignAuthAlgos);
+        Collections.sort(algoList);
+
+        // NOTE: For all the currently supported algorithms, the larger the algorithm code, the
+        // stronger it is. This conclusion might not be true anymore when new algorithms are added
+        // and at that time this method will need to be updated.
+        short strongestAlgo = algoList.get(algoList.size() - 1);
+        return SIGNATURE_ALGO_TYPE_TO_NAME.get(strongestAlgo);
     }
 
     private byte[] javaStandardSignAlgoNameToAsn1Bytes(String javaSignatureAndHashAlgo) {
@@ -306,7 +343,14 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
 
     @Override
     public String getTypeString() {
-        return "Auth(Digital Sign)";
+        switch (authMethod) {
+            case AUTH_METHOD_RSA_DIGITAL_SIGN:
+                return "Auth(RSA Digital Sign)";
+            case AUTH_METHOD_GENERIC_DIGITAL_SIGN:
+                return "Auth(Generic Digital Sign)";
+            default:
+                throw new IllegalArgumentException("Unrecognized authentication method.");
+        }
     }
 
     /**
@@ -318,6 +362,7 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
      * @throws InvalidSyntaxException if the included Signature Hash Algorithms are not serialized
      *     correctly
      */
+    @NonNull
     public static Set<Short> getSignatureHashAlgorithmsFromIkeNotifyPayload(
             IkeNotifyPayload notifyPayload) throws InvalidSyntaxException {
         if (notifyPayload.notifyType != IkeNotifyPayload.NOTIFY_TYPE_SIGNATURE_HASH_ALGORITHMS) {
@@ -336,7 +381,7 @@ public class IkeAuthDigitalSignPayload extends IkeAuthPayload {
         ByteBuffer serializedHashAlgos = ByteBuffer.wrap(notifyPayload.notifyData);
         while (serializedHashAlgos.hasRemaining()) {
             short hashAlgo = serializedHashAlgos.getShort();
-            if (!ALL_SIGNATURE_ALGO_TYPES_SET.contains(hashAlgo) || !hashAlgos.add(hashAlgo)) {
+            if (!SIGNATURE_ALGO_TYPE_TO_NAME.containsKey(hashAlgo) || !hashAlgos.add(hashAlgo)) {
                 getIkeLog().w(TAG, "Unexpected or repeated Signature Hash Algorithm: " + hashAlgo);
             }
         }

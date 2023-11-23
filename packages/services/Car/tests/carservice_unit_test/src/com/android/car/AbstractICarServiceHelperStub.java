@@ -18,7 +18,6 @@ package com.android.car;
 import android.annotation.UserIdInt;
 import android.car.app.CarActivityManager;
 import android.content.ComponentName;
-import android.content.pm.UserInfo;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
@@ -37,12 +36,6 @@ abstract class AbstractICarServiceHelperStub extends ICarServiceHelper.Stub {
 
     AbstractICarServiceHelperStub() {
         Log.d(TAG, "I am " + this);
-    }
-
-    @Override
-    public int forceSuspend(int timeoutMs) {
-        Log.d(TAG, "forceSuspend(" + timeoutMs + "): returning 0");
-        return 0;
     }
 
     @Override
@@ -70,7 +63,7 @@ abstract class AbstractICarServiceHelperStub extends ICarServiceHelper.Stub {
     }
 
     @Override
-    public UserInfo createUserEvenWhenDisallowed(String name, String userType, int flags) {
+    public UserHandle createUserEvenWhenDisallowed(String name, String userType, int flags) {
         Log.d(TAG, "createUserEvenWhenDisallowed(name=" + name + ", userType=" + userType
                 + ", flags=" + flags + ")");
         return null;

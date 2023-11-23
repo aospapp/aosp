@@ -17,6 +17,7 @@
 
 #include <gtest/gtest_prod.h>
 #include <stdint.h>
+#include <algorithm>
 
 namespace android {
 namespace os {
@@ -44,12 +45,44 @@ public:
     // When a new bucket is created, this value will be reset to 0.
     int64_t mTimerNs = 0;
 
+    /** Tracks the delay prior current bucket start due to delayed bucket close. */
+    int64_t mCurrentBucketStartDelayNs = 0;
+
     // Last elapsed real timestamp when condition changed.
     int64_t mLastConditionChangeTimestampNs = 0;
 
     bool mCondition = false;
 
-    int64_t newBucketStart(int64_t nextBucketStartNs) {
+    struct ConditionDurationInfo {
+        int64_t mDurationNs;
+        int64_t mCorrectionNs;
+
+        inline bool operator==(const ConditionDurationInfo& that) const {
+            return mDurationNs == that.mDurationNs && mCorrectionNs == that.mCorrectionNs;
+        }
+    };
+
+    /**
+     * Handles new bucket event processing and performs condition duration calculation
+     * In case if next bucket start timestamp differs from event timestamp, the
+     * correction calculation will be performed, due to delayed bucket close
+     * \param eventTimeNs current timestamp
+     * \param nextBucketStartNs next bucket start expected timestamp
+     * \return The condition duration and correction in nanoseconds for the previous bucket
+     */
+    ConditionDurationInfo newBucketStart(int64_t eventTimeNs, int64_t nextBucketStartNs) {
+        // we would like to apply correction only in case
+        // - when condition was true before new bucket start (pull event often the case)
+        // - and remains true after the edge
+        // here the mCondition represents current condition, which could be updated
+        // based on onConditionChange() event
+
+        int64_t conditionCorrectionNs = -mCurrentBucketStartDelayNs;
+        mCurrentBucketStartDelayNs = 0;
+
+        const int64_t currentBucketEndDelayNs =
+                std::max(eventTimeNs - nextBucketStartNs, (int64_t)0);
+
         if (mCondition) {
             // Normally, the next bucket happens after the last condition
             // change. In this case, add the time between the condition becoming
@@ -62,6 +95,11 @@ public:
             if (nextBucketStartNs >= mLastConditionChangeTimestampNs) {
                 mTimerNs += (nextBucketStartNs - mLastConditionChangeTimestampNs);
                 mLastConditionChangeTimestampNs = nextBucketStartNs;
+                conditionCorrectionNs += currentBucketEndDelayNs;
+
+                // keep start delay correction for the next bucket - condition was true
+                // before the edge and remains true after the edge
+                mCurrentBucketStartDelayNs = currentBucketEndDelayNs;
             }
         } else if (mLastConditionChangeTimestampNs > nextBucketStartNs) {
             // The next bucket start time is before the last condition change
@@ -71,9 +109,14 @@ public:
             // This means remove the amount the condition stayed true in the
             // next bucket from the current bucket.
             mTimerNs -= (mLastConditionChangeTimestampNs - nextBucketStartNs);
+            conditionCorrectionNs += currentBucketEndDelayNs;
+
+            // keep start delay correction for the next bucket - condition was true
+            // before the edge and remains true after the edge up to delay
+            mCurrentBucketStartDelayNs = currentBucketEndDelayNs;
         }
 
-        int64_t temp = mTimerNs;
+        const int64_t conditionDurationNs = mTimerNs;
         mTimerNs = 0;
 
         if (!mCondition && (mLastConditionChangeTimestampNs > nextBucketStartNs)) {
@@ -84,7 +127,7 @@ public:
             // condition stayed true in the next bucket (now the current bucket).
             mTimerNs = mLastConditionChangeTimestampNs - nextBucketStartNs;
         }
-        return temp;
+        return {conditionDurationNs, conditionCorrectionNs};
     }
 
     void onConditionChanged(bool newCondition, int64_t timestampNs) {
@@ -100,6 +143,10 @@ public:
 
     FRIEND_TEST(ConditionTimerTest, TestTimer_Inital_False);
     FRIEND_TEST(ConditionTimerTest, TestTimer_Inital_True);
+    FRIEND_TEST(ConditionTimerTest, TestTimer_Correction_DelayedChangeToFalse);
+    FRIEND_TEST(ConditionTimerTest, TestTimer_Correction_DelayedChangeToTrue);
+    FRIEND_TEST(ConditionTimerTest, TestTimer_Correction_DelayedWithInitialFalse);
+    FRIEND_TEST(ConditionTimerTest, TestTimer_Correction_DelayedWithInitialTrue);
 };
 
 }  // namespace statsd

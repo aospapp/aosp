@@ -21,6 +21,7 @@ import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -59,7 +60,7 @@ public class WifiPasswordDialog extends CarUiDialogFragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mDialogTitle = mWifiEntry.getSsid();
+        mDialogTitle = mWifiEntry.getTitle();
         mDialogLayoutRes = R.layout.preference_dialog_password_edittext;
         mPositiveButtonText = getContext().getString(R.string.okay);
         mNegativeButtonText = getContext().getString(R.string.cancel);
@@ -83,6 +84,12 @@ public class WifiPasswordDialog extends CarUiDialogFragment {
                 }
                 // Place cursor at the end
                 mEditText.setSelection(mEditText.getText().length());
+            }
+        });
+        mEditText.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) {
+                InputMethodManager imm = getActivity().getSystemService(InputMethodManager.class);
+                imm.hideSoftInputFromWindow(mEditText.getWindowToken(), /* flags= */ 0);
             }
         });
     }

@@ -16,6 +16,7 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+                  xmlns:custom="http://schemas.android.com/apk/res-auto"
                   android:title="@string/device_pref_category_title">
     <Preference
         android:fragment="com.android.tv.settings.about.AboutFragment"
@@ -68,6 +69,20 @@
         android:icon="@drawable/ic_accessibility_new"
         android:key="accessibility"
         android:title="@string/system_accessibility"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_internal_settings"
+        android:key="overlay_internal"
+        android:title="@string/overlay_internal_slice_title"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/overlay_internal_slice_uri"/>
+    <com.android.tv.twopanelsettings.slices.SlicePreference
+        android:icon="@drawable/ic_devices_other"
+        android:key="fastpair_slice"
+        android:title="@string/device_fastpair"
+        android:fragment="com.android.tv.twopanelsettings.slices.SliceFragment"
+        custom:isPreferenceVisible="false"
+        custom:uri="@string/fastpair_slice_uri"/>
     <com.android.tv.settings.LongClickPreference
         android:icon="@drawable/ic_restart_alt"
         android:key="reboot"

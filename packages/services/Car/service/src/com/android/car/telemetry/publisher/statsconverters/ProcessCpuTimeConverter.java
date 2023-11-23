@@ -16,16 +16,18 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
 import android.util.SparseArray;
 
 import com.android.car.telemetry.AtomsProto.Atom;
 import com.android.car.telemetry.AtomsProto.ProcessCpuTime;
+import com.android.internal.util.Preconditions;
 
 /**
  * Atom data converter for atoms of type {@link ProcessCpuTime}.
  */
 public class ProcessCpuTimeConverter extends AbstractAtomConverter<ProcessCpuTime> {
-    private static final SparseArray<AtomFieldAccessor<ProcessCpuTime>> sAtomFieldAccessorMap =
+    private static final SparseArray<AtomFieldAccessor<ProcessCpuTime, ?>> sAtomFieldAccessorMap =
             new SparseArray<>();
     static {
         sAtomFieldAccessorMap.append(1, new AtomFieldAccessor<>(
@@ -55,16 +57,21 @@ public class ProcessCpuTimeConverter extends AbstractAtomConverter<ProcessCpuTim
     }
 
     @Override
-    SparseArray<AtomFieldAccessor<ProcessCpuTime>> getAtomFieldAccessorMap() {
+    @NonNull
+    SparseArray<AtomFieldAccessor<ProcessCpuTime, ?>> getAtomFieldAccessorMap() {
         return sAtomFieldAccessorMap;
     }
 
     @Override
-    ProcessCpuTime getAtomData(Atom atom) {
+    @NonNull
+    ProcessCpuTime getAtomData(@NonNull Atom atom) {
+        Preconditions.checkArgument(
+                atom.hasProcessCpuTime(), "Atom doesn't contain ProcessCpuTime");
         return atom.getProcessCpuTime();
     }
 
     @Override
+    @NonNull
     String getAtomDataClassName() {
         return ProcessCpuTime.class.getSimpleName();
     }

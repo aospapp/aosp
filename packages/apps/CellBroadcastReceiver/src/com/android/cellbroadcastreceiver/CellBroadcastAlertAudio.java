@@ -23,8 +23,10 @@ import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
@@ -141,6 +143,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private AudioManager mAudioManager;
     private TelephonyManager mTelephonyManager;
     private int mInitialCallState;
+    private int mStartId;
+    private ScreenOffReceiver mScreenOffReceiver;
 
     // Internal messages
     private static final int ALERT_SOUND_FINISHED = 1000;
@@ -347,6 +351,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             return START_STICKY;
         }
 
+        mStartId = startId;
         // Get text to speak (if enabled by user)
         mMessageBody = intent.getStringExtra(ALERT_AUDIO_MESSAGE_BODY);
         mMessageLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_LANGUAGE);
@@ -470,6 +475,13 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             log("vibrate: effect=" + effect + ", attr=" + attr + ", duration="
                     + customAlertDuration);
             mVibrator.vibrate(effect, attr);
+            // Android default behavior will stop vibration when screen turns off.
+            // if mute by physical button is not allowed, press power key should not turn off
+            // vibration.
+            if (!res.getBoolean(R.bool.mute_by_physical_button)) {
+                mScreenOffReceiver = new ScreenOffReceiver(effect, attr);
+                registerReceiver(mScreenOffReceiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+            }
         }
 
         if (mEnableLedFlash) {
@@ -641,6 +653,15 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         // Stop vibrator
         mVibrator.cancel();
+        if (mScreenOffReceiver != null) {
+            try {
+                unregisterReceiver(mScreenOffReceiver);
+            } catch (Exception e) {
+                // already unregistered
+            }
+            mScreenOffReceiver = null;
+        }
+
         if (mEnableLedFlash) {
             enableLedFlash(false);
         }
@@ -757,12 +778,16 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /**
      * Stop CellBroadcastAlertAudio Service and set state to STATE_STOPPING
      */
-    private void stopAlertAudioService() {
+    private boolean stopAlertAudioService() {
         if (DBG) log("stopAlertAudioService, current state is " + getState());
+        boolean result = false;
         if (getState() != STATE_STOPPING) {
             setState(STATE_STOPPING);
-            stopSelf();
+            result = stopSelfResult(mStartId);
+            if (DBG) log((result ? "Successful" : "Failed")
+                    + " to stop AlertAudioService[" + mStartId + "]");
         }
+        return result;
     }
 
     /**
@@ -781,6 +806,28 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
      */
     private synchronized int getState() {
         return mState;
+    }
+
+    /*
+     * BroadcastReceiver for screen off events. Used for Latam.
+     * CMAS requirements to make sure vibration continues when screen goes off
+     */
+    private class ScreenOffReceiver extends BroadcastReceiver {
+        VibrationEffect mVibrationEffect;
+        AudioAttributes mAudioAttr;
+
+        ScreenOffReceiver(VibrationEffect effect, AudioAttributes attributes) {
+            this.mVibrationEffect = effect;
+            this.mAudioAttr = attributes;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // Restart the vibration after screen off
+            if (mState == STATE_ALERTING) {
+                mVibrator.vibrate(mVibrationEffect, mAudioAttr);
+            }
+        }
     }
 
     private static void log(String msg) {

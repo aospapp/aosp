@@ -256,7 +256,3 @@ input0 = { i86: [0.791841, 0.131271, 0.840444, 0.524133, 0.301398, 0.711596, 8.7
 output0 = {i85: [0.605085, 0.0733608, 0.0200205, 0.114568, 0.178815, 0.0580576, 0.123144, 0.232838, 0.0916902, 0.111395, 0.138349]}
 
 Example((input0, output0))
-
-# Disable the V1_0 compliance check because hardware_buffer_blob is not
-# supported below V1_2.
-Example.SetVersion("V1_2", "mobilenet_224_gender_basic_fixed")

@@ -28,7 +28,8 @@ TOOL=$(dirname $0)/generate_api.py
 SPECFILE=$(dirname $0)/types.spec
 HALDIR=${ANDROID_BUILD_TOP}/hardware/interfaces/neuralnetworks
 NDKDIR=${ANDROID_BUILD_TOP}/packages/modules/NeuralNetworks/runtime/include
-CANONICALDIR=${ANDROID_BUILD_TOP}/packages/modules/NeuralNetworks/common/include/nnapi
+CANONICALDIR=${ANDROID_BUILD_TOP}/packages/modules/NeuralNetworks/common/types/include/nnapi
+AIDLDIR=${ANDROID_BUILD_TOP}/hardware/interfaces/neuralnetworks/aidl/android/hardware/neuralnetworks
 
 RET=0
 function doit {
@@ -60,12 +61,15 @@ case "${MODE}" in
     doit hal_1.1 ${HALDIR}/1.1/types.t ${HALDIR}/1.1/types.hal
     doit hal_1.2 ${HALDIR}/1.2/types.t ${HALDIR}/1.2/types.hal
     doit hal_1.3 ${HALDIR}/1.3/types.t ${HALDIR}/1.3/types.hal
+    doit aidl $(dirname $0)/OperandTypeAidl.t ${AIDLDIR}/OperandType.aidl
+    doit aidl $(dirname $0)/OperationTypeAidl.t ${AIDLDIR}/OperationType.aidl
     ;;
   hook)
     check canonical $(dirname $0)/Types.t ${CANONICALDIR}/Types.h
     check canonical $(dirname $0)/OperandTypes.t ${CANONICALDIR}/OperandTypes.h
     check canonical $(dirname $0)/OperationTypes.t ${CANONICALDIR}/OperationTypes.h
     check ndk $(dirname $0)/NeuralNetworksTypes.t ${NDKDIR}/NeuralNetworksTypes.h
+    # Avoids checking HAL/AIDL because of cross-repo dependencies.
     ;;
   *)
     echo >&2 "*** Unknown mode: ${MODE}"

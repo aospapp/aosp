@@ -17,6 +17,8 @@
 package com.android.keychain;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyEventLogger;
@@ -32,6 +34,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -92,8 +95,6 @@ public class KeyChainActivity extends AppCompatActivity {
     private int mSenderUid;
     private String mSenderPackageName;
 
-    private PendingIntent mSender;
-
     // beware that some of these KeyStore operations such as saw and
     // get do file I/O in the remote keystore process and while they
     // do not cause StrictMode violations, they logically should not
@@ -133,20 +134,32 @@ public class KeyChainActivity extends AppCompatActivity {
         getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
     }
 
-    @Override public void onResume() {
+    /**
+     * Returns the package name which the activity with {@code activityToken} is launched from.
+     */
+    @Nullable
+    private static String getCallingAppPackageName(IBinder activityToken) {
+        String pkg = null;
+        try {
+            pkg = ActivityManager.getService().getLaunchedFromPackage(activityToken);
+        } catch (RemoteException e) {
+            Log.v(TAG, "Could not talk to activity manager.", e);
+        }
+        return pkg;
+    }
+
+    @Override
+    public void onResume() {
         super.onResume();
 
-        mSender = getIntent().getParcelableExtra(KeyChain.EXTRA_SENDER);
-        if (mSender == null) {
-            // if no sender, bail, we need to identify the app to the user securely.
+        final IBinder activityToken = getActivityToken();
+        mSenderPackageName = getCallingAppPackageName(activityToken);
+        if (mSenderPackageName == null) {
+            //if no sender, bail, we need to identify the app to the user securely.
             finish(null);
             return;
         }
         try {
-            // getTargetPackage guarantees that the returned string is
-            // supplied by the system, so that an application can not
-            // spoof its package.
-            mSenderPackageName = mSender.getIntentSender().getTargetPackage();
             mSenderUid = getPackageManager().getPackageInfo(
                     mSenderPackageName, 0).applicationInfo.uid;
         } catch (PackageManager.NameNotFoundException e) {
@@ -533,7 +546,7 @@ public class KeyChainActivity extends AppCompatActivity {
         Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
         if (uri != null) {
             String hostMessage = String.format(res.getString(R.string.requesting_server),
-                                               uri.getAuthority());
+                    Uri.encode(uri.getAuthority(), "$,;:@&=+"));
             if (contextMessage == null) {
                 contextMessage = hostMessage;
             } else {

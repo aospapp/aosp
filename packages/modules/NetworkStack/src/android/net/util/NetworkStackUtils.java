@@ -250,10 +250,24 @@ public class NetworkStackUtils {
             "ipclient_garp_na_roaming_version";
 
     /**
+     * Experiment flag to enable parsing netlink events from kernel directly instead from netd aidl
+     * interface.
+     */
+    public static final String IPCLIENT_PARSE_NETLINK_EVENTS_VERSION =
+            "ipclient_parse_netlink_events_version";
+
+    /**
      * Experiment flag to disable accept_ra parameter when IPv6 provisioning loss happens due to
      * the default route has gone.
      */
     public static final String IPCLIENT_DISABLE_ACCEPT_RA_VERSION = "ipclient_disable_accept_ra";
+
+    /**
+     * Experiment flag to enable "mcast_resolicit" neighbor parameter in IpReachabilityMonitor,
+     * set it to 3 by default.
+     */
+    public static final String IP_REACHABILITY_MCAST_RESOLICIT_VERSION =
+            "ip_reachability_mcast_resolicit_version";
 
     static {
         System.loadLibrary("networkstackutilsjni");

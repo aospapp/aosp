@@ -219,7 +219,8 @@ public final class DefaultActivity extends Activity {
     private void startMonitor() {
         Log.d(TAG, "startMonitor()");
         registerReceiver(mDrivingStateExitReceiver,
-                new IntentFilter(CarDrivingStateMonitor.EXIT_BROADCAST_ACTION));
+                new IntentFilter(CarDrivingStateMonitor.EXIT_BROADCAST_ACTION),
+                Context.RECEIVER_EXPORTED);
 
         mCarDrivingStateMonitor = CarDrivingStateMonitor.get(this);
         mCarDrivingStateMonitor.startMonitor();

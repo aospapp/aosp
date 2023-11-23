@@ -637,16 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Mod de apelare inversă de urgență"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Conexiune de date dezactivată"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Nicio conexiune de date până la <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="few">Telefonul va fi în modul Apelare inversă de urgență pentru <xliff:g id="COUNT_1">%s</xliff:g> minute. Când telefonul este în acest mod, nu se poate folosi nicio aplicație care necesită o conexiune de date. Doriți să ieșiți acum?</item>
-      <item quantity="other">Telefonul va fi în modul Apelare inversă de urgență pentru <xliff:g id="COUNT_1">%s</xliff:g> de minute. Când telefonul este în acest mod, nu se poate folosi nicio aplicație care necesită o conexiune de date. Doriți să ieșiți acum?</item>
-      <item quantity="one">Telefonul va fi în modul Apelare inversă de urgență pentru <xliff:g id="COUNT_0">%s</xliff:g> minut. Când telefonul este în acest mod, nu se poate folosi nicio aplicație care necesită o conexiune de date. Doriți să ieșiți acum?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="few">Acțiunea selectată nu este disponibilă când telefonul este în modul Apelare inversă de urgență. Telefonul va fi în acest mod pentru <xliff:g id="COUNT_1">%s</xliff:g> minute. Doriți să ieșiți acum?</item>
-      <item quantity="other">Acțiunea selectată nu este disponibilă când telefonul este în modul Apelare inversă de urgență. Telefonul va fi în acest mod pentru <xliff:g id="COUNT_1">%s</xliff:g> de minute. Doriți să ieșiți acum?</item>
-      <item quantity="one">Acțiunea selectată nu este disponibilă când telefonul este în modul Apelare inversă de urgență. Telefonul va fi în acest mod pentru <xliff:g id="COUNT_0">%s</xliff:g> minut. Doriți să ieșiți acum?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Acțiunea selectată nu este disponibilă în timpul efectuării unui apel de urgență."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Se iese din modul Apelare inversă de urgență"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Da"</string>
@@ -654,11 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Renunțați"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Telefonul va fi în modul Apelare inversă de urgență"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Până la <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="few">Telefonul va fi în modul Apelare inversă de urgență timp de <xliff:g id="COUNT_1">%s</xliff:g> minute.\nDoriți să ieșiți acum?</item>
-      <item quantity="other">Telefonul va fi în modul Apelare inversă de urgență timp de <xliff:g id="COUNT_1">%s</xliff:g> de minute.\nDoriți să ieșiți acum?</item>
-      <item quantity="one">Telefonul va fi în modul Apelare inversă de urgență timp de <xliff:g id="COUNT_0">%s</xliff:g> minut.\nDoriți să ieșiți acum?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Serviciu"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Configurare"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Nesetat&gt;"</string>
@@ -686,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Accesibilitate"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Apel prin Wi-Fi de la"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Apel prin Wi-Fi"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Atingeți din nou pentru a deschide"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"A apărut o eroare la decodificarea mesajului."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Un card SIM a activat serviciul și a actualizat funcțiile de roaming ale telefonului."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Prea multe apeluri active. Încheiați sau îmbinați apeluri existente înainte de a iniția unul nou."</string>
@@ -830,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Nu se poate iniția un apel când se efectuează deja alt apel."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Nu se poate iniția un apel când primiți un apel la care nu ați răspuns. Răspundeți sau respingeți apelul primit înainte de a iniția un apel nou."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Nu se poate iniția un apel deoarece apelarea a fost dezactivată folosindu-se funcția de sistem ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Nu se poate iniția un apel când există deja două apeluri în desfășurare. Deconectați unul dintre ele sau îmbinați-le într-o conferință înainte de a iniția un apel nou."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Nu se poate iniția un apel când există deja două apeluri în desfășurare. Deconectați unul dintre ele sau îmbinați-le într-o conferință înainte de a iniția un apel nou."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Pentru a folosi <xliff:g id="SUPP_SERVICE">%s</xliff:g>, datele mobile trebuie să fie activate. Puteți modifica acest lucru în setările rețelei mobile."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Pentru a folosi <xliff:g id="SUPP_SERVICE">%s</xliff:g>, datele mobile și roamingul de date trebuie să fie activate. Puteți modifica acest lucru în setările rețelei mobile."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Pentru a folosi <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, datele mobile trebuie să fie activate pentru cardul SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Puteți modifica acest lucru în setările rețelei mobile."</string>
@@ -848,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Trebuie să reporniți dispozitivul pentru a modifica setarea."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Reporniți"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Anulați"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Setați cartela eSIM portabilă drept prestabilită"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Alimentare radio celular"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Afișați agenda de pe SIM"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Afișați numerele pentru apeluri restricționate"</string>
@@ -902,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Selectați banda radio"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Tipul rețelei de voce:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Tipul rețelei de date:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Modificați tipul de rețea:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Selectați indexul telefonului"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Setați tipul preferat de rețea:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Dați ping adresei IPv4 a numelui de gazdă (www.google.com):"</string>
@@ -913,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Actualizați"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Activați/dezactivați verificarea DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informații/Setări caracteristice OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"Disponibilă EN-DC:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Restricționată DCNR:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"Disponibilă NR:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Stare NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"Disponibil EN-DC (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"Restricționat DCNR (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"Disponibil NR (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Stare NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frecvență NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Setați Modul bandă radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Se încarcă lista de benzi…"</string>

@@ -16,8 +16,14 @@
 
 package android.net.wifi.aware;
 
+import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.Manifest.permission.ACCESS_WIFI_STATE;
+import static android.Manifest.permission.CHANGE_WIFI_STATE;
+import static android.Manifest.permission.NEARBY_WIFI_DEVICES;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.net.NetworkSpecifier;
 import android.os.Binder;
@@ -136,8 +142,15 @@ public class WifiAwareSession implements AutoCloseable {
      *      An application must use the {@link DiscoverySession#close()} to
      *      terminate the publish discovery session once it isn't needed. This will free
      *      resources as well terminate any on-air transmissions.
-     * <p>The application must have the {@link android.Manifest.permission#ACCESS_FINE_LOCATION}
-     * permission to start a publish discovery session.
+     * <p>
+     * If targeting {@link android.os.Build.VERSION_CODES#TIRAMISU} or later, the application must
+     * have {@link android.Manifest.permission#NEARBY_WIFI_DEVICES} with
+     * android:usesPermissionFlags="neverForLocation". If the application does not declare
+     * android:usesPermissionFlags="neverForLocation", then it must also have
+     * {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
+     *
+     * If targeting an earlier release than {@link android.os.Build.VERSION_CODES#TIRAMISU}, the
+     * application must have {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
      *
      * @param publishConfig The {@link PublishConfig} specifying the
      *            configuration of the requested publish session.
@@ -146,6 +159,11 @@ public class WifiAwareSession implements AutoCloseable {
      * @param handler The Handler on whose thread to execute the callbacks of the {@code
      * callback} object. If a null is provided then the application's main thread will be used.
      */
+    @RequiresPermission(allOf = {
+            ACCESS_WIFI_STATE,
+            CHANGE_WIFI_STATE,
+            ACCESS_FINE_LOCATION,
+            NEARBY_WIFI_DEVICES}, conditional = true)
     public void publish(@NonNull PublishConfig publishConfig,
             @NonNull DiscoverySessionCallback callback, @Nullable Handler handler) {
         WifiAwareManager mgr = mMgr.get();
@@ -184,8 +202,15 @@ public class WifiAwareSession implements AutoCloseable {
      *      An application must use the {@link DiscoverySession#close()} to
      *      terminate the subscribe discovery session once it isn't needed. This will free
      *      resources as well terminate any on-air transmissions.
-     * <p>The application must have the {@link android.Manifest.permission#ACCESS_FINE_LOCATION}
-     * permission to start a subscribe discovery session.
+     * <p>
+     * If targeting {@link android.os.Build.VERSION_CODES#TIRAMISU} or later, the application must
+     * have {@link android.Manifest.permission#NEARBY_WIFI_DEVICES} with
+     * android:usesPermissionFlags="neverForLocation". If the application does not declare
+     * android:usesPermissionFlags="neverForLocation", then it must also have
+     * {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
+     *
+     * If targeting an earlier release than {@link android.os.Build.VERSION_CODES#TIRAMISU}, the
+     * application must have {@link android.Manifest.permission#ACCESS_FINE_LOCATION}.
      *
      * @param subscribeConfig The {@link SubscribeConfig} specifying the
      *            configuration of the requested subscribe session.
@@ -194,6 +219,11 @@ public class WifiAwareSession implements AutoCloseable {
      * @param handler The Handler on whose thread to execute the callbacks of the {@code
      * callback} object. If a null is provided then the application's main thread will be used.
      */
+    @RequiresPermission(allOf = {
+            ACCESS_WIFI_STATE,
+            CHANGE_WIFI_STATE,
+            ACCESS_FINE_LOCATION,
+            NEARBY_WIFI_DEVICES}, conditional = true)
     public void subscribe(@NonNull SubscribeConfig subscribeConfig,
             @NonNull DiscoverySessionCallback callback, @Nullable Handler handler) {
         WifiAwareManager mgr = mMgr.get();

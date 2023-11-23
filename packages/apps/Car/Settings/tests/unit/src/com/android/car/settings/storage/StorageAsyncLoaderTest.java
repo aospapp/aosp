@@ -30,8 +30,8 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
-import android.net.TrafficStats;
 import android.os.UserHandle;
+import android.util.DataUnit;
 import android.util.SparseArray;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -58,7 +58,7 @@ public class StorageAsyncLoaderTest {
     private static final int SECONDARY_USER_ID = 10;
     private static final String PACKAGE_NAME_1 = "com.blah.test";
     private static final String PACKAGE_NAME_2 = "com.blah.test2";
-    private static final long DEFAULT_QUOTA = 64 * TrafficStats.MB_IN_BYTES;
+    private static final long DEFAULT_QUOTA = DataUnit.MEBIBYTES.toBytes(64);
 
     private Context mContext = ApplicationProvider.getApplicationContext();
     private List<UserInfo> mUsers;

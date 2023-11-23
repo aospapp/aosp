@@ -33,7 +33,7 @@ namespace watchdog {
 android::automotive::watchdog::internal::PackageInfo constructPackageInfo(
         const char* packageName, int32_t uid,
         android::automotive::watchdog::internal::UidType uidType =
-                android::automotive::watchdog::internal::UidType::NATIVE,
+                android::automotive::watchdog::internal::UidType::UNKNOWN,
         android::automotive::watchdog::internal::ComponentType componentType =
                 android::automotive::watchdog::internal::ComponentType::UNKNOWN,
         android::automotive::watchdog::internal::ApplicationCategoryType appCategoryType =

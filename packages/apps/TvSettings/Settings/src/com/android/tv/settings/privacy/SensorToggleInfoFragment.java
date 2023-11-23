@@ -16,6 +16,9 @@
 
 package com.android.tv.settings.privacy;
 
+import static android.hardware.SensorPrivacyManager.TOGGLE_TYPE_HARDWARE;
+import static android.hardware.SensorPrivacyManager.TOGGLE_TYPE_SOFTWARE;
+
 import android.content.Context;
 import android.hardware.SensorPrivacyManager;
 import android.os.Bundle;
@@ -34,7 +37,7 @@ import com.android.tv.twopanelsettings.slices.InfoFragment;
 
 
 /**
- * An {@InfoFragment} that hosts preview pane of the sensor fragment when the toggle is
+ * A {@link InfoFragment} that hosts the preview pane of the sensor fragment when the toggle is
  * focused.
  */
 @Keep
@@ -49,7 +52,7 @@ public class SensorToggleInfoFragment extends InfoFragment {
     private PrivacyToggle mToggle;
 
     private final SensorPrivacyManager.OnSensorPrivacyChangedListener mPrivacyChangedListener =
-            (sensor, enabled) -> updateTitle(!enabled);
+            (sensor, enabled) -> updateTitle();
 
     @Override
     public void onAttach(@NonNull Context context) {
@@ -80,21 +83,31 @@ public class SensorToggleInfoFragment extends InfoFragment {
 
         mTitleView = view.findViewById(R.id.info_title);
         mTitleView.setVisibility(View.VISIBLE);
-        updateTitle(!mSensorPrivacyManager.isSensorPrivacyEnabled(mToggle.sensor));
+        updateTitle();
         mSensorPrivacyManager.addSensorPrivacyListener(mToggle.sensor,
                 mPrivacyChangedListener);
         return view;
     }
 
-    private void updateTitle(boolean enabled) {
+    private void updateTitle() {
+        if (mTitleView == null) {
+            return;
+        }
+
+        boolean softwarePrivacyEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled(
+                TOGGLE_TYPE_SOFTWARE, mToggle.sensor);
+        boolean physicalPrivacyEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled(
+                TOGGLE_TYPE_HARDWARE, mToggle.sensor);
+        boolean accessAllowed = !softwarePrivacyEnabled && !physicalPrivacyEnabled;
         String toggleState = getString(
-                enabled ? R.string.sensor_toggle_info_on : R.string.sensor_toggle_info_off);
+                accessAllowed ? R.string.sensor_toggle_info_on : R.string.sensor_toggle_info_off);
         mTitleView.setText(getString(mToggle.toggleInfoTitle, toggleState));
     }
 
     @Override
     public void onDestroyView() {
         mSensorPrivacyManager.removeSensorPrivacyListener(mToggle.sensor, mPrivacyChangedListener);
+        mTitleView = null;
         super.onDestroyView();
     }
 }

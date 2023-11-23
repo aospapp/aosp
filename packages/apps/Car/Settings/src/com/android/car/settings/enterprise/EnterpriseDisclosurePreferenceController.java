@@ -23,15 +23,15 @@ import android.provider.Settings;
 
 import com.android.car.admin.ui.ManagedDeviceTextView;
 import com.android.car.settings.R;
+import com.android.car.settings.common.CarFooterPreference;
 import com.android.car.settings.common.FragmentController;
-import com.android.settingslib.widget.FooterPreference;
 
 /**
  * A preference controller for the disclosure to be shown when the car is managed by an enterprise.
  * Inspired from {@link com.android.settings.accounts.EnterpriseDisclosurePreferenceController}.
  */
 public final class EnterpriseDisclosurePreferenceController extends
-        BaseEnterprisePreferenceController<FooterPreference> {
+        BaseEnterprisePreferenceController<CarFooterPreference> {
 
     public EnterpriseDisclosurePreferenceController(Context context, String key,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -40,15 +40,11 @@ public final class EnterpriseDisclosurePreferenceController extends
 
     @Override
     protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) {
-            return superStatus;
-        }
         return EnterpriseUtils.hasDeviceOwner(getContext()) ? AVAILABLE : DISABLED_FOR_PROFILE;
     }
 
     @Override
-    protected void updateState(FooterPreference footerPreference) {
+    protected void updateState(CarFooterPreference footerPreference) {
         super.updateState(footerPreference);
         CharSequence disclosure = ManagedDeviceTextView.getManagedDeviceText(getContext());
         if (disclosure == null) {
@@ -58,11 +54,11 @@ public final class EnterpriseDisclosurePreferenceController extends
         footerPreference.setVisible(true);
         footerPreference.setTitle(disclosure);
         footerPreference.setLearnMoreAction(view ->
-                getContext().startActivity(new Intent(Settings.ACTION_PRIVACY_SETTINGS))
+                getContext().startActivity(new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS))
         );
-        String learnMoreContentDescription = getContext().getString(
+        String learnMoreText = getContext().getString(
                 R.string.footer_learn_more_content_description, getLabelName());
-        footerPreference.setLearnMoreContentDescription(learnMoreContentDescription);
+        footerPreference.setLearnMoreText(learnMoreText);
     }
 
     private String getLabelName() {

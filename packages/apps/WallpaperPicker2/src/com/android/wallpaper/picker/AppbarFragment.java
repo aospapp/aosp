@@ -151,7 +151,7 @@ public abstract class AppbarFragment extends BottomActionBarFragment
     }
 
     protected int getToolbarColorId() {
-        return R.color.settingslib_colorSurfaceHeader;
+        return R.color.toolbar_color;
     }
 
     /**

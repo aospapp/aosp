@@ -16,6 +16,7 @@
 
 package android.net.wifi.p2p;
 
+import android.os.Bundle;
 import android.os.Messenger;
 
 /**
@@ -25,10 +26,11 @@ import android.os.Messenger;
  */
 interface IWifiP2pManager
 {
-    Messenger getMessenger(in IBinder binder, in String packageName);
+    Messenger getMessenger(in IBinder binder, in String packageName, in Bundle extras);
     Messenger getP2pStateMachineMessenger();
     oneway void close(in IBinder binder);
     void setMiracastMode(int mode);
     void checkConfigureWifiDisplayPermission();
+    long getSupportedFeatures();
 }
 

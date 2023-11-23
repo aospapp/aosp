@@ -26,20 +26,20 @@ import android.annotation.SystemApi;
 import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.annotation.AddedInOrBefore;
+import android.car.builtin.util.EventLogHelper;
 import android.car.user.UserCreationResult;
 import android.car.user.UserRemovalResult;
 import android.car.user.UserStartResult;
 import android.car.user.UserStopResult;
+import android.car.util.concurrent.AndroidFuture;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.sysprop.CarProperties;
-import android.util.EventLog;
 
-import com.android.car.internal.common.EventLogTags;
 import com.android.car.internal.common.UserHelperLite;
+import com.android.car.internal.os.CarSystemProperties;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.infra.AndroidFuture;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -65,7 +65,13 @@ import java.util.concurrent.TimeoutException;
 @TestApi
 public final class CarDevicePolicyManager extends CarManagerBase {
 
-    private static final String TAG = CarDevicePolicyManager.class.getSimpleName();
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    @AddedInOrBefore(majorVersion = 33)
+    public static final String TAG = CarDevicePolicyManager.class.getSimpleName();
+
     private final ICarDevicePolicyService mService;
 
     private static final String PREFIX_USER_TYPE = "USER_TYPE_";
@@ -73,25 +79,30 @@ public final class CarDevicePolicyManager extends CarManagerBase {
     /**
      * Type used to indicate the user is a regular user.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int USER_TYPE_REGULAR = 0;
 
     /**
      * Type used to indicate the user is an admin user.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int USER_TYPE_ADMIN = 1;
 
     /**
      * Type used to indicate the user is a guest user.
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int USER_TYPE_GUEST = 2;
 
     /** @hide - Used on test cases only */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FIRST_USER_TYPE = USER_TYPE_REGULAR;
     /** @hide - Used on test cases only */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int LAST_USER_TYPE = USER_TYPE_GUEST;
 
-    private static final int DEVICE_POLICY_MANAGER_TIMEOUT_MS = CarProperties
-            .device_policy_manager_timeout().orElse(60_000);
+    private static final int DEVICE_POLICY_MANAGER_TIMEOUT_MS =
+            CarSystemProperties.getDevicePolicyManagerTimeout().orElse(60_000);
 
     /** @hide */
     @IntDef(prefix = PREFIX_USER_TYPE, value = {
@@ -136,12 +147,13 @@ public final class CarDevicePolicyManager extends CarManagerBase {
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public RemoveUserResult removeUser(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 
         int userId = user.getIdentifier();
         int uid = myUid();
-        EventLog.writeEvent(EventLogTags.CAR_DP_MGR_REMOVE_USER_REQ, uid, userId);
+        EventLogHelper.writeCarDevicePolicyManagerRemoveUserReq(uid, userId);
         int status = RemoveUserResult.STATUS_FAILURE_GENERIC;
         try {
             AndroidFuture<UserRemovalResult> future = new AndroidFuture<UserRemovalResult>();
@@ -158,7 +170,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, new RemoveUserResult(status));
         } finally {
-            EventLog.writeEvent(EventLogTags.CAR_DP_MGR_REMOVE_USER_RESP, uid, status);
+            EventLogHelper.writeCarDevicePolicyManagerRemoveUserResp(uid, status);
         }
     }
 
@@ -181,10 +193,11 @@ public final class CarDevicePolicyManager extends CarManagerBase {
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public CreateUserResult createUser(@Nullable String name, @UserType int type) {
         int uid = myUid();
-        EventLog.writeEvent(EventLogTags.CAR_DP_MGR_CREATE_USER_REQ, uid,
-                UserHelperLite.safeName(name), type);
+        EventLogHelper.writeCarDevicePolicyManagerCreateUserReq(uid, UserHelperLite.safeName(name),
+                type);
         int status = CreateUserResult.STATUS_FAILURE_GENERIC;
         try {
             AndroidFuture<UserCreationResult> future = new AndroidFuture<UserCreationResult>();
@@ -201,7 +214,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, CreateUserResult.forGenericError());
         } finally {
-            EventLog.writeEvent(EventLogTags.CAR_DP_MGR_CREATE_USER_RESP, uid, status);
+            EventLogHelper.writeCarDevicePolicyManagerCreateUserResp(uid, status);
         }
     }
 
@@ -218,12 +231,13 @@ public final class CarDevicePolicyManager extends CarManagerBase {
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public StartUserInBackgroundResult startUserInBackground(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 
         int userId = user.getIdentifier();
         int uid = myUid();
-        EventLog.writeEvent(EventLogTags.CAR_DP_MGR_START_USER_IN_BACKGROUND_REQ, uid, userId);
+        EventLogHelper.writeCarDevicePolicyManagerStartUserInBackgroundReq(uid, userId);
         int status = StartUserInBackgroundResult.STATUS_FAILURE_GENERIC;
         try {
             AndroidFuture<UserStartResult> future = new AndroidFuture<>();
@@ -240,7 +254,7 @@ public final class CarDevicePolicyManager extends CarManagerBase {
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, new StartUserInBackgroundResult(status));
         } finally {
-            EventLog.writeEvent(EventLogTags.CAR_DP_MGR_START_USER_IN_BACKGROUND_RESP, uid, status);
+            EventLogHelper.writeCarDevicePolicyManagerStartUserInBackgroundResp(uid, status);
         }
     }
 
@@ -257,12 +271,13 @@ public final class CarDevicePolicyManager extends CarManagerBase {
     @RequiresPermission(anyOf = {android.Manifest.permission.MANAGE_USERS,
             android.Manifest.permission.CREATE_USERS})
     @NonNull
+    @AddedInOrBefore(majorVersion = 33)
     public StopUserResult stopUser(@NonNull UserHandle user) {
         Objects.requireNonNull(user, "user cannot be null");
 
         int userId = user.getIdentifier();
         int uid = myUid();
-        EventLog.writeEvent(EventLogTags.CAR_DP_MGR_STOP_USER_REQ, uid, userId);
+        EventLogHelper.writeCarDevicePolicyManagerStopUserReq(uid, userId);
         int status = StopUserResult.STATUS_FAILURE_GENERIC;
         try {
             AndroidFuture<UserStopResult> future = new AndroidFuture<>();
@@ -279,12 +294,35 @@ public final class CarDevicePolicyManager extends CarManagerBase {
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, new StopUserResult(status));
         } finally {
-            EventLog.writeEvent(EventLogTags.CAR_DP_MGR_STOP_USER_RESP, uid, status);
+            EventLogHelper.writeCarDevicePolicyManagerStopUserResp(uid, status);
+        }
+    }
+
+    /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
+    public void setUserDisclaimerShown(@NonNull UserHandle user) {
+        Objects.requireNonNull(user, "user cannot be null");
+        try {
+            mService.setUserDisclaimerShown(user.getIdentifier());
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e, null);
+        }
+    }
+
+    /** @hide */
+    @AddedInOrBefore(majorVersion = 33)
+    public void setUserDisclaimerAcknowledged(@NonNull UserHandle user) {
+        Objects.requireNonNull(user, "user cannot be null");
+        try {
+            mService.setUserDisclaimerAcknowledged(user.getIdentifier());
+        } catch (RemoteException e) {
+            handleRemoteExceptionFromCarService(e, null);
         }
     }
 
     /** @hide */
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCarDisconnected() {
         // nothing to do
     }

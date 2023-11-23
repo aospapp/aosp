@@ -54,10 +54,6 @@ public class UtilsRoboTest {
     private static final ProvisioningParams PARAMS_ORG_OWNED = createTrustedSourceParamsBuilder()
             .setIsOrganizationOwnedProvisioning(true)
             .build();
-    private static final ProvisioningParams PARAMS_NFC = createTrustedSourceParamsBuilder()
-            .setIsOrganizationOwnedProvisioning(true)
-            .setIsNfc(true)
-            .build();
     private static final ProvisioningParams PARAMS_PROVISION_MANAGED_PROFILE =
             ProvisioningParams.Builder.builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
@@ -112,25 +108,6 @@ public class UtilsRoboTest {
 
         assertThat(mUtils.canPerformAdminIntegratedFlow(mContext, PARAMS_ORG_OWNED,
                 mPolicyComplianceUtils, mGetProvisioningModeUtils)).isFalse();
-    }
-
-    @Test
-    public void shouldPerformAdminIntegratedFlow_nfcProvisioning_returnsFalse() {
-        Intent policyComplianceIntent = getPolicyComplianceIntent();
-        Intent getProvisioningModeIntent = getGetProvisioningModeIntent();
-        ResolveInfo info = createFakeResolveInfo();
-        shadowOf(mContext.getPackageManager())
-                .addResolveInfoForIntent(policyComplianceIntent, info);
-        shadowOf(mContext.getPackageManager())
-                .addResolveInfoForIntent(getProvisioningModeIntent, info);
-
-        assertThat(mUtils.canPerformAdminIntegratedFlow(mContext, PARAMS_NFC,
-                mPolicyComplianceUtils, mGetProvisioningModeUtils)).isFalse();
-    }
-
-    @Test
-    public void checkAdminIntegratedFlowPreconditions_nfcProvisioning_returnsFalse() {
-        assertThat(mUtils.checkAdminIntegratedFlowPreconditions(PARAMS_NFC)).isFalse();
     }
 
     @Test

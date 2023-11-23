@@ -94,12 +94,17 @@ package android.util {
     method @NonNull public android.util.StatsEvent.Builder usePooledBuffer();
     method @NonNull public android.util.StatsEvent.Builder writeAttributionChain(@NonNull int[], @NonNull String[]);
     method @NonNull public android.util.StatsEvent.Builder writeBoolean(boolean);
+    method @NonNull public android.util.StatsEvent.Builder writeBooleanArray(@NonNull boolean[]);
     method @NonNull public android.util.StatsEvent.Builder writeByteArray(@NonNull byte[]);
     method @NonNull public android.util.StatsEvent.Builder writeFloat(float);
+    method @NonNull public android.util.StatsEvent.Builder writeFloatArray(@NonNull float[]);
     method @NonNull public android.util.StatsEvent.Builder writeInt(int);
+    method @NonNull public android.util.StatsEvent.Builder writeIntArray(@NonNull int[]);
     method @NonNull public android.util.StatsEvent.Builder writeKeyValuePairs(@Nullable android.util.SparseIntArray, @Nullable android.util.SparseLongArray, @Nullable android.util.SparseArray<java.lang.String>, @Nullable android.util.SparseArray<java.lang.Float>);
     method @NonNull public android.util.StatsEvent.Builder writeLong(long);
+    method @NonNull public android.util.StatsEvent.Builder writeLongArray(@NonNull long[]);
     method @NonNull public android.util.StatsEvent.Builder writeString(@NonNull String);
+    method @NonNull public android.util.StatsEvent.Builder writeStringArray(@NonNull String[]);
   }
 
   public final class StatsLog {

@@ -16,11 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wifi_eap_error_message_code_32760" msgid="5711364720754353427">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon qamrovidan tashqarida Verizon Wi-Fi Access xizmatiga ulana olmaysiz."</string>
-    <string name="wifi_eap_error_message_code_32761" msgid="7871615432524623339">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga obuna boʻlmagansiz. 800-922-0204 raqamiga telefon qiling."</string>
-    <string name="wifi_eap_error_message_code_32762" msgid="2994908156286205343">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access hisobingiz bilan muammo bor. 800-922-0204 raqamiga telefon qiling."</string>
-    <string name="wifi_eap_error_message_code_32763" msgid="8051026304965697200">"<xliff:g id="SSID">%1$s</xliff:g> : Allaqachon Verizon Wi-Fi Access xizmatiga ulangansiz."</string>
-    <string name="wifi_eap_error_message_code_32764" msgid="7311904315070770780">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi. 800-922-0204 raqamiga telefon qiling."</string>
-    <string name="wifi_eap_error_message_code_32765" msgid="576968115890091383">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access hisobingiz bilan muammo bor. 800-922-0204 raqamiga telefon qiling."</string>
-    <string name="wifi_eap_error_message_code_32766" msgid="895346637290649533">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access siz turgan joyda ishlamaydi. Keyinroq qayta urining yoki boshqa joydan urining."</string>
+    <string name="wifi_eap_error_message_code_32760" msgid="7899190980723541970">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon qamrovidan tashqarida Verizon Wi-Fi Access xizmatiga ulana olmaysiz. (Xato = 32760)"</string>
+    <string name="wifi_eap_error_message_code_32761" msgid="4502241555553812761">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga obuna boʻlmagansiz. 800-922-0204 raqamiga telefon qiling. (Xato = 32761)"</string>
+    <string name="wifi_eap_error_message_code_32762" msgid="8636803855192974833">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access hisobingiz bilan muammo bor. 800-922-0204 raqamiga telefon qiling. (Xato = 32762)"</string>
+    <string name="wifi_eap_error_message_code_32763" msgid="2907148732721960554">"<xliff:g id="SSID">%1$s</xliff:g> : Allaqachon Verizon Wi-Fi Access xizmatiga ulangansiz. (Xato = 32763)"</string>
+    <string name="wifi_eap_error_message_code_32764" msgid="7893339226278701313">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi. 800-922-0204 raqamiga telefon qiling. (Xato = 32764)"</string>
+    <string name="wifi_eap_error_message_code_32765" msgid="280860840894726014">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access hisobingiz bilan muammo bor. 800-922-0204 raqamiga telefon qiling. (Xato = 32765)"</string>
+    <string name="wifi_eap_error_message_code_32766" msgid="8240516953105404383">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access siz turgan joyda ishlamaydi. Keyinroq qayta urining yoki boshqa joydan urining. (Xato = 32766)"</string>
+    <string name="wifi_eap_error_message_code_32767" msgid="2748970858713796197">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi. Keyinroq qayta urining yoki boshqa joydan urining."</string>
+    <string name="wifi_eap_error_message_code_32768" msgid="6940754993270246981"></string>
+    <string name="wifi_eap_error_message_code_32769" msgid="4532250424174893199"></string>
+    <string name="wifi_eap_error_message_code_16384" msgid="3188087130800435510">"<xliff:g id="SSID">%1$s</xliff:g> : 16384 xatosi tufayli Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi."</string>
+    <string name="wifi_eap_error_message_code_16385" msgid="5914307659373687387">"<xliff:g id="SSID">%1$s</xliff:g> : 16385 xatosi tufayli Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi."</string>
+    <string name="wifi_eap_error_message_unknown_error_code" msgid="4276024988348676667">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access xizmatiga ulanishda muammo chiqdi."</string>
 </resources>

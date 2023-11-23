@@ -62,12 +62,10 @@ public class BluetoothInputDeviceConnector implements BluetoothDevicePairer.Blue
                 }
                 // TODO need to start a timer, otherwise if the connection fails we might be
                 // stuck here forever
-                mInputProxy.connect(mTarget);
-
-                // must set PRIORITY_AUTO_CONNECT or auto-connection will not
+                // must set CONNECTION_POLICY_ALLOWED or auto-connection will not
                 // occur, however this setting does not appear to be sticky
                 // across a reboot
-                mInputProxy.setPriority(mTarget, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                mInputProxy.setConnectionPolicy(mTarget, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
     };

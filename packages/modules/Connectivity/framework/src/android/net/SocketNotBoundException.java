@@ -18,6 +18,8 @@ package android.net;
 
 import android.annotation.SystemApi;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Thrown when a previously bound socket becomes unbound.
  *
@@ -25,7 +27,7 @@ import android.annotation.SystemApi;
  */
 @SystemApi
 public class SocketNotBoundException extends Exception {
-    /** @hide */
+    @VisibleForTesting
     public SocketNotBoundException() {
         super("The socket is unbound");
     }

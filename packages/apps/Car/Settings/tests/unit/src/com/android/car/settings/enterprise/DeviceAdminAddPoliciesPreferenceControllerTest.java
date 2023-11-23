@@ -25,6 +25,7 @@ import android.util.Log;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.common.PreferenceControllerTestUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +36,7 @@ import org.mockito.Mock;
 import java.util.ArrayList;
 
 public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
-        BasePreferenceControllerTestCase {
+        BaseEnterprisePreferenceControllerTestCase {
 
     private static final String TAG = DeviceAdminAddPoliciesPreferenceControllerTest.class
             .getSimpleName();
@@ -66,7 +67,7 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
                 new DeviceAdminAddPoliciesPreferenceController(mSpiedContext, mPreferenceKey,
                         mFragmentController, mUxRestrictions);
 
-        assertAvailability(controller.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(controller.getAvailabilityStatus(),
                 PreferenceController.CONDITIONALLY_UNAVAILABLE);
     }
 
@@ -74,7 +75,7 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
     public void testGetAvailabilityStatus_deviceOwner() throws Exception {
         mockDeviceOwner();
 
-        assertAvailability(mController.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.DISABLED_FOR_PROFILE);
     }
 
@@ -82,7 +83,7 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
     public void testGetAvailabilityStatus_profileOwner() throws Exception {
         mockProfileOwner();
 
-        assertAvailability(mController.getAvailabilityStatus(),
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
                 PreferenceController.DISABLED_FOR_PROFILE);
     }
 
@@ -90,7 +91,8 @@ public final class DeviceAdminAddPoliciesPreferenceControllerTest extends
     public void testGetAvailabilityStatus_regularAdmin() throws Exception {
         // Admin is neither PO nor DO
 
-        assertAvailability(mController.getAvailabilityStatus(), PreferenceController.AVAILABLE);
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                PreferenceController.AVAILABLE);
     }
 
     @Test

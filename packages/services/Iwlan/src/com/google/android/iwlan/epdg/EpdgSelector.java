@@ -17,9 +17,12 @@
 package com.google.android.iwlan.epdg;
 
 import android.content.Context;
+import android.net.DnsResolver;
+import android.net.DnsResolver.DnsException;
 import android.net.Network;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.telephony.CarrierConfigManager;
 import android.telephony.CellIdentityGsm;
 import android.telephony.CellIdentityLte;
@@ -29,22 +32,28 @@ import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.CellInfoNr;
+import android.telephony.CellInfoTdscdma;
 import android.telephony.CellInfoWcdma;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.android.iwlan.IwlanError;
 import com.google.android.iwlan.IwlanHelper;
+import com.google.android.iwlan.epdg.NaptrDnsResolver.NaptrTarget;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 public class EpdgSelector {
     private static final String TAG = "EpdgSelector";
@@ -141,36 +150,49 @@ public class EpdgSelector {
         // Get All IP for each domain name
         Log.d(TAG, "Input domainName : " + domainName);
         try {
-            ipList = network.getAllByName(domainName);
-        } catch (Exception e) {
-            Log.e(TAG, "Exception when querying IP address : " + e);
-            return;
-        }
+            CompletableFuture<List<InetAddress>> result = new CompletableFuture();
+            final DnsResolver.Callback<List<InetAddress>> cb =
+                    new DnsResolver.Callback<List<InetAddress>>() {
+                        @Override
+                        public void onAnswer(
+                                @NonNull final List<InetAddress> answer, final int rcode) {
+                            if (rcode != 0) {
+                                Log.e(TAG, "DnsResolver Response Code = " + rcode);
+                            }
+                            result.complete(answer);
+                        }
 
-        if (ipList == null) {
-            Log.e(TAG, "Get empty IP address list");
-            return;
-        }
+                        @Override
+                        public void onError(@Nullable final DnsResolver.DnsException error) {
+                            Log.e(TAG, "Resolve DNS with error : " + error);
+                            result.completeExceptionally(error);
+                        }
+                    };
+            DnsResolver.getInstance()
+                    .query(network, domainName, DnsResolver.FLAG_EMPTY, r -> r.run(), null, cb);
 
-        // Filter the IP list by input ProtoFilter
-        for (InetAddress ipAddress : ipList) {
-            switch (filter) {
-                case PROTO_FILTER_IPV4:
-                    if (ipAddress instanceof Inet4Address) {
+            // Filter the IP list by input ProtoFilter
+            for (InetAddress ipAddress : result.get()) {
+                switch (filter) {
+                    case PROTO_FILTER_IPV4:
+                        if (ipAddress instanceof Inet4Address) {
+                            validIpList.add(ipAddress);
+                        }
+                        break;
+                    case PROTO_FILTER_IPV6:
+                        if (!IwlanHelper.isIpv4EmbeddedIpv6Address(ipAddress)) {
+                            validIpList.add(ipAddress);
+                        }
+                        break;
+                    case PROTO_FILTER_IPV4V6:
                         validIpList.add(ipAddress);
-                    }
-                    break;
-                case PROTO_FILTER_IPV6:
-                    if (ipAddress instanceof Inet6Address) {
-                        validIpList.add(ipAddress);
-                    }
-                    break;
-                case PROTO_FILTER_IPV4V6:
-                    validIpList.add(ipAddress);
-                    break;
-                default:
-                    Log.d(TAG, "Invalid ProtoFilter : " + filter);
+                        break;
+                    default:
+                        Log.d(TAG, "Invalid ProtoFilter : " + filter);
+                }
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception when resolving domainName : " + domainName + ".", e);
         }
     }
 
@@ -290,8 +312,7 @@ public class EpdgSelector {
         // Get the static domain names from carrier config
         // Config obtained in form of a list of domain names separated by
         // a delimeter is only used for testing purpose.
-        // TODO: need to consider APM on/no cellular condition.
-        if (isRoaming && !inSameCountry()) {
+        if (!inSameCountry()) {
             domainNames =
                     getDomainNames(
                             CarrierConfigManager.Iwlan.KEY_EPDG_STATIC_ADDRESS_ROAMING_STRING);
@@ -328,11 +349,8 @@ public class EpdgSelector {
 
         if (tm != null) {
             String simCountry = tm.getSimCountryIso();
-            String currentCountry = tm.getNetworkCountryIso();
-            if (simCountry != null
-                    && !simCountry.isEmpty()
-                    && currentCountry != null
-                    && !currentCountry.isEmpty()) {
+            String currentCountry = IwlanHelper.getLastKnownCountryCode(mContext);
+            if (!TextUtils.isEmpty(simCountry) && !TextUtils.isEmpty(currentCountry)) {
                 Log.d(TAG, "simCountry = " + simCountry + ", currentCountry = " + currentCountry);
                 inSameCountry = simCountry.equalsIgnoreCase(currentCountry);
             }
@@ -582,6 +600,206 @@ public class EpdgSelector {
         }
     }
 
+    private String composeFqdnWithMccMnc(String mcc, String mnc, boolean isEmergency) {
+        StringBuilder domainName = new StringBuilder();
+
+        /*
+         * Operator Identifier based ePDG FQDN format:
+         * epdg.epc.mnc<MNC>.mcc<MCC>.pub.3gppnetwork.org
+         *
+         * Operator Identifier based Emergency ePDG FQDN format:
+         * sos.epdg.epc.mnc<MNC>.mcc<MCC>.pub.3gppnetwork.org
+         */
+        domainName.setLength(0);
+        if (isEmergency) {
+            domainName.append("sos.");
+        }
+        domainName
+                .append("epdg.epc.mnc")
+                .append(mnc)
+                .append(".mcc")
+                .append(mcc)
+                .append(".pub.3gppnetwork.org");
+
+        return domainName.toString();
+    }
+
+    private boolean isRegisteredWith3GPP(TelephonyManager telephonyManager) {
+        List<CellInfo> cellInfoList = telephonyManager.getAllCellInfo();
+        if (cellInfoList == null) {
+            Log.e(TAG, "cellInfoList is NULL");
+        } else {
+            for (CellInfo cellInfo : cellInfoList) {
+                if (!cellInfo.isRegistered()) {
+                    continue;
+                }
+                if (cellInfo instanceof CellInfoGsm
+                        || cellInfo instanceof CellInfoTdscdma
+                        || cellInfo instanceof CellInfoWcdma
+                        || cellInfo instanceof CellInfoLte
+                        || cellInfo instanceof CellInfoNr) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void processNaptrResponse(
+            int filter,
+            ArrayList<InetAddress> validIpList,
+            boolean isEmergency,
+            Network network,
+            boolean isRegisteredWith3GPP,
+            List<NaptrTarget> naptrResponse,
+            Set<String> plmnsFromCarrierConfig,
+            String registeredhostName) {
+        Set<String> resultSet = new LinkedHashSet<>();
+
+        for (NaptrTarget target : naptrResponse) {
+            Log.d(TAG, "NaptrTarget - name: " + target.mName);
+            Log.d(TAG, "NaptrTarget - type: " + target.mType);
+            if (target.mType == NaptrDnsResolver.TYPE_A) {
+                resultSet.add(target.mName);
+            }
+        }
+
+        /*
+         * As 3GPP TS 23.402 4.5.4.5 bullet 2a,
+         * if the device registers via 3GPP and its PLMN info is in the NAPTR response,
+         * try to connect ePDG with this PLMN info.
+         */
+        if (isRegisteredWith3GPP) {
+            if (resultSet.contains(registeredhostName)) {
+                getIP(registeredhostName, filter, validIpList, network);
+                resultSet.remove(registeredhostName);
+            }
+        }
+
+        /*
+         * As 3GPP TS 23.402 4.5.4.5 bullet 2b
+         * Check if there is any PLMN in both ePDG selection information and the DNS response
+         */
+        for (String plmn : plmnsFromCarrierConfig) {
+            String[] mccmnc = splitMccMnc(plmn);
+            String carrierConfighostName = composeFqdnWithMccMnc(mccmnc[0], mccmnc[1], isEmergency);
+
+            if (resultSet.contains(carrierConfighostName)) {
+                getIP(carrierConfighostName, filter, validIpList, network);
+                resultSet.remove(carrierConfighostName);
+            }
+        }
+
+        /*
+         * Do FQDN with the remaining PLMNs in the ResultSet
+         */
+        for (String result : resultSet) {
+            getIP(result, filter, validIpList, network);
+        }
+    }
+
+    private void resolutionMethodVisitedCountry(
+            int filter, ArrayList<InetAddress> validIpList, boolean isEmergency, Network network) {
+        StringBuilder domainName = new StringBuilder();
+
+        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
+        telephonyManager =
+                telephonyManager.createForSubscriptionId(IwlanHelper.getSubId(mContext, mSlotId));
+
+        if (telephonyManager == null) {
+            Log.e(TAG, "TelephonyManager is NULL");
+            return;
+        }
+
+        final boolean isRegisteredWith3GPP = isRegisteredWith3GPP(telephonyManager);
+
+        // Get ePDG selection information from CarrierConfig
+        final Set<String> plmnsFromCarrierConfig =
+                new LinkedHashSet<>(
+                        Arrays.asList(
+                                IwlanHelper.getConfig(
+                                        CarrierConfigManager.Iwlan.KEY_MCC_MNCS_STRING_ARRAY,
+                                        mContext,
+                                        mSlotId)));
+
+        final String cellMcc = telephonyManager.getNetworkOperator().substring(0, 3);
+        final String cellMnc = telephonyManager.getNetworkOperator().substring(3);
+        final String plmnFromNetwork =
+                new StringBuilder().append(cellMcc).append("-").append(cellMnc).toString();
+        final String registeredhostName = composeFqdnWithMccMnc(cellMcc, cellMnc, isEmergency);
+
+        /*
+        * As TS 23 402 4.5.4.4 bullet 3a
+        * If the UE determines to be located in a country other than its home country
+        * If the UE is registered via 3GPP access to a PLMN and this PLMN matches an entry
+          in the ePDG selection information, then the UE shall select an ePDG in this PLMN.
+        */
+        if (isRegisteredWith3GPP) {
+            if (plmnsFromCarrierConfig.contains(plmnFromNetwork)) {
+                getIP(registeredhostName, filter, validIpList, network);
+            }
+        }
+
+        /*
+         * Visited Country FQDN format:
+         * epdg.epc.mcc<MCC>.visited-country.pub.3gppnetwork.org
+         *
+         * Visited Country Emergency ePDG FQDN format:
+         * sos.epdg.epc.mcc<MCC>.visited-country.pub.3gppnetwork.org
+         */
+        if (isEmergency) {
+            domainName.append("sos.");
+        }
+        domainName
+                .append("epdg.epc.mcc")
+                .append(cellMcc)
+                .append(".visited-country.pub.3gppnetwork.org");
+
+        Log.d(TAG, "Visited Country FQDN with " + domainName.toString());
+
+        CompletableFuture<List<NaptrTarget>> naptrDnsResult = new CompletableFuture<>();
+        DnsResolver.Callback<List<NaptrTarget>> naptrDnsCb =
+                new DnsResolver.Callback<List<NaptrTarget>>() {
+                    @Override
+                    public void onAnswer(@NonNull final List<NaptrTarget> answer, final int rcode) {
+                        if (rcode == 0 && answer.size() != 0) {
+                            naptrDnsResult.complete(answer);
+                        } else {
+                            naptrDnsResult.completeExceptionally(new UnknownHostException());
+                        }
+                    }
+
+                    @Override
+                    public void onError(@Nullable final DnsException error) {
+                        naptrDnsResult.completeExceptionally(error);
+                    }
+                };
+        NaptrDnsResolver.query(network, domainName.toString(), r -> r.run(), null, naptrDnsCb);
+
+        try {
+            final List<NaptrTarget> naptrResponse = naptrDnsResult.get();
+            // Check if there is any record in the NAPTR response
+            if (naptrResponse != null && naptrResponse.size() > 0) {
+                processNaptrResponse(
+                        filter,
+                        validIpList,
+                        isEmergency,
+                        network,
+                        isRegisteredWith3GPP,
+                        naptrResponse,
+                        plmnsFromCarrierConfig,
+                        registeredhostName);
+            }
+        } catch (ExecutionException e) {
+            Log.e(TAG, "Cause of ExecutionException: ", e.getCause());
+        } catch (InterruptedException e) {
+            if (Thread.currentThread().interrupted()) {
+                Thread.currentThread().interrupt();
+            }
+            Log.e(TAG, "InterruptedException: ", e);
+        }
+    }
+
     public IwlanError getValidatedServerList(
             int transactionId,
             @ProtoFilter int filter,
@@ -602,6 +820,19 @@ public class EpdgSelector {
                                     CarrierConfigManager.Iwlan.KEY_EPDG_ADDRESS_PRIORITY_INT_ARRAY,
                                     mContext,
                                     mSlotId);
+
+                    final boolean isVisitedCountryMethodRequired =
+                            Arrays.stream(addrResolutionMethods)
+                                    .anyMatch(
+                                            i ->
+                                                    i
+                                                            == CarrierConfigManager.Iwlan
+                                                                    .EPDG_ADDRESS_VISITED_COUNTRY);
+
+                    // In the visited country
+                    if (isRoaming && !inSameCountry() && isVisitedCountryMethodRequired) {
+                        resolutionMethodVisitedCountry(filter, validIpList, isEmergency, network);
+                    }
 
                     for (int addrResolutionMethod : addrResolutionMethods) {
                         switch (addrResolutionMethod) {

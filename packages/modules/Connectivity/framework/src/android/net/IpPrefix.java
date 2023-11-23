@@ -87,9 +87,7 @@ public final class IpPrefix implements Parcelable {
      *
      * @param address the IP address. Must be non-null.
      * @param prefixLength the prefix length. Must be &gt;= 0 and &lt;= (32 or 128) (IPv4 or IPv6).
-     * @hide
      */
-    @SystemApi
     public IpPrefix(@NonNull InetAddress address, @IntRange(from = 0, to = 128) int prefixLength) {
         // We don't reuse the (byte[], int) constructor because it calls clone() on the byte array,
         // which is unnecessary because getAddress() already returns a clone.

@@ -24,6 +24,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -43,6 +44,7 @@ import androidx.recyclerview.widget.RecyclerViewAccessibilityDelegate;
 import com.android.customization.model.CustomizationManager;
 import com.android.customization.model.CustomizationOption;
 import com.android.wallpaper.R;
+import com.android.wallpaper.widget.GridPaddingDecoration;
 
 import java.util.HashSet;
 import java.util.List;
@@ -77,7 +79,7 @@ public class OptionSelectorController<T extends CustomizationOption<T>> {
         int CENTER_CHANGE_COLOR_WHEN_NOT_SELECTED = 3;
     }
 
-    private static final float LINEAR_LAYOUT_HORIZONTAL_DISPLAY_OPTIONS_MAX = 4.35f;
+    private float mLinearLayoutHorizontalDisplayOptionsMax;
 
     private final RecyclerView mContainer;
     private final List<T> mOptions;
@@ -99,6 +101,10 @@ public class OptionSelectorController<T extends CustomizationOption<T>> {
         mOptions = options;
         mUseGrid = useGrid;
         mCheckmarkStyle = checkmarkStyle;
+        TypedValue typedValue = new TypedValue();
+        mContainer.getResources().getValue(R.dimen.linear_layout_horizontal_display_options_max,
+                typedValue, true);
+        mLinearLayoutHorizontalDisplayOptionsMax = typedValue.getFloat();
     }
 
     public void addListener(OptionSelectedListener listener) {
@@ -312,6 +318,11 @@ public class OptionSelectorController<T extends CustomizationOption<T>> {
             if (mContainer.getLayoutManager() != null) {
                 ((GridLayoutManager) mContainer.getLayoutManager()).setSpanCount(numColumns);
             }
+            if (mContainer.getItemDecorationCount() == 0) {
+                mContainer.addItemDecoration(new GridPaddingDecoration(
+                        mContainer.getContext().getResources().getDimensionPixelSize(
+                                R.dimen.option_tile_grid_padding_horizontal), 0));
+            }
             return;
         }
 
@@ -320,12 +331,12 @@ public class OptionSelectorController<T extends CustomizationOption<T>> {
             mContainer.setOverScrollMode(View.OVER_SCROLL_NEVER);
         }
 
-        if (mAdapter.getItemCount() >= LINEAR_LAYOUT_HORIZONTAL_DISPLAY_OPTIONS_MAX) {
+        if (mAdapter.getItemCount() >= mLinearLayoutHorizontalDisplayOptionsMax) {
             int spaceBetweenItems = availableWidth
-                    - Math.round(widthPerItem * LINEAR_LAYOUT_HORIZONTAL_DISPLAY_OPTIONS_MAX)
+                    - Math.round(widthPerItem * mLinearLayoutHorizontalDisplayOptionsMax)
                     - mContainer.getPaddingLeft();
             int itemEndMargin =
-                    spaceBetweenItems / (int) LINEAR_LAYOUT_HORIZONTAL_DISPLAY_OPTIONS_MAX;
+                    spaceBetweenItems / (int) mLinearLayoutHorizontalDisplayOptionsMax;
             if (itemEndMargin <= 0) {
                 itemEndMargin = res.getDimensionPixelOffset(R.dimen.option_tile_margin_horizontal);
             }

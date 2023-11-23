@@ -18,6 +18,7 @@ package com.android.car.procfsinspector;
 
 import com.android.car.procfsinspector.ProcessInfo;
 
+/** @deprecated use CarWatchdogService and its related classes for I/O related tasks */
 interface IProcfsInspector {
     List<ProcessInfo> readProcessTable();
 }

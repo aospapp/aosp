@@ -95,7 +95,8 @@ public abstract class MenuRowView extends LinearLayout {
                     @Override
                     public void sendAccessibilityEvent(View host, int eventType) {
                         super.sendAccessibilityEvent(host, eventType);
-                        if (eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED &&
+                        if ((eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED ||
+                                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
                                 !mRow.isReselected()) {
                             requestChildFocus();
                         }

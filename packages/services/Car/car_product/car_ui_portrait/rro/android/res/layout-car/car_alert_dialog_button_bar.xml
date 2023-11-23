@@ -17,16 +17,15 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
             android:id="@*android:id/buttonPanel"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="@dimen/button_layout_height"
             android:scrollbarAlwaysDrawVerticalTrack="true"
             android:scrollIndicators="top|bottom"
             android:fillViewport="true"
             style="?android:attr/buttonBarStyle">
-    <com.android.internal.widget.ButtonBarLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layoutDirection="locale"
-        android:layout_marginTop="@dimen/car_alert_dialog_margin"
         android:layout_marginLeft="@dimen/car_alert_dialog_margin"
         android:layout_marginRight="@dimen/car_alert_dialog_margin"
         android:orientation="horizontal"
@@ -34,7 +33,9 @@
         <Button
             android:id="@android:id/button3"
             android:background="@drawable/car_dialog_button_background"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:stateListAnimator="@null"
             android:layout_height="@dimen/button_layout_height"
             android:layout_marginRight="@dimen/car_alert_dialog_button_margin"
             android:textAppearance="?android:attr/textAppearanceSmall"
@@ -42,7 +43,9 @@
         <Button
             android:id="@android:id/button2"
             android:background="@drawable/car_dialog_button_background"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:stateListAnimator="@null"
             android:layout_height="@dimen/button_layout_height"
             android:layout_marginRight="@dimen/car_alert_dialog_button_margin"
             android:textAppearance="?android:attr/textAppearanceSmall"
@@ -50,7 +53,9 @@
         <Button
             android:id="@android:id/button1"
             android:background="@drawable/car_dialog_button_background"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:stateListAnimator="@null"
             android:layout_height="@dimen/button_layout_height"
             android:textAppearance="?android:attr/textAppearanceSmall"
             android:textColor="@color/alert_dialog_message_text_color"/>
@@ -59,5 +64,5 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:visibility="gone" />
-    </com.android.internal.widget.ButtonBarLayout>
+    </LinearLayout>
 </ScrollView>

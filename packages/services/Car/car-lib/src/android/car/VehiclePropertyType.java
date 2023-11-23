@@ -18,10 +18,10 @@ package android.car;
 
 import android.annotation.IntDef;
 import android.annotation.TestApi;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-
 
 /**
  * Value type of VehicleProperty
@@ -29,16 +29,27 @@ import java.lang.annotation.RetentionPolicy;
  */
 @TestApi
 public class VehiclePropertyType {
+    @AddedInOrBefore(majorVersion = 33)
     public static final int STRING          = 0x00100000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int BOOLEAN         = 0x00200000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int INT32           = 0x00400000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int INT32_VEC       = 0x00410000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int INT64           = 0x00500000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int INT64_VEC       = 0x00510000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FLOAT           = 0x00600000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int FLOAT_VEC       = 0x00610000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int BYTES           = 0x00700000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MIXED           = 0x00e00000;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int MASK            = 0x00ff0000;
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)

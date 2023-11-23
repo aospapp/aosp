@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.icu.text.MessageFormat;
 import android.os.UserHandle;
 import android.os.UserManager;
 
@@ -32,16 +33,20 @@ import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.utils.ThreadUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.enterprise.apps.ApplicationFeatureProvider;
-import com.android.tv.settings.enterprise.apps.EnterpriseDefaultApps;
-import com.android.tv.settings.enterprise.apps.UserAppInfo;
-import com.android.tv.settings.overlay.FeatureFactory;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
+import com.android.tv.settings.library.enterprise.apps.ApplicationFeatureProvider;
+import com.android.tv.settings.library.enterprise.apps.EnterpriseDefaultApps;
+import com.android.tv.settings.library.enterprise.apps.UserAppInfo;
+import com.android.tv.settings.library.overlay.FeatureFactory;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 
 /**
@@ -187,16 +192,28 @@ public class EnterpriseSetDefaultAppsListPreferenceController extends
             case CONTACTS:
                 return context.getString(R.string.default_contacts_app_title);
             case PHONE:
-                return context.getResources()
-                        .getQuantityString(R.plurals.default_phone_app_title, appCount);
+                MessageFormat msgFormatPhone = new MessageFormat(
+                        context.getString(R.string.default_phone_app_title),
+                        Locale.getDefault());
+                Map<String, Object> argumentsPhone = new HashMap<>();
+                argumentsPhone.put("count", appCount);
+                return  msgFormatPhone.format(argumentsPhone);
             case MAP:
                 return context.getString(R.string.default_map_app_title);
             case EMAIL:
-                return context.getResources()
-                        .getQuantityString(R.plurals.default_email_app_title, appCount);
+                MessageFormat msgFormatEmail = new MessageFormat(
+                        context.getString(R.string.default_email_app_title),
+                        Locale.getDefault());
+                Map<String, Object> argumentsEmail = new HashMap<>();
+                argumentsEmail.put("count", appCount);
+                return  msgFormatEmail.format(argumentsEmail);
             case CAMERA:
-                return context.getResources()
-                        .getQuantityString(R.plurals.default_camera_app_title, appCount);
+                MessageFormat msgFormatCamera = new MessageFormat(
+                        context.getString(R.string.default_camera_app_title),
+                        Locale.getDefault());
+                Map<String, Object> argumentsCamera = new HashMap<>();
+                argumentsCamera.put("count", appCount);
+                return  msgFormatCamera.format(argumentsCamera);
             default:
                 throw new IllegalStateException("Unknown type of default " + typeOfDefault);
         }

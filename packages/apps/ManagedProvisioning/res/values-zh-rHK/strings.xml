@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"下列應用程式將管理您的裝置："</string>
     <string name="next" msgid="1004321437324424398">"下一步"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定工作設定檔…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"您的 IT 管理員可監察和管理與此設定檔相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">
-
-</xliff:g>請聯絡您的 IT 管理員以瞭解詳情 (包括貴機構的私隱權政策)。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"您的 IT 管理員可監察和管理與此設定檔相關的設定、公司存取權、應用程式、權限、資料和網絡活動，以及您的通話記錄和聯絡人搜尋記錄。如需詳細資情及進一步瞭解機構的私隱權政策，請聯絡您的 IT 管理員。"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"您的 IT 管理員可監察和管理與此裝置相關的設定、公司存取權、應用程式、權限和資料，包括您的網絡活動、裝置位置、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">
 
 </xliff:g>請聯絡您的 IT 管理員以瞭解詳情 (包括貴機構的私隱權政策)。"</string>
@@ -107,7 +105,7 @@
     <string name="device_owner_info" msgid="3716661456037934467">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守條款。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>條款。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"此連結不安全。裝置完成設定前，連結將無法開啟：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="2843488903902493030">"如要瞭解詳情，請聯絡您的 <xliff:g id="IT_ADMIN">%1$s</xliff:g>。"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"詳情請聯絡您的 <xliff:g id="IT_ADMIN">%1$s</xliff:g>。"</string>
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"如有任何問題，請與 IT 管理員聯絡"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"您尚未完成設定。如需協助，請聯絡您的 IT 管理員。"</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"如需協助，請聯絡您的 IT 管理員"</string>
@@ -161,7 +159,7 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"下列應用程式將用於管理和監控這部手機"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"您的帳戶已受管理"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"IT 管理員透過流動裝置管理服務強制執行安全政策"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"準備進行工作設定…"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"準備設定工作設定檔…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"現在開始設定您的工作設定檔"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"工作應用程式均儲存在工作設定檔中"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"完成當日工作後停用工作應用程式"</string>
@@ -183,7 +181,7 @@
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"取消設定"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"重設並交還裝置"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"工作應用程式儲存於工作設定檔，並由 IT 管理員管理"</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"個人應用程式會獨立儲存，兩者不會同時顯示"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"個人應用程式會與工作應用程式分開，不會一同顯示"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT 管理員可控制此裝置並封鎖特定應用程式"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"工作應用程式均儲存在工作設定檔中，並由 IT 管理員管理。個人應用程式會獨立儲存，並在工作應用程式中隱藏。IT 管理員可控制此裝置並封鎖部分應用程式。"</string>
     <string name="just_a_sec" msgid="6244676028626237220">"請稍候…"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"「<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>」可在此裝置上安裝「<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>」應用程式，以便您為此裝置付款。"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"此裝置可能會受到限制"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"如果您沒有付款，「<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>」可限制您使用此裝置。"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"無法設定裝置。請聯絡 IT 管理員並提供錯誤原因：檢查碼無效。"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"請稍後再試或向 IT 管理員尋求協助"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"無法設定裝置。請聯絡 IT 管理員並提供錯誤原因：缺少組件或組件毀損。"</string>
+    <string name="setting_up" msgid="1478847967385506664">"正在設定…"</string>
 </resources>

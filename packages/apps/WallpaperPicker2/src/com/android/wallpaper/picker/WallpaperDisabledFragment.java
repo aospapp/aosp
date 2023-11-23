@@ -21,16 +21,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.IntDef;
+import androidx.fragment.app.Fragment;
+
 import com.android.wallpaper.R;
-import com.android.wallpaper.module.FormFactorChecker;
-import com.android.wallpaper.module.FormFactorChecker.FormFactor;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.WallpaperPreferences;
 
 import java.util.Date;
-
-import androidx.annotation.IntDef;
-import androidx.fragment.app.Fragment;
 
 /**
  * Displays the UI indicating that setting wallpaper is disabled.
@@ -54,16 +52,7 @@ public class WallpaperDisabledFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        FormFactorChecker formFactorChecker =
-                InjectorProvider.getInjector().getFormFactorChecker(getActivity());
-        @FormFactor int formFactor = formFactorChecker.getFormFactor();
-
-        View view;
-        if (formFactor == FormFactorChecker.FORM_FACTOR_DESKTOP) {
-            view = inflater.inflate(R.layout.fragment_disabled_by_admin_desktop, container, false);
-        } else {  // FORM_FACTOR_MOBILE
-            view = inflater.inflate(R.layout.fragment_disabled_by_admin, container, false);
-        }
+        View view = inflater.inflate(R.layout.fragment_disabled_by_admin, container, false);
 
         @WallpaperSupportLevel int wallpaperSupportLevel = getArguments().getInt(
                 ARG_WALLPAPER_SUPPORT_LEVEL);

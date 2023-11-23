@@ -22,7 +22,7 @@ import static com.android.permissioncontroller.permission.ui.Category.ALLOWED_FO
 import static com.android.permissioncontroller.permission.ui.Category.ASK;
 import static com.android.permissioncontroller.permission.ui.Category.DENIED;
 import static com.android.permissioncontroller.permission.ui.handheld.UtilsKt.pressBack;
-import static com.android.permissioncontroller.permission.ui.handheld.dashboard.UtilsKt.shouldShowPermissionsDashboard;
+import static com.android.permissioncontroller.permission.ui.handheld.v31.DashboardUtilsKt.shouldShowPermissionsDashboard;
 
 import android.Manifest;
 import android.app.ActionBar;
@@ -34,6 +34,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.ArrayMap;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -45,11 +46,12 @@ import androidx.annotation.RequiresApi;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceScreen;
 
 import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.R;
-import com.android.permissioncontroller.permission.model.AppPermissionUsage;
-import com.android.permissioncontroller.permission.model.PermissionUsages;
+import com.android.permissioncontroller.permission.model.v31.AppPermissionUsage;
+import com.android.permissioncontroller.permission.model.v31.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.Category;
 import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity;
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel;
@@ -58,6 +60,7 @@ import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.HelpUtils;
 import com.android.settingslib.utils.applications.AppUtils;
+import com.android.settingslib.widget.FooterPreference;
 
 import java.text.Collator;
 import java.util.ArrayList;
@@ -66,6 +69,7 @@ import java.util.Map;
 import java.util.Random;
 
 import kotlin.Pair;
+import kotlin.Triple;
 
 /**
  * Show and manage apps which request a single permission group.
@@ -82,6 +86,9 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
     private static final String LOG_TAG = "PermissionAppsFragment";
     private static final String STORAGE_ALLOWED_FULL = "allowed_storage_full";
     private static final String STORAGE_ALLOWED_SCOPED = "allowed_storage_scoped";
+    private static final String BLOCKED_SENSOR_PREF_KEY = "sensor_card";
+    private static final String STORAGE_FOOTER_CATEGORY_KEY = "storage_footer_category";
+    private static final String STORAGE_FOOTER_PREFERENCE_KEY = "storage_footer_preference";
     private static final int SHOW_LOAD_DELAY_MS = 200;
 
     private static final int MENU_PERMISSION_USAGE = MENU_HIDE_SYSTEM + 1;
@@ -107,6 +114,7 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
     private PermissionAppsViewModel mViewModel;
     private PermissionUsages mPermissionUsages;
     private List<AppPermissionUsage> mAppPermissionUsages = new ArrayList<>();
+    private Boolean mSensorStatus;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -155,6 +163,10 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
             mPermissionUsages.load(null, null, filterTimeBeginMillis, Long.MAX_VALUE,
                     PermissionUsages.USAGE_FLAG_LAST, getActivity().getLoaderManager(),
                     false, false, this, false);
+
+            if (Utils.shouldDisplayCardIfBlocked(mPermGroupName)) {
+                mViewModel.getSensorStatusLiveData().observe(this, this::setSensorStatus);
+            }
         }
     }
 
@@ -225,6 +237,100 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
+    private void setSensorStatus(Boolean sensorStatus) {
+        mSensorStatus = sensorStatus;
+        displaySensorCard();
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private void displaySensorCard() {
+        if (Utils.shouldDisplayCardIfBlocked(mPermGroupName)) {
+            if (mSensorStatus) {
+                setSensorCard();
+            } else {
+                removeSensorCard();
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private void setSensorCard() {
+        CardViewPreference sensorCard = findPreference(BLOCKED_SENSOR_PREF_KEY);
+        if (sensorCard == null) {
+            sensorCard = createSensorCard();
+            ensurePreferenceScreen();
+            getPreferenceScreen().addPreference(sensorCard);
+        }
+        sensorCard.setVisible(true);
+    }
+
+    private void ensurePreferenceScreen() {
+        // Check if preference screen has been already loaded
+        if (getPreferenceScreen() != null) {
+            return;
+        }
+        boolean isStorageAndLessThanT = !SdkLevel.isAtLeastT()
+                && mPermGroupName.equals(Manifest.permission_group.STORAGE);
+        if (isStorageAndLessThanT) {
+            addPreferencesFromResource(R.xml.allowed_denied_storage);
+        } else {
+            addPreferencesFromResource(R.xml.allowed_denied);
+        }
+        // Hide allowed foreground label by default, to avoid briefly showing it before updating
+        findPreference(ALLOWED_FOREGROUND.getCategoryName()).setVisible(false);
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private CardViewPreference createSensorCard() {
+        boolean isLocation = Manifest.permission_group.LOCATION.equals(mPermGroupName);
+        Context context = getPreferenceManager().getContext();
+        String action = isLocation ? Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                : Settings.ACTION_PRIVACY_SETTINGS;
+        CardViewPreference sensorCard = new CardViewPreference(context, action);
+        sensorCard.setKey(BLOCKED_SENSOR_PREF_KEY);
+        sensorCard.setIcon(Utils.getBlockedIcon(mPermGroupName));
+        sensorCard.setTitle(Utils.getBlockedTitle(mPermGroupName));
+        boolean isMicrophone = Manifest.permission_group.MICROPHONE.equals(mPermGroupName);
+        int cardSummary =
+                isMicrophone ? R.string.blocked_mic_summary : R.string.blocked_sensor_summary;
+        sensorCard.setSummary(context.getString(cardSummary));
+        sensorCard.setVisible(true);
+        sensorCard.setOrder(-1);
+        return sensorCard;
+    }
+
+    private void addStorageFooterSeeAllFilesAccess() {
+        PreferenceScreen screen = getPreferenceScreen();
+        Context context = screen.getPreferenceManager().getContext();
+        PreferenceCategory preferenceCategory = findPreference(STORAGE_FOOTER_CATEGORY_KEY);
+        Preference existingPreference = findPreference(STORAGE_FOOTER_PREFERENCE_KEY);
+
+        if (preferenceCategory == null || existingPreference != null) {
+            return;
+        }
+
+        FooterPreference preference = new FooterPreference(context);
+        preference.setKey(STORAGE_FOOTER_PREFERENCE_KEY);
+        preference.setIcon(Utils.applyTint(getActivity(), R.drawable.ic_info_outline,
+                android.R.attr.colorControlNormal));
+        preference.setLearnMoreText(getString(R.string.storage_footer_hyperlink_text));
+        preference.setLearnMoreAction(v -> {
+            context.startActivity(
+                    new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+        });
+
+        preferenceCategory.addPreference(preference);
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private void removeSensorCard() {
+        CardViewPreference sensorCard = findPreference(BLOCKED_SENSOR_PREF_KEY);
+        if (sensorCard != null) {
+            sensorCard.setVisible(false);
+        }
+    }
+
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -248,16 +354,9 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
     }
 
     private void onPackagesLoaded(Map<Category, List<Pair<String, UserHandle>>> categories) {
-        boolean isStorage = mPermGroupName.equals(Manifest.permission_group.STORAGE);
-        if (getPreferenceScreen() == null) {
-            if (isStorage) {
-                addPreferencesFromResource(R.xml.allowed_denied_storage);
-            } else {
-                addPreferencesFromResource(R.xml.allowed_denied);
-            }
-            // Hide allowed foreground label by default, to avoid briefly showing it before updating
-            findPreference(ALLOWED_FOREGROUND.getCategoryName()).setVisible(false);
-        }
+        boolean isStorageAndLessThanT = !SdkLevel.isAtLeastT()
+                && mPermGroupName.equals(Manifest.permission_group.STORAGE);
+        ensurePreferenceScreen();
         Context context = getPreferenceManager().getContext();
 
         if (context == null || getActivity() == null || categories == null) {
@@ -267,8 +366,11 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
         Map<String, Preference> existingPrefs = new ArrayMap<>();
 
         for (int i = 0; i < getPreferenceScreen().getPreferenceCount(); i++) {
-            PreferenceCategory category = (PreferenceCategory)
-                    getPreferenceScreen().getPreference(i);
+            Preference pref = getPreferenceScreen().getPreference(i);
+            if (BLOCKED_SENSOR_PREF_KEY.equals(pref.getKey())) {
+                continue;
+            }
+            PreferenceCategory category = (PreferenceCategory) pref;
             category.setOrderingAsAdded(true);
             int numPreferences = category.getPreferenceCount();
             for (int j = 0; j < numPreferences; j++) {
@@ -282,7 +384,7 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
         long sessionId = getArguments().getLong(EXTRA_SESSION_ID, INVALID_SESSION_ID);
 
         Boolean showAlways = mViewModel.getShowAllowAlwaysStringLiveData().getValue();
-        if (!isStorage) {
+        if (!isStorageAndLessThanT) {
             if (showAlways != null && showAlways) {
                 findPreference(ALLOWED.getCategoryName()).setTitle(R.string.allowed_always_header);
             } else {
@@ -301,7 +403,8 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
 
             // If this category is empty, and this isn't the "allowed" category of the storage
             // permission, set up the empty preference.
-            if (packages.size() == 0 && (!isStorage || !grantCategory.equals(ALLOWED))) {
+            if (packages.size() == 0
+                    && (!isStorageAndLessThanT || !grantCategory.equals(ALLOWED))) {
                 Preference empty = new Preference(context);
                 empty.setSelectable(false);
                 empty.setKey(category.getKey() + KEY_EMPTY);
@@ -329,11 +432,11 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
                 String key = user + packageName;
 
                 Long lastAccessTime = groupUsageLastAccessTime.get(key);
-                Pair<String, Integer> summaryTimestamp = Utils
+                Triple<String, Integer, String> summaryTimestamp = Utils
                         .getPermissionLastAccessSummaryTimestamp(
                                 lastAccessTime, context, mPermGroupName);
 
-                if (isStorage && grantCategory.equals(ALLOWED)) {
+                if (isStorageAndLessThanT && grantCategory.equals(ALLOWED)) {
                     category = mViewModel.packageHasFullStorage(packageName, user)
                             ? findPreference(STORAGE_ALLOWED_FULL)
                             : findPreference(STORAGE_ALLOWED_SCOPED);
@@ -372,7 +475,7 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
                 }
             }
 
-            if (isStorage && grantCategory.equals(ALLOWED)) {
+            if (isStorageAndLessThanT && grantCategory.equals(ALLOWED)) {
                 PreferenceCategory full = findPreference(STORAGE_ALLOWED_FULL);
                 PreferenceCategory scoped = findPreference(STORAGE_ALLOWED_SCOPED);
                 if (full.getPreferenceCount() == 0) {
@@ -397,13 +500,17 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
             }
         }
 
+        if (SdkLevel.isAtLeastT() && Manifest.permission_group.STORAGE.equals(mPermGroupName)) {
+            addStorageFooterSeeAllFilesAccess();
+        }
+
         mViewModel.setCreationLogged(true);
 
         setLoading(false /* loading */, true /* animate */);
     }
 
     private void updatePreferenceSummary(Preference preference,
-            Pair<String, Integer> summaryTimestamp) {
+            Triple<String, Integer, String> summaryTimestamp) {
         String summary = mViewModel.getPreferenceSummary(getResources(), summaryTimestamp);
         if (!summary.isEmpty()) {
             preference.setSummary(summary);

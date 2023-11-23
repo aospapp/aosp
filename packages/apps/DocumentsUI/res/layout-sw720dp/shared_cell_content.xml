@@ -23,7 +23,7 @@
         android:ellipsize="end"
         android:singleLine="true"
         android:textAlignment="viewStart"
-        android:textAppearance="@*style/android:TextAppearance.DeviceDefault.Subhead"
+        android:textAppearance="@style/Subhead"
         android:textColor="?android:attr/textColorSecondary"/>
 
     <ImageView

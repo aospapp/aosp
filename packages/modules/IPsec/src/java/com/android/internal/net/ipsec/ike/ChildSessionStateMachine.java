@@ -17,17 +17,18 @@ package com.android.internal.net.ipsec.ike;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
 import static android.net.ipsec.ike.SaProposal.DH_GROUP_NONE;
+import static android.net.ipsec.ike.exceptions.IkeException.wrapAsIkeException;
 import static android.net.ipsec.ike.exceptions.IkeProtocolException.ERROR_TYPE_TEMPORARY_FAILURE;
 
 import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.BUNDLE_KEY_CHILD_REMOTE_SPI;
 import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.CMD_ALARM_FIRED;
-import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.IKE_EXCHANGE_SUBTYPE_DELETE_CHILD;
-import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.IKE_EXCHANGE_SUBTYPE_REKEY_CHILD;
 import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.buildIkeAlarmIntent;
 import static com.android.internal.net.ipsec.ike.message.IkeHeader.EXCHANGE_TYPE_CREATE_CHILD_SA;
 import static com.android.internal.net.ipsec.ike.message.IkeHeader.EXCHANGE_TYPE_IKE_AUTH;
 import static com.android.internal.net.ipsec.ike.message.IkeHeader.EXCHANGE_TYPE_INFORMATIONAL;
 import static com.android.internal.net.ipsec.ike.message.IkeHeader.ExchangeType;
+import static com.android.internal.net.ipsec.ike.message.IkeMessage.IKE_EXCHANGE_SUBTYPE_DELETE_CHILD;
+import static com.android.internal.net.ipsec.ike.message.IkeMessage.IKE_EXCHANGE_SUBTYPE_REKEY_CHILD;
 import static com.android.internal.net.ipsec.ike.message.IkeNotifyPayload.NOTIFY_TYPE_REKEY_SA;
 import static com.android.internal.net.ipsec.ike.message.IkeNotifyPayload.NOTIFY_TYPE_USE_TRANSPORT_MODE;
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PAYLOAD_TYPE_CP;
@@ -39,15 +40,13 @@ import static com.android.internal.net.ipsec.ike.message.IkePayload.PAYLOAD_TYPE
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PAYLOAD_TYPE_TS_INITIATOR;
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PAYLOAD_TYPE_TS_RESPONDER;
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PROTOCOL_ID_ESP;
+import static com.android.internal.net.ipsec.ike.utils.IkeAlarm.IkeAlarmConfig;
 import static com.android.internal.net.ipsec.ike.utils.IkeAlarmReceiver.ACTION_DELETE_CHILD;
 import static com.android.internal.net.ipsec.ike.utils.IkeAlarmReceiver.ACTION_REKEY_CHILD;
 
 import android.annotation.IntDef;
 import android.annotation.Nullable;
-import android.annotation.SuppressLint;
-import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.content.Context;
 import android.net.IpSecManager;
 import android.net.IpSecManager.ResourceUnavailableException;
 import android.net.IpSecManager.SecurityParameterIndex;
@@ -62,7 +61,6 @@ import android.net.ipsec.ike.IkeTrafficSelector;
 import android.net.ipsec.ike.SaProposal;
 import android.net.ipsec.ike.TunnelModeChildSessionParams;
 import android.net.ipsec.ike.exceptions.IkeException;
-import android.net.ipsec.ike.exceptions.IkeInternalException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
 import android.net.ipsec.ike.exceptions.InvalidKeException;
 import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
@@ -70,7 +68,7 @@ import android.net.ipsec.ike.exceptions.NoValidProposalChosenException;
 import android.net.ipsec.ike.exceptions.TemporaryFailureException;
 import android.net.ipsec.ike.exceptions.TsUnacceptableException;
 import android.os.Bundle;
-import android.os.Looper;
+import android.os.Handler;
 import android.os.Message;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -78,7 +76,6 @@ import android.util.SparseArray;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.ipsec.ike.IkeLocalRequestScheduler.ChildLocalRequest;
 import com.android.internal.net.ipsec.ike.IkeLocalRequestScheduler.LocalRequestFactory;
-import com.android.internal.net.ipsec.ike.IkeSessionStateMachine.IkeExchangeSubType;
 import com.android.internal.net.ipsec.ike.SaRecord.ChildSaRecord;
 import com.android.internal.net.ipsec.ike.SaRecord.SaLifetimeAlarmScheduler;
 import com.android.internal.net.ipsec.ike.crypto.IkeCipher;
@@ -88,6 +85,7 @@ import com.android.internal.net.ipsec.ike.message.IkeConfigPayload;
 import com.android.internal.net.ipsec.ike.message.IkeConfigPayload.ConfigAttribute;
 import com.android.internal.net.ipsec.ike.message.IkeDeletePayload;
 import com.android.internal.net.ipsec.ike.message.IkeKePayload;
+import com.android.internal.net.ipsec.ike.message.IkeMessage.IkeExchangeSubType;
 import com.android.internal.net.ipsec.ike.message.IkeNoncePayload;
 import com.android.internal.net.ipsec.ike.message.IkeNotifyPayload;
 import com.android.internal.net.ipsec.ike.message.IkeNotifyPayload.NotifyType;
@@ -143,8 +141,6 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
     private static final int CMD_HANDLE_RECEIVED_REQUEST = CMD_GENERAL_BASE + 2;
     /** Receive a reponse from the remote. */
     private static final int CMD_HANDLE_RECEIVED_RESPONSE = CMD_GENERAL_BASE + 3;
-    /** Kill Session and close all alive Child SAs immediately. */
-    private static final int CMD_KILL_SESSION = CMD_GENERAL_BASE + 4;
 
     private static final SparseArray<String> CMD_TO_STR;
 
@@ -153,15 +149,13 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
         CMD_TO_STR.put(CMD_HANDLE_FIRST_CHILD_EXCHANGE, "Handle First Child");
         CMD_TO_STR.put(CMD_HANDLE_RECEIVED_REQUEST, "Rcv request");
         CMD_TO_STR.put(CMD_HANDLE_RECEIVED_RESPONSE, "Rcv response");
-        CMD_TO_STR.put(CMD_KILL_SESSION, "Kill session");
     }
 
-    private final Context mContext;
+    private final IkeContext mIkeContext;
     private final int mIkeSessionId;
-    private final AlarmManager mAlarmManager;
+    private final Handler mIkeHandler;
     private final IpSecManager mIpSecManager;
 
-    private final RandomnessFactory mRandomFactory;
     /**
      * mIpSecSpiGenerator will be used by all Child SA creations in this Child Session to avoid SPI
      * collision in test mode.
@@ -256,27 +250,19 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
      * <p>Package private
      */
     ChildSessionStateMachine(
-            Looper looper,
-            Context context,
-            int ikeSessionUniqueId,
-            AlarmManager alarmManager,
-            RandomnessFactory randomnessFactory,
-            IpSecManager ipSecManager,
-            IpSecSpiGenerator ipSecSpiGenerator,
-            ChildSessionParams sessionParams,
-            Executor userCbExecutor,
+            IkeContext ikeContext,
+            ChildSessionStateMachine.Config childSmConfig,
             ChildSessionCallback userCallback,
             IChildSessionSmCallback childSmCallback) {
-        super(TAG, looper, userCbExecutor);
+        super(TAG, ikeContext.getLooper(), childSmConfig.userCbExecutor);
 
-        mContext = context;
-        mIkeSessionId = ikeSessionUniqueId;
-        mAlarmManager = alarmManager;
-        mRandomFactory = randomnessFactory;
-        mIpSecManager = ipSecManager;
-        mIpSecSpiGenerator = ipSecSpiGenerator;
-        mChildSessionParams = sessionParams;
+        mIkeContext = ikeContext;
+        mIkeSessionId = childSmConfig.ikeSessionId;
+        mIkeHandler = childSmConfig.ikeHandler;
+        mIpSecManager = childSmConfig.ipSecManager;
+        mIpSecSpiGenerator = childSmConfig.ipSecSpiGenerator;
 
+        mChildSessionParams = childSmConfig.sessionParams;
         mUserCallback = userCallback;
         mChildSmCallback = childSmCallback;
 
@@ -298,23 +284,33 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
         setInitialState(mInitial);
     }
 
+    // Configurations provided by an IKE Session for building the Child Session
+    static class Config {
+        public final int ikeSessionId;
+        public final Handler ikeHandler;
+        public final ChildSessionParams sessionParams;
+        public final IpSecManager ipSecManager;
+        public final IpSecSpiGenerator ipSecSpiGenerator;
+        public final Executor userCbExecutor;
+
+        Config(
+                int ikeSessionId,
+                Handler ikeHandler,
+                ChildSessionParams sessionParams,
+                IpSecManager ipSecManager,
+                IpSecSpiGenerator ipSecSpiGenerator,
+                Executor userCbExecutor) {
+            this.ikeSessionId = ikeSessionId;
+            this.ikeHandler = ikeHandler;
+            this.sessionParams = sessionParams;
+            this.ipSecManager = ipSecManager;
+            this.ipSecSpiGenerator = ipSecSpiGenerator;
+            this.userCbExecutor = userCbExecutor;
+        }
+    }
+
     /**
      * Interface for ChildSessionStateMachine to notify IkeSessionStateMachine of state changes.
-     *
-     * <p>Child Session may encounter an IKE Session fatal error in three cases with different
-     * handling rules:
-     *
-     * <pre>
-     * - When there is a fatal error in an inbound request, onOutboundPayloadsReady will be
-     *   called first to send out an error notification and then onFatalIkeSessionError(false)
-     *   will be called to locally close the IKE Session.
-     * - When there is a fatal error in an inbound response, only onFatalIkeSessionError(true)
-     *   will be called to notify the remote with a Delete request and then close the IKE Session.
-     * - When there is an fatal error notification in an inbound response, only
-     *   onFatalIkeSessionError(false) is called to close the IKE Session locally.
-     * </pre>
-     *
-     * <p>Package private.
      */
     interface IChildSessionSmCallback {
         /** Notify that new Child SA is created. */
@@ -348,10 +344,21 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
          * Notify that a Child procedure has been finished and the IKE Session should close itself
          * because of a fatal error.
          *
-         * <p>The IKE Session should send a Delete IKE request before closing when needsNotifyRemote
-         * is true.
+         * <p>Child Session may encounter an IKE Session fatal error in three cases with different
+         * handling rules:
+         *
+         * <pre>
+         * - When there is a fatal error in an inbound request, onOutboundPayloadsReady will be
+         *   called first to send out an error notification, and then onFatalIkeSessionError() will
+         *   be called to locally close the IKE Session.
+         * - When there is a fatal error in an inbound response, onOutboundPayloadsReady will be
+         *   called first to send out an IKE Delete message, and then onFatalIkeSessionError() will
+         *   be called to locally close the IKE Session.
+         * - When there is a fatal error notification in an inbound response,
+         *   onFatalIkeSessionError() will be called to locally close the IKE Session"
+         * </pre>
          */
-        void onFatalIkeSessionError(boolean needsNotifyRemote);
+        void onFatalIkeSessionError(Exception exception);
     }
 
     /**
@@ -474,15 +481,6 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
     }
 
     /**
-     * Kill Child Session and all alive Child SAs without doing IKE exchange.
-     *
-     * <p>It is usually called when IKE Session is being closed.
-     */
-    public void killSession() {
-        sendMessage(CMD_KILL_SESSION);
-    }
-
-    /**
      * Receive a request
      *
      * <p>This method is called synchronously from IkeStateMachine. It proxies the synchronous call
@@ -576,6 +574,17 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
 
         mChildSmCallback.onOutboundPayloadsReady(
                 EXCHANGE_TYPE_INFORMATIONAL, true /*isResp*/, outPayloads, this);
+    }
+
+    private void sendDeleteIkeRequest() {
+        List<IkePayload> outIkePayloads = new ArrayList<>(1);
+        outIkePayloads.add(new IkeDeletePayload());
+
+        mChildSmCallback.onOutboundPayloadsReady(
+                EXCHANGE_TYPE_INFORMATIONAL,
+                false /*isResp*/,
+                outIkePayloads,
+                ChildSessionStateMachine.this);
     }
 
     class OnIpSecSaPairCreatedRunnable implements Runnable {
@@ -678,10 +687,10 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
 
             executeUserCallback(
                     () -> {
-                        mUserCallback.onClosedWithException(new IkeInternalException(e));
+                        mUserCallback.onClosedWithException(wrapAsIkeException(e));
                     });
-            logWtf("Unexpected exception in " + getCurrentState().getName(), e);
-            quitNow();
+            logWtf("Unexpected exception in " + getCurrentStateName(), e);
+            quitSessionNow();
         }
 
         @Override
@@ -728,20 +737,16 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
     }
 
     private void handleChildFatalError(Exception error) {
-        IkeException ikeException =
-                error instanceof IkeException
-                        ? (IkeException) error
-                        : new IkeInternalException(error);
-
-        executeUserCallback(
-                () -> {
-                    mUserCallback.onClosedWithException(ikeException);
-                });
+        IkeException ikeException = wrapAsIkeException(error);
         loge("Child Session fatal error", ikeException);
 
         // Clean up all SaRecords and quit
         closeAllSaRecords(false /*expectSaClosed*/);
-        quitNow();
+        executeUserCallback(
+                () -> {
+                    mUserCallback.onClosedWithException(ikeException);
+                });
+        quitSessionNow();
     }
 
     /**
@@ -757,14 +762,12 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
         public boolean processStateMessage(Message message) {
             switch (message.what) {
                 case CMD_KILL_SESSION:
+                    closeAllSaRecords(false /*expectSaClosed*/);
                     executeUserCallback(
                             () -> {
                                 mUserCallback.onClosed();
                             });
-
-                    closeAllSaRecords(false /*expectSaClosed*/);
-
-                    quitNow();
+                    quitSessionNow();
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -809,7 +812,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
 
                         mCurrentChildSaRecord =
                                 ChildSaRecord.makeChildSaRecord(
-                                        mContext,
+                                        mIkeContext.getContext(),
                                         reqPayloads,
                                         respPayloads,
                                         createChildResult.initSpi,
@@ -929,31 +932,40 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
         Bundle spiBundle = new Bundle();
         spiBundle.putInt(BUNDLE_KEY_CHILD_REMOTE_SPI, remoteSpi);
 
-        // This Message will eventually gets fired on the IKE session state machine's handler, since
-        // the pendingIntent clears the target
-        return obtainMessage(CMD_ALARM_FIRED, mIkeSessionId, localRequestType, spiBundle);
+        return mIkeHandler.obtainMessage(
+                CMD_ALARM_FIRED, mIkeSessionId, localRequestType, spiBundle);
     }
 
     private SaLifetimeAlarmScheduler buildSaLifetimeAlarmSched(int remoteSpi) {
+        Message deleteMsg = getIntentIkeSmMsg(CMD_LOCAL_REQUEST_DELETE_CHILD, remoteSpi);
+        Message rekeyMsg = getIntentIkeSmMsg(CMD_LOCAL_REQUEST_REKEY_CHILD, remoteSpi);
+
         PendingIntent deleteSaIntent =
                 buildIkeAlarmIntent(
-                        mContext,
+                        mIkeContext.getContext(),
                         ACTION_DELETE_CHILD,
                         getIntentIdentifier(remoteSpi),
-                        getIntentIkeSmMsg(CMD_LOCAL_REQUEST_DELETE_CHILD, remoteSpi));
+                        deleteMsg);
         PendingIntent rekeySaIntent =
                 buildIkeAlarmIntent(
-                        mContext,
+                        mIkeContext.getContext(),
                         ACTION_REKEY_CHILD,
                         getIntentIdentifier(remoteSpi),
-                        getIntentIkeSmMsg(CMD_LOCAL_REQUEST_REKEY_CHILD, remoteSpi));
+                        rekeyMsg);
 
         return new SaLifetimeAlarmScheduler(
-                mChildSessionParams.getHardLifetimeMsInternal(),
-                mChildSessionParams.getSoftLifetimeMsInternal(),
-                deleteSaIntent,
-                rekeySaIntent,
-                mAlarmManager);
+                new IkeAlarmConfig(
+                        mIkeContext.getContext(),
+                        ACTION_DELETE_CHILD,
+                        mChildSessionParams.getHardLifetimeMsInternal(),
+                        deleteSaIntent,
+                        deleteMsg),
+                new IkeAlarmConfig(
+                        mIkeContext.getContext(),
+                        ACTION_REKEY_CHILD,
+                        mChildSessionParams.getSoftLifetimeMsInternal(),
+                        rekeySaIntent,
+                        rekeyMsg));
     }
 
     /** Initial state of ChildSessionStateMachine. */
@@ -988,7 +1000,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                             () -> {
                                 mUserCallback.onClosed();
                             });
-                    quitNow();
+                    quitSessionNow();
                     return HANDLED;
                 case CMD_FORCE_TRANSITION:
                     transitionTo((State) message.obj);
@@ -1016,7 +1028,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             try {
                 mRequestPayloads =
                         CreateChildSaHelper.getInitChildCreateReqPayloads(
-                                mRandomFactory,
+                                mIkeContext.getRandomnessFactory(),
                                 mIpSecSpiGenerator,
                                 mLocalAddress,
                                 mChildSessionParams,
@@ -1174,7 +1186,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             switch (message.what) {
                 case CMD_HANDLE_RECEIVED_RESPONSE:
                     // Do not need to verify the response since the Child Session is already closed
-                    quitNow();
+                    quitSessionNow();
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -1249,8 +1261,8 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                     new OnIpSecSaPairDeletedRunnable(mCurrentChildSaRecord);
             executeUserCallback(
                     () -> {
-                        mUserCallback.onClosed();
                         delRunnable.run();
+                        mUserCallback.onClosed();
                     });
 
             mChildSmCallback.onChildSaDeleted(mCurrentChildSaRecord.getRemoteSpi());
@@ -1258,7 +1270,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             mCurrentChildSaRecord = null;
 
             if (quitStateMachine) {
-                quitNow();
+                quitSessionNow();
             }
         }
     }
@@ -1434,7 +1446,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                 // Build request with negotiated proposal and TS.
                 mRequestPayloads =
                         CreateChildSaHelper.getRekeyChildCreateReqPayloads(
-                                mRandomFactory,
+                                mIkeContext.getRandomnessFactory(),
                                 mIpSecSpiGenerator,
                                 mLocalAddress,
                                 saProposal,
@@ -1491,7 +1503,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
 
                                 mLocalInitNewChildSaRecord =
                                         ChildSaRecord.makeChildSaRecord(
-                                                mContext,
+                                                mIkeContext.getContext(),
                                                 mRequestPayloads,
                                                 resp.responsePayloads,
                                                 createChildResult.initSpi,
@@ -1529,11 +1541,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                                     resp.registeredSpi, createChildResult.exception);
                             break;
                         case CREATE_STATUS_CHILD_ERROR_RCV_NOTIFY:
-                            loge(
-                                    "Received error notification for rekey Child. Schedule a"
-                                            + " retry");
-                            mCurrentChildSaRecord.rescheduleRekey(RETRY_INTERVAL_MS);
-
+                            handleErrorNotify(createChildResult.exception);
                             transitionTo(mIdle);
                             break;
                         default:
@@ -1553,7 +1561,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             executeUserCallback(createRunnable);
         }
 
-        private void handleProcessRespOrSaCreationFailAndQuit(
+        protected void handleProcessRespOrSaCreationFailAndQuit(
                 int registeredSpi, Exception exception) {
             // We don't retry rekey if failure was caused by invalid response or SA creation error.
             // Reason is there is no way to notify the remote side the old SA is still alive but the
@@ -1567,6 +1575,11 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             handleChildFatalError(exception);
         }
 
+        protected void handleErrorNotify(Exception exception) {
+            loge("Received error notification for rekey Child. Schedule a retry");
+            mCurrentChildSaRecord.rescheduleRekey(RETRY_INTERVAL_MS);
+        }
+
         @Override
         public void exitState() {
             CreateChildSaHelper.releaseSpiResources(mRequestPayloads);
@@ -1577,10 +1590,18 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
      * MobikeRekeyChildLocalCreate represents the state where Child Session initiates the Rekey
      * Child exchange for MOBIKE-enabled IKE Sessions.
      *
-     * <p>MobikeRekeyChildLocalCreate behaves similarly to RekeyChildLocalCreate except that it
-     * notifies the caller of Child SA creation via {@link
-     * ChildSessionCallback#onIpSecTransformsMigrated(android.net.IpSecTransform,
-     * android.net.IpSecTransform)}.
+     * <p>MobikeRekeyChildLocalCreate behaves similarly to RekeyChildLocalCreate except:
+     *
+     * <ul>
+     *   <li>It notifies the caller of Child SA creation via {@link
+     *       ChildSessionCallback#onIpSecTransformsMigrated(android.net.IpSecTransform,
+     *       android.net.IpSecTransform)}. .
+     *   <li>It tears down IKE SA immediately if any error occurs. In this case the origin Child SA
+     *       has lost connectivity due to the changed IP addresses, and renewing the Child SA by
+     *       MOBIKE rekey has failed. IKE module will handle this failure by tearing down the IKE
+     *       Session and notifying the caller. In this way, the caller can immediately re-establish
+     *       the IKE session if needed.
+     * </ul>
      *
      * <p>As indicated in RFC 7296 section 2.8, "when rekeying, the new Child SA SHOULD NOT have
      * different Traffic Selectors and algorithms than the old one."
@@ -1592,6 +1613,20 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
             IpSecTransform outTransform = mLocalInitNewChildSaRecord.getOutboundIpSecTransform();
             executeUserCallback(
                     () -> mUserCallback.onIpSecTransformsMigrated(inTransform, outTransform));
+        }
+
+        @Override
+        protected void handleProcessRespOrSaCreationFailAndQuit(
+                int registeredSpi, Exception exception) {
+            sendDeleteIkeRequest();
+            mChildSmCallback.onFatalIkeSessionError(exception);
+        }
+
+        @Override
+        protected void handleErrorNotify(Exception exception) {
+            loge("Received error notification for rekey Child. Tear down IKE SA");
+            sendDeleteIkeRequest();
+            mChildSmCallback.onFatalIkeSessionError(exception);
         }
     }
 
@@ -1667,19 +1702,21 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                                 PAYLOAD_TYPE_KE, IkeKePayload.class, reqPayloads);
 
                 ChildSaProposal saProposal = mSaProposal;
-
-                // Try accepting a DH group requested during remote rekey for both first and
-                // additional Child Sessions even if it is different from the previously negotiated
-                // proposal.
-                if (reqKePayload != null && isKePayloadAcceptable(reqKePayload)) {
-                    saProposal = mSaProposal.getCopyWithAdditionalDhTransform(reqKePayload.dhGroup);
+                if (reqKePayload != null) {
+                    saProposal =
+                            reqSaPayload.getNegotiatedChildProposalWithDh(
+                                    mSaProposal,
+                                    mChildSessionParams.getChildSaProposals(),
+                                    reqKePayload.dhGroup,
+                                    mIkeDhGroup);
                 }
+
 
                 byte respProposalNumber = reqSaPayload.getNegotiatedProposalNumber(saProposal);
 
                 respPayloads =
                         CreateChildSaHelper.getRekeyChildCreateRespPayloads(
-                                mRandomFactory,
+                                mIkeContext.getRandomnessFactory(),
                                 mIpSecSpiGenerator,
                                 mLocalAddress,
                                 respProposalNumber,
@@ -1688,7 +1725,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                                 mRemoteTs,
                                 mCurrentChildSaRecord.getLocalSpi(),
                                 mChildSessionParams.isTransportMode());
-            } catch (NoValidProposalChosenException e) {
+            } catch (NoValidProposalChosenException | InvalidKeException e) {
                 handleCreationFailureAndBackToIdle(e);
                 return;
             } catch (SpiUnavailableException | ResourceUnavailableException e) {
@@ -1715,7 +1752,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
 
                         mRemoteInitNewChildSaRecord =
                                 ChildSaRecord.makeChildSaRecord(
-                                        mContext,
+                                        mIkeContext.getContext(),
                                         reqPayloads,
                                         respPayloads,
                                         createChildResult.initSpi,
@@ -1791,34 +1828,6 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                             new IllegalStateException(
                                     "Unrecognized status: " + createChildResult.status));
             }
-        }
-
-        // TODO: b/177434707 Calling ChildSaProposal is safe because it does not depend on any
-        // platform API added after SDK R. Handle this case in a mainline standard way when
-        // b/177434707 is fixed.
-        @SuppressLint("NewApi")
-        private boolean isKePayloadAcceptable(IkeKePayload reqKePayload) {
-            ChildSaProposal proposal =
-                    mSaProposal.getCopyWithAdditionalDhTransform(reqKePayload.dhGroup);
-
-            // Verify if this proposal is accepted by user
-            for (SaProposal saProposal : mChildSessionParams.getSaProposals()) {
-                if (!saProposal.getDhGroups().isEmpty() && proposal.isNegotiatedFrom(saProposal)) {
-                    // If user has specified Child DH group in this saProposal, check proposal
-                    // against saProposal
-                    return true;
-                } else if (reqKePayload.dhGroup == mIkeDhGroup
-                        && proposal.isNegotiatedFrom(
-                                ((ChildSaProposal) saProposal)
-                                        .getCopyWithAdditionalDhTransform(reqKePayload.dhGroup))) {
-                    // If user has not specified Child DH group in this saProposal, check proposal
-                    // against saProposal + mIkeDhGroup
-                    return true;
-                }
-
-            }
-
-            return false;
         }
 
         private void handleCreationFailureAndBackToIdle(IkeProtocolException e) {
@@ -2409,7 +2418,7 @@ public class ChildSessionStateMachine extends AbstractSessionStateMachine {
                                     "Processing error in received Create Child response", e));
                 } else {
                     return new CreateChildResult(
-                            CREATE_STATUS_CHILD_ERROR_INVALID_MSG, new IkeInternalException(e));
+                            CREATE_STATUS_CHILD_ERROR_INVALID_MSG, wrapAsIkeException(e));
                 }
             }
         }

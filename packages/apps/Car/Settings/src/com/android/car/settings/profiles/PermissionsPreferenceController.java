@@ -36,8 +36,8 @@ import java.util.List;
  * Constructs and populates the permissions toggles for non admin profiles.
  *
  * <p>In order to add a new permission, it needs to be added to {@link
- * android.car.userlib.UserHelper#OPTIONAL_NON_ADMIN_RESTRICTIONS} and the appropriate label needs
- * to be added to {@link #PERMISSIONS_LIST}.
+ * com.android.car.internal.user.UserHelper#OPTIONAL_NON_ADMIN_RESTRICTIONS} and
+ * the appropriate label needs to be added to {@link #PERMISSIONS_LIST}.
  */
 public class PermissionsPreferenceController extends
         ProfileDetailsBasePreferenceController<PreferenceGroup> {

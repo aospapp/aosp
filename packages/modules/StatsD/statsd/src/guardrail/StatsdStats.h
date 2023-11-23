@@ -96,16 +96,16 @@ public:
     ~StatsdStats(){};
 
     const static int kDimensionKeySizeSoftLimit = 500;
-    const static int kDimensionKeySizeHardLimit = 800;
+    static constexpr int kDimensionKeySizeHardLimit = 800;
 
     // Per atom dimension key size limit
     static const std::map<int, std::pair<size_t, size_t>> kAtomDimensionKeySizeLimitMap;
 
     const static int kMaxConfigCountPerUid = 20;
-    const static int kMaxAlertCountPerConfig = 100;
-    const static int kMaxConditionCountPerConfig = 300;
-    const static int kMaxMetricCountPerConfig = 1000;
-    const static int kMaxMatcherCountPerConfig = 1200;
+    const static int kMaxAlertCountPerConfig = 200;
+    const static int kMaxConditionCountPerConfig = 500;
+    const static int kMaxMetricCountPerConfig = 2000;
+    const static int kMaxMatcherCountPerConfig = 2500;
 
     // The max number of old config stats we keep.
     const static int kMaxIceBoxSize = 20;
@@ -163,11 +163,11 @@ public:
     static const int64_t kPullMaxDelayNs = 30 * NS_PER_SEC;
 
     // Maximum number of pushed atoms statsd stats will track above kMaxPushedAtomId.
-    static const int kMaxNonPlatformPushedAtoms = 400;
+    static const int kMaxNonPlatformPushedAtoms = 600;
 
     // Maximum atom id value that we consider a platform pushed atom.
     // This should be updated once highest pushed atom id in atoms.proto approaches this value.
-    static const int kMaxPushedAtomId = 500;
+    static const int kMaxPushedAtomId = 750;
 
     // Atom id that is the start of the pulled atoms.
     static const int kPullAtomStartTag = 10000;
@@ -497,6 +497,11 @@ public:
      * Output statsd stats in human readable format to [out] file descriptor.
      */
     void dumpStats(int outFd) const;
+
+    /**
+     * Return soft and hard atom key dimension size limits as an std::pair.
+     */
+    static std::pair<size_t, size_t> getAtomDimensionKeySizeLimits(const int atomId = -1);
 
     typedef struct PullTimeoutMetadata {
         int64_t pullTimeoutUptimeMillis;

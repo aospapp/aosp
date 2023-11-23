@@ -25,12 +25,10 @@
     <string name="tap_to_launch_text" msgid="6910695705119260847">"লঞ্চ কৰিবলৈ কাৰ্ডত টিপক"</string>
     <string name="ongoing_call_duration_text_separator" msgid="6019453854809413561">" • "</string>
     <string name="ongoing_call_text" msgid="2394626676478708070">"চলি থকা কল"</string>
+    <string name="dialing_call_text" msgid="415326503409745490">"ডায়েল কৰি থকা হৈছে…"</string>
     <string name="projected_launch_text" msgid="5809132353957907500">"Android Auto লঞ্চ কৰক"</string>
     <string name="projected_onclick_launch_error_toast_text" msgid="7462478007773137082">"Android Auto লঞ্চ কৰিব পৰা নগ’ল। কোনো কাৰ্যকলাপ পোৱা নগ’ল।"</string>
-    <plurals name="projection_devices" formatted="false" msgid="4740612230451956299">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> টা ডিভাইচ</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> টা ডিভাইচ</item>
-    </plurals>
+    <string name="projection_devices" msgid="916314090031116598">"{count,plural, =1{# টা ডিভাইচ}one{# টা ডিভাইচ}other{# টা ডিভাইচ}}"</string>
     <string name="weather_app_name" msgid="8048146303519139993">"বতৰ"</string>
     <string name="fake_weather_main_text" msgid="8117240999340284429">"--° অধিক সময় ৰৌদ্ৰোজ্জ্বল"</string>
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"মাউণ্টেইন ভিউ • H: --° L: --°"</string>

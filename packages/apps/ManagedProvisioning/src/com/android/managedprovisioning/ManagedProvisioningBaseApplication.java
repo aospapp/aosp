@@ -19,6 +19,7 @@ package com.android.managedprovisioning;
 import android.app.Activity;
 import android.app.Application;
 import android.content.ComponentName;
+import android.view.WindowManager;
 
 import com.android.managedprovisioning.preprovisioning.EncryptionController;
 
@@ -35,6 +36,7 @@ public abstract class ManagedProvisioningBaseApplication extends Application {
     private final ScreenManager mScreenManager =
             new ScreenManager(ScreenManager.DEFAULT_SCREEN_TO_ACTIVITY_MAP);
     private EncryptionController mEncryptionController;
+    private boolean mKeepScreenOn;
 
     @Override
     public void onCreate() {
@@ -71,5 +73,27 @@ public abstract class ManagedProvisioningBaseApplication extends Application {
     public final Class<? extends Activity>
             getActivityClassForScreen(ManagedProvisioningScreens screen) {
         return mScreenManager.getActivityClassForScreen(screen);
+    }
+
+    public ScreenManager getScreenManager() {
+        return mScreenManager;
+    }
+
+    /**
+     * If {@link #markKeepScreenOn()} was previously called, makes the
+     * provided {@link Activity} keep its screen on while it's visible to the end-user.
+     */
+    public void maybeKeepScreenOn(Activity activity) {
+        if (mKeepScreenOn) {
+            markKeepScreenOn();
+            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
+    /**
+     * Signals that all {@link Activity} instances should keep their screen on.
+     */
+    public void markKeepScreenOn() {
+        mKeepScreenOn = true;
     }
 }

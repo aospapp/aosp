@@ -28,6 +28,7 @@ import static com.android.car.settings.qc.PairedBluetoothDevices.PHONE_BUTTON;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -37,11 +38,9 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
-import android.content.Context;
 import android.content.Intent;
 import android.os.UserManager;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.qc.QCActionItem;
@@ -71,12 +70,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
-public class PairedBluetoothDevicesTest {
+public class PairedBluetoothDevicesTest extends BaseSettingsQCItemTestCase {
     private static final String DEFAULT_NAME = "DEFAULT_NAME";
     private static final String DEFAULT_SUMMARY = "DEFAULT_SUMMARY";
     private static final String DEFAULT_ADDRESS = "F6:8F:AC:E8:32:50";
 
-    private Context mContext = ApplicationProvider.getApplicationContext();
     private PairedBluetoothDevices mPairedBluetoothDevices;
     private MockitoSession mSession;
     private ArrayList<CachedBluetoothDevice> mCachedDevices = new ArrayList<>();
@@ -88,8 +86,6 @@ public class PairedBluetoothDevicesTest {
     private LocalBluetoothAdapter mLocalBluetoothAdapter;
     @Mock
     private LocalBluetoothManager mBluetoothManager;
-    @Mock
-    private UserManager mUserManager;
 
     @Before
     public void setUp() {
@@ -98,15 +94,12 @@ public class PairedBluetoothDevicesTest {
                 .strictness(Strictness.LENIENT)
                 .mockStatic(BluetoothAdapter.class)
                 .mockStatic(LocalBluetoothManager.class)
-                .mockStatic(UserManager.class)
                 .startMocking();
         when(BluetoothAdapter.getDefaultAdapter()).thenReturn(mBluetoothAdapter);
         when(mBluetoothAdapter.isEnabled()).thenReturn(true);
         when(LocalBluetoothManager.getInstance(any(), any())).thenReturn(mBluetoothManager);
         when(mBluetoothManager.getBluetoothAdapter()).thenReturn(mLocalBluetoothAdapter);
         when(mLocalBluetoothAdapter.getBondedDevices()).thenReturn(mBondedDevices);
-        when(UserManager.get(any())).thenReturn(mUserManager);
-        when(mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)).thenReturn(false);
 
         CachedBluetoothDeviceManager deviceManager = mock(CachedBluetoothDeviceManager.class);
         when(mBluetoothManager.getCachedDeviceManager()).thenReturn(deviceManager);
@@ -124,7 +117,7 @@ public class PairedBluetoothDevicesTest {
 
     @Test
     public void getQCItem_bluetoothDisallowed_returnsNull() {
-        when(mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)).thenReturn(true);
+        setUserRestriction(DISALLOW_BLUETOOTH, true);
         QCItem item = mPairedBluetoothDevices.getQCItem();
         assertThat(item).isNull();
     }
@@ -234,6 +227,40 @@ public class PairedBluetoothDevicesTest {
     }
 
     @Test
+    public void getQCItem_hasBaseUmRestriction_togglesDisabled() {
+        addBluetoothDevice(DEFAULT_NAME, /* connected= */ true, /* busy= */ false,
+                /* phoneEnabled= */ true, /* mediaEnabled= */ true);
+        setBaseUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH, /* restricted= */ true);
+        QCList list = (QCList) mPairedBluetoothDevices.getQCItem();
+        QCRow row = list.getRows().get(0);
+        QCActionItem btToggle = row.getEndItems().get(0);
+        QCActionItem phoneToggle = row.getEndItems().get(1);
+        QCActionItem mediaToggle = row.getEndItems().get(2);
+        assertThat(btToggle.isEnabled()).isTrue();
+        assertThat(phoneToggle.isEnabled()).isFalse();
+        assertThat(phoneToggle.isClickableWhileDisabled()).isFalse();
+        assertThat(mediaToggle.isEnabled()).isFalse();
+        assertThat(mediaToggle.isClickableWhileDisabled()).isFalse();
+    }
+
+    @Test
+    public void getQCItem_hasUmRestriction_togglesClickableWhileDisabled() {
+        addBluetoothDevice(DEFAULT_NAME, /* connected= */ true, /* busy= */ false,
+                /* phoneEnabled= */ true, /* mediaEnabled= */ true);
+        setUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH, /* restricted= */ true);
+        QCList list = (QCList) mPairedBluetoothDevices.getQCItem();
+        QCRow row = list.getRows().get(0);
+        QCActionItem btToggle = row.getEndItems().get(0);
+        QCActionItem phoneToggle = row.getEndItems().get(1);
+        QCActionItem mediaToggle = row.getEndItems().get(2);
+        assertThat(btToggle.isEnabled()).isTrue();
+        assertThat(phoneToggle.isEnabled()).isFalse();
+        assertThat(phoneToggle.isClickableWhileDisabled()).isTrue();
+        assertThat(mediaToggle.isEnabled()).isFalse();
+        assertThat(mediaToggle.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
     public void onNotifyChange_toggleBluetooth() {
         addBluetoothDevice(DEFAULT_NAME, /* connected= */ false, /* busy= */ true,
                 /* phoneEnabled= */ true, /* mediaEnabled= */ true);
@@ -284,7 +311,7 @@ public class PairedBluetoothDevicesTest {
         when(cachedDevice.getAddress()).thenReturn(DEFAULT_ADDRESS);
         when(cachedDevice.isConnected()).thenReturn(connected);
         when(cachedDevice.isBusy()).thenReturn(busy);
-        when(cachedDevice.getCarConnectionSummary()).thenReturn(DEFAULT_SUMMARY);
+        when(cachedDevice.getCarConnectionSummary(anyBoolean())).thenReturn(DEFAULT_SUMMARY);
         BluetoothClass btClass = mock(BluetoothClass.class);
         when(cachedDevice.getBtClass()).thenReturn(btClass);
         when(btClass.getMajorDeviceClass()).thenReturn(BluetoothClass.Device.Major.PHONE);

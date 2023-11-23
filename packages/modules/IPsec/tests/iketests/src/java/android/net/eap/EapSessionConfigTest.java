@@ -26,10 +26,12 @@ import static android.telephony.TelephonyManager.APPTYPE_USIM;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.net.eap.test.EapSessionConfig.EapAkaConfig;
+import android.net.eap.test.EapSessionConfig.EapAkaOption;
 import android.net.eap.test.EapSessionConfig.EapAkaPrimeConfig;
 import android.net.eap.test.EapSessionConfig.EapMethodConfig;
 import android.net.eap.test.EapSessionConfig.EapMsChapV2Config;
@@ -53,6 +55,8 @@ public class EapSessionConfigTest {
     private static final boolean ALLOW_MISMATCHED_NETWORK_NAMES = true;
     private static final String USERNAME = "username";
     private static final String PASSWORD = "password";
+    private static final byte[] REAUTH_ID_BYTES =
+            "4OLUpQCqFyhm1/UgD56anTzYTqJDckibqjU6PlS4sZaiuLc=".getBytes(StandardCharsets.UTF_8);
 
     private static void verifyPersistableBundleEncodeDecodeIsLossless(EapMethodConfig config) {
         PersistableBundle bundle = config.toPersistableBundle();
@@ -89,23 +93,52 @@ public class EapSessionConfigTest {
         verifyPersistableBundleEncodeDecodeIsLossless(new EapSimConfig(SUB_ID, APPTYPE_USIM));
     }
 
+    private void verifyBuildEapAka(EapSessionConfig eapConfig, boolean withOption) {
+        assertArrayEquals(DEFAULT_IDENTITY, eapConfig.getEapIdentity());
+        EapMethodConfig eapMethodConfig = eapConfig.getEapConfigs().get(EAP_TYPE_AKA);
+        assertEquals(EAP_TYPE_AKA, eapMethodConfig.getMethodType());
+        EapAkaConfig eapAkaConfig = (EapAkaConfig) eapMethodConfig;
+        assertEquals(SUB_ID, eapAkaConfig.getSubId());
+        assertEquals(APPTYPE_USIM, eapAkaConfig.getAppType());
+        if (withOption) {
+            assertArrayEquals(REAUTH_ID_BYTES, eapAkaConfig.getEapAkaOption().getReauthId());
+        } else {
+            assertNull(eapAkaConfig.getEapAkaOption());
+        }
+    }
+
     @Test
     public void testBuildEapAka() {
         EapSessionConfig result = new EapSessionConfig.Builder()
                 .setEapAkaConfig(SUB_ID, APPTYPE_USIM)
                 .build();
 
-        assertArrayEquals(DEFAULT_IDENTITY, result.getEapIdentity());
-        EapMethodConfig eapMethodConfig = result.getEapConfigs().get(EAP_TYPE_AKA);
-        assertEquals(EAP_TYPE_AKA, eapMethodConfig.getMethodType());
-        EapAkaConfig eapAkaConfig = (EapAkaConfig) eapMethodConfig;
-        assertEquals(SUB_ID, eapAkaConfig.getSubId());
-        assertEquals(APPTYPE_USIM, eapAkaConfig.getAppType());
+        verifyBuildEapAka(result, false /* withOption */);
+    }
+
+    @Test
+    public void testBuildEapAkaWithOption() {
+        EapSessionConfig result =
+                new EapSessionConfig.Builder()
+                        .setEapAkaConfig(
+                                SUB_ID,
+                                APPTYPE_USIM,
+                                new EapAkaOption.Builder().setReauthId(REAUTH_ID_BYTES).build())
+                        .build();
+
+        verifyBuildEapAka(result, true /* withOption */);
     }
 
     @Test
     public void testPersistableBundleEncodeDecodeEapAka() throws Exception {
         verifyPersistableBundleEncodeDecodeIsLossless(new EapAkaConfig(SUB_ID, APPTYPE_USIM));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapAkaWithOption() throws Exception {
+        EapAkaOption option = new EapAkaOption.Builder().setReauthId(REAUTH_ID_BYTES).build();
+        verifyPersistableBundleEncodeDecodeIsLossless(
+                new EapAkaConfig(SUB_ID, APPTYPE_USIM, option));
     }
 
     @Test

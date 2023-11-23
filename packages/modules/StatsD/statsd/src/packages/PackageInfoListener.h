@@ -25,7 +25,7 @@ namespace android {
 namespace os {
 namespace statsd {
 
-class PackageInfoListener : public virtual android::RefBase {
+class PackageInfoListener : public virtual RefBase {
 public:
     // Uid map will notify this listener that the app with apk name and uid has been upgraded to
     // the specified version.

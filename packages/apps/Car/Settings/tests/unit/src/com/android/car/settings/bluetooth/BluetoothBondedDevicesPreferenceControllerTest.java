@@ -20,18 +20,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.UserManager;
+import android.widget.Toast;
 
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.PreferenceGroup;
@@ -42,6 +45,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.LogicalPreferenceGroup;
 import com.android.car.settings.common.MultiActionPreference;
@@ -49,17 +53,20 @@ import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.common.ToggleButtonActionItem;
 import com.android.car.settings.testutils.BluetoothTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -68,6 +75,8 @@ import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class BluetoothBondedDevicesPreferenceControllerTest {
+    private static final String TEST_RESTRICTION = UserManager.DISALLOW_CONFIG_BLUETOOTH;
+
     private LifecycleOwner mLifecycleOwner;
     private Context mContext = ApplicationProvider.getApplicationContext();
     private PreferenceGroup mPreferenceGroup;
@@ -77,6 +86,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     private LocalBluetoothProfile mMediaProfile;
     private LocalBluetoothManager mLocalBluetoothManager;
     private Collection<CachedBluetoothDevice> mCachedDevices;
+    private MockitoSession mSession;
 
     @Mock
     private FragmentController mFragmentController;
@@ -90,25 +100,35 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     private CachedBluetoothDeviceManager mCachedDeviceManager;
     @Mock
     private LocalBluetoothAdapter mLocalBluetoothAdapter;
+    @Mock
+    private Toast mMockToast;
 
     @Before
     @UiThreadTest
     public void setUp() {
-        mLifecycleOwner = new TestLifecycleOwner();
-        MockitoAnnotations.initMocks(this);
+        mSession = ExtendedMockito.mockitoSession()
+                .initMocks(this)
+                .mockStatic(Toast.class)
+                .strictness(Strictness.LENIENT)
+                .startMocking();
+        ExtendedMockito.when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
 
         // Ensure bluetooth is available and enabled.
         assumeTrue(mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH));
         BluetoothTestUtils.setBluetoothState(mContext, /* enable= */ true);
 
+        Context mSpiedContext = spy(mContext);
+        mLifecycleOwner = new TestLifecycleOwner();
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
         when(mBondedDevice.getBondState()).thenReturn(BluetoothDevice.BOND_BONDED);
         when(mBondedCachedDevice.getDevice()).thenReturn(mBondedDevice);
 
-        mPhoneProfile = new TestLocalBluetoothProfile(BluetoothProfile.HEADSET_CLIENT);
-        mMediaProfile = new TestLocalBluetoothProfile(BluetoothProfile.A2DP_SINK);
+        mPhoneProfile =
+                new BluetoothTestUtils.TestLocalBluetoothProfile(BluetoothProfile.HEADSET_CLIENT);
+        mMediaProfile =
+                new BluetoothTestUtils.TestLocalBluetoothProfile(BluetoothProfile.A2DP_SINK);
         when(mBondedCachedDevice.getProfiles()).thenReturn(List.of(mPhoneProfile, mMediaProfile));
 
         BluetoothDevice unbondedDevice = mock(BluetoothDevice.class);
@@ -118,21 +138,29 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
 
         mCachedDevices = Arrays.asList(mBondedCachedDevice, unbondedCachedDevice);
 
-        mLocalBluetoothManager = spy(BluetoothUtils.getLocalBtManager(mContext));
+        mLocalBluetoothManager = spy(BluetoothUtils.getLocalBtManager(mSpiedContext));
         when(mLocalBluetoothManager.getCachedDeviceManager()).thenReturn(mCachedDeviceManager);
         when(mCachedDeviceManager.getCachedDevicesCopy()).thenReturn(mCachedDevices);
         when(mLocalBluetoothManager.getBluetoothAdapter()).thenReturn(mLocalBluetoothAdapter);
         when(mLocalBluetoothAdapter.getBondedDevices()).thenReturn(Set.of(mBondedDevice));
 
-        PreferenceManager preferenceManager = new PreferenceManager(mContext);
-        PreferenceScreen screen = preferenceManager.createPreferenceScreen(mContext);
-        mPreferenceGroup = new LogicalPreferenceGroup(mContext);
+        PreferenceManager preferenceManager = new PreferenceManager(mSpiedContext);
+        PreferenceScreen screen = preferenceManager.createPreferenceScreen(mSpiedContext);
+        mPreferenceGroup = new LogicalPreferenceGroup(mSpiedContext);
         screen.addPreference(mPreferenceGroup);
-        mPreferenceController = new BluetoothBondedDevicesPreferenceController(mContext,
+        mPreferenceController = new BluetoothBondedDevicesPreferenceController(mSpiedContext,
                 /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions,
                 mLocalBluetoothManager, mUserManager);
 
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreferenceGroup);
+    }
+
+    @After
+    @UiThreadTest
+    public void tearDown() {
+        if (mSession != null) {
+            mSession.finishMocking();
+        }
     }
 
     @Test
@@ -195,8 +223,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     @Test
     public void bluetoothButtonClicked_notConnected_connectsToDevice() {
         when(mBondedCachedDevice.isConnected()).thenReturn(false);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH))
-                .thenReturn(false);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         BluetoothDevicePreference devicePreference =
@@ -213,8 +240,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     @Test
     public void phoneButtonClicked_phoneProfile_enabled() {
         when(mBondedCachedDevice.isConnected()).thenReturn(true);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH))
-                .thenReturn(false);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         BluetoothDevicePreference devicePreference =
@@ -222,12 +248,9 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
 
         ToggleButtonActionItem phoneButton = devicePreference.getActionItem(
                 MultiActionPreference.ActionItem.ACTION_ITEM2);
-        assertThat(devicePreference.getActionItem(
-                MultiActionPreference.ActionItem.ACTION_ITEM2).isEnabled()).isTrue();
+        assertThat(phoneButton.isEnabled()).isTrue();
         assertThat(mPhoneProfile.isEnabled(mBondedDevice)).isFalse();
         phoneButton.onClick();
-
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         assertThat(mPhoneProfile.isEnabled(mBondedDevice)).isTrue();
     }
@@ -235,8 +258,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     @Test
     public void mediaButtonClicked_mediaProfile_enabled() {
         when(mBondedCachedDevice.isConnected()).thenReturn(true);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH))
-                .thenReturn(false);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         BluetoothDevicePreference devicePreference =
@@ -254,8 +276,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     @Test
     public void actionButtons_disallowConfigBluetooth_bluetoothActionStaysDisabled() {
         when(mBondedCachedDevice.isConnected()).thenReturn(true);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_BLUETOOTH))
-                .thenReturn(true);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
 
@@ -320,72 +341,103 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
                 MultiActionPreference.ActionItem.ACTION_ITEM3).isEnabled()).isTrue();
     }
 
-    private class TestLocalBluetoothProfile implements LocalBluetoothProfile {
-        private int mProfileId;
-        private boolean mIsEnabled;
+    @Test
+    public void onUxRestrictionsNoSetup_phoneItemClicked_showsToast() {
+        when(mBondedCachedDevice.isConnected()).thenReturn(true);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
 
-        TestLocalBluetoothProfile(int profileId) {
-            mProfileId = profileId;
-        }
+        CarUxRestrictions restrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, 0).build();
+        mPreferenceController.onUxRestrictionsChanged(restrictions);
 
-        @Override
-        public boolean accessProfileEnabled() {
-            return false;
-        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        @Override
-        public boolean isAutoConnectable() {
-            return false;
-        }
+        // Due to the limitations of the testing environment, onBindViewHolder() is never called and
+        // thus certain fields are never set. Manually set it here.
+        ToggleButtonActionItem phoneItem =
+                devicePreference.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM2);
+        String toastText = mContext.getResources()
+                .getString(R.string.car_ui_restricted_while_driving);
+        phoneItem.setRestrictedOnClickListener(p -> Toast.makeText(mContext, toastText,
+                        Toast.LENGTH_LONG).show());
+        phoneItem.setPreference(devicePreference);
 
-        @Override
-        public int getConnectionStatus(BluetoothDevice device) {
-            return 0;
-        }
+        phoneItem.onClick();
 
-        @Override
-        public boolean isEnabled(BluetoothDevice device) {
-            return mIsEnabled;
-        }
+        ExtendedMockito.verify(() -> Toast.makeText(any(), eq(toastText), anyInt()));
+        verify(mMockToast).show();
+    }
 
-        @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
-            return 0;
-        }
+    @Test
+    public void onUxRestrictionsNoSetup_mediaItemClicked_showsToast() {
+        when(mBondedCachedDevice.isConnected()).thenReturn(true);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(false);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
 
-        @Override
-        public boolean setEnabled(BluetoothDevice device, boolean enabled) {
-            return mIsEnabled = enabled;
-        }
+        CarUxRestrictions restrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, 0).build();
+        mPreferenceController.onUxRestrictionsChanged(restrictions);
 
-        @Override
-        public boolean isProfileReady() {
-            return false;
-        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        @Override
-        public int getProfileId() {
-            return mProfileId;
-        }
+        // Due to the limitations of the testing environment, onBindViewHolder() is never called and
+        // thus certain fields are never set. Manually set them here.
+        ToggleButtonActionItem mediaItem =
+                devicePreference.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM3);
+        String toastText = mContext.getResources()
+                .getString(R.string.car_ui_restricted_while_driving);
+        mediaItem.setRestrictedOnClickListener(p -> Toast.makeText(mContext, toastText,
+                Toast.LENGTH_LONG).show());
+        mediaItem.setPreference(devicePreference);
 
-        @Override
-        public int getOrdinal() {
-            return 0;
-        }
+        mediaItem.onClick();
 
-        @Override
-        public int getNameResource(BluetoothDevice device) {
-            return 0;
-        }
+        ExtendedMockito.verify(() -> Toast.makeText(any(), eq(toastText), anyInt()));
+        verify(mMockToast).show();
+    }
 
-        @Override
-        public int getSummaryResourceForDevice(BluetoothDevice device) {
-            return 0;
-        }
+    @Test
+    public void onUxRestrictionsDisallowConfigBluetooth_phoneItemClicked_showsToast() {
+        when(mBondedCachedDevice.isConnected()).thenReturn(true);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
 
-        @Override
-        public int getDrawableResource(BluetoothClass btClass) {
-            return 0;
-        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        String toastText = mContext.getResources().getString(R.string.action_unavailable);
+
+        devicePreference.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM2).onClick();
+
+        ExtendedMockito.verify(() -> Toast.makeText(any(), eq(toastText), anyInt()));
+        verify(mMockToast).show();
+    }
+
+    @Test
+    public void onUxRestrictionsDisallowConfigBluetooth_mediaItemClicked_showsToast() {
+        when(mBondedCachedDevice.isConnected()).thenReturn(true);
+        when(mUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        BluetoothDevicePreference devicePreference =
+                (BluetoothDevicePreference) mPreferenceGroup.getPreference(0);
+
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        String toastText = mContext.getResources().getString(R.string.action_unavailable);
+
+        devicePreference.getActionItem(MultiActionPreference.ActionItem.ACTION_ITEM3).onClick();
+
+        ExtendedMockito.verify(() -> Toast.makeText(any(), eq(toastText), anyInt()));
+        verify(mMockToast).show();
     }
 }

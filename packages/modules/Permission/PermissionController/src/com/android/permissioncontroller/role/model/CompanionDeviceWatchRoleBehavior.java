@@ -16,74 +16,24 @@
 
 package com.android.permissioncontroller.role.model;
 
-import android.app.NotificationManager;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.content.pm.ServiceInfo;
-import android.service.notification.NotificationListenerService;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import com.android.permissioncontroller.role.utils.NotificationUtils;
 
 /**
  * Class for behavior of the "watch" Companion device profile role.
  */
 public class CompanionDeviceWatchRoleBehavior implements RoleBehavior {
 
-    public static final String LOG_TAG = CompanionDeviceWatchRoleBehavior.class.getSimpleName();
-
     @Override
     public void grant(@NonNull Role role, @NonNull String packageName, @NonNull Context context) {
-        List<ComponentName> notificationListenersForPackage =
-                getNotificationListenersForPackage(packageName, context);
-        setNotificationGrantState(context, notificationListenersForPackage, true);
-    }
-
-    private void setNotificationGrantState(@NonNull Context context,
-            List<ComponentName> notificationListenersForPackage, boolean granted) {
-        NotificationManager notificationManager =
-                context.getSystemService(NotificationManager.class);
-        int size = notificationListenersForPackage.size();
-        for (int i = 0; i < size; i++) {
-            ComponentName componentName = notificationListenersForPackage.get(i);
-            notificationManager.setNotificationListenerAccessGranted(
-                    componentName, granted, false);
-        }
-    }
-
-    private List<ComponentName> getNotificationListenersForPackage(@NonNull String packageName,
-            @NonNull Context context) {
-        List<ResolveInfo> allListeners = context.getPackageManager().queryIntentServices(
-                new Intent(NotificationListenerService.SERVICE_INTERFACE).setPackage(packageName),
-                PackageManager.MATCH_DIRECT_BOOT_AWARE | PackageManager.MATCH_DIRECT_BOOT_UNAWARE);
-        ArrayList<ComponentName> pkgListeners = new ArrayList<>();
-        int size = allListeners.size();
-        for (int i = 0; i < size; i++) {
-            ResolveInfo service = allListeners.get(i);
-            ServiceInfo serviceInfo = service.serviceInfo;
-            if (Objects.equals(serviceInfo.permission,
-                    android.Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE)
-                    && packageName.equals(serviceInfo.packageName)) {
-                pkgListeners.add(new ComponentName(serviceInfo.packageName, serviceInfo.name));
-            }
-        }
-        Log.d(LOG_TAG, "getNotificationListenersForPackage(" + packageName + "): " + pkgListeners);
-        return pkgListeners;
+        NotificationUtils.grantNotificationAccessForPackage(context, packageName);
     }
 
     @Override
     public void revoke(@NonNull Role role, @NonNull String packageName, @NonNull Context context) {
-        NotificationManager notificationManager =
-                context.getSystemService(NotificationManager.class);
-        List<ComponentName> enabledNotificationListeners =
-                notificationManager.getEnabledNotificationListeners();
-        setNotificationGrantState(context, enabledNotificationListeners, false);
+        NotificationUtils.revokeNotificationAccessForPackage(context, packageName);
     }
 }

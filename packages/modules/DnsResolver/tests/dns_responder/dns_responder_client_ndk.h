@@ -21,8 +21,8 @@
 #include <string>
 #include <vector>
 
+#include <android-base/format.h>
 #include <android-base/logging.h>
-#include <android-base/stringprintf.h>
 
 #include <aidl/android/net/IDnsResolver.h>
 #include <aidl/android/net/INetd.h>
@@ -34,7 +34,6 @@
 using aidl::android::net::NativeNetworkConfig;
 using aidl::android::net::NativeNetworkType;
 using aidl::android::net::NativeVpnType;
-using android::base::StringPrintf;
 
 inline const std::vector<std::string> kDefaultServers = {"127.0.0.3"};
 inline const std::vector<std::string> kDefaultSearchDomains = {"example.com"};
@@ -100,8 +99,8 @@ class DnsResponderClient {
             LOG(FATAL) << "Can't get remote version";
         }
         if (remoteVersion < requiredVersion) {
-            LOG(WARNING) << StringPrintf("Remote version: %d < Required version: %d", remoteVersion,
-                                         requiredVersion);
+            LOG(WARNING) << fmt::format("Remote version: {} < Required version: {}", remoteVersion,
+                                        requiredVersion);
             return false;
         }
         return true;
@@ -129,9 +128,9 @@ class DnsResponderClient {
             const std::vector<std::string>& domains, const std::string& tlsHostname,
             const std::vector<std::string>& tlsServers, const std::string& caCert = "");
 
-    int SetupOemNetwork();
-
-    void TearDownOemNetwork(int oemNetId);
+    // Returns 0 on success and a negative value on failure.
+    int SetupOemNetwork(int oemNetId);
+    int TearDownOemNetwork(int oemNetId);
 
     virtual void SetUp();
     virtual void TearDown();
@@ -142,5 +141,4 @@ class DnsResponderClient {
   private:
     std::shared_ptr<aidl::android::net::INetd> mNetdSrv;
     std::shared_ptr<aidl::android::net::IDnsResolver> mDnsResolvSrv;
-    int mOemNetId = -1;
 };

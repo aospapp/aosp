@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'aplicació que es mostra a continuació gestionarà el dispositiu:"</string>
     <string name="next" msgid="1004321437324424398">"Següent"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"S\'està configurant el perfil de treball…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest perfil, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"El teu administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos, les dades i l\'activitat de xarxa associats a aquest perfil, a més de l\'historial de trucades i l\'historial de cerques de contactes. Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest dispositiu, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
@@ -161,7 +159,7 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"S\'utilitzarà l\'aplicació següent per gestionar i supervisar aquest telèfon"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"El teu compte està gestionat"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"El teu administrador de TI utilitza la gestió de dispositius mòbils per aplicar les polítiques de seguretat"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"S\'està preparant per a la configuració professional…"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"S\'està preparant per a la configuració de treball…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configurem el teu perfil de treball"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Les aplicacions de treball es desaran al teu perfil de treball"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Posa en pausa les aplicacions de treball quan hagis acabat la jornada"</string>
@@ -183,8 +181,8 @@
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancel·la la configuració"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Restableix i retorna el dispositiu"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"L\'administrador de TI gestiona les apps de treball, que es desen al perfil de treball."</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Les aplicacions personals s\'amaguen separades de les de treball"</string>
-    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"L\'administrador de TI pot controlar el dispositiu i bloquejar aplicacions determinades"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Les aplicacions personals estan separades de les del treball, i també amagades"</string>
+    <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"L\'administrador de TI pot controlar el dispositiu i bloquejar determinades aplicacions"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"L\'administrador de TI gestiona les teves aplicacions de treball, que es desen al teu perfil de treball. Les aplicacions personals s\'oculten i se separen de les aplicacions de treball. L\'administrador de TI pot controlar aquest dispositiu i bloquejar aplicacions determinades."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Un moment…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Recordatori de privadesa"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> pot instal·lar l\'aplicació <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> per poder fer pagaments en aquest dispositiu."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Aquest dispositiu es pot restringir"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pot restringir l\'accés a aquest dispositiu si no fas cap pagament."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"No es pot configurar el dispositiu. Contacta amb l\'administrador de TI i fes referència a \"Suma de verificació no vàlida\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Torna-ho a provar més tard o contacta amb l\'administrador de TI per obtenir ajuda"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"No es pot configurar el dispositiu. Contacta amb l\'administrador de TI i fes referència a \"Falten components o estan malmesos\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"S\'està configurant…"</string>
 </resources>

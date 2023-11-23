@@ -124,6 +124,17 @@ public class CallRedirectionProcessor implements CallRedirectionCallback {
             }
         }
 
+        public void notifyTimeout() {
+            if (mService != null) {
+                try {
+                    mService.notifyTimeout();
+                } catch (RemoteException e) {
+                    Log.e(this, e, "Failed to notify call redirection timed out to "
+                            + mServiceType + " call redirection service");
+                }
+            }
+        }
+
         private class CallRedirectionServiceConnection implements ServiceConnection {
             @Override
             public void onServiceConnected(ComponentName componentName, IBinder service) {
@@ -394,6 +405,7 @@ public class CallRedirectionProcessor implements CallRedirectionCallback {
                     Log.addEvent(mCall, serviceType.equals(SERVICE_TYPE_USER_DEFINED)
                             ? LogUtils.Events.REDIRECTION_TIMED_OUT_USER
                             : LogUtils.Events.REDIRECTION_TIMED_OUT_CARRIER);
+                    mAttempt.notifyTimeout();
                     if (serviceType.equals(SERVICE_TYPE_USER_DEFINED)) {
                         mUiAction = UI_TYPE_USER_DEFINED_TIMEOUT;
                         mShouldCancelCall = true;

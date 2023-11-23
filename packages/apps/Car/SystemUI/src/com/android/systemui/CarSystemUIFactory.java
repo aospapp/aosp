@@ -17,7 +17,6 @@
 package com.android.systemui;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.os.UserHandle;
 
 import com.android.systemui.dagger.GlobalRootComponent;
@@ -25,9 +24,7 @@ import com.android.systemui.dagger.SysUIComponent;
 import com.android.systemui.dagger.WMComponent;
 import com.android.systemui.wmshell.CarWMComponent;
 
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Class factory to provide car specific SystemUI components.
@@ -38,28 +35,6 @@ public class CarSystemUIFactory extends SystemUIFactory {
         return DaggerCarGlobalRootComponent.builder()
                 .context(context)
                 .build();
-    }
-
-    @Override
-    public String[] getSystemUIServiceComponents(Resources resources) {
-        Set<String> names = new HashSet<>();
-
-        for (String s : super.getSystemUIServiceComponents(resources)) {
-            names.add(s);
-        }
-
-        for (String s : resources.getStringArray(R.array.config_systemUIServiceComponentsExclude)) {
-            names.remove(s);
-        }
-
-        for (String s : resources.getStringArray(R.array.config_systemUIServiceComponentsInclude)) {
-            names.add(s);
-        }
-
-        String[] finalNames = new String[names.size()];
-        names.toArray(finalNames);
-
-        return finalNames;
     }
 
     @Override

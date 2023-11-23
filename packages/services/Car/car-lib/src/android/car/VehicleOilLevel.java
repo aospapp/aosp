@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.car.annotation.AddedInOrBefore;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -28,10 +29,15 @@ public final class VehicleOilLevel {
     /**
      * List of Oil Levels from VHAL
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int CRITICALLY_LOW = 0;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int LOW = 1;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int NORMAL = 2;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int HIGH = 3;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int ERROR = 4;
 
     /** @hide */

@@ -20,7 +20,7 @@ cc_test_library {
         "libutils",
     ],
     static_libs: [
-        "netd_aidl_interface-lateststable-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk",
         "libnetd_test_dnsresponder_ndk",
         "libnetdutils",
         "libgmock",
@@ -100,9 +100,10 @@ cc_test {
         "libbinder_ndk",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk",
         "golddata_proto",
         "libcrypto_static",
+        "libdoh_ffi_for_test",
         "libgmock",
         "libnetd_resolv",
         "libnetd_test_dnsresponder_ndk",
@@ -110,8 +111,8 @@ cc_test {
         "libnetdutils",
         "libprotobuf-cpp-lite",
         "libssl",
-        "netd_aidl_interface-lateststable-ndk_platform",
-        "netd_event_listener_interface-lateststable-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk",
+        "netd_event_listener_interface-lateststable-ndk",
         "server_configurable_flags",
         "stats_proto",
     ],
@@ -138,14 +139,14 @@ cc_test {
         "libnetd_client",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk",
         "libgmock",
         "libnetd_test_dnsresponder_ndk",
         "libnetd_test_resolv_utils",
         "libnetdutils",
         "libutils",
-        "netd_event_listener_interface-lateststable-ndk_platform",
-        "netd_aidl_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk",
+        "netd_aidl_interface-lateststable-ndk",
     ],
 }
 
@@ -159,10 +160,13 @@ cc_test {
     srcs: [
         "dns_responder/dns_responder.cpp",
         "dnsresolver_binder_test.cpp",
+        "doh_frontend.cpp",
         "resolv_integration_test.cpp",
+        "resolv_private_dns_test.cpp",
         "tun_forwarder.cpp",
     ],
     header_libs: [
+        "bpf_headers",
         "dnsproxyd_protocol_headers",
         "libnetd_resolv_headers",
     ],
@@ -173,20 +177,21 @@ cc_test {
         "libnetd_client",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
-        "libbpf_android",
+        "dnsresolver_aidl_interface-lateststable-ndk",
         "libcrypto_static",
         "libgmock",
+        "libmodules-utils-build",
         "libnetd_test_dnsresponder_ndk",
         "libnetd_test_metrics_listener",
         "libnetd_test_resolv_utils",
         "libnetdutils",
         "libssl",
         "libutils",
-        "netd_aidl_interface-lateststable-ndk_platform",
-        "netd_event_listener_interface-lateststable-ndk_platform",
-        "libipchecksum",
+        "netd_aidl_interface-lateststable-ndk",
+        "netd_event_listener_interface-lateststable-ndk",
+        "libip_checksum",
         "resolv_unsolicited_listener",
+        "libdoh_frontend_ffi",
     ],
     // This test talks to the DnsResolver module over a binary protocol on a socket, so keep it as
     // multilib setting is worth because we might be able to get some coverage for the case where
@@ -227,11 +232,12 @@ cc_test {
         "libbinder_ndk",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-lateststable-ndk_platform",
-        "netd_aidl_interface-lateststable-ndk_platform",
-        "netd_event_listener_interface-lateststable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk",
+        "netd_aidl_interface-lateststable-ndk",
+        "netd_event_listener_interface-lateststable-ndk",
         "libcrypto_static",
         "libcutils",
+        "libdoh_ffi_for_test",
         "libgmock",
         "libnetd_resolv",
         "libnetd_test_dnsresponder_ndk",
@@ -269,12 +275,12 @@ cc_test {
     srcs: [
         "resolv_stats_test_utils_test.cpp",
     ],
-    defaults: ["netd_defaults", "resolv_test_defaults"],
-    test_suites: ["general-tests"],
-    test_mainline_modules: [
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    defaults: [
+        "netd_defaults",
+        "resolv_test_defaults",
+        "connectivity-mainline-presubmit-cc-defaults",
     ],
+    test_suites: ["general-tests"],
     static_libs: [
         "libgmock",
         "libprotobuf-cpp-lite",
@@ -295,11 +301,13 @@ cc_test {
     srcs: ["doh_ffi_test.cpp"],
     static_libs: [
         "libcrypto_static",
-        "libdoh_ffi",
+        "libdoh_ffi_for_test",
         "libgmock",
         "liblog",
-        "libring-core",
         "libssl",
+    ],
+    shared_libs: [
+        "libnetd_client",
     ],
     min_sdk_version: "29",
 }

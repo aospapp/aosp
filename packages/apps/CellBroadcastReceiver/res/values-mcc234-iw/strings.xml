@@ -29,11 +29,11 @@
     <string name="cmas_severe_alert" msgid="6989950459525380066">"התרעה חמורה"</string>
     <string name="cmas_required_monthly_test" msgid="1226904101913162471">"התרעת בדיקה"</string>
     <string name="cmas_exercise_alert" msgid="4540370572086918020">"התרעת תרגול"</string>
-    <string name="app_label" msgid="3863159788297913185">"התרעות חירום"</string>
-    <string name="sms_cb_settings" msgid="4187131985831792308">"התרעות חירום"</string>
+    <string name="app_label" msgid="3863159788297913185">"התרעות על מצב חירום"</string>
+    <string name="sms_cb_settings" msgid="4187131985831792308">"התרעות על מצב חירום"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"קבלת התרעות על מקרי חירום"</string>
     <string name="enable_alert_speech_summary" msgid="5021926525240750702">"‏שימוש בהמרת טקסט לדיבור (TTS) להקראה של התרעות על מקרי חירום"</string>
     <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"ההגדרה שלך עכשיו היא לקבל התרעות על מקרי חירום. האם ברצונך להמשיך לקבל התרעות על מקרי חירום?"</string>
-    <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"התרעות חירום"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"התרעות על מצב חירום"</string>
     <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"יש להקיש כדי לראות את ההגדרות של ההתרעות על מקרי חירום"</string>
 </resources>

@@ -16,7 +16,6 @@
 
 package com.android.server.wifi.aware;
 
-import android.hardware.wifi.V1_0.NanCipherSuiteType;
 import android.net.wifi.aware.Characteristics;
 import android.os.Bundle;
 
@@ -51,24 +50,14 @@ public class Capabilities {
         bundle.putInt(Characteristics.KEY_MAX_SERVICE_SPECIFIC_INFO_LENGTH,
                 maxServiceSpecificInfoLen);
         bundle.putInt(Characteristics.KEY_MAX_MATCH_FILTER_LENGTH, maxMatchFilterLen);
-        bundle.putInt(Characteristics.KEY_SUPPORTED_CIPHER_SUITES,
-                toPublicCipherSuites(supportedCipherSuites));
+        bundle.putInt(Characteristics.KEY_SUPPORTED_CIPHER_SUITES, supportedCipherSuites);
         bundle.putBoolean(Characteristics.KEY_IS_INSTANT_COMMUNICATION_MODE_SUPPORTED,
                 isInstantCommunicationModeSupported);
+        bundle.putInt(Characteristics.KEY_MAX_NDP_NUMBER, maxNdpSessions);
+        bundle.putInt(Characteristics.KEY_MAX_NDI_NUMBER, maxNdiInterfaces);
+        bundle.putInt(Characteristics.KEY_MAX_PUBLISH_NUMBER, maxPublishes);
+        bundle.putInt(Characteristics.KEY_MAX_SUBSCRIBE_NUMBER, maxSubscribes);
         return new Characteristics(bundle);
-    }
-
-    private int toPublicCipherSuites(int nativeCipherSuites) {
-        int publicCipherSuites = 0;
-
-        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_128_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
-        }
-        if ((nativeCipherSuites & NanCipherSuiteType.SHARED_KEY_256_MASK) != 0) {
-            publicCipherSuites |= Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
-        }
-
-        return publicCipherSuites;
     }
 
     @Override

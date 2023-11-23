@@ -16,13 +16,13 @@
 
 package com.android.networkstack.tethering;
 
-import static android.net.util.TetheringUtils.uint16;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_UNIX;
 import static android.system.OsConstants.SOCK_STREAM;
 
 import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_1_0;
 import static com.android.networkstack.tethering.OffloadHardwareInterface.OFFLOAD_HAL_VERSION_1_1;
+import static com.android.networkstack.tethering.util.TetheringUtils.uint16;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -43,8 +43,6 @@ import android.hardware.tetheroffload.control.V1_0.NatTimeoutUpdate;
 import android.hardware.tetheroffload.control.V1_0.NetworkProtocol;
 import android.hardware.tetheroffload.control.V1_1.ITetheringOffloadCallback;
 import android.hardware.tetheroffload.control.V1_1.OffloadCallbackEvent;
-import android.net.netlink.StructNfGenMsg;
-import android.net.netlink.StructNlMsgHdr;
 import android.net.util.SharedLog;
 import android.os.Handler;
 import android.os.NativeHandle;
@@ -56,6 +54,9 @@ import android.util.Pair;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.netlink.StructNfGenMsg;
+import com.android.net.module.util.netlink.StructNlMsgHdr;
 
 import org.junit.Before;
 import org.junit.Test;

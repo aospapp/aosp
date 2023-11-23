@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"ସିଷ୍ଟମର ସଂଯୋଗ ସମ୍ବନ୍ଧିତ ରିସୋର୍ସଗୁଡ଼ିକ"</string>
+    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"ସିଷ୍ଟମ କନେକ୍ଟିଭିଟୀ ରିସୋର୍ସ"</string>
     <string name="wifi_available_sign_in" msgid="8041178343789805553">"ୱାଇ-ଫାଇ ନେଟୱର୍କରେ ସାଇନ୍‍-ଇନ୍‍ କରନ୍ତୁ"</string>
     <string name="network_available_sign_in" msgid="2622520134876355561">"ନେଟ୍‌ୱର୍କରେ ସାଇନ୍‍ ଇନ୍‍ କରନ୍ତୁ"</string>
     <!-- no translation found for network_available_sign_in_detailed (8439369644697866359) -->

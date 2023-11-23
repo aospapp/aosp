@@ -98,7 +98,8 @@ public class NotificationAccess extends SettingsPreferenceFragment {
         setPreferencesFromResource(R.xml.notification_access, null);
 
         String packages = getString(
-                com.android.internal.R.string.config_defaultListenerAccessPackages);
+                getResources().getIdentifier("config_defaultListenerAccessPackages",
+                        "string", "android"));
         mDefaultPackages = new ArraySet<String>(packages.split(DEFAULT_PACKAGES_SEPARATOR));
     }
 

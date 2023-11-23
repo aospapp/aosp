@@ -27,8 +27,8 @@ import android.car.drivingstate.CarDrivingStateEvent;
 import android.car.drivingstate.CarDrivingStateManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
-import android.hardware.automotive.vehicle.V2_0.VehicleGear;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleGear;
+import android.hardware.automotive.vehicle.VehicleProperty;
 import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
@@ -36,7 +36,7 @@ import android.util.Log;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.hal.test.AidlVehiclePropValueBuilder;
 import com.android.internal.annotations.GuardedBy;
 
 import org.junit.Test;
@@ -61,18 +61,18 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
 
 
     @Override
-    protected synchronized void configureMockedHal() {
-        addProperty(VehicleProperty.PERF_VEHICLE_SPEED, VehiclePropValueBuilder
+    protected void configureMockedHal() {
+        addAidlProperty(VehicleProperty.PERF_VEHICLE_SPEED, AidlVehiclePropValueBuilder
                 .newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                .addFloatValue(0f)
+                .addFloatValues(0f)
                 .build());
-        addProperty(VehicleProperty.PARKING_BRAKE_ON, VehiclePropValueBuilder
+        addAidlProperty(VehicleProperty.PARKING_BRAKE_ON, AidlVehiclePropValueBuilder
                 .newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                 .setBooleanValue(false)
                 .build());
-        addProperty(VehicleProperty.GEAR_SELECTION, VehiclePropValueBuilder
+        addAidlProperty(VehicleProperty.GEAR_SELECTION, AidlVehiclePropValueBuilder
                 .newBuilder(VehicleProperty.GEAR_SELECTION)
-                .addIntValue(0)
+                .addIntValues(0)
                 .build());
     }
 
@@ -96,9 +96,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         listener.reset();
         // Test Parked state and corresponding restrictions based on car_ux_restrictions_map.xml
         Log.d(TAG, "Injecting gear park");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(VehicleGear.GEAR_PARK)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(VehicleGear.GEAR_PARK)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -106,9 +106,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         assertThat(drivingEvent.eventValue).isEqualTo(CarDrivingStateEvent.DRIVING_STATE_PARKED);
 
         Log.d(TAG, "Injecting speed 0");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(0.0f)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(0.0f)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
 
@@ -116,9 +116,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // change between parked and idling.
         listener.reset();
         Log.d(TAG, "Injecting gear drive");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(VehicleGear.GEAR_DRIVE)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(VehicleGear.GEAR_DRIVE)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -128,9 +128,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // Test Moving state and corresponding restrictions based on car_ux_restrictions_map.xml
         listener.reset();
         Log.d(TAG, "Injecting speed 30");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(30.0f)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(30.0f)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -144,9 +144,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // Test Idling state and corresponding restrictions based on car_ux_restrictions_map.xml
         listener.reset();
         Log.d(TAG, "Injecting speed 0");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(0.0f)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(0.0f)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -158,13 +158,36 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         assertThat(restrictions.getActiveRestrictions())
                 .isEqualTo(CarUxRestrictions.UX_RESTRICTIONS_BASELINE);
 
+        // Test Moving state and corresponding restrictions when driving in reverse.
+        Log.d(TAG, "Injecting gear reverse");
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(VehicleGear.GEAR_REVERSE)
+                        .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                        .build());
+
+        listener.reset();
+        Log.d(TAG, "Injecting speed -10");
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(-10.0f)
+                        .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                        .build());
+        drivingEvent = listener.waitForDrivingStateChange();
+        assertNotNull(drivingEvent);
+        assertThat(drivingEvent.eventValue).isEqualTo(CarDrivingStateEvent.DRIVING_STATE_MOVING);
+        restrictions = listener.waitForUxRestrictionsChange();
+        assertNotNull(restrictions);
+        assertTrue(restrictions.isRequiresDistractionOptimization());
+        assertThat(restrictions.getActiveRestrictions()).isEqualTo(UX_RESTRICTIONS_MOVING);
+
         // Apply Parking brake.  Supported gears is not provided in this test and hence
         // Automatic transmission should be assumed and hence parking brake state should not
         // make a difference to the driving state.
         listener.reset();
         Log.d(TAG, "Injecting parking brake on");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PARKING_BRAKE_ON)
                         .setBooleanValue(true)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
@@ -186,9 +209,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // Start with gear = park and speed = 0 to begin with a known state.
         listener.reset();
         Log.d(TAG, "Injecting gear park");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(VehicleGear.GEAR_PARK)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(VehicleGear.GEAR_PARK)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -196,9 +219,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         assertThat(drivingEvent.eventValue).isEqualTo(CarDrivingStateEvent.DRIVING_STATE_PARKED);
 
         Log.d(TAG, "Injecting speed 0");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(0.0f)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(0.0f)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
 
@@ -206,9 +229,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // driving state
         listener.reset();
         Log.d(TAG, "Injecting gear -1");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                        .addIntValue(-1)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
+                        .addIntValues(-1)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();
@@ -224,9 +247,9 @@ public class CarDrivingRestrictionsTest extends MockedCarTestBase {
         // the UX restrictions will change to fully restricted.
         listener.reset();
         Log.d(TAG, "Injecting speed -1");
-        getMockedVehicleHal().injectEvent(
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
-                        .addFloatValue(-1.0f)
+        getAidlMockedVehicleHal().injectEvent(
+                AidlVehiclePropValueBuilder.newBuilder(VehicleProperty.PERF_VEHICLE_SPEED)
+                        .addFloatValues(-1.0f)
                         .setTimestamp(SystemClock.elapsedRealtimeNanos())
                         .build());
         drivingEvent = listener.waitForDrivingStateChange();

@@ -31,7 +31,7 @@ import android.window.DisplayAreaInfo;
 import android.window.WindowContainerToken;
 import android.window.WindowContainerTransaction;
 
-import com.android.systemui.SystemUI;
+import com.android.systemui.CoreStartable;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
@@ -46,7 +46,7 @@ import javax.inject.Inject;
  * Controls the RootTDA of cluster display per CLUSTER_DISPLAY_STATE message.
  */
 @SysUISingleton
-public class ClusterDisplayController extends SystemUI {
+public class ClusterDisplayController extends CoreStartable {
     private static final String TAG = ClusterDisplayController.class.getSimpleName();
     private static final boolean DBG = false;
 

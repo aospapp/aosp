@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Bina-block ang mga tawag mula sa mga pay phone"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Hindi Alam"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Bina-block ang mga tumatawag mula sa mga hindi kilalang tumatawag"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Hindi available"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"I-block ang mga tawag kung saan hindi available ang numero"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Pag-block ng Tawag"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Naka-disable ang Pag-block ng Tawag"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Ginawang emergency na tawag"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Na-disable ang Pag-block ng Tawag para payagan ang mga tumutugon sa emergency na kontakin ka."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menu ng Telecom Developer"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Hindi puwedeng sumagot ng mga tawag habang nasa emergency na tawag."</string>
+    <string name="cancel" msgid="6733466216239934756">"Kanselahin"</string>
 </resources>

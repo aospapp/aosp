@@ -60,7 +60,7 @@
         # Define a simple thread that receives messages from a vhal object (v) and prints them
         def rxThread(v):
             while(1):
-                print v.rxMsg()
+                print(v.rxMsg())
 
         rx = Thread(target=rxThread, args=(v,))
         rx.start()
@@ -218,7 +218,7 @@ class Vhal:
         propValue.prop = prop
         # Insert value into the proper area
         propValue.area_id = area_id
-        propValue.status = status;
+        propValue.status = status
         # Determine the value_type and populate the correct value field in protoBuf
         try:
             valType = self._propToType[prop]

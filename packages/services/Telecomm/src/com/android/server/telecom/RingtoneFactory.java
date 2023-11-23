@@ -90,8 +90,14 @@ public class RingtoneFactory {
             if (UserManager.get(contextToUse).isUserUnlocked(contextToUse.getUserId())) {
                 defaultRingtoneUri = RingtoneManager.getActualDefaultRingtoneUri(contextToUse,
                         RingtoneManager.TYPE_RINGTONE);
+                if (defaultRingtoneUri == null) {
+                    Log.i(this, "getRingtone: defaultRingtoneUri for user is null.");
+                }
             } else {
                 defaultRingtoneUri = Settings.System.DEFAULT_RINGTONE_URI;
+                if (defaultRingtoneUri == null) {
+                    Log.i(this, "getRingtone: Settings.System.DEFAULT_RINGTONE_URI is null.");
+                }
             }
             if (defaultRingtoneUri == null) {
                 return null;

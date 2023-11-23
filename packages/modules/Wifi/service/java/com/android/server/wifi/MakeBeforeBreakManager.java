@@ -214,6 +214,11 @@ public class MakeBeforeBreakManager {
                     ROLE_CLIENT_PRIMARY, mFrameworkFacade.getSettingsWorkSource(mContext));
             return;
         }
+        if (newPrimary.getPreviousRole() == ROLE_CLIENT_PRIMARY) {
+            Log.i(TAG, "Don't start MBB when internet is validated on the lingering "
+                    + "secondary.");
+            return;
+        }
 
         Log.i(TAG, "Starting MBB switch primary from " + currentPrimary + " to " + newPrimary
                 + " by setting current primary's role to ROLE_CLIENT_SECONDARY_TRANSIENT");

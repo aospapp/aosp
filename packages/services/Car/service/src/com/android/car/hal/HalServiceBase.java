@@ -18,9 +18,8 @@ package com.android.car.hal;
 
 
 import android.annotation.NonNull;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.util.Slog;
+import android.car.builtin.util.Slogf;
+import android.hardware.automotive.vehicle.VehiclePropError;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -37,11 +36,11 @@ public abstract class HalServiceBase {
     private static final String MY_TAG = HalServiceBase.class.getSimpleName();
 
     /** For dispatching events. Kept here to avoid alloc every time */
-    private final ArrayList<VehiclePropValue> mDispatchList = new ArrayList<>(1);
+    private final ArrayList<HalPropValue> mDispatchList = new ArrayList<>(1);
 
     static final int NOT_SUPPORTED_PROPERTY = -1;
 
-    public List<VehiclePropValue> getDispatchList() {
+    public List<HalPropValue> getDispatchList() {
         return mDispatchList;
     }
 
@@ -79,19 +78,26 @@ public abstract class HalServiceBase {
      *                   {@link #getAllSupportedProperties()} or {@link #isSupportedProperty(int)}.
      *                   It can be empty if no property is available.
      */
-    public abstract void takeProperties(@NonNull Collection<VehiclePropConfig> properties);
+    public void takeProperties(@NonNull Collection<HalPropConfig> properties) {
+        return;
+    }
 
     /**
      * Handles property changes from HAL.
      */
-    public abstract void onHalEvents(List<VehiclePropValue> values);
+    public void onHalEvents(List<HalPropValue> values) {
+        return;
+    }
 
     /**
      * Handles errors and pass error codes  when setting properties.
      */
-    public void onPropertySetError(int property, int area, int errorCode) {
-        Slog.d(MY_TAG, getClass().getSimpleName() + ".onPropertySetError(): property=" + property
-                + ", area=" + area + " , errorCode = " + errorCode);
+    public void onPropertySetError(ArrayList<VehiclePropError> errors) {
+        for (VehiclePropError error : errors) {
+            Slogf.d(MY_TAG, getClass().getSimpleName() + ".onPropertySetError(): property="
+                    + error.propId + ", area=" + error.areaId + " , errorCode = "
+                    + error.errorCode);
+        }
     }
 
     /**

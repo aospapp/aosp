@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"გადაუდებელი გადმორეკვის რეჟიმი"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"მობილური ინტერნეტი გამორთულია"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"მობილურ ინტერნეტთან კავშირი მიუწვდომელია <xliff:g id="COMPLETETIME">%s</xliff:g>-მდე"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other"> ტელეფონი იქნება საგანგებო დარეკვის რეჟიმი <xliff:g id="COUNT_1">%s</xliff:g> წუთით. ამ რეჟიმის მანძილზე ვერ მოხერხდება მონაცემთა დაკავშირების გმაოყენებით აპლიკაციების გამოყენება. გსურთ ახლა გამოსვლა?</item>
-      <item quantity="one"> ტელეფონი იქნება საგანგებო დარეკვის რეჟიმი <xliff:g id="COUNT_0">%s</xliff:g> წუთით. ამ რეჟიმის მანძილზე ვერ მოხერხდება მონაცემთა დაკავშირების გმაოყენებით აპლიკაციების გამოყენება. გსურთ ახლა გამოსვლა?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other"> შერჩეული აქცია არ არის ხელმისაწვდომი გადაუდებელი დარეკვის რეჟიმში. ტელეფონი იქნება ამ რეჟიმი <xliff:g id="COUNT_1">%s</xliff:g> წუთი. გსურთ ახლა გამოსვლა?</item>
-      <item quantity="one"> შერჩეული აქცია არ არის ხელმისაწვდომი გადაუდებელი დარეკვის რეჟიმში. ტელეფონი იქნება ამ რეჟიმი <xliff:g id="COUNT_0">%s</xliff:g> წუთი. გსურთ ახლა გამოსვლა?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{ტელეფონი გადაუდებელი გადმორეკვის რეჟიმში იქნება ერთი წუთის განმავლობაში. ამ რეჟიმის დროს ვერ გამოიყენებთ აპებს, რომლებიც მობილურ ინტერნეტს იყენებს. გსურთ ახლა გასვლა?}other{ტელეფონი გადაუდებელი გადმორეკვის რეჟიმში იქნება %s წუთის განმავლობაში. ამ რეჟიმის დროს ვერ გამოიყენებთ აპებს, რომლებიც მობილურ ინტერნეტს იყენებს. გსურთ ახლა გასვლა?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{არჩეული მოქმედება მიუწვდომელია გადაუდებელი გადმორეკვის რეჟიმში. ტელეფონი ამ რეჟიმში დარჩება ერთი წუთის განმავლობაში. გსურთ ახლავე გასვლა?}other{არჩეული მოქმედება მიუწვდომელია გადაუდებელი გადმორეკვის რეჟიმში. ტელეფონი ამ რეჟიმში დარჩება %s წუთის განმავლობაში. გსურთ ახლავე გასვლა?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"არჩეული ქმედება მიუწვდომელია გადაუდებელის ზარის რეჟიმში."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"გადაუდებელი გადმორეკვის რეჟიმიდან გამოსვლა"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"დიახ"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"იგნორირება"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ტელეფონი გადაუდებელი გადმორეკვის რეჟიმშია"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g>-მდე"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">ტელეფონი <xliff:g id="COUNT_1">%s</xliff:g> წუთის განმავლობაში გადაუდებელი გადმორეკვის რეჟიმში იქნება.\nგსურთ გასვლა ახლავე?</item>
-      <item quantity="one">ტელეფონი <xliff:g id="COUNT_0">%s</xliff:g> წუთის განმავლობაში გადაუდებელი გადმორეკვის რეჟიმში იქნება.\nგსურთ გასვლა ახლავე?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{ტელეფონი გადაუდებელი გადმორეკვის რეჟიმში იქნება ერთი წუთის განმავლობაში.\nგსურთ გასვლა ახლავე?}other{ტელეფონი გადაუდებელი გადმორეკვის რეჟიმში იქნება %s წუთის განმავლობაში.\nგსურთ გასვლა ახლავე?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"სერვისი"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"დაყენება"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;არ არის დაყენებული&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"მარტივი წვდომა"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi ზარი აბონენტისგან"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi ზარი"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"გასახსნელად, შეეხეთ ხელახლა"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"შეტყობინების გაშიფრვისას წარმოიშვა შეცდომა."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM ბარათმა გაააქტიურა თქვენი სერვისი და თქვენი ტელეფონის როუმინგის შესაძლებლობები განაახლა."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"ძალიან ბევრი აქტიური ზარია. გთხოვთ, დაასრულოთ ან გააერთიანოთ არსებული ზარები ახალი ზარის განხორციელებამდე."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ზარის განხორციელება შეუძლებელია, რადგან სხვა გამავალი ზარი უკვე იკრიფება."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"ზარის განხორციელება შეუძლებელია, რადგან გაქვთ უპასუხო შემომავალი ზარი. უპასუხეთ ან უარყავით შემომავალი ზარი ახალი ზარის განხორციელებამდე."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ზარის განხორციელება შეუძლებელია, რადგან დარეკვა გამორთულია ro.telephony.disable-call სისტემის თვისების გამოყენებით."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ზარის განხორციელება შეუძლებელია, რადგან უკვე ორი ზარი მიმდინარეობს. ახალი ზარის განსახორციელებლად გათიშეთ ერთ-ერთი ზარი ან გააერთიანეთ ისინი კონფერენციად."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"ზარის განხორციელება შეუძლებელია, რადგან უკვე ორი ზარი მიმდინარეობს. ახალი ზარის განსახორციელებლად გათიშეთ ერთ-ერთი ზარი ან გააერთიანეთ ისინი კონფერენციად."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>-ის გამოსაყენებლად დარწმუნდით, რომ მობილური ინტერნეტი ჩართულია. ეს შეგიძლიათ მობილური ქსელის პარამეტრებში შეცვალოთ."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>-ის გამოსაყენებლად დარწმუნდით, რომ მობილური ინტერნეტი და ინტერნეტის როუმინგი ჩართულია. ეს შეგიძლიათ მობილური ქსელის პარამეტრებში შეცვალოთ."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>-ის გამოსაყენებლად დარწმუნდით, რომ მობილური ინტერნეტი ჩართულია SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>-სთვის. ეს შეგიძლიათ მობილური ქსელის პარამეტრებში შეცვალოთ."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"ამ პარამეტრის შესაცვლელად საჭიროა მოწყობილობის გადატვირთვა."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"გადატვირთვა"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"გაუქმება"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"მოსახსნელი eSIM-ის ნაგულისხმევად დაყენება"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"მობილური რადიოკავშირის ელკვება"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM-ის მისამართების წიგნის ნახვა"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"დაშვებული ნომრების ნახვა"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"რადიოდიაპაზონის არჩევა"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ხმოვანი კავშირის ტიპი:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"მობილური ინტერნეტის ტიპი:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ქსელის ტიპის უგულებელყოფა"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"სატელეფონო ინდექსის არჩევა"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"მიუთითეთ ქსელის სასურველი ტიპი:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping-ის მოთხოვნა ჰოსტის სახელისთვის(www.google.com), IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"განახლება"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS შემოწმების გადართვა"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ინფორმაცია/პარამეტრები სპეციალურად OEM-ისთვის"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ხელმისაწვდომია:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR შეზღუდულია:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ხელმისაწვდომია:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-ის მდგომარეობა:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC ხელმისაწვდომია (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR შეზღუდულია (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR ხელმისაწვდომია (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR-ის მდგომარეობა (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-ის სიხშირე:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"რადიოდიაპაზონის რეჟიმის დაყენება"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"მიმდინარეობს დიაპაზონთა სიის ჩატვირთვა…"</string>

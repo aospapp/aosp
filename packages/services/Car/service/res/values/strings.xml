@@ -15,6 +15,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" translatable="false">Car service</string>
+
     <!--  For permissions -->
     <!-- Permission text: can access your car's information [CHAR LIMIT=NONE] -->
     <string name="car_permission_label">Car information</string>
@@ -28,6 +29,10 @@
     <string name="car_permission_label_energy">access car\u2019s energy information</string>
     <!-- Permission text: can access your car's energy information [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_energy">Access your car\u2019s energy information.</string>
+    <!-- Permission text: can control your car's EV charge settings [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_energy">Control car\u2019s EV charge settings</string>
+    <!-- Permission text: can control your car's EV charge settings [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_energy">Control your car\u2019s EV charge settings.</string>
     <!-- Permission text: can adjust value of your car's range remaining [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_adjust_range_remaining">adjust car\u2019s range remaining</string>
     <!-- Permission text: can adjust value of your car's range remaining [CHAR LIMIT=NONE] -->
@@ -99,6 +104,8 @@
       activities to be displayed in the instrument cluster</string>
     <string name="car_permission_car_cluster_control">Instrument cluster control</string>
     <string name="car_permission_desc_car_cluster_control">Launch apps in the instrument cluster</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state">Instrument cluster navigation state</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state">Listen for instrument cluster navigation state changes</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering">Instrument Cluster Rendering</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering">Receive instrument cluster data</string>
     <string name="car_permission_label_car_ux_restrictions_configuration">UX Restrictions Configuration</string>
@@ -119,26 +126,6 @@
     <string name="car_permission_label_bind_input_service">Car Input Service</string>
     <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_bind_input_service">Handle input events</string>
-
-    <!-- Notification messages -->
-    <!-- Notification text: Notification shown to the user when vehicle CAN bus fails -->
-    <string name="car_can_bus_failure">CAN bus failed</string>
-    <!-- Notification text: Notification description shown to the user when vehicle CAN bus fails -->
-    <string name="car_can_bus_failure_desc">CAN bus does not respond. Unplug and plug back headunit
-        box and restart the car</string>
-
-    <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=120] -->
-    <string name="activity_blocked_text">You can\u2019t use this feature while driving</string>
-    <!-- Blocking activity: Message to accompany the exit_button that restarts the blocked app. [CHAR LIMIT=120] -->
-    <string name="exit_button_message">To start over with safe app features, select <xliff:g id="exit_button" example="Back">%s</xliff:g>.</string>
-    <!-- Blocking activity: Text for button that restarts the current blocked application. [CHAR LIMIT=15] -->
-    <string name="exit_button">Back</string>
-    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=20] -->
-    <string name="exit_button_close_application">Close app</string>
-    <!-- Blocking activity: Text for button that closes current blocked application. [CHAR LIMIT=15] -->
-    <string name="exit_button_go_back">Back</string>
-    <!-- Blocking activity: Text for button that shows debug info in non-user build. -->
-    <string name="debug_button_text" translatable="false">Debug Info</string>
 
     <!-- Permission text: apps can control diagnostic data [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_diag_read">read diagnostic data</string>
@@ -249,6 +236,11 @@
     <string name="car_permission_label_car_info">access car\u2019s basic information</string>
     <!-- Permission text: apps read car's basic information [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_car_info">Access car\u2019s basic information.</string>
+
+    <!-- Permission text: apps read car's privileged information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_privileged_car_info">access car\u2019s privileged information</string>
+    <!-- Permission text: apps read car's privileged information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_privileged_car_info">Access car\u2019s privileged information.</string>
 
     <!-- Permission text: apps read car's vendor permissions information [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_vendor_permission_info">access car\u2019s vendor permission information</string>
@@ -543,6 +535,11 @@
     <!-- Permission text: apps control car power policy [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_control_car_power_policy">Control car power policy.</string>
 
+    <!-- Permission text: apps adjust the shutdown process [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_adjust_shutdown_process">adjust shutdown process</string>
+    <!-- Permission text: apps adjust the shutdown process [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_adjust_shutdown_process">Adjust shutdown process.</string>
+
     <!-- Permission text: app can render templates provided by another app [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_template_renderer">render templates</string>
     <!-- Permission text: app can render templates provided by another app [CHAR LIMIT=NONE] -->
@@ -553,56 +550,16 @@
     <!-- Permission text: app can control launching applications in Car [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_control_car_app_launch">Control launching applications.</string>
 
+    <!-- Notification messages -->
+    <!-- Notification text: Notification shown to the user when vehicle CAN bus fails -->
+    <string name="car_can_bus_failure">CAN bus failed</string>
+    <!-- Notification text: Notification description shown to the user when vehicle CAN bus fails -->
+    <string name="car_can_bus_failure_desc">CAN bus does not respond. Unplug and plug back headunit
+        box and restart the car</string>
+
     <!-- The default name of device enrolled as trust device [CHAR LIMIT=NONE] -->
     <string name="trust_device_default_name">My Device</string>
 
     <!-- Default name for new guest users [CHAR LIMIT=20] -->
     <string name="default_guest_name">Guest</string>
-
-    <!-- Name of the default-importance notification channel [CHAR LIMIT=40] -->
-    <string name="importance_default">Default importance</string>
-    <!-- Name of the high-importance notification channel [CHAR LIMIT=40] -->
-    <string name="importance_high">High importance</string>
-
-    <!-- Title of notification shown when factory reset is required [CHAR_LIMIT=50] -->
-    <string name="factory_reset_notification_title">Factory reset required</string>
-    <!-- Message of notification shown when factory reset is required [CHAR LIMIT=NONE] -->
-    <string name="factory_reset_notification_text">All data in the infotainment system will be erased. After reset, you can set up a new profile.</string>
-    <!-- Label for the button that will show more information on delayed factory reset [CHAR_LIMIT=20] -->
-    <string name="factory_reset_notification_button">More</string>
-    <!-- Title for the dialog when delayed factory reset is required [CHAR_LIMIT=60] -->
-    <string name="factory_reset_parked_title">Reset the infotainment system</string>
-    <!-- Message for the dialog when delayed factory reset is required [CHAR_LIMIT=NONE] -->
-    <string name="factory_reset_parked_text">Your system has received a request to factory reset and erase all data. You can reset it now, or it will reset the next time the car starts. You can then set up a new profile.</string>
-    <!-- Label for the button that will reset the device now [CHAR_LIMIT=20] -->
-    <string name="factory_reset_now_button">Reset Now</string>
-    <!-- Label for the button that will reset the device later [CHAR_LIMIT=20] -->
-    <string name="factory_reset_later_button">Reset Later</string>
-    <!-- Text of the toast shown when the factory reset will be delayed [CHAR_LIMIT=50] -->
-    <string name="factory_reset_later_text">The infotainment system will reset the next time the car starts.</string>
-    <!-- Text of the toast shown to when detailed factory reset information is requested when driving [CHAR_LIMIT=50]-->
-    <string name="factory_reset_driving_text">The car must be parked to start the reset.</string>
-
-    <!--  TODO(b/175214581): STOPSHIP use proper sentence and remove translatable=false -->
-    <!--  Button on screen that warns the user that device is owned and managed by an enterprise
-          (like a car rental company), asking user to accept [CHAR_LIMIT=20] -->
-    <string name="new_user_managed_device_acceptance" translatable="false">Accept and continue</string>
-    <string name="new_user_managed_notification_title" translatable="false">Managed device</string>
-
-    <!-- Title of notification shown when an app overuses system resources [CHAR LIMIT=100] -->
-    <string name="resource_overuse_notification_title"><xliff:g name="app_name" example="Maps">^1</xliff:g> is affecting your system performance</string>
-    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_disable_app">Disable app to improve system performance. You can enable the app once again in Settings.</string>
-    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_prioritize_app">Prioritize app to keep using app.</string>
-    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
-    <string name="resource_overuse_notification_text_uninstall_app">Uninstall app to improve system performance.</string>
-    <!-- Label for button that will disable the app now [CHAR LIMIT=30] -->
-    <string name="resource_overuse_notification_button_disable_app">Disable app</string>
-    <!-- Label for button that will redirect user to prioritize app setting [CHAR LIMIT=30] -->
-    <string name="resource_overuse_notification_button_prioritize_app">Prioritize app</string>
-    <!-- Label for button that will redirect user to uninstall app setting [CHAR LIMIT=30] -->
-    <string name="resource_overuse_notification_button_uninstall_app">Uninstall app</string>
-    <!-- Text of the toast shown when the app is disabled [CHAR_LIMIT=100]-->
-    <string name="resource_overuse_toast_disable_app_now"><xliff:g name="app_name" example="Maps">^1</xliff:g> has been disabled. You can enable it again in Settings.</string>
 </resources>

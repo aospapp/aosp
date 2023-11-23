@@ -31,6 +31,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.ActivityOptions;
+import android.car.CarOccupantZoneManager;
+import android.car.ICarOccupantZoneCallback;
 import android.car.cluster.ClusterHomeManager;
 import android.car.cluster.ClusterState;
 import android.car.cluster.IClusterNavigationStateListener;
@@ -66,6 +68,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class ClusterHomeServiceUnitTest {
     private static final int CLUSTER_DISPLAY_ID = 99;
+    private static final int NEW_CLUSTER_DISPLAY_ID = CLUSTER_DISPLAY_ID + 1;
     private static final int CLUSTER_WIDTH = 1024;
     private static final int CLUSTER_HEIGHT = 600;
     private static final int UI_TYPE_CLUSTER_MAPS = UI_TYPE_CLUSTER_HOME + 1;
@@ -92,6 +95,7 @@ public class ClusterHomeServiceUnitTest {
     private ClusterState mClusterState;
     private int mClusterStateChanges;
     private byte[] mNavigationState;
+    private ICarOccupantZoneCallback mOccupantZoneCallback;
 
     private IClusterStateListener mClusterStateListener;
     private IClusterNavigationStateListener mClusterNavigationStateListener;
@@ -120,7 +124,13 @@ public class ClusterHomeServiceUnitTest {
         when(mContext.getSystemService(DisplayManager.class)).thenReturn(mDisplayManager);
 
         when(mOccupantZoneService.getDisplayIdForDriver(DISPLAY_TYPE_INSTRUMENT_CLUSTER))
-                .thenReturn(CLUSTER_DISPLAY_ID);
+                .thenReturn(CLUSTER_DISPLAY_ID)
+                .thenReturn(NEW_CLUSTER_DISPLAY_ID);
+        doAnswer(invocation -> {
+            mOccupantZoneCallback = invocation.getArgument(0);
+            assertThat(mOccupantZoneCallback).isNotNull();
+            return null;
+        }).when(mOccupantZoneService).registerCallback(any(ICarOccupantZoneCallback.class));
         when(mClusterHalService.isCoreSupported()).thenReturn(true);
         when(mClusterHalService.isNavigationStateSupported()).thenReturn(true);
         when(mDisplayManager.getDisplay(CLUSTER_DISPLAY_ID)).thenReturn(mClusterDisplay);
@@ -167,6 +177,22 @@ public class ClusterHomeServiceUnitTest {
         assertThat(intentCaptor.getValue().getComponent()).isEqualTo(mClusterHomeActivity);
         assertThat(activityOptionsCaptor.getValue().getLaunchDisplayId())
                 .isEqualTo(CLUSTER_DISPLAY_ID);
+    }
+
+    @Test
+    public void occupantZoneConfigChangeRestartsFixedActivityInNewDisplay() throws Exception {
+        mOccupantZoneCallback.onOccupantZoneConfigChanged(
+                CarOccupantZoneManager.ZONE_CONFIG_CHANGE_FLAG_DISPLAY);
+
+        ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        ArgumentCaptor<ActivityOptions> activityOptionsCaptor = ArgumentCaptor.forClass(
+                ActivityOptions.class);
+        verify(mFixedActivityService).startFixedActivityModeForDisplayAndUser(
+                intentCaptor.capture(), activityOptionsCaptor.capture(),
+                eq(NEW_CLUSTER_DISPLAY_ID), eq(UserHandle.USER_SYSTEM));
+        assertThat(intentCaptor.getValue().getComponent()).isEqualTo(mClusterHomeActivity);
+        assertThat(activityOptionsCaptor.getValue().getLaunchDisplayId())
+                .isEqualTo(NEW_CLUSTER_DISPLAY_ID);
     }
 
     @Test

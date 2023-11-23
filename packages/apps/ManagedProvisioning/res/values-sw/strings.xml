@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Programu zifuatazo zitadhibiti kifaa chako:"</string>
     <string name="next" msgid="1004321437324424398">"Inayofuata"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Inaweka mipangilio ya wasifu wa kazini..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Msimamizi wako wa TEHAMA ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa mashirika, ruhusa za programu na data inayohusiana na wasifu huu, ikiwa ni pamoja na shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Wasiliana na msimamizi wako wa TEHAMA kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Msimamizi wako wa TEHAMA anaweza kufuatilia na kudhibiti mipangilio, ufikiaji wa maudhui ya shirika, programu, ruhusa, data na shughuli ya mtandao inayohusiana na wasifu huu, pamoja na rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta. Wasiliana na Msimamizi wako wa TEHAMA kwa maelezo zaidi pamoja na kupata maelezo zaidi kuhusu sera za faragha za shirika lako."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Msimamizi wako wa TEHAMA ana uwezo wa kufuatilia na kudhibiti mipangilio, ufikiaji wa vipengele vya shirika, ruhusa za programu na data inayohusiana na kifaa hiki, ikiwa ni pamoja na shughuli zako za mtandaoni, pamoja na mahali kilipo kifaa chako, rekodi ya simu zilizopigwa na historia ya anwani ulizotafuta.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Wasiliana na msimamizi wako wa TEHAMA kwa maelezo zaidi, ikiwa ni pamoja na sera za faragha za shirika lako."</string>
@@ -107,7 +105,7 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Kifaa hiki kitadhibitiwa, kuchunguzwa na kulindwa na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na masharti yatatumika. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Kifaa hiki kitadhibitiwa, kuchunguzwa na kulindwa na <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Sheria na Masharti kutoka <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> yatatumika. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Kiungo hiki si salama na hakiwezi kufunguliwa hadi umalize kuweka mipangilio ya kifaa: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="2843488903902493030">"Ili upate maelezo zaidi, wasiliana na <xliff:g id="IT_ADMIN">%1$s</xliff:g> wako."</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Ili upate maelezo zaidi, wasiliana na <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Ikiwa una maswali, wasiliana na msimamizi wako wa TEHAMA"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Haijamaliza kuweka mipangilio. Wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Ili upate usaidizi, wasiliana na msimamizi wako wa TEHAMA"</string>
@@ -182,7 +180,7 @@
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Rudi kwenye skrini iliyotangulia, au ubadilishe mipangilio ya kifaa hiki na ukirejeshe kwa msimamizi wako wa TEHAMA."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Ghairi mipangilio"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Badilisha mipangilio na urejeshe kifaa"</string>
-    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Programu za kazini huwa kwenye wasifu wako wa kazini na hudhibitiwa na msimamizi TEHAMA"</string>
+    <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Programu za kazini huwa kwenye wasifu wako wa kazini na hudhibitiwa na msimamizi wa TEHAMA"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Programu za binafsi huwa kando na hazionyeshwi kwenye za kazini"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Msimamizi wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia baadhi ya programu"</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Programu za kazini huwekwa kwenye wasifu wako wa kazini na kudhibitiwa na msimamizi wako wa TEHAMA. Programu za binafsi ni tofauti na hazionyeshwi kwenye programu za kazini. Msimamizi wako wa TEHAMA anaweza kudhibiti kifaa hiki na kuzuia programu fulani."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> anaweza kusakinisha programu ya<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ili uweze kulipia kifaa hiki."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Kifaa hiki kinaweza kudhibitiwa"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> anaweza kudhibiti ufikiaji wa kifaa hiki usipofanya malipo."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Imeshindwa kuweka mipangilio ya kifaa. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Alama ya kuthibitisha uhalali si sahihi\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Jaribu tena baadaye au wasiliana na msimamizi wako wa TEHAMA ili upate usaidizi"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Imeshindwa kuweka mipangilio ya kifaa. Wasiliana na msimamizi wako wa TEHAMA na urejelee \"Vipengele havipo au vina hitilafu\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Inaweka mipangilio…"</string>
 </resources>

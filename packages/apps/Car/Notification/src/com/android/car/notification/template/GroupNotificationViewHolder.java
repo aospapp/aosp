@@ -56,7 +56,6 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         implements CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
     private static final String TAG = "GroupNotificationViewHolder";
 
-    private final Context mContext;
     private final CardView mCardView;
     private final View mHeaderDividerView;
     private final View mExpandedGroupHeader;
@@ -86,7 +85,6 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
     public GroupNotificationViewHolder(
             View view, NotificationClickHandlerFactory clickHandlerFactory) {
         super(view, clickHandlerFactory);
-        mContext = view.getContext();
 
         mCurrentFocusRequestState = FocusRequestStates.NONE;
         mCardView = itemView.findViewById(R.id.card_view);
@@ -134,24 +132,24 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         mNotificationListView = view.findViewById(R.id.notification_list);
         mTouchInterceptorView = view.findViewById(R.id.touch_interceptor_view);
 
-        mExpandDrawable = mContext.getDrawable(R.drawable.expand_more);
-        mCollapseDrawable = mContext.getDrawable(R.drawable.expand_less);
+        mExpandDrawable = getContext().getDrawable(R.drawable.expand_more);
+        mCollapseDrawable = getContext().getDrawable(R.drawable.expand_less);
 
         mPaint = new Paint();
-        mPaint.setColor(mContext.getColor(R.color.notification_list_divider_color));
-        mDividerHeight = mContext.getResources().getDimensionPixelSize(
+        mPaint.setColor(getContext().getColor(R.color.notification_list_divider_color));
+        mDividerHeight = getContext().getResources().getDimensionPixelSize(
                 R.dimen.notification_list_divider_height);
-        mUseLauncherIcon = mContext.getResources().getBoolean(R.bool.config_useLauncherIcon);
-        mExpandedGroupNotificationIncrementSize = mContext.getResources()
+        mUseLauncherIcon = getContext().getResources().getBoolean(R.bool.config_useLauncherIcon);
+        mExpandedGroupNotificationIncrementSize = getContext().getResources()
                 .getInteger(R.integer.config_expandedGroupNotificationIncrementSize);
-        mShowLessText = mContext.getString(R.string.collapse_group);
+        mShowLessText = getContext().getString(R.string.collapse_group);
 
-        mNotificationListView.setLayoutManager(new LinearLayoutManager(mContext));
+        mNotificationListView.setLayoutManager(new LinearLayoutManager(getContext()));
         mNotificationListView.addItemDecoration(new GroupedNotificationItemDecoration());
         ((SimpleItemAnimator) mNotificationListView.getItemAnimator())
                 .setSupportsChangeAnimations(false);
         mNotificationListView.setNestedScrollingEnabled(false);
-        mAdapter = new CarNotificationViewAdapter(mContext, /* isGroupNotificationAdapter= */
+        mAdapter = new CarNotificationViewAdapter(getContext(), /* isGroupNotificationAdapter= */
                 true, /* notificationItemController= */ null);
         mAdapter.setClickHandlerFactory(clickHandlerFactory);
         mNotificationListView.addOnItemTouchListener(
@@ -290,7 +288,7 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
         mExpansionFooterView.setFocusable(isExpanded);
 
         int unshownCount = mNotificationGroup.getChildCount() - mNumberOfShownNotifications;
-        String footerText = mContext
+        String footerText = getContext()
                 .getString(R.string.show_more_from_app, unshownCount, mHeaderName);
         mExpansionFooterView.setText(footerText);
 
@@ -428,7 +426,7 @@ public class GroupNotificationViewHolder extends CarNotificationBaseViewHolder
      */
     @Nullable
     private String loadHeaderAppName(StatusBarNotification sbn) {
-        Context packageContext = sbn.getPackageContext(mContext);
+        Context packageContext = sbn.getPackageContext(getContext());
         PackageManager pm = packageContext.getPackageManager();
         Notification notification = sbn.getNotification();
         CharSequence name = pm.getApplicationLabel(packageContext.getApplicationInfo());

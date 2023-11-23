@@ -35,7 +35,7 @@
     <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Выберите, где установить обои"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Главный экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Заблокированный экран"</string>
-    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Главный экран и заблокированный экран"</string>
+    <string name="set_wallpaper_both_destination" msgid="2536004558738350775">"Главный экран и заблокированный экран"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Автоматически меняющиеся обои"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Чтобы посмотреть текущие обои здесь, предоставьте приложению \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" доступ к памяти устройства."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Чтобы посмотреть текущие обои здесь, предоставьте приложению \"Обои\" доступ к памяти устройства.\n\nЗакрыть доступ можно, нажав \"Настройки &gt; Приложения &gt; Обои &gt; Разрешения\"."</string>
@@ -80,6 +80,8 @@
     <string name="preview" msgid="1774602101743861071">"Предварительный просмотр"</string>
     <string name="tab_info" msgid="818614080690111416">"Информация"</string>
     <string name="tab_customize" msgid="2533745409174959960">"Настройка"</string>
+    <string name="tab_effects" msgid="3213606157589233901">"Эффекты"</string>
+    <string name="my_photos" msgid="8613021349284084982">"Мои фото"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"Настройки…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"Удалить"</string>
     <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Удалить эти обои с телефона?"</string>
@@ -94,6 +96,7 @@
     <string name="wallpaper_title" msgid="6754214682228331092">"Обои"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Предварительный просмотр обоев"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Такой подборки не существует."</string>
+    <string name="cancel" msgid="4970902691067201584">"Отмена"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Скрыть экран предпросмотра"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Нажмите дважды, чтобы показать интерфейс в режиме предпросмотра."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Предпросмотр интерфейса"</string>
@@ -105,4 +108,7 @@
     <string name="accessibility_customize_shown" msgid="590964727831547651">"Панель настроек показана"</string>
     <string name="accessibility_info_hidden" msgid="2288603712350168107">"Панель с информацией скрыта"</string>
     <string name="accessibility_info_shown" msgid="6626025722456105632">"Панель с информацией показана"</string>
+    <string name="settings_snackbar_description" msgid="890168814524778486">"Разрешите доступ к файлам и медиаконтенту в настройках."</string>
+    <string name="settings_snackbar_enable" msgid="5992112808061426068">"Разрешить"</string>
+    <string name="open_my_photos" msgid="4107196465713868381">"Открыть \"Мои фото\""</string>
 </resources>

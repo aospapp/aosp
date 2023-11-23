@@ -24,9 +24,9 @@
     <!-- ****** Alert dialog dimens ***** -->
 
     <!-- Dialog corner radius -->
-    <dimen name="alert_dialog_corner_radius">24dp</dimen>
+    <dimen name="alert_dialog_corner_radius">32dp</dimen>
     <!-- Dialog button corner radius -->
-    <dimen name="alert_dialog_button_corner_radius">16dp</dimen>
+    <dimen name="alert_dialog_button_corner_radius">24dp</dimen>
     <!-- Dialog header size -->
     <dimen name="car_card_header_height">88dp</dimen>
     <!-- Dialog image size -->

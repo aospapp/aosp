@@ -16,11 +16,14 @@
 
 package com.android.car.garagemode;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.content.Context;
 import android.os.Looper;
-import android.util.IndentingPrintWriter;
 
 import com.android.car.CarServiceBase;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.VisibleForTesting;
 
 /**
@@ -64,6 +67,7 @@ public class GarageModeService implements CarServiceBase {
      * @param writer Where to dump the information
      */
     @Override
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         boolean isActive = mController.isGarageModeActive();
         writer.println("GarageModeInProgress " + isActive);

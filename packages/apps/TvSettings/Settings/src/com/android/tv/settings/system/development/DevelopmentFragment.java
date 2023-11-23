@@ -18,7 +18,7 @@ package com.android.tv.settings.system.development;
 
 import static android.view.CrossWindowBlurListeners.CROSS_WINDOW_BLUR_SUPPORTED;
 
-import static com.android.tv.settings.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
+import static com.android.tv.settings.library.overlay.FlavorUtils.X_EXPERIENCE_FLAVORS_MASK;
 
 import android.Manifest;
 import android.app.Activity;
@@ -35,12 +35,21 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.database.ContentObserver;
 import android.hardware.usb.UsbManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.net.NetworkRequest;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -52,6 +61,7 @@ import android.sysprop.AdbProperties;
 import android.sysprop.DisplayProperties;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Pair;
 import android.view.IWindowManager;
 import android.view.LayoutInflater;
 import android.view.ThreadedRenderer;
@@ -73,10 +83,10 @@ import com.android.settingslib.development.SystemPropPoker;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
-import com.android.tv.settings.system.development.audio.AudioDebug;
-import com.android.tv.settings.system.development.audio.AudioMetrics;
-import com.android.tv.settings.system.development.audio.AudioReaderException;
+import com.android.tv.settings.library.system.development.audio.AudioDebug;
+import com.android.tv.settings.library.system.development.audio.AudioMetrics;
+import com.android.tv.settings.library.system.development.audio.AudioReaderException;
+import com.android.tv.settings.library.overlay.FlavorUtils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -161,8 +171,6 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
 
     private static final String TERMINAL_APP_PACKAGE = "com.android.terminal";
 
-    private static final String KEY_CONVERT_FBE = "convert_to_file_encryption";
-
     private static final int RESULT_DEBUG_APP = 1000;
     private static final int RESULT_MOCK_LOCATION_APP = 1001;
 
@@ -173,6 +181,8 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
     private static final int[] MOCK_LOCATION_APP_OPS = new int[]{AppOpsManager.OP_MOCK_LOCATION};
 
     private static final String STATE_SHOWING_DIALOG_KEY = "showing_dialog_key";
+
+    private static final String TOGGLE_ADB_WIRELESS_KEY = "toggle_adb_wireless";
 
     private String mPendingDialogKey;
 
@@ -254,6 +264,8 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
 
     private SwitchPreference mForceResizable;
 
+    private Preference mWirelessDebugging;
+
     private final ArrayList<Preference> mAllPrefs = new ArrayList<>();
 
     private final ArrayList<SwitchPreference> mResetSwitchPrefs
@@ -265,9 +277,15 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
 
     private AudioDebug mAudioDebug;
 
+    private ConnectivityManager mConnectivityManager;
+
     public static DevelopmentFragment newInstance() {
         return new DevelopmentFragment();
     }
+
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final NetworkCallback mNetworkCallback = new NetworkCallback();
+    private ContentObserver mToggleContentObserver;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -290,6 +308,19 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         mAudioDebug = new AudioDebug(getActivity(),
                 (boolean successful) -> onAudioRecorded(successful),
                 (AudioMetrics.Data data) -> updateAudioRecordingMetrics(data));
+
+        mConnectivityManager = getContext().getSystemService(ConnectivityManager.class);
+
+        mToggleContentObserver = new ContentObserver(new Handler(Looper.myLooper())) {
+            @Override
+            public void onChange(boolean selfChange, Uri uri) {
+                updateWirelessDebuggingPreference();
+            }
+        };
+        mContentResolver.registerContentObserver(
+                Settings.Global.getUriFor(Settings.Global.ADB_WIFI_ENABLED),
+                false,
+                mToggleContentObserver);
 
         super.onCreate(icicle);
     }
@@ -399,6 +430,8 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         mMobileDataAlwaysOn = findAndInitSwitchPref(MOBILE_DATA_ALWAYS_ON);
         mUsbConfiguration = addListRestrictedPreference(USB_CONFIGURATION_KEY,
                 UserManager.DISALLOW_USB_FILE_TRANSFER);
+        // Only show those functions that are available
+        listOnlySettableUsbConfigurationValues();
 
         mWindowAnimationScale = addListPreference(WINDOW_ANIMATION_SCALE_KEY);
         mTransitionAnimationScale = addListPreference(TRANSITION_ANIMATION_SCALE_KEY);
@@ -438,35 +471,14 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
             removePreferenceForProduction(hdcpChecking);
         }
 
-        // TODO: implement UI for TV
-        removePreference(KEY_CONVERT_FBE);
-/*
-        // Please import android.sysprop.CryptoProperties when you uncomment this block.
-        PreferenceScreen convertFbePreference =
-                (PreferenceScreen) findPreference(KEY_CONVERT_FBE);
-
-        try {
-            IBinder service = ServiceManager.getService("mount");
-            IMountService mountService = IMountService.Stub.asInterface(service);
-            if (!mountService.isConvertibleToFBE()) {
-                removePreference(KEY_CONVERT_FBE);
-            } else if (CryptoProperties.type().orElse(CryptoProperties.type_values.NONE) ==
-                       CryptoProperties.type_values.FILE) {
-                convertFbePreference.setEnabled(false);
-                convertFbePreference.setSummary(getResources()
-                        .getString(R.string.convert_to_file_encryption_done));
-            }
-        } catch(RemoteException e) {
-            removePreference(KEY_CONVERT_FBE);
-        }
-*/
-
         mColorModePreference = (ColorModePreference) findPreference(KEY_COLOR_MODE);
         mColorModePreference.updateCurrentAndSupported();
         if (mColorModePreference.getColorModeCount() < 2) {
             removePreference(KEY_COLOR_MODE);
             mColorModePreference = null;
         }
+
+        mWirelessDebugging = findPreference(TOGGLE_ADB_WIRELESS_KEY);
     }
 
     private void removePreference(String key) {
@@ -586,6 +598,13 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
             recreateDialogForKey(mPendingDialogKey);
             mPendingDialogKey = null;
         }
+
+        mConnectivityManager.registerNetworkCallback(
+                new NetworkRequest.Builder()
+                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
+                        .build(),
+                mNetworkCallback);
     }
 
     @Override
@@ -596,6 +615,7 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
         }
 
         mAudioDebug.cancelRecording();
+        mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
     }
 
     @Override
@@ -626,6 +646,7 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
     public void onDestroy() {
         super.onDestroy();
         dismissDialogs();
+        mContentResolver.unregisterContentObserver(mToggleContentObserver);
     }
 
     void updateSwitchPreference(SwitchPreference switchPreference, boolean value) {
@@ -1358,24 +1379,60 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
                 mMobileDataAlwaysOn.isChecked() ? 1 : 0);
     }
 
-    private void updateUsbConfigurationValues() {
+    private void listOnlySettableUsbConfigurationValues() {
         final UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
         mUsbConfiguration.updatePreference(p -> p.setVisible(manager != null));
         if (manager != null) {
-            String[] values = getResources().getStringArray(R.array.usb_configuration_values);
-            String[] titles = getResources().getStringArray(R.array.usb_configuration_titles);
+            final List<Pair<String, String>> usbConfigurationValueTitlePairs =
+                    getSettableUsbConfigurationValueTitlePairs();
+            final String[] usbConfigurationValues = usbConfigurationValueTitlePairs.stream()
+                    .map(usbConfigurationValueTitlePair -> usbConfigurationValueTitlePair.first)
+                    .toArray(String[]::new);
+            final String[] usbConfigurationTitles = usbConfigurationValueTitlePairs.stream()
+                    .map(usbConfigurationValueTitlePair -> usbConfigurationValueTitlePair.second)
+                    .toArray(String[]::new);
+            mUsbConfiguration.updatePreference(listPreference -> {
+                listPreference.setEntryValues(usbConfigurationValues);
+                listPreference.setEntries(usbConfigurationTitles);
+            });
+        }
+    }
+
+    private List<Pair<String, String>> getSettableUsbConfigurationValueTitlePairs() {
+        final String[] values = getResources().getStringArray(R.array.usb_configuration_values);
+        final String[] titles = getResources().getStringArray(R.array.usb_configuration_titles);
+        final List<Pair<String, String>> settableUsbConfigurationValueTitlePairs =
+                new ArrayList<>();
+        for (int i = 0; i < values.length; i++) {
+            if (UsbManager.areSettableFunctions(UsbManager.usbFunctionsFromString(values[i]))) {
+                settableUsbConfigurationValueTitlePairs.add(Pair.create(values[i], titles[i]));
+            }
+        }
+        return settableUsbConfigurationValueTitlePairs;
+    }
+
+    private void updateUsbConfigurationValues() {
+        final UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        if (mUsbConfiguration == null) {
+            return;
+        }
+        mUsbConfiguration.updatePreference(p -> p.setVisible(manager != null));
+        if (manager != null) {
+            final List<Pair<String, String>> usbConfigurationValueTitlePairs =
+                    getSettableUsbConfigurationValueTitlePairs();
             int index = 0;
             long functions = manager.getCurrentFunctions();
-            for (int i = 0; i < titles.length; i++) {
-                if ((functions & UsbManager.usbFunctionsFromString(values[i])) != 0) {
+            for (int i = 0; i < usbConfigurationValueTitlePairs.size(); i++) {
+                if ((functions & UsbManager.usbFunctionsFromString(
+                        usbConfigurationValueTitlePairs.get(i).first)) != 0) {
                     index = i;
                     break;
                 }
             }
             final int updateIndex = index;
             mUsbConfiguration.updatePreference(listPreference -> {
-                listPreference.setValue(values[updateIndex]);
-                listPreference.setSummary(titles[updateIndex]);
+                listPreference.setValue(usbConfigurationValueTitlePairs.get(updateIndex).first);
+                listPreference.setSummary(usbConfigurationValueTitlePairs.get(updateIndex).second);
                 listPreference.setOnPreferenceChangeListener(this);
             });
         }
@@ -1780,6 +1837,43 @@ public class DevelopmentFragment extends SettingsPreferenceFragment
             return context.getPackageManager().getPackageInfo(packageName, 0) != null;
         } catch (PackageManager.NameNotFoundException e) {
             return false;
+        }
+    }
+
+    private void updateWirelessDebuggingPreference() {
+        if (mWirelessDebugging == null) {
+            return;
+        }
+
+        if (!isNetworkConnected()) {
+            mWirelessDebugging.setSummary(R.string.connectivity_summary_no_network_connected);
+        } else {
+            boolean enabled = Settings.Global.getInt(mContentResolver,
+                    Settings.Global.ADB_WIFI_ENABLED, 1) != 0;
+            if (enabled) {
+                mWirelessDebugging.setSummary(R.string.enabled);
+            } else {
+                mWirelessDebugging.setSummary(R.string.disabled);
+            }
+        }
+    }
+
+    private boolean isNetworkConnected() {
+        NetworkInfo activeNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+    }
+
+    private class NetworkCallback extends ConnectivityManager.NetworkCallback {
+        @Override
+        public void onAvailable(Network network) {
+            super.onAvailable(network);
+            mHandler.post(() -> updateWirelessDebuggingPreference());
+        }
+
+        @Override
+        public void onLost(Network network) {
+            super.onLost(network);
+            mHandler.post(() -> updateWirelessDebuggingPreference());
         }
     }
 }

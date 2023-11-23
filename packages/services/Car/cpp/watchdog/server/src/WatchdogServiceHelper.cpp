@@ -49,16 +49,14 @@ Status fromExceptionCode(int32_t exceptionCode, std::string message) {
 
 }  // namespace
 
-Result<void> WatchdogServiceHelper::init(const sp<WatchdogProcessService>& watchdogProcessService) {
+Result<void> WatchdogServiceHelper::init(
+        const sp<WatchdogProcessServiceInterface>& watchdogProcessService) {
     if (watchdogProcessService == nullptr) {
         return Error() << "Must provide a non-null watchdog process service instance";
     }
     mWatchdogProcessService = watchdogProcessService;
-    return mWatchdogProcessService->registerWatchdogServiceHelper(this);
-}
-
-WatchdogServiceHelper::~WatchdogServiceHelper() {
-    terminate();
+    return mWatchdogProcessService->registerWatchdogServiceHelper(
+            sp<WatchdogServiceHelper>::fromExisting(this));
 }
 
 Status WatchdogServiceHelper::registerService(
@@ -74,14 +72,15 @@ Status WatchdogServiceHelper::registerService(
     if (mService != nullptr && curBinder == newBinder) {
         return Status::ok();
     }
-    if (status_t ret = newBinder->linkToDeath(this); ret != OK) {
+    if (status_t ret = newBinder->linkToDeath(sp<WatchdogServiceHelper>::fromExisting(this));
+        ret != OK) {
         return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE,
                                          "Failed to register car watchdog service as it is dead");
     }
     unregisterServiceLocked();
     if (Status status = mWatchdogProcessService->registerCarWatchdogService(newBinder);
         !status.isOk()) {
-        newBinder->unlinkToDeath(this);
+        newBinder->unlinkToDeath(sp<WatchdogServiceHelper>::fromExisting(this));
         return status;
     }
     mService = service;
@@ -172,9 +171,9 @@ Status WatchdogServiceHelper::prepareProcessTermination(const wp<IBinder>& who) 
 void WatchdogServiceHelper::unregisterServiceLocked() {
     if (mService == nullptr) return;
     sp<IBinder> binder = BnCarWatchdogServiceForSystem::asBinder(mService);
-    binder->unlinkToDeath(this);
-    mService.clear();
+    binder->unlinkToDeath(sp<WatchdogServiceHelper>::fromExisting(this));
     mWatchdogProcessService->unregisterCarWatchdogService(binder);
+    mService.clear();
 }
 
 Status WatchdogServiceHelper::getPackageInfosForUids(

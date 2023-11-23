@@ -4,9 +4,6 @@
       "name": "CtsHostsideNetworkTests",
       "options": [
         {
-          "include-filter": "com.android.cts.net.HostsideRestrictBackgroundNetworkTests"
-        },
-        {
           "exclude-annotation": "androidx.test.filters.FlakyTest"
         },
         {

@@ -18,15 +18,15 @@ package com.android.car.audio;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
+import android.car.builtin.util.Slogf;
 import android.car.media.CarAudioManager;
 import android.media.AudioDeviceAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioPlaybackConfiguration;
-import android.util.IndentingPrintWriter;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.util.Preconditions;
 
 import java.util.ArrayList;
@@ -129,7 +129,7 @@ import java.util.Set;
             // One context should not appear in two groups
             for (int context : group.getContexts()) {
                 if (!contexts.add(context)) {
-                    Slog.e(CarLog.TAG_AUDIO, "Context appears in two groups: " + context);
+                    Slogf.e(CarLog.TAG_AUDIO, "Context appears in two groups: " + context);
                     return false;
                 }
             }
@@ -137,7 +137,7 @@ import java.util.Set;
             // One address should not appear in two groups
             for (String address : group.getAddresses()) {
                 if (!addresses.add(address)) {
-                    Slog.e(CarLog.TAG_AUDIO, "Address appears in two groups: " + address);
+                    Slogf.e(CarLog.TAG_AUDIO, "Address appears in two groups: " + address);
                     return false;
                 }
             }
@@ -145,10 +145,9 @@ import java.util.Set;
 
         // All contexts are assigned
         if (contexts.size() != CarAudioContext.CONTEXTS.length) {
-            Slog.e(CarLog.TAG_AUDIO, "Some contexts are not assigned to group");
-            Slog.e(CarLog.TAG_AUDIO, "Assigned contexts " + contexts);
-            Slog.e(CarLog.TAG_AUDIO,
-                    "All contexts " + Arrays.toString(CarAudioContext.CONTEXTS));
+            Slogf.e(CarLog.TAG_AUDIO, "Some contexts are not assigned to group");
+            Slogf.e(CarLog.TAG_AUDIO, "Assigned contexts " + contexts);
+            Slogf.e(CarLog.TAG_AUDIO, "All contexts " + Arrays.toString(CarAudioContext.CONTEXTS));
             return false;
         }
         return true;
@@ -185,6 +184,20 @@ import java.util.Set;
             deviceAddress = volumeGroup.getAddressForContext(audioContext);
             if (deviceAddress != null) {
                 return deviceAddress;
+            }
+        }
+        // This should not happen unless something went wrong.
+        // Device address are unique per zone and all contexts are assigned in a zone.
+        throw new IllegalStateException("Could not find output device in zone " + mId
+                + " for audio context " + audioContext);
+    }
+
+    public AudioDeviceInfo getAudioDeviceForContext(int audioContext) {
+        CarAudioContext.preconditionCheckAudioContext(audioContext);
+        for (CarVolumeGroup volumeGroup : getVolumeGroups()) {
+            AudioDeviceInfo deviceInfo = volumeGroup.getAudioDeviceForContext(audioContext);
+            if (deviceInfo != null) {
+                return deviceInfo;
             }
         }
         // This should not happen unless something went wrong.

@@ -35,9 +35,9 @@
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="890926483922346934">"Verstek"</item>
-    <item msgid="3343022995357433227">"Sans-serif"</item>
-    <item msgid="5638318073828379963">"Sans-serif gekondenseer"</item>
-    <item msgid="7195810992054707804">"Sans-serif-enkelspasie"</item>
+    <item msgid="3343022995357433227">"Sans Serif"</item>
+    <item msgid="5638318073828379963">"Sans Serif gekondenseer"</item>
+    <item msgid="7195810992054707804">"Sans Serif-enkelspasie"</item>
     <item msgid="3746382747920668734">"Serif"</item>
     <item msgid="5506326688955062027">"Serif-enkelspasie"</item>
     <item msgid="8403464187584231231">"Gemaklik"</item>

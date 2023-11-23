@@ -22,10 +22,8 @@ import static org.testng.Assert.expectThrows;
 
 import android.car.Car;
 import android.car.telemetry.CarTelemetryManager;
-import android.car.telemetry.MetricsConfigKey;
 import android.content.Context;
 
-import androidx.annotation.NonNull;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -43,10 +41,11 @@ import java.util.concurrent.Executors;
  */
 @RunWith(AndroidJUnit4.class)
 public class CarTelemetryManagerPermissionTest {
+    private final byte[] mMetricsConfigBytes = "metricsConfig".getBytes();
+    private final Executor mExecutor = Executors.newSingleThreadExecutor();
+    private final String mMetricsConfigName = "name";
     private final Context mContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
-    private final MetricsConfigKey mMetricsConfigKey = new MetricsConfigKey("name", 1);
-    private final byte[] mMetricsConfigBytes = "manifest".getBytes();
 
     private Car mCar;
     private CarTelemetryManager mCarTelemetryManager;
@@ -63,30 +62,10 @@ public class CarTelemetryManagerPermissionTest {
     }
 
     @Test
-    public void testSetListener() throws Exception {
-        Executor executor = Executors.newSingleThreadExecutor();
-        CarTelemetryManager.CarTelemetryResultsListener listener =
-                new FakeCarTelemetryResultsListener();
-
+    public void testAddMetricsConfig() {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.setListener(executor, listener));
-
-        assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
-    }
-
-    @Test
-    public void testClearListener() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.clearListener());
-
-        assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
-    }
-
-    @Test
-    public void testAddMetricsConfig() throws Exception {
-        Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.addMetricsConfig(mMetricsConfigKey,
-                        mMetricsConfigBytes));
+                () -> mCarTelemetryManager.addMetricsConfig("name", mMetricsConfigBytes, mExecutor,
+                        (metricsConfigName, statusCode) -> { }));
 
         assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
     }
@@ -94,13 +73,13 @@ public class CarTelemetryManagerPermissionTest {
     @Test
     public void testRemoveMetricsConfig() {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.removeMetricsConfig(mMetricsConfigKey));
+                () -> mCarTelemetryManager.removeMetricsConfig(mMetricsConfigName));
 
         assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
     }
 
     @Test
-    public void testRemoveAllMetricsConfigs() throws Exception {
+    public void testRemoveAllMetricsConfigs() {
         Exception e = expectThrows(SecurityException.class,
                 () -> mCarTelemetryManager.removeAllMetricsConfigs());
 
@@ -108,33 +87,37 @@ public class CarTelemetryManagerPermissionTest {
     }
 
     @Test
-    public void testSendFinishedReports() throws Exception {
+    public void testGetFinishedReport() {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.sendFinishedReports(mMetricsConfigKey));
+                () -> mCarTelemetryManager.getFinishedReport(mMetricsConfigName, mExecutor,
+                        (metricsConfigName, report, telemetryError, status) -> { }));
 
         assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
     }
 
     @Test
-    public void testSendAllFinishedReports() throws Exception {
+    public void testGetAllFinishedReports() {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarTelemetryManager.sendAllFinishedReports());
+                () -> mCarTelemetryManager.getAllFinishedReports(mExecutor,
+                        (metricsConfigName, report, telemetryError, status) -> { }));
 
         assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
     }
 
-    private class FakeCarTelemetryResultsListener implements
-            CarTelemetryManager.CarTelemetryResultsListener {
-        @Override
-        public void onResult(@NonNull MetricsConfigKey key, @NonNull byte[] result) {
-        }
+    @Test
+    public void testSetReportReadyListener() {
+        Exception e = expectThrows(SecurityException.class,
+                () -> mCarTelemetryManager.setReportReadyListener(
+                        mExecutor, (metricsConfigName) -> { }));
 
-        @Override
-        public void onError(@NonNull MetricsConfigKey key, @NonNull byte[] error) {
-        }
+        assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
+    }
 
-        @Override
-        public void onAddMetricsConfigStatus(@NonNull MetricsConfigKey key, int statusCode) {
-        }
+    @Test
+    public void testClearReportReadyListener() {
+        Exception e = expectThrows(SecurityException.class,
+                () -> mCarTelemetryManager.clearReportReadyListener());
+
+        assertThat(e.getMessage()).contains(Car.PERMISSION_USE_CAR_TELEMETRY_SERVICE);
     }
 }

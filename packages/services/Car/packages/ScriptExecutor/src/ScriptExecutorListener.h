@@ -28,7 +28,7 @@ namespace scriptexecutor {
 
 // Changes in this enum must also be reflected in:
 // p/s/C/service/src/com/android/car/telemetry/scriptexecutorinterface/IScriptExecutorListener.aidl
-// p/s/C/service/src/com/android/car/telemetry/proto/telemetry.proto
+// p/s/C/car-lib/src/android/car/telemetry/telemetry.proto
 enum ErrorType {
     /**
      * Default error type.
@@ -51,6 +51,11 @@ enum ErrorType {
      * inputs outside of expected range.
      */
     ERROR_TYPE_LUA_SCRIPT_ERROR = 3,
+
+    /**
+     * Used to log errors for publisher failures.
+     */
+    ERROR_TYPE_PUBLISHER_FAILED = 4,
 };
 
 //  Wrapper class for IScriptExecutorListener.aidl.
@@ -65,6 +70,8 @@ public:
     void onSuccess(jobject bundle);
 
     void onError(const ErrorType errorType, const char* message, const char* stackTrace);
+
+    void onMetricsReport(jobject reportBundle, jobject stateBundle);
 
     JNIEnv* getCurrentJNIEnv();
 

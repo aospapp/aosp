@@ -16,16 +16,17 @@
 
 package com.android.server.wifi;
 
-import android.app.AlertDialog;
 import android.app.Notification;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
 import android.os.Handler;
 import android.os.Process;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
@@ -42,6 +43,7 @@ public class ConnectionFailureNotifier {
     private final WifiConfigManager mWifiConfigManager;
     private final WifiConnectivityManager mWifiConnectivityManager;
     private final WifiNotificationManager mNotificationManager;
+    private final WifiDialogManager mWifiDialogManager;
     private final Handler mHandler;
     private final ConnectionFailureNotificationBuilder mConnectionFailureNotificationBuilder;
 
@@ -52,12 +54,14 @@ public class ConnectionFailureNotifier {
             WifiConnectivityManager wifiConnectivityManager,
             Handler handler,
             WifiNotificationManager notificationManager,
-            ConnectionFailureNotificationBuilder connectionFailureNotificationBuilder) {
+            ConnectionFailureNotificationBuilder connectionFailureNotificationBuilder,
+            WifiDialogManager wifiDialogManager) {
         mContext = context;
         mFrameworkFacade = framework;
         mWifiConfigManager = wifiConfigManager;
         mWifiConnectivityManager = wifiConnectivityManager;
         mNotificationManager = notificationManager;
+        mWifiDialogManager = wifiDialogManager;
         mHandler = handler;
         mConnectionFailureNotificationBuilder = connectionFailureNotificationBuilder;
 
@@ -69,7 +73,7 @@ public class ConnectionFailureNotifier {
                     @Override
                     public void onReceive(Context context, Intent intent) {
                         String action = intent.getAction();
-                        if (action.equals(ConnectionFailureNotificationBuilder
+                        if (TextUtils.equals(action, ConnectionFailureNotificationBuilder
                                 .ACTION_SHOW_SET_RANDOMIZATION_DETAILS)) {
                             int networkId = intent.getIntExtra(
                                     ConnectionFailureNotificationBuilder
@@ -100,61 +104,71 @@ public class ConnectionFailureNotifier {
                 notification);
     }
 
-    class DisableMacRandomizationListener implements DialogInterface.OnClickListener {
-        private WifiConfiguration mConfig;
-
-        DisableMacRandomizationListener(WifiConfiguration config) {
-            mConfig = config;
-        }
-
-        @Override
-        public void onClick(DialogInterface dialog, int which) {
-            mHandler.post(() -> {
-                mConfig.macRandomizationSetting =
-                        WifiConfiguration.RANDOMIZATION_NONE;
-                mWifiConfigManager.addOrUpdateNetwork(mConfig, Process.SYSTEM_UID);
-                WifiConfiguration updatedConfig =
-                        mWifiConfigManager.getConfiguredNetwork(mConfig.networkId);
-                if (updatedConfig.macRandomizationSetting
-                        == WifiConfiguration.RANDOMIZATION_NONE) {
-                    String message = mContext.getResources().getString(
-                            R.string.wifi_disable_mac_randomization_dialog_success);
-                    mFrameworkFacade.showToast(mContext, message);
-                    mWifiConfigManager.enableNetwork(updatedConfig.networkId, true,
-                            Process.SYSTEM_UID, null);
-                    mWifiConnectivityManager.forceConnectivityScan(
-                            ClientModeImpl.WIFI_WORK_SOURCE);
-                } else {
-                    // Shouldn't ever fail, but here for completeness
-                    String message = mContext.getResources().getString(
-                            R.string.wifi_disable_mac_randomization_dialog_failure);
-                    mFrameworkFacade.showToast(mContext, message);
-                    Log.e(TAG, "Failed to modify mac randomization setting");
-                }
-            });
-        }
-    }
-
     /**
      * Class to show a AlertDialog which notifies the user of a network not being privacy
      * compliant and then suggests an action.
      */
     private void showRandomizationSettingsDialog(int networkId, String ssidAndSecurityType) {
+        Resources res = mContext.getResources();
         WifiConfiguration config = mWifiConfigManager.getConfiguredNetwork(networkId);
         // Make sure the networkId is still pointing to the correct WifiConfiguration since
         // there might be a large time gap between when the notification shows and when
         // it's tapped.
-        if (config == null || ssidAndSecurityType == null
-                || !ssidAndSecurityType.equals(config.getSsidAndSecurityTypeString())) {
-            String message = mContext.getResources().getString(
+        if (config == null || !TextUtils.equals(ssidAndSecurityType,
+                config.getSsidAndSecurityTypeString())) {
+            String message = res.getString(
                     R.string.wifi_disable_mac_randomization_dialog_network_not_found);
             mFrameworkFacade.showToast(mContext, message);
             return;
         }
 
-        AlertDialog dialog = mConnectionFailureNotificationBuilder
-                .buildChangeMacRandomizationSettingDialog(config.SSID,
-                        new DisableMacRandomizationListener(config));
-        dialog.show();
+        mWifiDialogManager.createSimpleDialog(
+                res.getString(R.string.wifi_disable_mac_randomization_dialog_title),
+                res.getString(R.string.wifi_disable_mac_randomization_dialog_message, config.SSID),
+                res.getString(R.string.wifi_disable_mac_randomization_dialog_confirm_text),
+                res.getString(android.R.string.cancel),
+                null /* neutralButtonText */,
+                new WifiDialogManager.SimpleDialogCallback() {
+                    @Override
+                    public void onPositiveButtonClicked() {
+                        config.macRandomizationSetting =
+                                WifiConfiguration.RANDOMIZATION_NONE;
+                        mWifiConfigManager.addOrUpdateNetwork(config, Process.SYSTEM_UID);
+                        WifiConfiguration updatedConfig =
+                                mWifiConfigManager.getConfiguredNetwork(config.networkId);
+                        if (updatedConfig.macRandomizationSetting
+                                == WifiConfiguration.RANDOMIZATION_NONE) {
+                            String message = mContext.getResources().getString(
+                                    R.string.wifi_disable_mac_randomization_dialog_success);
+                            mFrameworkFacade.showToast(mContext, message);
+                            mWifiConfigManager.enableNetwork(updatedConfig.networkId, true,
+                                    Process.SYSTEM_UID, null);
+                            mWifiConnectivityManager.forceConnectivityScan(
+                                    ClientModeImpl.WIFI_WORK_SOURCE);
+                        } else {
+                            // Shouldn't ever fail, but here for completeness
+                            String message = mContext.getResources().getString(
+                                    R.string.wifi_disable_mac_randomization_dialog_failure);
+                            mFrameworkFacade.showToast(mContext, message);
+                            Log.e(TAG, "Failed to modify mac randomization setting");
+                        }
+                    }
+
+                    @Override
+                    public void onNegativeButtonClicked() {
+                        // Do nothing.
+                    }
+
+                    @Override
+                    public void onNeutralButtonClicked() {
+                        // Not used.
+                    }
+
+                    @Override
+                    public void onCancelled() {
+                        // Do nothing.
+                    }
+                },
+                new WifiThreadRunner(mHandler)).launchDialog();
     }
 }

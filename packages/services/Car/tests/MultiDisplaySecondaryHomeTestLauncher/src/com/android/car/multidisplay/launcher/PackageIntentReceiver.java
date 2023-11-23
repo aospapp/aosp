@@ -16,6 +16,8 @@
 
 package com.android.car.multidisplay.launcher;
 
+import static android.content.Context.RECEIVER_NOT_EXPORTED;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -34,13 +36,13 @@ class PackageIntentReceiver extends BroadcastReceiver {
         filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
         filter.addDataScheme("package");
-        context.registerReceiver(this, filter);
+        context.registerReceiver(this, filter, RECEIVER_NOT_EXPORTED);
 
         // Register for events related to sdcard installation.
         IntentFilter sdFilter = new IntentFilter();
         sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE);
         sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
-        context.registerReceiver(this, sdFilter);
+        context.registerReceiver(this, sdFilter, RECEIVER_NOT_EXPORTED);
     }
 
     @Override

@@ -109,7 +109,7 @@ public class BluetoothStateSwitchPreferenceController extends
 
     @Override
     protected void onCreateInternal() {
-        mUserManager = UserManager.get(mContext);
+        mUserManager = mContext.getSystemService(UserManager.class);
         mLocalBluetoothManager = BluetoothUtils.getLocalBtManager(mContext);
         if (mLocalBluetoothManager == null) {
             getFragmentController().goBack();
@@ -197,11 +197,6 @@ public class BluetoothStateSwitchPreferenceController extends
                 updateSwitchPreference(false);
         }
         mUpdating = false;
-    }
-
-    @VisibleForTesting
-    void setUserManager(UserManager userManager) {
-        mUserManager = userManager;
     }
 
     private void updateSwitchPreference(boolean enabled) {

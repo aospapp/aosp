@@ -29,4 +29,9 @@
         <item></item>
         <item></item>
     </string-array>
+
+    <!-- Package names of projected apps. -->
+    <string-array name="projected_apps" translatable="false">
+        <item>com.google.android.embedded.projection</item>
+    </string-array>
 </resources>

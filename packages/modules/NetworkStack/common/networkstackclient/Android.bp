@@ -34,8 +34,8 @@ aidl_interface {
         java: {
             apex_available: [
                 "//apex_available:platform",
+                "com.android.bluetooth",
                 "com.android.wifi",
-                "com.android.bluetooth.updatable",
                 "com.android.tethering",
             ],
             // this is part of updatable modules(NetworkStack) which targets 29(Q)
@@ -101,18 +101,24 @@ aidl_interface {
         "src/android/net/ip/IIpClientCallbacks.aidl",
         // New AIDL classes should go into android.net.networkstack.aidl so they can be clearly
         // identified
+        "src/android/net/networkstack/aidl/NetworkMonitorParameters.aidl",
         "src/android/net/networkstack/aidl/dhcp/DhcpOption.aidl",
+        "src/android/net/networkstack/aidl/ip/ReachabilityLossInfoParcelable.aidl",
+        "src/android/net/networkstack/aidl/ip/ReachabilityLossReason.aidl",
     ],
     backend: {
         java: {
             apex_available: [
                 "//apex_available:platform",
-                "com.android.bluetooth.updatable",
+                "com.android.bluetooth",
                 "com.android.wifi",
                 "com.android.tethering",
             ],
             // this is part of updatable modules(NetworkStack) which targets 29(Q)
             min_sdk_version: "29",
+            lint: {
+                enabled: false,
+            },
         },
         ndk: {
             enabled: false,
@@ -121,7 +127,7 @@ aidl_interface {
             enabled: false,
         },
     },
-    imports: ["ipmemorystore-aidl-interfaces"],
+    imports: ["ipmemorystore-aidl-interfaces-V10"],
     versions: [
         "1",
         "2",
@@ -133,6 +139,11 @@ aidl_interface {
         "8",
         "9",
         "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
     ],
     // TODO: have tethering depend on networkstack-client and set visibility to private
     visibility: [
@@ -143,12 +154,28 @@ aidl_interface {
 }
 
 java_library {
-    name: "networkstack-client",
+    name: "networkstack-aidl-latest",
     sdk_version: "system_current",
+    min_sdk_version: "29",
+    static_libs: [
+        "ipmemorystore-aidl-interfaces-V10-java",
+        "networkstack-aidl-interfaces-V15-java",
+    ],
+    visibility: ["//packages/modules/NetworkStack:__subpackages__"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth",
+        "com.android.tethering",
+        "com.android.wifi",
+    ],
+}
+
+java_library {
+    name: "networkstack-client",
+    sdk_version: "module_current",
     // this is part of updatable modules(NetworkStack) which runs on Q and above
     min_sdk_version: "29",
     srcs: [
-        ":framework-annotations",
         "src/android/net/ip/**/*.java",
         "src/android/net/IpMemoryStore.java",
         "src/android/net/IpMemoryStoreClient.java",
@@ -160,11 +187,14 @@ java_library {
         "src/android/net/util/**/*.java",
     ],
     libs: [
-        "net-utils-framework-common",  // XXX for IpUtils.java only
+        // Since this library is sdk_version: "module_current", "framework-connectivity" is just
+        // the module_current API stubs of framework-connectivity
+        "framework-connectivity",
+        "framework-annotations-lib",
     ],
     static_libs: [
-        "ipmemorystore-aidl-interfaces-V10-java",
-        "networkstack-aidl-interfaces-V10-java",
+        "networkstack-aidl-latest",
+        "modules-utils-build",
     ],
     visibility: [
         "//frameworks/base/packages/Connectivity/service",
@@ -173,10 +203,12 @@ java_library {
         "//frameworks/base/services/net",
         "//frameworks/opt/net/wifi/service",
         "//packages/apps/Bluetooth",
+        "//packages/modules/Bluetooth/android/app",
         "//packages/modules/NetworkStack",
     ],
     apex_available: [
         "//apex_available:platform",
+        "com.android.bluetooth",
         "com.android.tethering",
     ],
 }

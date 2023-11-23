@@ -16,21 +16,23 @@
 
 package android.net.ip;
 
-import static android.net.netlink.NetlinkConstants.RTM_DELNEIGH;
-import static android.net.netlink.NetlinkConstants.hexify;
-import static android.net.netlink.NetlinkConstants.stringForNlMsgType;
 import static android.system.OsConstants.NETLINK_ROUTE;
 
+import static com.android.net.module.util.netlink.NetlinkConstants.RTM_DELNEIGH;
+import static com.android.net.module.util.netlink.NetlinkConstants.hexify;
+import static com.android.net.module.util.netlink.NetlinkConstants.stringForNlMsgType;
+
 import android.net.MacAddress;
-import android.net.netlink.NetlinkMessage;
-import android.net.netlink.NetlinkSocket;
-import android.net.netlink.RtNetlinkNeighborMessage;
-import android.net.netlink.StructNdMsg;
 import android.net.util.SharedLog;
 import android.os.Handler;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.util.Log;
+
+import com.android.net.module.util.netlink.NetlinkMessage;
+import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.RtNetlinkNeighborMessage;
+import com.android.net.module.util.netlink.StructNdMsg;
 
 import java.net.InetAddress;
 import java.util.StringJoiner;

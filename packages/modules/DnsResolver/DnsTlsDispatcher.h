@@ -51,8 +51,9 @@ class DnsTlsDispatcher : public PrivateDnsValidationObserver {
     // The order in which servers from |tlsServers| are queried may not be the
     // order passed in by the caller.
     DnsTlsTransport::Response query(const std::list<DnsTlsServer>& tlsServers,
-                                    res_state _Nonnull statp, const netdutils::Slice query,
-                                    const netdutils::Slice ans, int* _Nonnull resplen);
+                                    ResState* _Nonnull statp, const netdutils::Slice query,
+                                    const netdutils::Slice ans, int* _Nonnull resplen,
+                                    bool dotQuickFallback);
 
     // Given a |query|, sends it to the server on the network indicated by |mark|,
     // and writes the response into |ans|, and indicates the number of bytes written in |resplen|.

@@ -17,7 +17,6 @@
 package com.android.car.settings.profiles;
 
 import android.annotation.Nullable;
-import android.annotation.UserIdInt;
 import android.app.admin.DevicePolicyManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
@@ -31,7 +30,6 @@ import com.android.car.ui.preference.CarUiPreference;
 /**
  * Controller that ends a managed user session.
  */
-// TODO(b/186905050, b/205185521): add unit test
 public class ProfileDetailsEndSessionPreferenceController
         extends ProfileDetailsBasePreferenceController<CarUiPreference> {
 
@@ -41,7 +39,7 @@ public class ProfileDetailsEndSessionPreferenceController
     @Nullable
     private final DevicePolicyManager mDpm;
 
-    private @UserIdInt int mLogoutUserId;
+    private @Nullable UserHandle mLogoutUser;
 
     public ProfileDetailsEndSessionPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -63,12 +61,9 @@ public class ProfileDetailsEndSessionPreferenceController
     @Override
     public boolean handlePreferenceClicked(CarUiPreference preference) {
         LOG.i("ending session (" + getUserInfo().toFullString() + ") and switching back to user "
-                + mLogoutUserId);
-        boolean switched = ProfileHelper.getInstance(getContext()).switchProfile(mLogoutUserId);
-        if (switched) {
-            LOG.d("clearing logout user");
-            mDpm.clearLogoutUser();
-        } else {
+                + mLogoutUser);
+        boolean switched = ProfileHelper.getInstance(getContext()).logoutProfile();
+        if (!switched) {
             LOG.e("Switch failed");
         }
         return true;
@@ -81,10 +76,10 @@ public class ProfileDetailsEndSessionPreferenceController
             return UNSUPPORTED_ON_DEVICE;
         }
         boolean isLogoutEnabled = mDpm.isLogoutEnabled();
-        mLogoutUserId = mDpm.getLogoutUserId();
-        LOG.d("getAvailabilityStatus(): isLogoutEnabled()=" + isLogoutEnabled + ", mLogoutUserId="
-                + mLogoutUserId);
-        return isLogoutEnabled && mLogoutUserId != UserHandle.USER_NULL
+        mLogoutUser = mDpm.getLogoutUser();
+        LOG.d("getAvailabilityStatus(): isLogoutEnabled()=" + isLogoutEnabled + ", mLogoutUser="
+                + mLogoutUser);
+        return isLogoutEnabled && mLogoutUser != null
                 ? AVAILABLE
                 : CONDITIONALLY_UNAVAILABLE;
     }

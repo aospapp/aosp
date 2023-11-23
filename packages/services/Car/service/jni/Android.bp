@@ -22,26 +22,26 @@ cc_library_shared {
     name: "libcarservicejni",
     srcs: [
         "JniLoader.cpp",
-        "evs/CarEvsService.cpp",
-        "evs/EvsCallbackThread.cpp",
-        "evs/EvsDeathRecipient.cpp",
-        "evs/EvsServiceContext.cpp",
-        "evs/StreamHandler.cpp",
+        "evs/*.cpp",
     ],
 
     shared_libs: [
-        "android.hardware.automotive.evs@1.0",
-        "android.hardware.automotive.evs@1.1",
-        "libandroid_runtime",
+        "android.hardware.automotive.evs-V1-ndk",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.graphics.common-V3-ndk",
+        "libandroid",
         "libbase",
-        "libbinder",
-        "libhardware",
-        "libhidlbase",
+        "libbinder_ndk",
         "liblog",
         "libnativehelper",
         "libnativewindow",
-        "libui",
         "libutils",
+    ],
+
+    min_sdk_version: "31",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.car.framework"
     ],
 
     strip: {

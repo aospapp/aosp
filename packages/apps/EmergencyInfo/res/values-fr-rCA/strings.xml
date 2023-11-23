@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Aucun renseignement sur le propriétaire du téléphone"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"S\'il s\'agit de votre téléphone, touchez l\'icône représentant un crayon pour ajouter des renseignements qui seront affichés ici en cas d\'urgence."</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"Lorsque le téléphone est déverrouillé, touchez l\'icône de crayon pour ajouter des renseignements qui s\'afficheront ici en cas d\'urgence"</string>
     <string name="clear_all" msgid="8899013032870561633">"Effacer tout"</string>
     <string name="clear" msgid="3648880442502887163">"Effacer"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Effacer toutes les données et tous les contacts?"</string>

@@ -25,6 +25,7 @@ import android.view.ViewStub;
 import android.view.WindowInsets;
 
 import androidx.annotation.IdRes;
+import androidx.annotation.MainThread;
 
 import com.android.car.ui.FocusArea;
 
@@ -57,6 +58,7 @@ public class OverlayViewController {
      *
      * Should be used to show view externally and in particular by {@link OverlayViewMediator}.
      */
+    @MainThread
     public final void start() {
         mOverlayViewGlobalStateController.showView(/* viewController= */ this, this::show);
     }
@@ -66,6 +68,7 @@ public class OverlayViewController {
      *
      * Should be used to hide view externally and in particular by {@link OverlayViewMediator}.
      */
+    @MainThread
     public final void stop() {
         mOverlayViewGlobalStateController.hideView(/* viewController= */ this, this::hide);
     }
@@ -73,6 +76,7 @@ public class OverlayViewController {
     /**
      * Inflate layout owned by controller.
      */
+    @MainThread
     public final void inflate(ViewGroup baseLayout) {
         ViewStub viewStub = baseLayout.findViewById(mStubId);
         mLayout = viewStub.inflate();
@@ -82,6 +86,7 @@ public class OverlayViewController {
     /**
      * Called once inflate finishes.
      */
+    @MainThread
     protected void onFinishInflate() {
         // no-op
     }
@@ -107,6 +112,7 @@ public class OverlayViewController {
      *
      * Should only be overridden by Superclass but not called by any {@link OverlayViewMediator}.
      */
+    @MainThread
     protected void showInternal() {
         mLayout.setVisibility(View.VISIBLE);
         for (OverlayViewStateListener l : mViewStateListeners) {
@@ -128,6 +134,7 @@ public class OverlayViewController {
      *
      * Should only be overridden by Superclass but not called by any {@link OverlayViewMediator}.
      */
+    @MainThread
     protected void hideInternal() {
         mLayout.setVisibility(View.GONE);
         for (OverlayViewStateListener l : mViewStateListeners) {

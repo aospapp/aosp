@@ -31,6 +31,7 @@
     <uses-permission android:name="android.permission.BIND_INCALL_SERVICE"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED"/>
     <uses-permission android:name="android.permission.BROADCAST_CALLLOG_INFO"/>
     <uses-permission android:name="android.permission.BROADCAST_PHONE_ACCOUNT_REGISTRATION"/>
     <uses-permission android:name="android.permission.CALL_PRIVILEGED"/>
@@ -45,6 +46,10 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING"/>
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"/>
     <uses-permission android:name="android.permission.READ_CALL_LOG"/>
+    <!-- Required to check for direct to voicemail, to load custom ringtones for incoming calls
+        which are specified on a per contact basis, and also to determine user preferred
+        PhoneAccountHandles for outgoing calls. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.READ_DEVICE_CONFIG"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_PROJECTION_STATE"/>
@@ -56,6 +61,8 @@
     <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS"/>
     <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS"/>
     <uses-permission android:name="android.permission.SUBSTITUTE_NOTIFICATION_APP_NAME"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="com.android.phone.permission.ACCESS_LAST_KNOWN_CELL_ID"/>
 
     <permission android:name="android.permission.BROADCAST_CALLLOG_INFO"
          android:label="Broadcast the call type/duration information"
@@ -256,7 +263,7 @@
         <activity android:name=".RespondViaSmsSettings"
              android:label="@string/respond_via_sms_setting_title"
              android:configChanges="orientation|screenSize|keyboardHidden"
-             android:theme="@style/Theme.Telecom.DialerSettings"
+             android:theme="@style/CallSettingsWithoutDividerTheme"
              android:process=":ui"
              android:exported="true">
             <intent-filter>
@@ -313,6 +320,9 @@
              android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHeadsetPhone"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothLeCallControlCallback" />
             </intent-filter>
         </service>
 

@@ -87,7 +87,7 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"ਸੰਕਟਕਾਲੀਨ ਸੰਪਰਕ"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"ਐਮਰਜੈਂਸੀ ਸੰਪਰਕ"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"ਸੰਪਰਕ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"ਕਿਸੇ ਸੰਪਰਕ ਚੋਣਕਾਰ ਨੂੰ ਲੱਭਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"ਸੰਪਰਕ ਪ੍ਰਦਰਸ਼ਿਤ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"ਠੀਕ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"ਫ਼ੋਨ ਦੇ ਮਾਲਕ ਬਾਰੇ ਕੋਈ ਜਾਣਕਾਰੀ ਨਹੀਂ"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"ਜੇਕਰ ਇਹ ਤੁਹਾਡਾ ਫ਼ੋਨ ਹੈ, ਤਾਂ ਉਹ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਪੈਂਸਿਲ ਪ੍ਰਤੀਕ \'ਤੇ ਟੈਪ ਕਰੋ ਜੋ ਕਿ ਸੰਕਟਕਾਲੀਨ ਸਥਿਤੀ ਵਿੱਚ ਇੱਥੇ ਦਿਖਾਈ ਦੇਵੇਗੀ"</string>
+    <string name="tap_pencil" msgid="3429817710241457947">"ਤੁਹਾਡਾ ਫ਼ੋਨ ਅਣਲਾਕ ਹੋਣ \'ਤੇ, ਉਹ ਜਾਣਕਾਰੀ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਪੈਂਸਿਲ ਪ੍ਰਤੀਕ \'ਤੇ ਟੈਪ ਕਰੋ ਜੋ ਕਿ ਐਮਰਜੈਂਸੀ ਸਥਿਤੀ ਵਿੱਚ ਇੱਥੇ ਦਿਖਾਈ ਦੇਵੇਗੀ"</string>
     <string name="clear_all" msgid="8899013032870561633">"ਸਭ ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear" msgid="3648880442502887163">"ਕਲੀਅਰ ਕਰੋ"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ਕੀ ਸਾਰੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸੰਪਰਕਾਂ ਨੂੰ ਮਿਟਾਉਣਾ ਹੈ?"</string>

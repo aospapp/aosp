@@ -31,6 +31,15 @@ public interface ProvisioningManagerCallback {
     void error(int dialogTitleId, int errorMessageId, boolean factoryResetRequired);
 
     /**
+     * Method called when an error was encountered during the provisioning process.
+     *
+     * @param dialogTitleId resource id of the error title to be displayed to the user.
+     * @param errorMessage error message to be displayed to the user.
+     * @param factoryResetRequired indicating whether a factory reset is necessary.
+     */
+    void error(int dialogTitleId, String errorMessage, boolean factoryResetRequired);
+
+    /**
      * Method called to indicate that pre-finalization has completed.
      */
     void preFinalizationCompleted();

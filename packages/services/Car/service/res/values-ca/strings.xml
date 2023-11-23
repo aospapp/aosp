@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Accedir a la càmera del cotxe"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"accedeix a la informació sobre l\'energia del cotxe"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Accedir a la informació sobre l\'energia del cotxe"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Controlar la configuració de càrrega del cotxe elèctric"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Controlar la configuració de càrrega del teu cotxe elèctric."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"ajustar l\'autonomia restant del cotxe"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Ajustar el valor de l\'autonomia restant del cotxe."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"accedir al sistema de climatització del cotxe"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Permetre que una aplicació determini quines activitats es mostren al quadre de comandament"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Control del quadre de comandament"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Executar aplicacions al quadre de comandament"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Estat de navegació del quadre de comandament"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Escolta els canvis en l\'estat de navegació del quadre de comandament"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Renderització del quadre de comandament"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Rebre dades del quadre de comandament"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Configuració de les restriccions de l\'experiència d\'usuari"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Permet controlar l\'inici i la pausa del gràfic de detecció del Sistema de detecció d\'ocupants"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Servei d\'entrada del cotxe"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Gestionar els esdeveniments d\'entrada"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"Ha fallat el bus CAN"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"El bus CAN no respon. Desendolla i torna a endollar el capçal i torna a engegar el cotxe."</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"No pots fer servir aquesta funció mentre condueixes"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Per tornar a començar amb unes funcions d\'aplicació segures, selecciona <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Enrere"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Tanca l\'aplicació"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Enrere"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"llegeix les dades de diagnòstic"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Llegeix les dades de diagnòstic del cotxe."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"esborra les dades de diagnòstic"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Controla els seients del cotxe."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"accedeix a la informació bàsica del cotxe"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Accedeix a la informació bàsica del cotxe."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"accedir a la informació privilegiada del cotxe"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Accedir a la informació privilegiada del cotxe."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"accedeix a la informació sobre permisos del fabricant del cotxe"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Accedeix a la informació sobre permisos del fabricant del cotxe."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"llegeix l\'estat dels llums exteriors del cotxe"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Llegeix la política d\'energia del cotxe."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"controla la política d\'energia del cotxe"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Controla la política d\'energia del cotxe."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"ajusta el procés d\'apagada"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Ajusta el procés d\'apagada."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"renderitzar plantilles"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Renderitzar plantilles."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"controla l\'inici de les aplicacions"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Controla l\'inici de les aplicacions."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"Ha fallat el bus CAN"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"El bus CAN no respon. Desendolla i torna a endollar el capçal i torna a engegar el cotxe."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"El meu dispositiu"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Convidat"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Importància predeterminada"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Molt important"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Cal restablir les dades de fàbrica"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Totes les dades del sistema d\'informació i entreteniment s\'esborraran. Després del restabliment, podràs configurar un perfil nou."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Més"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Restableix el sistema d\'informació i entreteniment"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"El teu sistema ha rebut una sol·licitud per restablir les dades de fàbrica i esborrar totes les dades. Pots restablir-lo ara, o es restablirà la pròxima vegada que s\'engegui el cotxe. A continuació, podràs configurar un perfil nou."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Restableix ara"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Restableix més tard"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"El sist. d\'infoentreteniment es restablirà en engegar el cotxe."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"El cotxe ha d\'estar aparcat per al restabliment."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> està afectant el rendiment del sistema"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Desactiva l\'aplicació per millorar el rendiment del sistema. Pots tornar-la a activar a Configuració."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioritza l\'aplicació per continuar utilitzant-la."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Desinstal·la l\'aplicació per millorar el rendiment del sistema."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Desactiva l\'aplicació"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Prioritza l\'aplicació"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Desinstal·la l\'aplicació"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> s\'ha desactivat. Pots tornar a activar l\'aplicació a Configuració."</string>
 </resources>

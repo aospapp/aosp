@@ -20,6 +20,8 @@ import static android.car.content.pm.CarPackageManager.DRIVING_SAFETY_ACTIVITY_M
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.car.builtin.content.pm.PackageManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.car.content.pm.CarPackageManager;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -27,7 +29,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
-import android.util.Slog;
 
 import com.android.car.CarLog;
 
@@ -63,8 +64,8 @@ public class CarAppMetadataReader {
             String packageName, @UserIdInt int userId)  throws NameNotFoundException {
         final PackageManager pm = context.getPackageManager();
         PackageInfo pkgInfo =
-                pm.getPackageInfoAsUser(
-                        packageName, PackageManager.GET_ACTIVITIES
+                PackageManagerHelper.getPackageInfoAsUser(pm, packageName,
+                        PackageManager.GET_ACTIVITIES
                                 | PackageManager.GET_META_DATA
                                 | PackageManager.MATCH_DISABLED_COMPONENTS
                                 | PackageManager.MATCH_DIRECT_BOOT_AWARE
@@ -94,7 +95,7 @@ public class CarAppMetadataReader {
         ActivityInfo[] activities = getAllActivitiesForPackageAsUser(context, packageName, userId);
         if (activities == null) {
             if (CarPackageManagerService.DBG) {
-                Slog.d(TAG, "Null Activities for " + packageName);
+                Slogf.d(TAG, "Null Activities for " + packageName);
             }
             return null;
         }
@@ -111,7 +112,7 @@ public class CarAppMetadataReader {
             }
             if (metaData.getBoolean(DO_METADATA_ATTRIBUTE, false)) {
                 if (CarPackageManagerService.DBG) {
-                    Slog.d(TAG,
+                    Slogf.d(TAG,
                             "DO Activity:" + activity.packageName + "/" + activity.name);
                 }
                 optimizedActivityList.add(activity.name);
@@ -178,7 +179,7 @@ public class CarAppMetadataReader {
         }
         // valid regions but does not match currentRegion.
         if (CarPackageManagerService.DBG) {
-            Slog.d(TAG,
+            Slogf.d(TAG,
                     "isRegionSupported not supported, regionString:" + regionString
                             + " region:" + currentRegion);
         }

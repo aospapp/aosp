@@ -12,24 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_
-#define EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_
+#ifndef CPP_EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_
+#define CPP_EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_
+
+#include "MockHWCamera.h"
+#include "MockHWDisplay.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "MockHWDisplay.h"
-#include "MockHWCamera.h"
-
 using ::android::hardware::automotive::evs::V1_0::DisplayState;
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+namespace android::automotive::evs::V1_1::implementation {
 
-class MockHWEnumerator : public IEvsEnumerator_1_1 {
+class MockHWEnumerator : public ::android::hardware::automotive::evs::V1_1::IEvsEnumerator {
 public:
     MockHWEnumerator() {
         // four cameras
@@ -49,29 +45,25 @@ public:
 
     // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
     MOCK_METHOD(Return<void>, getCameraList, (getCameraList_cb _hidl_cb), (override));
-    Return<sp<IEvsCamera_1_0>> openCamera(const hidl_string& cameraId) override {
-        uint64_t idx = stoi(cameraId);
+    Return<sp<hardware::automotive::evs::V1_0::IEvsCamera>> openCamera(
+            const hidl_string& cameraId) override {
+        uint64_t idx = std::stoi(cameraId);
         if (mHWCameras.find(idx) != mHWCameras.end()) {
             return mHWCameras[idx];
         }
         return nullptr;
     }
-    MOCK_METHOD(Return<void>, closeCamera, (const sp<IEvsCamera_1_0>& carCamera), (override));
-    Return<sp<IEvsDisplay_1_0>> openDisplay() override {
-        return mHWDisplays.begin()->second;
-    }
-    Return<void> closeDisplay(const sp<IEvsDisplay_1_0>& display) override {
-        return {};
-    }
+    MOCK_METHOD(Return<void>, closeCamera,
+                (const sp<hardware::automotive::evs::V1_0::IEvsCamera>& carCamera), (override));
+    Return<sp<IEvsDisplay_1_0>> openDisplay() override { return mHWDisplays.begin()->second; }
+    Return<void> closeDisplay(const sp<IEvsDisplay_1_0>& display) override { return {}; }
     MOCK_METHOD(Return<DisplayState>, getDisplayState, (), (override));
 
     // Methods from ::android::hardware::automotive::evs::V1_1::IEvsEnumerator follow.
-    Return<void> getCameraList_1_1(getCameraList_1_1_cb _hidl_cb) {
-        return {};
-    }
+    Return<void> getCameraList_1_1(getCameraList_1_1_cb _hidl_cb) { return {}; }
     Return<sp<IEvsCamera_1_1>> openCamera_1_1(const hidl_string& cameraId,
                                               const Stream& streamCfg) override {
-        uint64_t idx = stoi(cameraId);
+        uint64_t idx = std::stoi(cameraId);
         if (mHWCameras.find(idx) != mHWCameras.end()) {
             return mHWCameras[idx];
         }
@@ -79,7 +71,7 @@ public:
     }
     MOCK_METHOD(Return<bool>, isHardware, (), (override));
     Return<void> getDisplayIdList(getDisplayIdList_cb _list_cb) override {
-        vector<uint8_t> ids;
+        std::vector<uint8_t> ids;
 
         ids.resize(mDisplayPortList.size());
         unsigned i = 0;
@@ -115,10 +107,6 @@ private:
     std::map<uint8_t, uint64_t> mDisplayPortList;
 };
 
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation
 
-#endif  // EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_
+#endif  // CPP_EVS_MANAGER_1_1_TEST_FUZZER_MOCKHWENUMERATOR_H_

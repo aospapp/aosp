@@ -54,7 +54,7 @@ public class MockMessageNotificationBuilder {
     private static final String USER_NAME = "userName";
     private static final String TITLE_MARK_AS_READ = "Mark As Read";
     private static final String TITLE_REPLY = "Reply";
-    private static final String TITLE_MUTE = "Mute";
+    private static final String TITLE_MUTE= "Mute";
     private static final String CONTENT_TITLE_PREFIX = "2 new messages from ";
     private static final String CONTENT_SUBJECT = "subject";
     private static final String OLD_MESSAGE = "old message";
@@ -74,13 +74,13 @@ public class MockMessageNotificationBuilder {
     private boolean mHasMessagingStyle = false;
     private boolean mIsOldMessage = false;
     private boolean mHasReplyAction = false;
-    private boolean mHasMuteAction = false;
     private boolean mReplyActionIsMocked = false;
     private boolean mMuteActionIsMocked = false;
     private boolean mMarkAsReadActionIsMocked = false;
     private boolean mPendingIntentIsMocked = false;
     private boolean mHasReplyWrongSemanticAction = false;
     private boolean mHasMarkAsRead = false;
+    private boolean mHasMute = false;
     private boolean mUseInvisibleAction = false;
     private boolean mShowsUI = false;
     private Instant mConnectionTime = Instant.now();
@@ -152,20 +152,6 @@ public class MockMessageNotificationBuilder {
             }
         }
 
-        if (mHasMuteAction) {
-            if (mMuteActionIsMocked) {
-                mMuteAction = getMockMuteAction();
-            } else {
-                mMuteAction = getNonMockMuteAction();
-            }
-
-            if (mUseInvisibleAction) {
-                builder.addInvisibleAction(mMuteAction);
-            } else {
-                builder.addAction(mMuteAction);
-            }
-        }
-
         if (mHasMarkAsRead) {
             if (mMarkAsReadActionIsMocked) {
                 mMarkAsReadAction = getMockMarkAsReadAction();
@@ -177,6 +163,20 @@ public class MockMessageNotificationBuilder {
                 builder.addInvisibleAction(mMarkAsReadAction);
             } else {
                 builder.addAction(mMarkAsReadAction);
+            }
+        }
+
+        if (mHasMute) {
+            if (mMuteActionIsMocked) {
+                mMuteAction = getMockMuteAction();
+            } else {
+                mMuteAction = getNonMockMuteAction();
+            }
+
+            if (mUseInvisibleAction) {
+                builder.addInvisibleAction(mMuteAction);
+            } else {
+                builder.addAction(mMuteAction);
             }
         }
 
@@ -203,19 +203,15 @@ public class MockMessageNotificationBuilder {
         return this;
     }
 
-    public MockMessageNotificationBuilder setHasMuteAction(boolean hasMuteAction) {
-        mHasMuteAction = hasMuteAction;
-        return this;
-    }
-
-    public MockMessageNotificationBuilder setMuteActionIsMocked(boolean muteActionIsMocked) {
-        mMuteActionIsMocked = muteActionIsMocked;
-        return this;
-    }
-
     public MockMessageNotificationBuilder setMarkAsReadActionIsMocked(
             boolean markAsReadActionIsMocked) {
         mMarkAsReadActionIsMocked = markAsReadActionIsMocked;
+        return this;
+    }
+
+    public MockMessageNotificationBuilder setMuteActionIsMocked(
+            boolean muteActionIsMocked) {
+        mMuteActionIsMocked = muteActionIsMocked;
         return this;
     }
 
@@ -232,6 +228,11 @@ public class MockMessageNotificationBuilder {
 
     public MockMessageNotificationBuilder setHasMarkAsRead(boolean hasMarkAsRead) {
         mHasMarkAsRead = hasMarkAsRead;
+        return this;
+    }
+
+    public MockMessageNotificationBuilder setHasMuteAction(boolean hasMute) {
+        mHasMute = hasMute;
         return this;
     }
 
@@ -334,33 +335,6 @@ public class MockMessageNotificationBuilder {
         return action;
     }
 
-    private Action getNonMockMuteAction() {
-        return (new Action.Builder(IconCompat.createFromIcon(mActionIcon), TITLE_MUTE,
-                mPendingIntent)).addRemoteInput(
-                new RemoteInput.Builder(mChannelId).build()).setSemanticAction(
-                SEMANTIC_ACTION_MUTE).setShowsUserInterface(mShowsUI).build();
-    }
-
-    private Action getMockMuteAction() {
-        IconCompat iconCompat = IconCompat.createFromIcon(mActionIcon);
-        Action action = mock(Action.class);
-        when(action.actionIntent).thenReturn(mPendingIntent);
-        when(action.title).thenReturn(TITLE_MUTE);
-        when(action.icon).thenReturn(iconCompat.getResId());
-        when(action.getActionIntent()).thenReturn(mPendingIntent);
-        when(action.getAllowGeneratedReplies()).thenReturn(true);
-        when(action.getDataOnlyRemoteInputs()).thenReturn(null);
-        when(action.getExtras()).thenReturn(new Bundle());
-        when(action.getRemoteInputs()).thenReturn(new RemoteInput[]{new RemoteInput.Builder(
-                mChannelId).build()});
-        when(action.getSemanticAction()).thenReturn(SEMANTIC_ACTION_MUTE);
-        when(action.getShowsUserInterface()).thenReturn(mShowsUI);
-        when(action.getTitle()).thenReturn(TITLE_MUTE);
-        when(action.isContextual()).thenReturn(false);
-        when(action.getIconCompat()).thenReturn(iconCompat);
-        return action;
-    }
-
     private Action getNonMockMarkAsReadAction() {
         return (new Action.Builder(IconCompat.createFromIcon(mActionIcon),
                 TITLE_MARK_AS_READ, mPendingIntent)).addRemoteInput(
@@ -383,6 +357,33 @@ public class MockMessageNotificationBuilder {
         when(action.getSemanticAction()).thenReturn(SEMANTIC_ACTION_MARK_AS_READ);
         when(action.getShowsUserInterface()).thenReturn(false);
         when(action.getTitle()).thenReturn(TITLE_MARK_AS_READ);
+        when(action.isContextual()).thenReturn(false);
+        when(action.getIconCompat()).thenReturn(iconCompat);
+        return action;
+    }
+
+    private Action getNonMockMuteAction() {
+        return (new Action.Builder(IconCompat.createFromIcon(mActionIcon),
+                TITLE_MUTE, mPendingIntent)).addRemoteInput(
+                new RemoteInput.Builder(mChannelId).build()).setSemanticAction(
+                SEMANTIC_ACTION_MUTE).setShowsUserInterface(false).build();
+    }
+
+    private Action getMockMuteAction() {
+        IconCompat iconCompat = IconCompat.createFromIcon(mActionIcon);
+        Action action = mock(Action.class);
+        when(action.actionIntent).thenReturn(mPendingIntent);
+        when(action.title).thenReturn(TITLE_MUTE);
+        when(action.icon).thenReturn(iconCompat.getResId());
+        when(action.getActionIntent()).thenReturn(mPendingIntent);
+        when(action.getAllowGeneratedReplies()).thenReturn(true);
+        when(action.getDataOnlyRemoteInputs()).thenReturn(null);
+        when(action.getExtras()).thenReturn(new Bundle());
+        when(action.getRemoteInputs()).thenReturn(new RemoteInput[]{new RemoteInput.Builder(
+                mChannelId).build()});
+        when(action.getSemanticAction()).thenReturn(SEMANTIC_ACTION_MUTE);
+        when(action.getShowsUserInterface()).thenReturn(false);
+        when(action.getTitle()).thenReturn(TITLE_MUTE);
         when(action.isContextual()).thenReturn(false);
         when(action.getIconCompat()).thenReturn(iconCompat);
         return action;

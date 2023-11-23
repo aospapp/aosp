@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"Jūs nevarat izmantot šo funkciju braukšanas laikā."</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"Lai atsāktu darbu ar drošām lietotnes funkcijām, atlasiet pogu <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
+    <string name="exit_button" msgid="3491899413031549265">"Atpakaļ"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"Aizvērt lietotni"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"Atpakaļ"</string>
+    <string name="importance_default" msgid="8017186728206153704">"Noklusējuma svarīgums"</string>
+    <string name="importance_high" msgid="3393374688015554727">"Ļoti svarīgs"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Android sistēma"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"Nepieciešama rūpnīcas datu atiestatīšana"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"Visi informatīvi izklaidējošās sistēmas dati tiks dzēsti. Pēc atiestatīšanas varēsiet iestatīt jaunu profilu."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"Vairāk"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"Jūsu ierīces dati tiks dzēsti"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"Administratora lietotni nevar izmantot. Ierīcē saglabātie dati tiks dzēsti.\n\nJa jums ir kādi jautājumi, sazinieties ar savas organizācijas administratoru."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"Lietotne <xliff:g id="ID_1">^1</xliff:g> ietekmē jūsu sistēmas veiktspēju"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Atspējojiet lietotni, lai uzlabotu sistēmas veiktspēju. Iestatījumos varat atkal iespējot lietotni."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Piešķiriet lietotnei prioritāti, lai turpinātu izmantot lietotni."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Atinstalējiet lietotni, lai uzlabotu sistēmas veiktspēju."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Atspējot lietotni"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Piešķirt lietotnei prioritāti"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Atinstalēt lietotni"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"Lietotne <xliff:g id="ID_1">^1</xliff:g> ir atspējota. Iestatījumos varat to atkal iespējot."</string>
+</resources>

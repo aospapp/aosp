@@ -179,7 +179,7 @@
     <!-- Preference title for enable full-screen public safety messages checkbox. [CHAR LIMIT=100] -->
     <string name="enable_full_screen_public_safety_messages_title">Show full-screen messages</string>
     <!-- Preference summary for enable full-screen public safety messages checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_full_screen_public_safety_messages_summary">Turn off to have public safety messages sent only to your SMS app</string>
+    <string name="enable_full_screen_public_safety_messages_summary">When off, public safety messages are still sent as a notification</string>
     <!-- Preference title for enable state/local test alerts checkbox. [CHAR LIMIT=100] -->
     <string name="enable_state_local_test_alerts_title">State and local tests</string>
     <!-- Preference summary for enable state/local test alerts checkbox. [CHAR LIMIT=100] -->
@@ -307,9 +307,9 @@
     <!-- Title for CellBroadcastListActivity -->
     <string name="cb_list_activity_title">"Emergency alert history"</string>
     <!-- Action menu title for deleting selected messages in alert history -->
-    <string name="action_delete" translatable="false">Delete</string>
+    <string name="action_delete">Delete</string>
     <!-- Action menu title for showing the selected message detail in alert history -->
-    <string name="action_detail_info" translatable="false">Show detail</string>
+    <string name="action_detail_info">Show detail</string>
 
     <!-- Entries in the ListPreference for alert reminder intervals. [CHAR LIMIT=30] -->
     <string-array name="alert_reminder_interval_entries">
@@ -383,6 +383,11 @@
 
     <!-- Emergency alert message copied to clipboard. -->
     <string name="message_copied">Message copied</string>
+
+    <!-- The top introduction to show by default. -->
+    <string name="top_intro_default_text"></string>
+    <!-- The top introduction to show for roaming network support. -->
+    <string name="top_intro_roaming_text">While you\'re roaming, you may get some alerts that aren\'t included in these settings</string>
 
     <!-- Notification title and text when alerting user that their CB settings have changed -->
     <string name="notification_cb_settings_changed_title">Settings changed by carrier</string>

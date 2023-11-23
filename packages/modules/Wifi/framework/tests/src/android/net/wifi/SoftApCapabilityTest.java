@@ -30,6 +30,8 @@ import org.junit.Test;
 @SmallTest
 public class SoftApCapabilityTest {
 
+    private static final String DRIVER_COUNTRY_CODE = "US";
+
     /**
      * Verifies copy constructor.
      */
@@ -41,6 +43,7 @@ public class SoftApCapabilityTest {
         int[] testSupported5Glist = {36, 149};
         int[] testSupported60Glist = {1, 2};
         SoftApCapability capability = new SoftApCapability(testSoftApFeature);
+        capability.setCountryCode(DRIVER_COUNTRY_CODE);
         capability.setMaxSupportedClients(10);
         capability.setSupportedChannelList(SoftApConfiguration.BAND_2GHZ, testSupported2Glist);
         capability.setSupportedChannelList(SoftApConfiguration.BAND_5GHZ, testSupported5Glist);
@@ -68,6 +71,8 @@ public class SoftApCapabilityTest {
         capability.setSupportedChannelList(SoftApConfiguration.BAND_2GHZ, testSupported2Glist);
         capability.setSupportedChannelList(SoftApConfiguration.BAND_5GHZ, testSupported5Glist);
         capability.setSupportedChannelList(SoftApConfiguration.BAND_60GHZ, testSupported60Glist);
+
+        capability.setCountryCode(DRIVER_COUNTRY_CODE);
 
         Parcel parcelW = Parcel.obtain();
         capability.writeToParcel(parcelW, 0);

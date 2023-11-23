@@ -58,6 +58,7 @@ class DnsTlsFrontend {
     void clearQueries() { queries_ = 0; }
     bool waitForQueries(int expected_count) const;
     int acceptConnectionsCount() const { return accept_connection_count_; }
+    void clearConnectionsCount() { accept_connection_count_ = 0; }
 
     void set_chain_length(int length) { chain_length_ = length; }
     void setHangOnHandshakeForTesting(bool hangOnHandshake) { hangOnHandshake_ = hangOnHandshake; }

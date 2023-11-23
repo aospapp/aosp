@@ -26,10 +26,10 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public final class DeviceAdminDeactivatedAppsPreferenceControllerTest
-        extends BasePreferenceControllerTestCase {
+        extends BaseEnterprisePreferenceControllerTestCase {
 
     private DeviceAdminAppsPreferenceController mController;
-    private BasePreferenceControllerTestCase.DummyPreferenceGroup mPreferenceGroup;
+    private BaseEnterprisePreferenceControllerTestCase.DummyPreferenceGroup mPreferenceGroup;
 
     @Before
     @UiThreadTest

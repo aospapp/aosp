@@ -28,6 +28,7 @@ public final class BlockInfoDumper extends SingleFileDumper implements BlockInfo
         super(file);
     }
 
+    @Override
     public void visit(BlockInfo blockInfo) throws VisitException {
         println("id=" + blockInfo.getId());
         println("type=" + blockInfo.getType());

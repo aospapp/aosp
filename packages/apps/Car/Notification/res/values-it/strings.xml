@@ -39,12 +39,12 @@
     <string name="show_more_from_app" msgid="4270626118092846628">"Altre <xliff:g id="COUNT">%1$d</xliff:g> da <xliff:g id="APP">%2$s</xliff:g>"</string>
     <string name="show_count_more" msgid="480555295700318609">"Mostra altre <xliff:g id="COUNT">%d</xliff:g>"</string>
     <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> altro messaggio</item>
       <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> altri messaggi</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> altro messaggio</item>
     </plurals>
     <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> nuovo messaggio</item>
       <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> nuovi messaggi</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> nuovo messaggio</item>
     </plurals>
     <string name="see_more_message" msgid="6343183827924395955">"Espandi"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Nuovo messaggio"</string>

@@ -16,6 +16,8 @@
 
 package com.android.permissioncontroller.permission.ui.television;
 
+import static android.Manifest.permission_group.NOTIFICATIONS;
+
 import android.Manifest;
 import android.app.ActionBar;
 import android.app.AlertDialog;
@@ -168,6 +170,11 @@ public final class AllAppPermissionsFragment extends SettingsWithHeader {
                 }
 
                 PermissionGroupInfo group = getGroup(Utils.getGroupOfPermission(perm), pm);
+                if (group != null && group.name.equals(NOTIFICATIONS)) {
+                    // Skip notification group on TV
+                    continue;
+                }
+
                 if ((perm.protectionLevel & PermissionInfo.PROTECTION_MASK_BASE)
                         == PermissionInfo.PROTECTION_DANGEROUS) {
                     PreferenceGroup pref = findOrCreate(group != null ? group : perm, pm, prefs);

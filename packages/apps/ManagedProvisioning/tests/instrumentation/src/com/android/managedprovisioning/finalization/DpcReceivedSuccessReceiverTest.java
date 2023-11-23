@@ -17,10 +17,11 @@
 package com.android.managedprovisioning.finalization;
 
 import static android.app.admin.DeviceAdminReceiver.ACTION_PROFILE_PROVISIONING_COMPLETE;
-import static android.app.admin.DevicePolicyManager.ACTION_MANAGED_PROFILE_PROVISIONED;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
@@ -43,12 +44,18 @@ public class DpcReceivedSuccessReceiverTest extends AndroidTestCase {
 
     @Mock private Context mContext;
     @Mock private Utils mUtils;
+    @Mock private DevicePolicyManager mDevicePolicyManager;
 
     @Override
     public void setUp() {
         // this is necessary for mockito to work
         System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
         MockitoAnnotations.initMocks(this);
+
+        when(mContext.getSystemServiceName(DevicePolicyManager.class))
+                .thenReturn(Context.DEVICE_POLICY_SERVICE);
+        when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .thenReturn(mDevicePolicyManager);
     }
 
     @SmallTest
@@ -61,18 +68,9 @@ public class DpcReceivedSuccessReceiverTest extends AndroidTestCase {
         // WHEN the profile provisioning complete intent was received by the DPC
         receiver.onReceive(mContext, TEST_INTENT);
 
-        // THEN an intent should be sent to the primary user
+        // THEN the system should be told to finalize the provisioning
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mContext).sendBroadcast(intentCaptor.capture());
-
-        // THEN the broadcast action is ACTION_MANAGED_PROFILE_PROVISIONED
-        assertEquals(ACTION_MANAGED_PROFILE_PROVISIONED, intentCaptor.getValue().getAction());
-
-        // THEN the receiver package is the DPC
-        assertEquals(TEST_MDM_PACKAGE_NAME, intentCaptor.getValue().getPackage());
-
-        // THEN the extra user handle should be of managed profile
-        assertEquals(MANAGED_PROFILE_USER_HANDLE,
-                intentCaptor.getValue().getExtra(Intent.EXTRA_USER));
+        verify(mDevicePolicyManager).finalizeWorkProfileProvisioning(
+                MANAGED_PROFILE_USER_HANDLE, /* migratedAccount= */ null);
     }
 }

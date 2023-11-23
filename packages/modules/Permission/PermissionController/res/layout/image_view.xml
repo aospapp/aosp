@@ -19,7 +19,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/ImageView">
 
-        <com.android.permissioncontroller.permission.ui.handheld.dashboard.PreferenceImageView
+        <com.android.permissioncontroller.permission.ui.handheld.v31.PreferenceImageView
             android:id="@+id/icon"
             style="@style/ImageViewIcon" />
 

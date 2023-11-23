@@ -50,6 +50,7 @@ public final class UserHelperLite {
      * Checks whether the given user is both {@code SYSTEM} and headless.
      */
     public static boolean isHeadlessSystemUser(@UserIdInt int userId) {
-        return userId == UserHandle.USER_SYSTEM && UserManager.isHeadlessSystemUserMode();
+        return userId == UserHandle.SYSTEM.getIdentifier()
+                && UserManager.isHeadlessSystemUserMode();
     }
 }

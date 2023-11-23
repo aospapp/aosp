@@ -10,17 +10,24 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// Whether to enable the FrameworksNetTests. Set to false in the branches that might have older
+// frameworks/base since FrameworksNetTests includes the test for classes that are not in
+// connectivity module.
+enable_frameworks_net_tests = true
+// Placeholder
+// This is a placeholder comment to minimize merge conflicts, as enable_frameworks_net_tests
+// may have different values depending on the branch
+// Placeholder
+
 java_defaults {
     name: "FrameworksNetTests-jni-defaults",
     jni_libs: [
         "ld-android",
-        "libbacktrace",
+        "libandroid_net_frameworktests_util_jni",
         "libbase",
         "libbinder",
-        "libbpf",
-        "libbpf_android",
+        "libbpf_bcc",
         "libc++",
-        "libcgrouprc",
         "libcrypto",
         "libcutils",
         "libdl_android",
@@ -30,12 +37,11 @@ java_defaults {
         "liblog",
         "liblzma",
         "libnativehelper",
-        "libnetdbpf",
         "libnetdutils",
+        "libnetworkstats",
         "libnetworkstatsfactorytestjni",
         "libpackagelistparser",
         "libpcre2",
-        "libprocessgroup",
         "libselinux",
         "libtinyxml2",
         "libui",
@@ -49,17 +55,69 @@ java_defaults {
     ],
 }
 
-android_library {
-    name: "FrameworksNetTestsLib",
+filegroup {
+    name: "non-connectivity-module-test",
+    srcs: [
+        "java/android/app/usage/*.java",
+        "java/android/net/EthernetNetworkUpdateRequestTest.java",
+        "java/android/net/Ikev2VpnProfileTest.java",
+        "java/android/net/IpMemoryStoreTest.java",
+        "java/android/net/IpSecAlgorithmTest.java",
+        "java/android/net/IpSecConfigTest.java",
+        "java/android/net/IpSecManagerTest.java",
+        "java/android/net/IpSecTransformTest.java",
+        "java/android/net/KeepalivePacketDataUtilTest.java",
+        "java/android/net/NetworkIdentitySetTest.kt",
+        "java/android/net/NetworkIdentityTest.kt",
+        "java/android/net/NetworkStats*.java",
+        "java/android/net/NetworkTemplateTest.kt",
+        "java/android/net/TelephonyNetworkSpecifierTest.java",
+        "java/android/net/VpnManagerTest.java",
+        "java/android/net/ipmemorystore/*.java",
+        "java/android/net/netstats/NetworkStatsDataMigrationUtilsTest.kt",
+        "java/android/net/nsd/*.java",
+        "java/com/android/internal/net/NetworkUtilsInternalTest.java",
+        "java/com/android/internal/net/VpnProfileTest.java",
+        "java/com/android/server/IpSecServiceParameterizedTest.java",
+        "java/com/android/server/IpSecServiceRefcountedResourceTest.java",
+        "java/com/android/server/IpSecServiceTest.java",
+        "java/com/android/server/NetworkManagementServiceTest.java",
+        "java/com/android/server/NsdServiceTest.java",
+        "java/com/android/server/connectivity/IpConnectivityEventBuilderTest.java",
+        "java/com/android/server/connectivity/IpConnectivityMetricsTest.java",
+        "java/com/android/server/connectivity/MultipathPolicyTrackerTest.java",
+        "java/com/android/server/connectivity/NetdEventListenerServiceTest.java",
+        "java/com/android/server/connectivity/VpnTest.java",
+        "java/com/android/server/ethernet/*.java",
+        "java/com/android/server/net/ipmemorystore/*.java",
+        "java/com/android/server/net/BpfInterfaceMapUpdaterTest.java",
+        "java/com/android/server/net/IpConfigStoreTest.java",
+        "java/com/android/server/net/NetworkStats*.java",
+        "java/com/android/server/net/TestableUsageCallback.kt",
+    ]
+}
+
+// Subset of services-core used to by ConnectivityService tests to test VPN realistically.
+// This is stripped by jarjar (see rules below) from other unrelated classes, so tests do not
+// include most classes from services-core, which are unrelated and cause wrong code coverage
+// calculations.
+java_library {
+    name: "services.core-vpn",
+    static_libs: ["services.core"],
+    jarjar_rules: "vpn-jarjar-rules.txt",
+    visibility: ["//visibility:private"],
+}
+
+java_defaults {
+    name: "FrameworksNetTestsDefaults",
     min_sdk_version: "30",
     defaults: [
-        "framework-connectivity-test-defaults",
+        "framework-connectivity-internal-test-defaults",
     ],
     srcs: [
         "java/**/*.java",
         "java/**/*.kt",
     ],
-    jarjar_rules: "jarjar-rules.txt",
     static_libs: [
         "androidx.test.rules",
         "androidx.test.uiautomator",
@@ -71,11 +129,13 @@ android_library {
         "framework-protos",
         "mockito-target-minus-junit4",
         "net-tests-utils",
+        "net-utils-services-common",
         "platform-compat-test-rules",
         "platform-test-annotations",
         "service-connectivity-pre-jarjar",
-        "services.core",
-        "services.net",
+        "service-connectivity-tiramisu-pre-jarjar",
+        "services.core-vpn",
+        "cts-net-utils"
     ],
     libs: [
         "android.net.ipsec.ike.stubs.module_lib",
@@ -84,21 +144,34 @@ android_library {
         "android.test.mock",
         "ServiceConnectivityResources",
     ],
+    exclude_kotlinc_generated_files: false,
+}
+
+android_library {
+    name: "FrameworksNetTestsLib",
+    defaults: [
+        "FrameworksNetTestsDefaults",
+    ],
+    exclude_srcs: [":non-connectivity-module-test"],
     visibility: ["//packages/modules/Connectivity/tests:__subpackages__"],
 }
 
 android_test {
     name: "FrameworksNetTests",
-    min_sdk_version: "30",
+    enabled: enable_frameworks_net_tests,
     defaults: [
-        "framework-connectivity-test-defaults",
+        "FrameworksNetTestsDefaults",
         "FrameworksNetTests-jni-defaults",
     ],
+    jarjar_rules: ":connectivity-jarjar-rules",
     test_suites: ["device-tests"],
     static_libs: [
-        "FrameworksNetTestsLib",
+        "services.core",
+        "services.net",
     ],
     jni_libs: [
+        "libandroid_net_connectivity_com_android_net_module_util_jni",
         "libservice-connectivity",
-    ]
+        "libandroid_net_connectivity_com_android_net_module_util_jni",
+    ],
 }

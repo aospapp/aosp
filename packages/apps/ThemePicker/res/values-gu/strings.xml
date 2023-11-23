@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"વૉલપેપર અને શૈલી"</string>
+    <string name="app_name" msgid="1647136562008520313">"વૉલપેપર અને સ્ટાઇલ"</string>
     <string name="theme_title" msgid="2144932106319405101">"શૈલી"</string>
     <string name="clock_title" msgid="2126046720254613991">"ઘડિયાળ"</string>
     <string name="grid_title" msgid="1688173478777254123">"ઍપ ગ્રિડ"</string>
@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"થીમવાળા આઇકન"</string>
     <string name="beta_title" msgid="8703819523760746458">"બીટા"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ઍપ ગ્રિડ બદલો"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"વૉલપેપરના રંગો"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"વૉલપેપરનો રંગ"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"મૂળભૂત રંગો"</string>
+    <string name="color_changed" msgid="7029571720331641235">"રંગ બદલ્યો છે"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"ડાઇનૅમિક"</string>
 </resources>

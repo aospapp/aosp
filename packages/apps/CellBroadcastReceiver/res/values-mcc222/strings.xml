@@ -25,6 +25,8 @@
     <string name="cmas_extreme_immediate_observed_alert">@string/cmas_presidential_level_alert</string>
     <!-- CMAS dialog title for extreme alert with extreme severity, immediate urgency,  and likely certainty. [CHAR LIMIT=50] -->
     <string name="cmas_extreme_immediate_likely_alert">@string/cmas_presidential_level_alert</string>
+    <!-- CMAS dialog title for CMAS Exercise. [CHAR LIMIT=50] -->
+    <string name="cmas_exercise_alert">@string/cmas_presidential_level_alert</string>
     <!-- Preference title for enable CMAS extreme threat alerts checkbox. [CHAR LIMIT=50] -->
     <string name="enable_cmas_extreme_threat_alerts_title">@string/cmas_presidential_level_alert</string>
     <!-- CMAS summary for the alerts header preference [CHAR LIMIT=150]

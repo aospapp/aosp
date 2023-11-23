@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import android.util.Log;
 
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.json.GoogleJsonError;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.JsonFactory;
@@ -38,6 +40,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +84,7 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
     }
 
     private StorageObject uploadSimple(
-            Storage storage, MetaBugReport bugReport, String fileName, InputStream data)
+            Storage storage, MetaBugReport bugReport, String uploadName, InputStream data)
             throws IOException {
         InputStreamContent mediaContent = new InputStreamContent("application/zip", data);
 
@@ -96,7 +99,7 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
         );
         StorageObject object = new StorageObject()
                 .setBucket(bucket)
-                .setName(fileName)
+                .setName(uploadName)
                 .setMetadata(metadata)
                 .setContentDisposition("attachment");
         Storage.Objects.Insert insertObject = storage.objects().insert(bucket, object,
@@ -106,8 +109,16 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
         // GCS dutifully stores content as-uploaded. This line disables the media uploader behavior,
         // so the service stores exactly what is in the InputStream, without transformation.
         insertObject.getMediaHttpUploader().setDisableGZipContent(true);
-        Log.v(TAG, "started uploading object " + fileName + " to bucket " + bucket);
+        Log.v(TAG, "started uploading object " + uploadName + " to bucket " + bucket);
         return insertObject.execute();
+    }
+
+    private static void deleteFileQuietly(File file) {
+        try {
+            Files.delete(file.toPath());
+        } catch (IOException | SecurityException e) {
+            Log.w(TAG, "Failed to delete " + file + ". Ignoring the error.", e);
+        }
     }
 
     private void upload(MetaBugReport bugReport) throws IOException {
@@ -122,43 +133,30 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
                 .setApplicationName("Bugreportupload/1.0").build();
 
         File tmpBugReportFile = zipBugReportFiles(bugReport);
-        Log.d(TAG, "Uploading file " + tmpBugReportFile);
-        try {
-            // Upload filename is bugreport filename, although, now it contains the audio message.
-            String fileName = bugReport.getBugReportFileName();
-            if (Strings.isNullOrEmpty(fileName)) {
-                // Old bugreports don't contain getBugReportFileName, fallback to getFilePath.
-                fileName = new File(bugReport.getFilePath()).getName();
-            }
-            try (FileInputStream inputStream = new FileInputStream(tmpBugReportFile)) {
-                StorageObject object = uploadSimple(storage, bugReport, fileName, inputStream);
-                Log.v(TAG, "finished uploading object " + object.getName() + " file " + fileName);
-            }
+        String uploadName = bugReport.getBugReportFileName();
+        Log.d(TAG, "Uploading file " + tmpBugReportFile + " as " + uploadName);
+        try (FileInputStream inputStream = new FileInputStream(tmpBugReportFile)) {
+            StorageObject object = uploadSimple(storage, bugReport, uploadName, inputStream);
+            Log.v(TAG, "finished uploading object " + object.getName());
             File pendingDir = FileUtils.getPendingDir(mContext);
             // Delete only after successful upload; the files are needed for retry.
             if (!Strings.isNullOrEmpty(bugReport.getAudioFileName())) {
                 Log.v(TAG, "Deleting file " + bugReport.getAudioFileName());
-                new File(pendingDir, bugReport.getAudioFileName()).delete();
+                deleteFileQuietly(new File(pendingDir, bugReport.getAudioFileName()));
             }
             if (!Strings.isNullOrEmpty(bugReport.getBugReportFileName())) {
                 Log.v(TAG, "Deleting file " + bugReport.getBugReportFileName());
-                new File(pendingDir, bugReport.getBugReportFileName()).delete();
+                deleteFileQuietly(new File(pendingDir, bugReport.getBugReportFileName()));
             }
         } finally {
-            // Delete the temp file if it's not a MetaBugReport#getFilePath, because it's needed
-            // for retry.
-            if (Strings.isNullOrEmpty(bugReport.getFilePath())) {
-                Log.v(TAG, "Deleting file " + tmpBugReportFile);
-                tmpBugReportFile.delete();
-            }
+            Log.v(TAG, "Deleting file " + tmpBugReportFile);
+            // No need to throw exception even if it fails to delete the file, as the task
+            // shouldn't retry the upload again.
+            deleteFileQuietly(tmpBugReportFile);
         }
     }
 
     private File zipBugReportFiles(MetaBugReport bugReport) throws IOException {
-        if (!Strings.isNullOrEmpty(bugReport.getFilePath())) {
-            // Old bugreports still have this field.
-            return new File(bugReport.getFilePath());
-        }
         File finalZipFile =
                 File.createTempFile("bugreport", ".zip", mContext.getCacheDir());
         File pendingDir = FileUtils.getPendingDir(mContext);
@@ -181,6 +179,7 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
     @Override
     protected Boolean doInBackground(Void... voids) {
         List<MetaBugReport> bugReports = BugStorageUtils.getUploadPendingBugReports(mContext);
+        boolean shouldRescheduleJob = false;
 
         for (MetaBugReport bugReport : bugReports) {
             try {
@@ -191,12 +190,35 @@ class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
                 upload(bugReport);
                 BugStorageUtils.setUploadSuccess(mContext, bugReport);
             } catch (Exception e) {
-                Log.e(TAG, String.format("Failed uploading %s - likely a transient error",
+                if (isFileExistsError(e)) {
+                    Log.w(TAG, "Failed uploading " + bugReport.getTimestamp()
+                            + " - it was already uploaded before. Marking it success.");
+                    // It may leave bugreport files in the device for some time, but they are
+                    // cleaned-up during ExpireOldBugReportsJob.
+                    BugStorageUtils.setUploadedBefore(mContext, bugReport, e);
+                    continue;
+                }
+                Log.w(TAG, String.format("Failed uploading %s - likely a transient error",
                         bugReport.getTimestamp()), e);
                 BugStorageUtils.setUploadRetry(mContext, bugReport, e);
+                shouldRescheduleJob = true;
             }
         }
-        return false;
+        return shouldRescheduleJob;
+    }
+
+    /** Return true if the file exists with the same name in the back-end. */
+    private static boolean isFileExistsError(Exception e) {
+        if (!(e instanceof GoogleJsonResponseException)) {
+            return false;
+        }
+        GoogleJsonError error = ((GoogleJsonResponseException) e).getDetails();
+        // Note: In order to replace existing objects, both storage.objects.create and
+        // storage.objects.delete permissions are required.
+        // https://cloud.google.com/storage/docs/access-control/iam-permissions#object_permissions
+        return error != null
+                && error.getCode() == 403
+                && error.getMessage().contains("storage.objects.delete");
     }
 
     @Override

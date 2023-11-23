@@ -26,6 +26,7 @@ import android.os.SystemClock;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -196,6 +197,11 @@ public final class StatsEvent {
     @VisibleForTesting
     public static final int ERROR_ATOM_ID_INVALID_POSITION = 0x2000;
 
+    /**
+     * @hide
+     **/
+    @VisibleForTesting public static final int ERROR_LIST_TOO_LONG = 0x4000;
+
     // Size limits.
 
     /**
@@ -295,11 +301,12 @@ public final class StatsEvent {
     /**
      * Builder for constructing a StatsEvent object.
      *
-     * <p>This class defines and encapsulates the socket encoding for the buffer.
-     * The write methods must be called in the same order as the order of fields in the
-     * atom definition.</p>
+     * <p>This class defines and encapsulates the socket encoding for the
+     *buffer. The write methods must be called in the same order as the order of
+     *fields in the atom definition.</p>
      *
-     * <p>setAtomId() can be called anytime before build().</p>
+     * <p>setAtomId() must be called immediately after
+     *StatsEvent.newBuilder().</p>
      *
      * <p>Example:</p>
      * <pre>
@@ -308,6 +315,7 @@ public final class StatsEvent {
      *         optional int32 field1 = 1;
      *         optional int64 field2 = 2;
      *         optional string field3 = 3 [(annotation1) = true];
+     *         optional repeated int32 field4 = 4;
      *     }
      *
      *     // StatsEvent construction for pushed event.
@@ -318,6 +326,7 @@ public final class StatsEvent {
      *         .writeLong(8L) // field2
      *         .writeString("foo") // field 3
      *         .addBooleanAnnotation(annotation1Id, true)
+     *         .writeIntArray({ 1, 2, 3 });
      *         .usePooledBuffer()
      *         .build();
      *
@@ -329,6 +338,7 @@ public final class StatsEvent {
      *         .writeLong(8L) // field2
      *         .writeString("foo") // field 3
      *         .addBooleanAnnotation(annotation1Id, true)
+     *         .writeIntArray({ 1, 2, 3 });
      *         .build();
      * </pre>
      **/
@@ -574,6 +584,123 @@ public final class StatsEvent {
         }
 
         /**
+         * Write a repeated boolean field to this StatsEvent.
+         *
+         * The list size must not exceed 127. Otherwise, the array isn't written
+         * to the StatsEvent and ERROR_LIST_TOO_LONG is appended to the
+         * StatsEvent errors field.
+         *
+         * @param elements array of booleans.
+         **/
+        @NonNull
+        public Builder writeBooleanArray(@NonNull final boolean[] elements) {
+            final byte numElements = (byte)elements.length;
+
+            if (writeArrayInfo(numElements, TYPE_BOOLEAN)) {
+                // Write encoding of each element.
+                for (int i = 0; i < numElements; i++) {
+                    mPos += mBuffer.putBoolean(mPos, elements[i]);
+                }
+                mNumElements++;
+            }
+            return this;
+        }
+
+        /**
+         * Write a repeated int field to this StatsEvent.
+         *
+         * The list size must not exceed 127. Otherwise, the array isn't written
+         * to the StatsEvent and ERROR_LIST_TOO_LONG is appended to the
+         * StatsEvent errors field.
+         *
+         * @param elements array of ints.
+         **/
+        @NonNull
+        public Builder writeIntArray(@NonNull final int[] elements) {
+            final byte numElements = (byte)elements.length;
+
+            if (writeArrayInfo(numElements, TYPE_INT)) {
+              // Write encoding of each element.
+              for (int i = 0; i < numElements; i++) {
+                mPos += mBuffer.putInt(mPos, elements[i]);
+                }
+                mNumElements++;
+            }
+            return this;
+        }
+
+        /**
+         * Write a repeated long field to this StatsEvent.
+         *
+         * The list size must not exceed 127. Otherwise, the array isn't written
+         * to the StatsEvent and ERROR_LIST_TOO_LONG is appended to the
+         * StatsEvent errors field.
+         *
+         * @param elements array of longs.
+         **/
+        @NonNull
+        public Builder writeLongArray(@NonNull final long[] elements) {
+            final byte numElements = (byte)elements.length;
+
+            if (writeArrayInfo(numElements, TYPE_LONG)) {
+                // Write encoding of each element.
+                for (int i = 0; i < numElements; i++) {
+                    mPos += mBuffer.putLong(mPos, elements[i]);
+                }
+                mNumElements++;
+            }
+            return this;
+        }
+
+        /**
+         * Write a repeated float field to this StatsEvent.
+         *
+         * The list size must not exceed 127. Otherwise, the array isn't written
+         * to the StatsEvent and ERROR_LIST_TOO_LONG is appended to the
+         * StatsEvent errors field.
+         *
+         * @param elements array of floats.
+         **/
+        @NonNull
+        public Builder writeFloatArray(@NonNull final float[] elements) {
+            final byte numElements = (byte)elements.length;
+
+            if (writeArrayInfo(numElements, TYPE_FLOAT)) {
+                // Write encoding of each element.
+                for (int i = 0; i < numElements; i++) {
+                  mPos += mBuffer.putFloat(mPos, elements[i]);
+                }
+                mNumElements++;
+            }
+            return this;
+        }
+
+        /**
+         * Write a repeated string field to this StatsEvent.
+         *
+         * The list size must not exceed 127. Otherwise, the array isn't written
+         * to the StatsEvent and ERROR_LIST_TOO_LONG is appended to the
+         * StatsEvent errors field.
+         *
+         * @param elements array of strings.
+         **/
+        @NonNull
+        public Builder writeStringArray(@NonNull final String[] elements) {
+            final byte numElements = (byte)elements.length;
+
+            if (writeArrayInfo(numElements, TYPE_STRING)) {
+                // Write encoding of each element.
+                for (int i = 0; i < numElements; i++) {
+                    final byte[] elementBytes = stringToBytes(elements[i]);
+                    mPos += mBuffer.putInt(mPos, elementBytes.length);
+                    mPos += mBuffer.putByteArray(mPos, elementBytes);
+                }
+                mNumElements++;
+            }
+            return this;
+        }
+
+        /**
          * Write a boolean annotation for the last field written.
          **/
         @NonNull
@@ -691,6 +818,23 @@ public final class StatsEvent {
         private static byte[] stringToBytes(@Nullable final String value) {
             return (null == value ? "" : value).getBytes(UTF_8);
         }
+
+        private boolean writeArrayInfo(final byte numElements,
+                                       final byte elementTypeId) {
+            if (numElements > MAX_NUM_ELEMENTS) {
+                mErrorMask |= ERROR_LIST_TOO_LONG;
+                return false;
+            }
+            // Write list typeId byte, 1-byte representation of number of
+            // elements, and element typeId byte.
+            writeTypeId(TYPE_LIST);
+            mPos += mBuffer.putByte(mPos, numElements);
+            // Write element typeId byte without setting mPosLastField and mLastType (i.e. don't use
+            // #writeTypeId)
+            final byte encodedId = (byte) (elementTypeId & 0x0F);
+            mPos += mBuffer.putByte(mPos, encodedId);
+            return true;
+        }
     }
 
     private static final class Buffer {
@@ -699,7 +843,7 @@ public final class StatsEvent {
         @GuardedBy("sLock")
         private static Buffer sPool;
 
-        private byte[] mBytes = new byte[MAX_PUSH_PAYLOAD_SIZE];
+        private byte[] mBytes;
         private boolean mOverflow = false;
         private int mMaxSize = MAX_PULL_PAYLOAD_SIZE;
 
@@ -715,6 +859,8 @@ public final class StatsEvent {
         }
 
         private Buffer() {
+            final ByteBuffer tempBuffer = ByteBuffer.allocateDirect(MAX_PUSH_PAYLOAD_SIZE);
+            mBytes = tempBuffer.hasArray() ? tempBuffer.array() : new byte [MAX_PUSH_PAYLOAD_SIZE];
         }
 
         @NonNull

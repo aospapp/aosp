@@ -14,25 +14,6 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-<com.google.android.material.appbar.AppBarLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@null"
-    app:elevation="0dp">
-
-    <Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?android:attr/actionBarSize"
-        android:theme="?android:attr/actionBarTheme"
-        android:layout_gravity="top">
-        <TextView
-            android:id="@+id/custom_toolbar_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="@style/CollapsingToolbarTitle.Collapsed"/>
-    </Toolbar>
-
-</com.google.android.material.appbar.AppBarLayout>
+<merge>
+    <include layout="@layout/section_header_content"/>
+</merge>

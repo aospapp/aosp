@@ -18,6 +18,8 @@
     <string name="restricted_dialing_mode_label">Dialpad usage is restricted while driving</string>
     <string name="emergency_button_text">Emergency</string>
     <string name="connect_bluetooth_button_text">Connect to Bluetooth</string>
+    <string name="decline_call"></string>
+    <string name="answer_call"></string>
     <string name="no_hfp">
         To complete your call, first connect your phone to your car via Bluetooth.
     </string>

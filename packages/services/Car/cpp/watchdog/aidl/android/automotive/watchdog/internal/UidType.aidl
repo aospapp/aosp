@@ -22,6 +22,11 @@ package android.automotive.watchdog.internal;
 @Backing(type="int")
 enum UidType {
   /**
+   * Unknown UID type.
+   */
+  UNKNOWN,
+
+  /**
    * UID belongs to a native service.
    */
   NATIVE,

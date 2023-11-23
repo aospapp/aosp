@@ -22,7 +22,4 @@
     <item msgid="933409503308401889">"永不允許"</item>
     <item msgid="1154273129608299386">"永遠允許"</item>
   </string-array>
-  <string-array name="settings_qc_provider_package_allowlist">
-    <item msgid="864784677969753628">"com.android.systemui"</item>
-  </string-array>
 </resources>

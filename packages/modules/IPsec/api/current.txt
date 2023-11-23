@@ -1,6 +1,20 @@
 // Signature format: 2.0
 package android.net.eap {
 
+  public final class EapAkaInfo extends android.net.eap.EapInfo {
+    method @Nullable public byte[] getReauthId();
+  }
+
+  public static final class EapAkaInfo.Builder {
+    ctor public EapAkaInfo.Builder();
+    method @NonNull public android.net.eap.EapAkaInfo build();
+    method @NonNull public android.net.eap.EapAkaInfo.Builder setReauthId(@NonNull byte[]);
+  }
+
+  public abstract class EapInfo {
+    method public final int getEapMethodType();
+  }
+
   public final class EapSessionConfig {
     method @Nullable public android.net.eap.EapSessionConfig.EapAkaConfig getEapAkaConfig();
     method @Nullable public android.net.eap.EapSessionConfig.EapAkaPrimeConfig getEapAkaPrimeConfig();
@@ -14,6 +28,7 @@ package android.net.eap {
     ctor public EapSessionConfig.Builder();
     method @NonNull public android.net.eap.EapSessionConfig build();
     method @NonNull public android.net.eap.EapSessionConfig.Builder setEapAkaConfig(int, int);
+    method @NonNull public android.net.eap.EapSessionConfig.Builder setEapAkaConfig(int, int, @NonNull android.net.eap.EapSessionConfig.EapAkaOption);
     method @NonNull public android.net.eap.EapSessionConfig.Builder setEapAkaPrimeConfig(int, int, @NonNull String, boolean);
     method @NonNull public android.net.eap.EapSessionConfig.Builder setEapIdentity(@NonNull byte[]);
     method @NonNull public android.net.eap.EapSessionConfig.Builder setEapMsChapV2Config(@NonNull String, @NonNull String);
@@ -23,7 +38,18 @@ package android.net.eap {
 
   public static class EapSessionConfig.EapAkaConfig extends android.net.eap.EapSessionConfig.EapMethodConfig {
     method public int getAppType();
+    method @NonNull public android.net.eap.EapSessionConfig.EapAkaOption getEapAkaOption();
     method public int getSubId();
+  }
+
+  public static final class EapSessionConfig.EapAkaOption {
+    method @Nullable public byte[] getReauthId();
+  }
+
+  public static final class EapSessionConfig.EapAkaOption.Builder {
+    ctor public EapSessionConfig.EapAkaOption.Builder();
+    method @NonNull public android.net.eap.EapSessionConfig.EapAkaOption build();
+    method @NonNull public android.net.eap.EapSessionConfig.EapAkaOption.Builder setReauthId(@NonNull byte[]);
   }
 
   public static class EapSessionConfig.EapAkaPrimeConfig extends android.net.eap.EapSessionConfig.EapAkaConfig {
@@ -164,6 +190,7 @@ package android.net.ipsec.ike {
   }
 
   public final class IkeSessionConfiguration {
+    method @Nullable public android.net.eap.EapInfo getEapInfo();
     method @NonNull public android.net.ipsec.ike.IkeSessionConnectionInfo getIkeSessionConnectionInfo();
     method @NonNull public String getRemoteApplicationVersion();
     method @NonNull public java.util.List<byte[]> getRemoteVendorIds();
@@ -180,6 +207,7 @@ package android.net.ipsec.ike {
     method @NonNull public android.net.ipsec.ike.IkeSessionConfiguration.Builder clearIkeExtensions();
     method @NonNull public android.net.ipsec.ike.IkeSessionConfiguration.Builder clearRemoteApplicationVersion();
     method @NonNull public android.net.ipsec.ike.IkeSessionConfiguration.Builder clearRemoteVendorIds();
+    method @NonNull public android.net.ipsec.ike.IkeSessionConfiguration.Builder setEapInfo(@Nullable android.net.eap.EapInfo);
     method @NonNull public android.net.ipsec.ike.IkeSessionConfiguration.Builder setRemoteApplicationVersion(@NonNull String);
   }
 
@@ -207,6 +235,7 @@ package android.net.ipsec.ike {
     field public static final int IKE_OPTION_ACCEPT_ANY_REMOTE_ID = 0; // 0x0
     field public static final int IKE_OPTION_EAP_ONLY_AUTH = 1; // 0x1
     field public static final int IKE_OPTION_FORCE_PORT_4500 = 3; // 0x3
+    field public static final int IKE_OPTION_INITIAL_CONTACT = 4; // 0x4
     field public static final int IKE_OPTION_MOBIKE = 2; // 0x2
   }
 
@@ -367,6 +396,11 @@ package android.net.ipsec.ike.exceptions {
   public abstract class IkeException extends java.lang.Exception {
   }
 
+  public final class IkeIOException extends android.net.ipsec.ike.exceptions.IkeNonProtocolException {
+    ctor public IkeIOException(@NonNull java.io.IOException);
+    method @NonNull public java.io.IOException getCause();
+  }
+
   public final class IkeInternalException extends android.net.ipsec.ike.exceptions.IkeNonProtocolException {
     ctor public IkeInternalException(@NonNull Throwable);
     ctor public IkeInternalException(@NonNull String, @NonNull Throwable);
@@ -398,6 +432,10 @@ package android.net.ipsec.ike.exceptions {
     field public static final int ERROR_TYPE_TEMPORARY_FAILURE = 43; // 0x2b
     field public static final int ERROR_TYPE_TS_UNACCEPTABLE = 38; // 0x26
     field public static final int ERROR_TYPE_UNSUPPORTED_CRITICAL_PAYLOAD = 1; // 0x1
+  }
+
+  public final class IkeTimeoutException extends java.io.IOException {
+    ctor public IkeTimeoutException(@NonNull String);
   }
 
   public final class InvalidKeException extends android.net.ipsec.ike.exceptions.IkeProtocolException {

@@ -133,7 +133,7 @@
         systemui:broadcast="true"
     />
 
-    <com.android.systemui.car.systembar.AssitantButton
+    <com.android.systemui.car.systembar.CarSystemBarButton
         android:id="@+id/role_based_button"
         style="@style/SystemBarButton"
         systemui:icon="@drawable/car_ic_overview"

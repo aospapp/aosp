@@ -35,7 +35,10 @@ import com.android.permissioncontroller.permission.model.livedatatypes.PermGroup
  */
 class ManagePermissionsViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val standardPermGroupsLiveData: LiveData<List<PermGroupPackagesUiInfo>> =
+    /**
+     * [LiveData] that contains a list of all platform-defined permission groups.
+     */
+    val standardPermGroupsLiveData: LiveData<List<PermGroupPackagesUiInfo>> =
         MediatorLiveData<List<PermGroupPackagesUiInfo>>().apply {
             addSource(PermGroupsPackagesUiInfoLiveData(app, StandardPermGroupNamesLiveData)) {
                 permGroups -> value = permGroups.values.filterNotNull()

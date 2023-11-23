@@ -18,8 +18,8 @@ package com.android.customization.model.clock;
 import static junit.framework.TestCase.fail;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.provider.Settings.Secure;
@@ -86,7 +86,9 @@ public class ClockManagerTest {
 
     @Test
     public void testApply_whenJSONExceptionOccurs_callsOnError() {
-        when(mMockClockface.getId()).thenThrow(JSONException.class);
+        doAnswer((invocation) -> {
+            throw new JSONException("Fake Test Excepton");
+        }).when(mMockClockface).getId();
 
         mManager.apply(mMockClockface, mMockCallback);
 

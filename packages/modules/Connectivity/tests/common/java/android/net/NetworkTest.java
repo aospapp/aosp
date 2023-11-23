@@ -28,6 +28,7 @@ import android.platform.test.annotations.AppModeFull;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.testutils.ConnectivityModuleTest;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
@@ -46,6 +47,7 @@ import java.net.SocketException;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@ConnectivityModuleTest
 public class NetworkTest {
     final Network mNetwork = new Network(99);
 

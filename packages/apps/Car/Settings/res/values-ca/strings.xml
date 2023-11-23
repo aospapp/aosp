@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Accedeix a les dades amb la xarxa mòbil"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Xarxa mòbil"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Utilitza dades mòbils"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Desactivada"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Vols desactivar les dades mòbils?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Has de seleccionar una preferència"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Utilitzar <xliff:g id="CARRIER">%1$s</xliff:g> per a dades mòbils?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"S\'ha activat la cerca de xarxes Wi‑Fi"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Canvia automàticament a dades mòbils"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Utilitza dades mòbils quan la Wi‑Fi no tingui accés a Internet. És possible que s\'apliquin càrrecs per ús de dades."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Cerca xarxes Wi‑Fi i connecta-t\'hi"</string>
     <string name="learn_more" msgid="8214605928933358604">"Més informació"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Nom punt d\'accés Wi‑Fi"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"S\'està activant <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Altres dispositius es poden connectar a <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Contrasenya punt d\'accés Wi‑Fi"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Seguretat"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2 personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Cap"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Banda del PA"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"S\'han restablert les preferències d\'aplicacions"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Esborra totes les dades (restabliment de les dades de fàbrica)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Esborra tots els perfils i les dades del sistema d\'informació i entreteniment"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Aquesta opció esborrarà totes les dades del sistema d\'informació i entreteniment del vehicle, com ara:\n\n"<li>"El teu Compte de Google"</li>\n<li>"La configuració i les dades de les aplicacions i del sistema"</li>\n<li>"Les aplicacions baixades"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Aquesta acció esborrarà totes les dades del sistema d\'informació i entreteniment del vehicle, com ara:\n\n"<li>"Els teus comptes i perfils"</li>\n<li>"Les dades i la configuració del sistema i de les aplicacions"</li>\n<li>"Les aplicacions baixades"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Actualment tens la sessió iniciada als comptes següents:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"S\'han configurat altres perfils per a aquest vehicle."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Esborra totes les dades"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Tria un administrador nou"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Hi ha d\'haver com a mínim un administrador. Per suprimir aquest administrador, primer n\'has de triar un altre."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Tria un administrador"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Convidat"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Convidat"</string>
     <string name="user_switch" msgid="6544839750534690781">"Canvia"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Tu (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Nom"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Comptes de <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sincronitza les dades automàticament"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Permet que les aplicacions actualitzin dades automàticament"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Activar sincronització autom.?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Els canvis que facis als comptes des del web es reflectiran automàticament al dispositiu.\n\nÉs possible que alguns comptes també reflecteixin al web els canvis que hagis fet al telèfon. Així funcionen els comptes de Google."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Desactivar sincronització autom.?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Vols permetre la sincronització de dades automàtica?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Els canvis que facis als comptes des del web es reflectiran automàticament al vehicle.\n\nÉs possible que alguns comptes també reflecteixin al web els canvis que hagis fet al vehicle."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Desactivar la sincronització de dades automàtica?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Et permetrà estalviar dades, però hauràs de sincronitzar cada compte manualment per obtenir la informació recent. No rebràs notificacions quan hi hagi actualitzacions."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Informació del compte"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Afegeix un compte"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privadesa"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Dades del sistema d\'infoentreteniment"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Controla l\'accés de les aplicacions a la teva ubicació"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Càmera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Controla l\'accés de les aplicacions a les càmeres"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Micròfon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Controla l\'accés de les aplicacions al micròfon"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Dades sistema infoentreteniment"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Cancel·la"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Confirma"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Ha de tenir com a mínim 4 caràcters"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Ha de tenir com a mínim <xliff:g id="COUNT">%d</xliff:g> caràcters"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"El PIN ha de tenir com a mínim <xliff:g id="COUNT">%d</xliff:g> dígits"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Ha de tenir <xliff:g id="NUMBER">%d</xliff:g> caràcters o menys"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Ha de tenir <xliff:g id="NUMBER">%d</xliff:g> dígits o menys"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Només pot contenir dígits del 0 al 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"L\'administrador del dispositiu no permet que s\'utilitzi un PIN recent"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"L\'administrador de TI ha bloquejat els PIN més comuns. Prova un altre PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"L\'administrador del dispositiu no permet que s\'utilitzi una contrasenya recent"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Error en desar la contrasenya"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"L\'administrador de TI ha bloquejat les contrasenyes més comunes. Prova una altra contrasenya."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"No es permet cap seqüència de dígits ascendents, descendents ni repetits."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Ha de contenir com a mínim una lletra"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Ha de contenir com a mínim un dígit"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Ha de contenir com a mínim un símbol"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Ha de contenir com a mínim # lletra}other{Ha de contenir com a mínim # lletres}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Ha de contenir com a mínim # lletra minúscula}other{Ha de contenir com a mínim # lletres minúscules}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Ha de contenir com a mínim # lletra majúscula}other{Ha de contenir com a mínim # lletres majúscules}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Ha de contenir com a mínim # dígit}other{Ha de contenir com a mínim # dígits}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Ha de contenir com a mínim # símbol especial}other{Ha de contenir com a mínim # símbols especials}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Ha de contenir com a mínim # caràcter que no sigui una lletra}other{Ha de contenir com a mínim # caràcters que no siguin lletres}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Ha de contenir com a mínim # caràcter que no sigui un número}other{Ha de contenir com a mínim # caràcters que no siguin números}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Ha de tenir com a mínim # caràcter}other{Ha de tenir com a mínim # caràcters}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Ha de tenir com a mínim # dígit}other{Ha de tenir com a mínim # dígits}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Ha de tenir menys d’# caràcter}other{Ha de tenir menys de # caràcters}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Ha de tenir menys d’# dígit}other{Ha de tenir menys de # dígits}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"No es permet cap seqüència de dígits ascendents, descendents ni repetits"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opcions de bloqueig de pantalla"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: fa <xliff:g id="NUM_DAYS">%3$s</xliff:g> dies"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Esborrar les credencials"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Suprimeix"</string>
     <string name="cancel" msgid="750286395700355455">"Cancel·la"</string>
     <string name="allow" msgid="7519431342750394402">"Permet"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"No permetis"</string>
     <string name="deny" msgid="340512788979930804">"Denega"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Tecla de retrocés"</string>
     <string name="enter_key" msgid="2121394305541579468">"Tecla de retorn"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Activa aquesta aplicació del sistema d\'informació i entreteniment"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Desactiva i desinstal·la"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Desactiva aquesta aplicació del sistema d\'informació i entreteniment"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Més detalls"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"El gestor de l\'organització pot supervisar i gestionar les aplicacions i les dades associades a aquest perfil, inclosos els permisos, la configuració, l\'accés corporatiu, l\'activitat de xarxa i la informació d\'ubicació del vehicle."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"El gestor de l\'organització pot supervisar i gestionar les aplicacions i les dades associades a aquest perfil, inclosos els permisos, la configuració, l\'accés corporatiu, l\'activitat de xarxa i la informació d\'ubicació del dispositiu."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"El gestor de l\'organització pot supervisar i gestionar les aplicacions i les dades associades a aquest sistema d\'informació i entreteniment, inclosos els permisos, la configuració, l\'accés corporatiu, l\'activitat de xarxa i la informació d\'ubicació del vehicle."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Política del vehicle <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Configuració gestionada pel gestor de l\'organització"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Més informació sobre <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informació del vehicle gestionat"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Configuració gestionada per l\'administrador de la flota"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Per donar accés a les dades d\'aquest vehicle gestionat, l\'administrador de la flota pot canviar la configuració del sistema d\'informació i entreteniment i també instal·lar-hi programari.\n\nPer obtenir més informació, contacta amb l\'administrador de la flota."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informació que l\'administrador de la flota pot veure"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Canvis fets per l\'administrador de la flota"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Dades associades al compte del vehicle gestionat"</li>\n" "<li>"Llista d\'aplicacions del vehicle gestionat"</li>\n" "<li>"Temps dedicat i dades utilitzades en cada aplicació"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"El teu accés al sistema d\'informació i entreteniment"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Llista de les aplicacions que hi ha al vehicle"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"El nombre d\'aplicacions és aproximat. És possible que no inclogui les aplicacions instal·lades que no provenen de Play Store."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aplicacions com a mínim</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aplicació com a mínim</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> aplicacions</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aplicació</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Registre del trànsit de xarxa més recent"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Informe d\'errors més recent"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Registre de seguretat més recent"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Cap"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Aplicacions instal·lades"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Permisos d\'ubicació"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Permisos d\'accés al micròfon"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Permisos d\'accés a la càmera"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Aplicacions predeterminades"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Teclat predeterminat"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Mètode definit: <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"S\'ha definit el servidor intermediari HTTP global"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Certificats de confiança al teu perfil personal"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"L\'administrador pot bloquejar el sistema d\'informació i entreteniment i també restablir la contrasenya"</li>\n" "<li>"L\'administrador pot suprimir dades del sistema d\'informació i entreteniment"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Intents fallits d\'introduir la contrasenya abans que se suprimeixin totes les dades del sistema d\'informació i entreteniment"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Intents fallits d\'introduir la contrasenya abans que se suprimeixin les dades del perfil"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> intents</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> intent</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Aplicacions de càmera</item>
+      <item quantity="one">Aplicació de càmera</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">Aplicacions client de correu electrònic</item>
+      <item quantity="one">Aplicació client de correu electrònic</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Aplicacions de telèfon</item>
+      <item quantity="one">Aplicació de telèfon</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Vols compartir l\'informe d\'errors?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"El gestor de l\'organització d\'aquest vehicle ha sol·licitat un informe d\'errors per resoldre els problemes d\'aquest dispositiu. És possible que es comparteixin aplicacions i dades."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"El gestor de l\'organització d\'aquest vehicle ha sol·licitat un informe d\'errors per resoldre els problemes d\'aquest dispositiu. És possible que es comparteixin aplicacions i dades, i que el dispositiu funcioni més a poc a poc durant una estona."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Aquest informe d\'errors es compartirà amb el gestor de l\'organització d\'aquest vehicle. Contacta-hi per obtenir més informació."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Comparteix"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Rebutja"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Restableix el sistema d\'informació i entreteniment"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"El teu sistema ha rebut una sol·licitud per restablir les dades de fàbrica i esborrar totes les dades. Pots restablir-lo ara, o es restablirà la pròxima vegada que s\'engegui el cotxe. A continuació, podràs configurar un perfil nou."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Restableix ara"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Restableix més tard"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"El sist. d\'infoentreteniment es restablirà en engegar el cotxe."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"El cotxe ha d\'estar aparcat per al restabliment."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Aquesta configuració no es pot canviar ara mateix"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Accessibilitat"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Subtítols"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Negre sobre blanc"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Groc sobre negre"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Groc sobre blau"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Lector de pantalla"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Desactivat"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Enuncia els elements en pantalla"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Utilitza <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Opcions"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Configuració"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Càmera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Utilitza la càmera"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Permet que totes les aplicacions accedeixin a la teva càmera"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Gestiona els permisos de la càmera"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"S\'hi ha accedit fa poc"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"No hi ha aplicacions recents"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Cap aplicació no té accés"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# de {total_count} aplicacions té accés}other{# de {total_count} aplicacions tenen accés}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"S\'hi ha accedit fa poc"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Mostra-ho tot"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"S\'està carregant…"</string>
 </resources>

@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Sekat panggilan daripada telefon awam"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Tidak diketahui"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Sekat panggilan daripada pemanggil yang tidak dikenal pasti"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"Tidak tersedia"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"Sekat panggilan sekiranya nombor tidak tersedia"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Sekatan Panggilan"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Sekatan Panggilan dilumpuhkan"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Panggilan kecemasan dibuat"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Sekatan Panggilan telah dilumpuhkan untuk membolehkan pasukan bantuan kecemasan menghubungi anda."</string>
     <string name="developer_title" msgid="9146088855661672353">"Menu Pembangun Telekom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Panggilan tidak boleh dijawab semasa dalam panggilan kecemasan."</string>
+    <string name="cancel" msgid="6733466216239934756">"Batal"</string>
 </resources>

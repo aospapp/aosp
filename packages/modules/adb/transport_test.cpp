@@ -21,6 +21,19 @@
 #include "adb.h"
 #include "fdevent/fdevent_test.h"
 
+TEST(ConnectionStateTest, to_string) {
+    ASSERT_EQ("offline", to_string(ConnectionState::kCsOffline));
+    ASSERT_EQ("bootloader", to_string(ConnectionState::kCsBootloader));
+    ASSERT_EQ("device", to_string(ConnectionState::kCsDevice));
+    ASSERT_EQ("host", to_string(ConnectionState::kCsHost));
+    ASSERT_EQ("recovery", to_string(ConnectionState::kCsRecovery));
+    ASSERT_EQ("rescue", to_string(ConnectionState::kCsRescue));
+    ASSERT_EQ("sideload", to_string(ConnectionState::kCsSideload));
+    ASSERT_EQ("unauthorized", to_string(ConnectionState::kCsUnauthorized));
+    ASSERT_EQ("authorizing", to_string(ConnectionState::kCsAuthorizing));
+    ASSERT_EQ("connecting", to_string(ConnectionState::kCsConnecting));
+}
+
 struct TransportTest : public FdeventTest {};
 
 static void DisconnectFunc(void* arg, atransport*) {

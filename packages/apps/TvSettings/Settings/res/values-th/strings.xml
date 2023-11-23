@@ -45,21 +45,13 @@
     <string name="add_an_account" msgid="2601275122685226096">"เพิ่มบัญชี"</string>
     <string name="accounts_category_title" msgid="7286858931427579845">"บัญชีและการลงชื่อเข้าใช้"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"ไม่มีบัญชี"</string>
-    <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> บัญชี</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> บัญชี</item>
-    </plurals>
+    <string name="accounts_category_summary" msgid="7617932110389860822">"{count,plural, =1{# บัญชี}other{# บัญชี}}"</string>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"บริการสื่อ, Assistant, การชำระเงิน"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"เครือข่ายและอินเทอร์เน็ต"</string>
     <string name="sound_category_title" msgid="7899816751041939518">"เสียง"</string>
     <string name="applications_category_title" msgid="7112019490898586223">"แอป"</string>
     <string name="device_pref_category_title" msgid="8292572846154873762">"ค่ากำหนดอุปกรณ์"</string>
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"รีโมตและอุปกรณ์เสริม"</string>
-    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"ไม่ได้เชื่อมต่ออุปกรณ์บลูทูธ"</string>
-    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other">อุปกรณ์เสริม <xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> ชิ้น</item>
-      <item quantity="one">อุปกรณ์เสริม <xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> ชิ้น</item>
-    </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"การแสดงผลและเสียง"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"ความช่วยเหลือและความคิดเห็น"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"ความเป็นส่วนตัว"</string>
@@ -118,6 +110,8 @@
     <string name="device_factory_reset" msgid="1110189450013225971">"รีเซ็ตข้อมูลเป็นค่าเริ่มต้น"</string>
     <string name="device_calibration" msgid="2907914144048739705">"การเทียบมาตรฐาน"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"โหมดประหยัดพลังงาน"</string>
+    <string name="overlay_internal_slice_title" msgid="6427352417573831625"></string>
+    <string name="device_fastpair" msgid="1235240814051277047">"อุปกรณ์"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"เลือกรูปแบบ"</string>
     <string name="surround_sound_category_title" msgid="5688539514178173911">"เสียงเซอร์ราวด์"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
@@ -185,8 +179,16 @@
     <string name="hdr_enabled_formats" msgid="8527870623949982774">"รูปแบบที่เปิดใช้"</string>
     <string name="hdr_disabled_formats" msgid="4758522849421497896">"รูปแบบที่ปิดใช้"</string>
     <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"เปลี่ยนการเลือกรูปแบบเป็น \"เลือกด้วยตนเอง\" เพื่อปิดใช้"</string>
+    <string name="resolution_selection_title" msgid="2873993320284587853">"ความละเอียด"</string>
+    <string name="resolution_selection_auto_title" msgid="4738671207331027385">"อัตโนมัติ"</string>
+    <string name="resolution_selection_dialog_title" msgid="4029798035133645272">"เปลี่ยนความละเอียดแล้ว"</string>
+    <string name="resolution_selection_dialog_desc" msgid="3667357611495669701">"เลือก \"ตกลง\" เพื่อเริ่มใช้ %1$s"</string>
+    <string name="resolution_selection_dialog_cancel" msgid="3683616572317946129">"ยกเลิก"</string>
+    <string name="resolution_selection_dialog_ok" msgid="3123351228545013492">"ตกลง"</string>
+    <string name="resolution_selection_hz" msgid="4425902505388495637">"Hz"</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"ล้างข้อมูลในแคชไหม"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"การทำงานนี้จะล้างข้อมูลในแคชของแอปทั้งหมด"</string>
+    <string name="default_audio_output_settings_title" msgid="5441937324539531999"></string>
     <string name="accessories_add" msgid="413764175035531452">"เพิ่มอุปกรณ์เสริม"</string>
     <string name="accessory_state_pairing" msgid="15908899628218319">"กำลังจับคู่…"</string>
     <string name="accessory_state_connecting" msgid="6560241025917621212">"กำลังเชื่อมต่อ…"</string>
@@ -224,6 +226,8 @@
     <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"อุปกรณ์เสริม"</string>
     <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"รีโมตคอนโทรล"</string>
     <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"การตั้งค่ารีโมตคอนโทรล"</string>
+    <string name="bluetooth_ir_entry_title" msgid="6927284710576530479">"ตั้งค่าปุ่มรีโมต"</string>
+    <string name="bluetooth_ir_entry_subtitle" msgid="4606207128353416151">"ควบคุมระดับเสียง การเปิด/ปิด อินพุตในทีวี ตัวรับสัญญาณ และซาวด์บาร์"</string>
     <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"เชื่อมต่อ"</string>
     <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"เชื่อมต่อกับ %1$s"</string>
     <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"ยกเลิกการเชื่อมต่อ"</string>
@@ -253,8 +257,8 @@
     <string name="system_inputs" msgid="5552840337357572096">"อินพุต"</string>
     <string name="system_inputs_devices" msgid="2158421111699829399">"อินพุตและอุปกรณ์"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"ตัวควบคุมชุดโฮมเธียเตอร์"</string>
-    <string name="system_accessibility" msgid="3081009195560501010">"การเข้าถึง"</string>
-    <string name="system_developer_options" msgid="8480844257066475479">"ตัวเลือกสำหรับนักพัฒนาซอฟต์แวร์"</string>
+    <string name="system_accessibility" msgid="3081009195560501010">"การช่วยเหลือพิเศษ"</string>
+    <string name="system_developer_options" msgid="8480844257066475479">"ตัวเลือกสำหรับนักพัฒนาแอป"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"ไม่มี"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"การใช้งานและการวินิจฉัย"</string>
     <string name="no_device_admins" msgid="4628974717150185625">"ไม่มีแอปผู้ดูแลระบบอุปกรณ์พร้อมใช้งาน"</string>
@@ -262,10 +266,6 @@
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"ไม่พร้อมใช้งาน"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"แอปของผู้ดูแลระบบอุปกรณ์"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"ไม่มีแอปที่ใช้งานอยู่"</string>
-    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> แอปที่ใช้งานอยู่</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> แอปที่ใช้งานอยู่</item>
-    </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"ปิดใช้โดยผู้ดูแลระบบ นโยบายการเข้ารหัสลับ หรือที่เก็บข้อมูลที่เชื่อถือได้"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"จัดการข้อมูลอุปกรณ์"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"องค์กรของคุณเป็นผู้จัดการการเปลี่ยนแปลงและการตั้งค่า"</string>
@@ -283,18 +283,12 @@
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"ไม่มี"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"ติดตั้งแอปแล้ว"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"จำนวนแอปเป็นเพียงค่าประมาณซึ่งอาจไม่รวมแอปที่ติดตั้งจากที่อื่นที่ไม่ใช่ Play Store"</string>
-    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">อย่างน้อย <xliff:g id="COUNT_1">%d</xliff:g> แอป</item>
-      <item quantity="one">อย่างน้อย <xliff:g id="COUNT_0">%d</xliff:g> แอป</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages_lower_bound" msgid="4518330667109848939">"{count,plural, =1{อย่างน้อย # แอป}other{อย่างน้อย # แอป}}"</string>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"สิทธิ์เข้าถึงตำแหน่ง"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"สิทธิ์เข้าถึงไมโครโฟน"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"สิทธิ์เข้าถึงกล้องถ่ายรูป"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"แอปเริ่มต้น"</string>
-    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> แอป</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> แอป</item>
-    </plurals>
+    <string name="enterprise_privacy_number_packages" msgid="6256222390430349008">"{count,plural, =1{# แอป}other{# แอป}}"</string>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"แป้นพิมพ์เริ่มต้น"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"ตั้งค่าเป็น <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
     <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"การเชื่อมต่อ VPN ตลอดเวลาเปิดอยู่"</string>
@@ -304,37 +298,22 @@
     <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"ข้อมูลรับรองที่เชื่อถือได้"</string>
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"ข้อมูลรับรองที่เชื่อถือได้ในโปรไฟล์ส่วนตัวของคุณ"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"ข้อมูลรับรองที่เชื่อถือได้ในโปรไฟล์งานของคุณ"</string>
-    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">ใบรับรอง CA อย่างน้อย <xliff:g id="COUNT_1">%d</xliff:g> รายการ</item>
-      <item quantity="one">ใบรับรอง CA อย่างน้อย <xliff:g id="COUNT_0">%d</xliff:g> รายการ</item>
-    </plurals>
+    <string name="enterprise_privacy_number_ca_certs" msgid="5918439861975410142">"{count,plural, =1{ใบรับรอง CA # รายการ}other{ใบรับรอง CA # รายการ}}"</string>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"ผู้ดูแลระบบสามารถล็อกอุปกรณ์และรีเซ็ตรหัสผ่าน"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"ผู้ดูแลระบบสามารถลบข้อมูลทั้งหมดในอุปกรณ์"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"มีการป้อนรหัสผ่านผิดหลายครั้งก่อนที่ระบบจะลบข้อมูลทั้งหมดในอุปกรณ์"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"มีการป้อนรหัสผ่านผิดหลายครั้งก่อนที่ระบบจะลบข้อมูลโปรไฟล์งาน"</string>
-    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other">พยายาม <xliff:g id="COUNT_1">%d</xliff:g> ครั้ง</item>
-      <item quantity="one">พยายาม <xliff:g id="COUNT_0">%d</xliff:g> ครั้ง</item>
-    </plurals>
+    <string name="enterprise_privacy_number_failed_password_wipe" msgid="277415009661470768">"{count,plural, =1{พยายาม # ครั้ง}other{พยายาม # ครั้ง}}"</string>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"อุปกรณ์นี้จัดการโดยองค์กรของคุณ"</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"อุปกรณ์เครื่องนี้จัดการโดย <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>"</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"ดูข้อมูลเพิ่มเติม"</string>
-    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">แอปกล้อง</item>
-      <item quantity="one">แอปกล้อง</item>
-    </plurals>
+    <string name="default_camera_app_title" msgid="4573905807226306484">"{count,plural, =1{แอปกล้อง}other{แอปกล้อง}}"</string>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"แอปปฏิทิน"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"แอปรายชื่อติดต่อ"</string>
-    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">แอปโปรแกรมรับส่งอีเมล</item>
-      <item quantity="one">แอปโปรแกรมรับส่งอีเมล</item>
-    </plurals>
+    <string name="default_email_app_title" msgid="3712283056326496555">"{count,plural, =1{แอปโปรแกรมรับส่งอีเมล}other{แอปโปรแกรมรับส่งอีเมล}}"</string>
     <string name="default_map_app_title" msgid="9051013257374474801">"แอปแผนที่"</string>
-    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">แอปโทรศัพท์</item>
-      <item quantity="one">แอปโทรศัพท์</item>
-    </plurals>
+    <string name="default_phone_app_title" msgid="4833449131501871644">"{count,plural, =1{แอปโทรศัพท์}other{แอปโทรศัพท์}}"</string>
     <string name="default_browser_title" msgid="3612813200586492159">"แอปเบราว์เซอร์"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
@@ -353,10 +332,7 @@
     <string name="about_version" msgid="6223547403835399861">"เวอร์ชันของระบบปฏิบัติการ Android TV"</string>
     <string name="about_serial" msgid="3432319328808745459">"หมายเลขซีเรียล"</string>
     <string name="about_build" msgid="8467840394761634575">"บิลด์ของระบบปฏิบัติการ Android TV"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">อีก <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> ขั้นตอน คุณก็จะได้เป็นนักพัฒนาซอฟต์แวร์แล้ว</item>
-      <item quantity="one">อีก <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> ขั้นตอน คุณก็จะได้เป็นนักพัฒนาซอฟต์แวร์แล้ว</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="4064986225625409361">"{count,plural, =1{ตอนนี้คุณเหลืออีกเพียง # ขั้นตอนก็จะได้เป็นนักพัฒนาซอฟต์แวร์แล้ว}other{ตอนนี้คุณเหลืออีกเพียง # ขั้นตอนก็จะได้เป็นนักพัฒนาซอฟต์แวร์แล้ว}}"</string>
     <string name="about_ads" msgid="7662896442040086522">"โฆษณา"</string>
     <string name="ads_description" msgid="8081069475265061074">"จัดการเครื่องมือตั้งค่าโฆษณาเช่นการรีเซ็ตรหัสโฆษณา"</string>
     <string name="ads_content_description" msgid="1006489792324920289">"โฆษณา จัดการเครื่องมือตั้งค่าโฆษณา เช่น การรีเซ็ตรหัสโฆษณา"</string>
@@ -370,23 +346,7 @@
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"การอัปเดตระบบอื่นๆ"</string>
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"เครือข่ายอาจถูกตรวจสอบ"</string>
     <string name="done_button" msgid="616159688526431451">"เสร็จสิ้น"</string>
-    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">เชื่อถือหรือนำใบรับรองออก</item>
-      <item quantity="one">เชื่อถือหรือนำใบรับรองออก</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> ติดตั้งผู้ออกใบรับรองในอุปกรณ์ของคุณ ซึ่งอาจตรวจสอบกิจกรรมในเครือข่ายอุปกรณ์ รวมถึงอีเมล แอป และเว็บไซต์ที่รักษาความปลอดภัยได้\n\nโปรดติดต่อผู้ดูแลระบบเพื่อขอข้อมูลเพิ่มเติมเกี่ยวกับใบรับรองเหล่านี้</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> ติดตั้งผู้ออกใบรับรองในอุปกรณ์ของคุณ ซึ่งอาจตรวจสอบกิจกรรมในเครือข่ายอุปกรณ์ รวมถึงอีเมล แอป และเว็บไซต์ที่รักษาความปลอดภัยได้\n\nโปรดติดต่อผู้ดูแลระบบเพื่อขอข้อมูลเพิ่มเติมเกี่ยวกับใบรับรองนี้</item>
-    </plurals>
-    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> ติดตั้งผู้ออกใบรับรองสำหรับโปรไฟล์งานของคุณ ซึ่งอาจตรวจสอบกิจกรรมในเครือข่ายของที่ทำงาน รวมถึงอีเมล แอป และเว็บไซต์ที่รักษาความปลอดภัยได้\n\nโปรดติดต่อผู้ดูแลระบบเพื่อขอข้อมูลเพิ่มเติมเกี่ยวกับใบรับรองเหล่านี้</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> ติดตั้งผู้ออกใบรับรองสำหรับโปรไฟล์งานของคุณ ซึ่งอาจตรวจสอบกิจกรรมในเครือข่ายของที่ทำงาน รวมถึงอีเมล แอป และเว็บไซต์ที่รักษาความปลอดภัยได้\n\nโปรดติดต่อผู้ดูแลระบบเพื่อขอข้อมูลเพิ่มเติมเกี่ยวกับใบรับรองนี้</item>
-    </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"บุคคลที่สามสามารถตรวจสอบกิจกรรมทางเครือข่ายของคุณได้ รวมทั้งอีเมล แอป และเว็บไซต์ที่ปลอดภัย\n\nข้อมูลรับรองที่เชื่อถือได้ที่ติดตั้งในอุปกรณ์ของคุณทำให้การดำเนินการนี้เป็นไปได้"</string>
-    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">ตรวจสอบใบรับรอง</item>
-      <item quantity="one">ตรวจสอบใบรับรอง</item>
-    </plurals>
+    <string name="sl_ca_cert_dialog_title" msgid="5104377991202801698">"{count,plural, =1{เชื่อถือหรือนำใบรับรองออก}other{เชื่อถือหรือนำใบรับรองออก}}"</string>
     <string name="device_status" msgid="8266002761193692207">"สถานะ"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"เครือข่าย หมายเลขซีเรียล และข้อมูลอื่นๆ"</string>
     <string name="manual" msgid="5683935624321864999">"ด้วยตนเอง"</string>
@@ -478,7 +438,7 @@
     <string name="wifi_connect" msgid="2206086690065242121">"เชื่อมต่อ"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"ไม่จำเครือข่าย"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"การดำเนินการนี้จะล้างข้อมูลที่ใช้เพื่อเชื่อมต่อกับเครือข่ายนี้ ซึ่งรวมถึงรหัสผ่านที่บันทึกไว้ด้วย"</string>
-    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"เข้าร่วม Wi-Fi โดยสแกนคิวอาร์โค้ดจากโทรศัพท์มือถือแล้วทำตามวิธีการ"</string>
+    <string name="wifi_scan_qr_code_description" msgid="6620444691131671132">" เข้าร่วม Wi-Fi โดยสแกนคิวอาร์โค้ดจากโทรศัพท์มือถือแล้วทำตามวิธีการ\n \n จาก"<b>"โทรศัพท์ Android"</b>" ให้ไปที่การตั้งค่า -&gt; เครือข่ายและอินเทอร์เน็ต -&gt; Wi-Fi -&gt; เลือก Wi-Fi -&gt; ขั้นสูง -&gt; เพิ่มอุปกรณ์แล้วสแกนคิวอาร์โค้ด"</string>
     <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"กดปุ่มย้อนกลับเพื่อยกเลิก"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"ตกลง"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"ต่อไป"</string>
@@ -547,6 +507,13 @@
     <string name="storage_device_storage_section" msgid="22958375769694027">"พื้นที่เก็บข้อมูลของอุปกรณ์"</string>
     <string name="storage_removable_storage_section" msgid="280332107650735088">"ที่เก็บข้อมูลแบบถอดได้"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"รีเซ็ต"</string>
+    <string name="storage_free_up" msgid="5719667150891467122">"เพิ่มพื้นที่เก็บข้อมูล"</string>
+    <string name="storage_free_up_clear_cached_data" msgid="858596875459698634">"ล้างข้อมูลในแคช"</string>
+    <string name="storage_free_up_clear_cached_data_summary" msgid="3111860361699185304">"เพิ่มพื้นที่ว่าง <xliff:g id="SPACE">%1$s</xliff:g>"</string>
+    <string name="storage_free_up_clear_cached_data_info" msgid="719348815620748812">"ล้างข้อมูลไฟล์ชั่วคราวที่ใช้พื้นเก็บข้อมูล โดยจะไม่ส่งผลถึงข้อมูลที่บันทึกไว้ เช่น การตั้งค่าของแอปหรือวิดีโอแบบออฟไลน์ และคุณไม่จำเป็นต้องลงชื่อเข้าใช้งานแอปอีกครั้ง"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_title" msgid="5047418718048910850">"ล้างข้อมูลในแคชไหม"</string>
+    <string name="storage_free_up_clear_cached_data_confirm_description" msgid="4840728913914074729">"การทำงานนี้จะล้างข้อมูลในแคชของแอปทั้งหมด"</string>
+    <string name="storage_free_up_uninstall_apps" msgid="7755671754934975908">"ถอนการติดตั้งแอป"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"ต่อเชื่อม <xliff:g id="NAME">%1$s</xliff:g> แล้ว"</string>
     <string name="storage_mount_failure" msgid="8521666906216755903">"ไม่สามารถต่อเชื่อม <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"เชื่อมต่อที่จัดเก็บข้อมูล USB อีกครั้งแล้ว"</string>
@@ -624,9 +591,13 @@
     <string name="microphone" msgid="7893752847683941214">"ไมโครโฟน"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"สิทธิ์เข้าถึงไมโครโฟน"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"สิทธิ์เข้าถึงไมโครโฟนของแอป"</string>
+    <string name="microphone_physical_privacy_enabled_title" msgid="6135130916399886772">"การเข้าถึงไมโครโฟนถูกบล็อก"</string>
+    <string name="microphone_physical_privacy_enabled_text" msgid="401238365312924088">"หากต้องการเลิกบล็อก ให้สลับสวิตช์ความเป็นส่วนตัวบนอุปกรณ์ไปที่ตำแหน่งเปิดไมโครโฟน เพื่อให้สิทธิ์การเข้าถึงไมโครโฟน"</string>
     <string name="camera" msgid="1226671478936288283">"กล้อง"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"สิทธิ์เข้าถึงกล้อง"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"สิทธิ์เข้าถึงกล้องของแอป"</string>
+    <string name="camera_physical_privacy_enabled_title" msgid="1944155695921165511">"การเข้าถึงกล้องถูกบล็อก"</string>
+    <string name="camera_physical_privacy_enabled_text" msgid="6692088634676282779">"หากต้องการเลิกบล็อก ให้สลับสวิตช์ความเป็นส่วนตัวบนอุปกรณ์ไปที่ตำแหน่งเปิดกล้อง เพื่อให้สิทธิ์การเข้าถึงกล้อง"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"สิทธิ์เข้าถึงไมโครโฟน: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
     <string name="mic_toggle_info_content" msgid="4699624900513326055">"เมื่อเปิดไว้ แอปและบริการทั้งหมดที่มีสิทธิ์จะเข้าถึงไมโครโฟนในอุปกรณ์นี้ได้\n\nอุปกรณ์ต่อพ่วงเสียงโดยมีโปรโตคอลที่กำหนดเองจะไม่ได้รับผลกระทบจากการตั้งค่านี้"</string>
     <string name="camera_toggle_info_title" msgid="3871317082313736088">"สิทธิ์เข้าถึงกล้อง: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
@@ -657,7 +628,7 @@
     <string name="system_services" msgid="5754310941186053151">"บริการ"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"การตั้งค่าบริการ"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"ข้อความคอนทราสต์สูง"</string>
-    <string name="accessibility_shortcut" msgid="5856158637840030531">"ทางลัดสำหรับการเข้าถึง"</string>
+    <string name="accessibility_shortcut" msgid="5856158637840030531">"ทางลัดสำหรับการช่วยเหลือพิเศษ"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"เปิดใช้ทางลัดการเข้าถึง"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"บริการทางลัด"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"เมื่อทางลัดเปิดอยู่ ให้กดปุ่มกลับและปุ่มลงค้างไว้ 3 วินาทีเพื่อเริ่มฟีเจอร์การเข้าถึง"</string>
@@ -698,6 +669,8 @@
     <string name="color_cyan" msgid="3172130225116530998">"ฟ้า"</string>
     <string name="color_yellow" msgid="3519470952904560404">"เหลือง"</string>
     <string name="color_magenta" msgid="2377854703399624607">"ม่วงแดง"</string>
+    <string name="accessibility_toggle_audio_description_preference_title" msgid="933923296129403548">"เสียงบรรยาย"</string>
+    <string name="accessibility_audio_description_summary" msgid="2027813223650517036">"ฟังเสียงบรรยายสิ่งที่เกิดขึ้นบนหน้าจอในภาพยนตร์และรายการทีวีที่รองรับ"</string>
     <string name="system_accessibility_status" msgid="8504842254080682515">"เปิดใช้"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"การกำหนดค่า"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"ใช้ <xliff:g id="SERVICE">%1$s</xliff:g> ไหม"</string>
@@ -718,6 +691,7 @@
     <string name="system_monitoring" msgid="7997260748312620855">"การตรวจสอบ"</string>
     <string name="system_apps" msgid="8481888654606868074">"แอป"</string>
     <string name="system_stay_awake" msgid="5935117574414511413">"เปิดหน้าจอค้างไว้"</string>
+    <string name="keep_screen_on_summary" msgid="4680661166009970792">"หน้าจอจะไม่เข้าสู่โหมดสลีป"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"การตรวจสอบ HDCP"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"การเพิ่มประสิทธิภาพ HDMI"</string>
     <string name="system_reboot_confirm" msgid="7035370306447878560">"ต้องการรีสตาร์ทเลยไหม"</string>
@@ -838,18 +812,9 @@
     <string name="inputs_device_auto_off_desc" msgid="1164897242719608201">"ปิดอุปกรณ์ HDMI ด้วยทีวี"</string>
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"เปิดทีวีอัตโนมัติ"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"เปิดทีวีด้วยอุปกรณ์ HDMI"</string>
-    <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">อินพุตที่เชื่อมต่อ</item>
-      <item quantity="one">อินพุตที่เชื่อมต่อ</item>
-    </plurals>
-    <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">อินพุตสแตนด์บาย</item>
-      <item quantity="one">อินพุตสแตนด์บาย</item>
-    </plurals>
-    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">อินพุตที่ไม่ได้เชื่อมต่อ</item>
-      <item quantity="one">อินพุตที่ไม่ได้เชื่อมต่อ</item>
-    </plurals>
+    <string name="inputs_header_connected_input" msgid="4323324944548164849">"{count,plural, =1{อินพุตที่เชื่อมต่อ}other{อินพุตที่เชื่อมต่อ}}"</string>
+    <string name="inputs_header_standby_input" msgid="600117963181008144">"{count,plural, =1{อินพุตสแตนด์บาย}other{อินพุตสแตนด์บาย}}"</string>
+    <string name="inputs_header_disconnected_input" msgid="3852361100151289264">"{count,plural, =1{อินพุตที่ไม่ได้เชื่อมต่อ}other{อินพุตที่ไม่ได้เชื่อมต่อ}}"</string>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"จำกัดการเข้าถึงแอปและเนื้อหาอื่นในบัญชีของคุณ"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"โปรไฟล์ที่ถูกจำกัด"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"ควบคุมโดย <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -863,10 +828,6 @@
     <string name="restricted_profile_create_title" msgid="700322590579894058">"สร้างโปรไฟล์แบบจำกัด"</string>
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"การตั้งค่า"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"แอปที่ได้รับอนุญาต"</string>
-    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">อนุญาต %d แอป</item>
-      <item quantity="one">อนุญาต 1 แอป</item>
-    </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"ได้รับอนุญาต"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"ไม่อนุญาต"</string>
     <string name="restricted_profile_customize_restrictions" msgid="4723577877385636704">"กำหนดค่าข้อจำกัด"</string>
@@ -911,6 +872,7 @@
     <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"แหล่งที่มาของบุคคลที่สาม"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"สิทธิ์"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"แอปพลิเคชันไม่สามารถใช้งานได้"</string>
+    <string name="unused_apps" msgid="5539166745483454543">"แอปที่ไม่ได้ใช้"</string>
     <string name="settings_ok" msgid="5950888975075541964">"ตกลง"</string>
     <string name="settings_confirm" msgid="4489126458677153411">"ยืนยัน"</string>
     <string name="settings_cancel" msgid="576094334743686152">"ยกเลิก"</string>
@@ -972,7 +934,7 @@
     <string name="app_permission_summary_allowed" msgid="5359622119044147500">"ได้รับอนุญาต"</string>
     <string name="app_permission_summary_not_allowed" msgid="5131611341738385303">"ไม่อนุญาต"</string>
     <string name="usage_access" msgid="8402350645248312782">"การเข้าถึงการใช้งาน"</string>
-    <string name="usage_access_description" msgid="3276026988575551587">"การเข้าถึงการใช้งานทำให้แอปสามารถติดตามว่าคุณกำลังใช้แอปอื่นใดอยู่ ความถี่ในการใช้ รวมทั้งผู้ให้บริการ การตั้งค่าภาษา และรายละเอียดอื่นๆ"</string>
+    <string name="usage_access_description" msgid="3276026988575551587">"การเข้าถึงการใช้งานทำให้แอปสามารถติดตามว่าคุณกำลังใช้​แอปอื่นใดอยู่ ความถี่ในการใช้ รวมทั้งผู้ให้บริการ การตั้งค่าภาษา และรายละเอียดอื่นๆ"</string>
     <string name="high_power_apps" msgid="5841073958519976562">"การเพิ่มประสิทธิภาพพลังงาน"</string>
     <string name="high_power_apps_description" msgid="8651692364795060525">"เพิ่มประสิทธิภาพการใช้พลังงานของแอป"</string>
     <string name="high_power_apps_empty" msgid="3084512758421482051">"ไม่มีแอปที่ต้องการเพิ่มประสิทธิภาพ"</string>
@@ -994,11 +956,17 @@
     <string name="write_settings_description" msgid="7382397926674265937">"สิทธิ์นี้อนุญาตให้แอปแก้ไขการตั้งค่าระบบได้"</string>
     <string name="write_settings_on" msgid="71675710746513956">"ใช่"</string>
     <string name="write_settings_off" msgid="6730113471695092167">"ไม่"</string>
+    <string name="manage_external_storage_title" msgid="8139593207533811077">"การเข้าถึงไฟล์ทั้งหมด"</string>
+    <string name="permit_manage_external_storage" msgid="1776899171934627417">"อนุญาตให้เข้าถึงเพื่อจัดการไฟล์ทั้งหมด"</string>
+    <string name="allow_manage_external_storage_description" msgid="4288250228151617611">"อนุญาตให้แอปนี้อ่าน แก้ไข และลบไฟล์ทั้งหมดในอุปกรณ์นี้หรือวอลุ่มของพื้นที่เก็บข้อมูลใดๆ ที่เชื่อมต่อ หากได้รับอนุญาต ​แอปอาจเข้าถึงไฟล์ได้โดยที่คุณไม่ทราบอย่างชัดแจ้ง"</string>
     <string name="picture_in_picture_title" msgid="2636935591386702348">"การแสดงภาพซ้อนภาพ"</string>
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"อนุญาตการแสดงภาพซ้อนภาพ"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"แอปที่ติดตั้งอยู่ไม่รองรับการแสดงภาพซ้อนภาพ"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"อนุญาตให้แอปสร้างหน้าต่างการแสดงภาพซ้อนภาพในขณะที่แอปเปิดอยู่หรือหลังจากที่คุณปล่อยทิ้งไว้ (เช่น เพื่อดูวิดีโอต่อ) หน้าต่างนี้จะแสดงทับแอปอื่นๆ ที่คุณกำลังใช้"</string>
     <string name="alarms_and_reminders_description" msgid="4063972350154624500">"อนุญาตให้แอปตั้งปลุกและกำหนดเวลาการดำเนินการที่ต้องคำนึงถึงเวลาเป็นสำคัญ สิทธิ์นี้ช่วยให้แอปทำงานในเบื้องหลังได้ จึงอาจใช้พลังงานมากขึ้น\n\nหากปิดใช้สิทธิ์ การปลุกที่มีอยู่และกิจกรรมที่ต้องคำนึงถึงเวลาเป็นสำคัญซึ่งแอปกำหนดเวลาไว้จะไม่ทำงาน"</string>
+    <string name="turn_screen_on_title" msgid="5293798529284629011">"เปิดหน้าจอ"</string>
+    <string name="allow_turn_screen_on" msgid="4903401106871656521">"อนุญาตให้เปิดหน้าจอ"</string>
+    <string name="allow_turn_screen_on_description" msgid="7521761625343889415">"อนุญาตให้แอปเปิดหน้าจอ หากอนุญาต แอปอาจเปิดหน้าจอได้ทุกเมื่อแม้คุณไม่ได้ระบุเจตนาที่ชัดแจ้ง"</string>
     <string name="special_access" msgid="21806055758289916">"สิทธิ์เข้าถึงพิเศษของแอป"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"เสียง"</string>
@@ -1015,7 +983,7 @@
     <string name="title_data_saver" msgid="7500278996154002792">"การประหยัดอินเทอร์เน็ต"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"ปรับคุณภาพของวิดีโอให้ใช้อินเทอร์เน็ตมือถือน้อยลงโดยอัตโนมัติ"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ปริมาณการใช้อินเทอร์เน็ตและการแจ้งเตือน"</string>
-    <string name="data_saver_header_info" msgid="239820871940156510">"คุณเชื่อมต่ออินเทอร์เน็ตได้ด้วย Wi-Fi, อีเทอร์เน็ต หรือฮอตสปอตของโทรศัพท์ หากต้องการความช่วยเหลือเพิ่มเติม ให้ไปที่ "<b>"g.co/network"</b></string>
+    <string name="data_saver_header_info" msgid="2706725187498535785">"คุณเชื่อมต่ออินเทอร์เน็ตได้ด้วย Wi-Fi, อีเทอร์เน็ต หรือฮอตสปอตของโทรศัพท์"</string>
     <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"ไม่อนุญาตให้ดำเนินการนี้"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ปรับระดับเสียงไม่ได้"</string>
@@ -1065,4 +1033,5 @@
     <string name="power_and_energy" msgid="4638182439670702556">"กำลังไฟฟ้าและพลังงาน"</string>
     <string name="power_on_behavior" msgid="927607372303160716">"ลักษณะการทำงานเมื่อเปิดเครื่อง"</string>
     <string name="reset_options_title" msgid="7632580482285108955">"รีเซ็ต"</string>
+    <string name="adb_pairing_device_dialog_ethernet_pairing_code_label" msgid="7551782499828944838">"รหัสการจับคู่อีเทอร์เน็ต"</string>
 </resources>

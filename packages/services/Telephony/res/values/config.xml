@@ -156,7 +156,7 @@
     <!-- Package name for the mobile network settings [DO NOT TRANSLATE] -->
     <string name="mobile_network_settings_package" translatable="false">com.android.settings</string>
     <!-- Class name for the mobile network settings activity [DO NOT TRANSLATE] -->
-    <string name="mobile_network_settings_class" translatable="false">com.android.settings.network.telephony.MobileNetworkActivity</string>
+    <string name="mobile_network_settings_class" translatable="false">com.android.settings.Settings$MobileNetworkActivity</string>
 
     <!-- CDMA activation goes through HFA -->
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_USE_HFA_FOR_PROVISIONING_BOOL -->
@@ -317,8 +317,4 @@
     <!-- The package names which can request thermal mitigation. -->
     <string-array name="thermal_mitigation_allowlisted_packages" translatable="false">
     </string-array>
-
-    <!-- The package name of the app which hosts the
-         {@link TelecomManager#ACTION_SHOW_CALL_SETTINGS} settings screen. -->
-    <string name="call_settings_package_name">com.android.phone</string>
 </resources>

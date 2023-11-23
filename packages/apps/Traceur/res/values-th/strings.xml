@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"คืนค่าหมวดหมู่เริ่มต้น"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"คืนค่าหมวดหมู่เริ่มต้นแล้ว"</string>
     <string name="default_categories" msgid="2117679794687799407">"ค่าเริ่มต้น"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">เลือกไว้ %d หมวดหมู่</item>
-      <item quantity="one">เลือกไว้ %d หมวดหมู่</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{เลือกแล้ว # รายการ}other{เลือกแล้ว # รายการ}}"</string>
     <string name="applications" msgid="521776761270770549">"แอปพลิเคชัน"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"ไม่มีแอปพลิเคชันที่แก้ไขข้อบกพร่องได้"</string>
     <string name="buffer_size" msgid="3944311026715111454">"ขนาดบัฟเฟอร์ต่อ CPU"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"ใช้ Perfetto (เบต้า)"</string>
     <string name="long_traces" msgid="5110949471775966329">"การติดตามแบบยาว"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"บันทึกในพื้นที่เก็บข้อมูลของอุปกรณ์อย่างต่อเนื่อง"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"บันทึกในพื้นที่เก็บข้อมูลของอุปกรณ์อย่างต่อเนื่อง (จะไม่แนบกับรายงานข้อบกพร่องโดยอัตโนมัติ)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"ขนาดการติดตามแบบยาวสูงสุด"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"ระยะเวลาการติดตามแบบยาวสูงสุด"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

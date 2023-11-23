@@ -31,4 +31,6 @@
     <dimen name="tp_preference_summary_min_height">16dp</dimen>
     <dimen name="tp_preference_item_margin_bottom">4dp</dimen>
     <dimen name="lb_settings_fragment_padding">40dp</dimen>
+    <dimen name="sensor_physical_privacy_enabled_info_radius">12dp</dimen>
+    <dimen name="sensor_physical_privacy_enabled_info_margin_bottom">24dp</dimen>
 </resources>

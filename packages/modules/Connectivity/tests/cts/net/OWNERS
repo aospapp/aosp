@@ -1,3 +1,0 @@
-# Bug component: 31808
-# Inherits parent owners
-per-file src/android/net/cts/NetworkWatchlistTest.java=alanstokes@google.com

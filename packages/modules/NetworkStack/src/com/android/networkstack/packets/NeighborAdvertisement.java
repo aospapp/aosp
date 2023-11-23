@@ -17,13 +17,14 @@
 package com.android.networkstack.packets;
 
 import static com.android.net.module.util.NetworkStackConstants.ETHER_HEADER_LEN;
-import static com.android.net.module.util.NetworkStackConstants.ICMPV6_HEADER_MIN_LEN;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_NA_HEADER_LEN;
 import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ND_OPTION_TLLA;
 import static com.android.net.module.util.NetworkStackConstants.IPV6_HEADER_LEN;
 
 import android.net.MacAddress;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.net.module.util.Ipv6Utils;
 import com.android.net.module.util.Struct;
@@ -50,12 +51,12 @@ public class NeighborAdvertisement {
     public final Icmpv6Header icmpv6Hdr;
     @NonNull
     public final NaHeader naHdr;
-    @NonNull
+    @Nullable
     public final LlaOption tlla;
 
     public NeighborAdvertisement(@NonNull final EthernetHeader ethHdr,
             @NonNull final Ipv6Header ipv6Hdr, @NonNull final Icmpv6Header icmpv6Hdr,
-            @NonNull final NaHeader naHdr, @NonNull final LlaOption tlla) {
+            @NonNull final NaHeader naHdr, @Nullable final LlaOption tlla) {
         this.ethHdr = ethHdr;
         this.ipv6Hdr = ipv6Hdr;
         this.icmpv6Hdr = icmpv6Hdr;
@@ -71,7 +72,7 @@ public class NeighborAdvertisement {
         final int ipv6HeaderLen = Struct.getSize(Ipv6Header.class);
         final int icmpv6HeaderLen = Struct.getSize(Icmpv6Header.class);
         final int naHeaderLen = Struct.getSize(NaHeader.class);
-        final int tllaOptionLen = Struct.getSize(LlaOption.class);
+        final int tllaOptionLen = (tlla == null) ? 0 : Struct.getSize(LlaOption.class);
         final ByteBuffer packet = ByteBuffer.allocate(etherHeaderLen + ipv6HeaderLen
                 + icmpv6HeaderLen + naHeaderLen + tllaOptionLen);
 
@@ -79,7 +80,9 @@ public class NeighborAdvertisement {
         ipv6Hdr.writeToByteBuffer(packet);
         icmpv6Hdr.writeToByteBuffer(packet);
         naHdr.writeToByteBuffer(packet);
-        tlla.writeToByteBuffer(packet);
+        if (tlla != null) {
+            tlla.writeToByteBuffer(packet);
+        }
         packet.flip();
 
         return packet;
@@ -100,7 +103,7 @@ public class NeighborAdvertisement {
      */
     public static NeighborAdvertisement parse(@NonNull final byte[] recvbuf, final int length)
             throws ParseException {
-        if (length < ETHER_HEADER_LEN + IPV6_HEADER_LEN + ICMPV6_HEADER_MIN_LEN
+        if (length < ETHER_HEADER_LEN + IPV6_HEADER_LEN + ICMPV6_NA_HEADER_LEN
                 || recvbuf.length < length) {
             throw new ParseException("Invalid packet length: " + length);
         }
@@ -111,7 +114,9 @@ public class NeighborAdvertisement {
         final Ipv6Header ipv6Hdr = Struct.parse(Ipv6Header.class, packet);
         final Icmpv6Header icmpv6Hdr = Struct.parse(Icmpv6Header.class, packet);
         final NaHeader naHdr = Struct.parse(NaHeader.class, packet);
-        final LlaOption tlla = Struct.parse(LlaOption.class, packet);
+        final LlaOption tlla = (packet.remaining() == 0)
+                ? null
+                : Struct.parse(LlaOption.class, packet);
 
         return new NeighborAdvertisement(ethHdr, ipv6Hdr, icmpv6Hdr, naHdr, tlla);
     }

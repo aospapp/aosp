@@ -17,6 +17,7 @@
 package com.android.internal.net.ipsec.ike.message;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
+import static android.net.ipsec.ike.exceptions.IkeException.wrapAsIkeException;
 
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PAYLOAD_TYPE_NOTIFY;
 import static com.android.internal.net.ipsec.ike.message.IkePayload.PayloadType;
@@ -24,12 +25,12 @@ import static com.android.internal.net.ipsec.ike.message.IkePayload.PayloadType;
 import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.net.ipsec.ike.exceptions.IkeException;
-import android.net.ipsec.ike.exceptions.IkeInternalException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
 import android.net.ipsec.ike.exceptions.InvalidMessageIdException;
 import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
 import android.net.ipsec.ike.exceptions.UnsupportedCriticalPayloadException;
 import android.util.Pair;
+import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.ipsec.ike.SaRecord.IkeSaRecord;
@@ -78,6 +79,46 @@ public final class IkeMessage {
         REPEATABLE_PAYLOAD_TYPES.add(IkePayload.PAYLOAD_TYPE_NOTIFY);
         REPEATABLE_PAYLOAD_TYPES.add(IkePayload.PAYLOAD_TYPE_DELETE);
         REPEATABLE_PAYLOAD_TYPES.add(IkePayload.PAYLOAD_TYPE_VENDOR);
+    }
+
+    // IKE exchange subtypes describe the specific function of a IKE request/response exchange. It
+    // helps IKE and Child Session to process message according to the subtype specific rules.
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+        IKE_EXCHANGE_SUBTYPE_INVALID,
+        IKE_EXCHANGE_SUBTYPE_IKE_INIT,
+        IKE_EXCHANGE_SUBTYPE_IKE_AUTH,
+        IKE_EXCHANGE_SUBTYPE_DELETE_IKE,
+        IKE_EXCHANGE_SUBTYPE_DELETE_CHILD,
+        IKE_EXCHANGE_SUBTYPE_REKEY_IKE,
+        IKE_EXCHANGE_SUBTYPE_REKEY_CHILD,
+        IKE_EXCHANGE_SUBTYPE_GENERIC_INFO
+    })
+    public @interface IkeExchangeSubType {}
+
+    public static final int IKE_EXCHANGE_SUBTYPE_INVALID = 0;
+    public static final int IKE_EXCHANGE_SUBTYPE_IKE_INIT = 1;
+    public static final int IKE_EXCHANGE_SUBTYPE_IKE_AUTH = 2;
+    public static final int IKE_EXCHANGE_SUBTYPE_CREATE_CHILD = 3;
+    public static final int IKE_EXCHANGE_SUBTYPE_DELETE_IKE = 4;
+    public static final int IKE_EXCHANGE_SUBTYPE_DELETE_CHILD = 5;
+    public static final int IKE_EXCHANGE_SUBTYPE_REKEY_IKE = 6;
+    public static final int IKE_EXCHANGE_SUBTYPE_REKEY_CHILD = 7;
+    public static final int IKE_EXCHANGE_SUBTYPE_GENERIC_INFO = 8;
+
+    private static final SparseArray<String> EXCHANGE_SUBTYPE_TO_STRING;
+
+    static {
+        EXCHANGE_SUBTYPE_TO_STRING = new SparseArray<>();
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_INVALID, "Invalid");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_IKE_INIT, "IKE INIT");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_IKE_AUTH, "IKE AUTH");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_CREATE_CHILD, "Create Child");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_DELETE_IKE, "Delete IKE");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_DELETE_CHILD, "Delete Child");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_REKEY_IKE, "Rekey IKE");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_REKEY_CHILD, "Rekey Child");
+        EXCHANGE_SUBTYPE_TO_STRING.put(IKE_EXCHANGE_SUBTYPE_GENERIC_INFO, "Generic Info");
     }
 
     public final IkeHeader ikeHeader;
@@ -351,6 +392,92 @@ public final class IkeMessage {
                 && ikeHeader.nextPayloadType == IkePayload.PAYLOAD_TYPE_SK;
     }
 
+    /** Returns the exchange sub type as a String */
+    public static String getIkeExchangeSubTypeString(@IkeExchangeSubType int exchangeSubtype) {
+        if (!EXCHANGE_SUBTYPE_TO_STRING.contains(exchangeSubtype)) {
+            throw new IllegalStateException("Unrecognized exchangeSubtype " + exchangeSubtype);
+        }
+        return EXCHANGE_SUBTYPE_TO_STRING.get(exchangeSubtype);
+    }
+
+    /**
+     * Gets IKE exchange subtype of an inbound IKE request message.
+     *
+     * <p>It is not allowed to obtain exchange subtype from an inbound response message for two
+     * reasons. Firstly, the exchange subtype of a response message is the same with its
+     * corresponding request message. Secondly, trying to get the exchange subtype from a response
+     * message will easily fail when the response message contains only error notification payloads.
+     */
+    @IkeExchangeSubType
+    public int getIkeExchangeSubType() {
+        if (ikeHeader.isResponseMsg) {
+            throw new IllegalStateException(
+                    "IKE Exchange subtype unsupported for response messages.");
+        }
+
+        switch (ikeHeader.exchangeType) {
+            case IkeHeader.EXCHANGE_TYPE_IKE_SA_INIT:
+                return IKE_EXCHANGE_SUBTYPE_IKE_INIT;
+            case IkeHeader.EXCHANGE_TYPE_IKE_AUTH:
+                return IKE_EXCHANGE_SUBTYPE_IKE_AUTH;
+            case IkeHeader.EXCHANGE_TYPE_CREATE_CHILD_SA:
+                // It is guaranteed in the decoding process that SA Payload has at least one SA
+                // Proposal. Since Rekey IKE and Create Child (both initial creation and rekey
+                // creation) will cause a collision, although the RFC 7296 does not prohibit one SA
+                // Payload to contain both IKE proposals and Child proposals, containing two types
+                // does not make sense. IKE library will reply according to the first SA Proposal
+                // type and ignore the other type.
+                IkeSaPayload saPayload =
+                        getPayloadForType(IkePayload.PAYLOAD_TYPE_SA, IkeSaPayload.class);
+                if (saPayload == null) {
+                    return IKE_EXCHANGE_SUBTYPE_INVALID;
+                }
+
+                // If the received message has both SA(IKE) Payload and Notify-Rekey Payload, IKE
+                // library will treat it as a Rekey IKE request and ignore the Notify-Rekey
+                // Payload to provide better interoperability.
+                if (saPayload.proposalList.get(0).protocolId == IkePayload.PROTOCOL_ID_IKE) {
+                    return IKE_EXCHANGE_SUBTYPE_REKEY_IKE;
+                }
+
+                // If a Notify-Rekey Payload is found, this message is for rekeying a Child SA.
+                List<IkeNotifyPayload> notifyPayloads =
+                        getPayloadListForType(
+                                IkePayload.PAYLOAD_TYPE_NOTIFY, IkeNotifyPayload.class);
+
+                // It is checked during decoding that there is at most one Rekey notification
+                // payload.
+                for (IkeNotifyPayload notifyPayload : notifyPayloads) {
+                    if (notifyPayload.notifyType == IkeNotifyPayload.NOTIFY_TYPE_REKEY_SA) {
+                        return IKE_EXCHANGE_SUBTYPE_REKEY_CHILD;
+                    }
+                }
+
+                return IKE_EXCHANGE_SUBTYPE_CREATE_CHILD;
+            case IkeHeader.EXCHANGE_TYPE_INFORMATIONAL:
+                List<IkeDeletePayload> deletePayloads =
+                        getPayloadListForType(
+                                IkePayload.PAYLOAD_TYPE_DELETE, IkeDeletePayload.class);
+
+                // If no Delete payload was found, this request is a generic informational request.
+                if (deletePayloads.isEmpty()) return IKE_EXCHANGE_SUBTYPE_GENERIC_INFO;
+
+                // IKEv2 protocol does not clearly disallow to have both a Delete IKE payload and a
+                // Delete Child payload in one IKE message. In this case, IKE library will only
+                // respond to the Delete IKE payload.
+                for (IkeDeletePayload deletePayload : deletePayloads) {
+                    if (deletePayload.protocolId == IkePayload.PROTOCOL_ID_IKE) {
+                        return IKE_EXCHANGE_SUBTYPE_DELETE_IKE;
+                    }
+                }
+                return IKE_EXCHANGE_SUBTYPE_DELETE_CHILD;
+            default:
+                throw new IllegalStateException(
+                        "Unrecognized exchange type in the validated IKE header: "
+                                + ikeHeader.exchangeType);
+        }
+    }
+
     /**
      * IIkeMessageHelper provides interface for decoding, encoding and processing IKE packet.
      *
@@ -496,7 +623,7 @@ public final class IkeMessage {
                             - IkePayload.GENERIC_HEADER_LENGTH
                             - IkeSkfPayload.SKF_HEADER_LEN
                             - encryptCipher.getIvLen()
-                            - integrityMac.getChecksumLen()
+                            - (integrityMac == null ? 0 : integrityMac.getChecksumLen())
                             - encryptCipher.getBlockSize();
 
             // Caller of this method MUST validate fragSize is valid.
@@ -740,7 +867,7 @@ public final class IkeMessage {
             } catch (NegativeArraySizeException | BufferUnderflowException e) {
                 throw new InvalidSyntaxException("Malformed IKE Payload", e);
             } catch (GeneralSecurityException e) {
-                throw new IkeInternalException(e);
+                throw wrapAsIkeException(e);
             }
         }
 

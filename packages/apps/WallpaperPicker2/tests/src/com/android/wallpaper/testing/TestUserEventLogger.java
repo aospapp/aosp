@@ -49,6 +49,9 @@ public class TestUserEventLogger implements UserEventLogger {
     private int mNumRestores;
     @WallpaperPosition
     private int mWallpaperPosition;
+    private String mWallpaperSetEffects;
+    private String mWallpaperApplyEffect;
+    private int mWallpaperApplyEffectStatus;
 
     public TestUserEventLogger() {
         mLastDailyRotationHour = -1;
@@ -136,10 +139,11 @@ public class TestUserEventLogger implements UserEventLogger {
     }
 
     @Override
-    public void logWallpaperSet(String collectionId, String wallpaperId) {
+    public void logWallpaperSet(String collectionId, String wallpaperId, String effects) {
         mNumWallpaperSetEvents++;
         mLastCollectionId = collectionId;
         mLastWallpaperId = wallpaperId;
+        mWallpaperSetEffects = effects;
     }
 
     @Override
@@ -233,6 +237,12 @@ public class TestUserEventLogger implements UserEventLogger {
     @Override
     public void logRestored() {
         mNumRestores++;
+    }
+
+    @Override
+    public void logEffectApply(String effect, int status) {
+        mWallpaperApplyEffect = effect;
+        mWallpaperApplyEffectStatus = status;
     }
 
     public int getNumWallpaperSetEvents() {

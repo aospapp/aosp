@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Օգտվել բջջային ինտերնետից"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Բջջային ցանց"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Օգտագործել բջջային ինտերնետ"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Անջատված է"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Անջատե՞լ բջջային ինտերնետը"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Ընտրեք SIM քարտը"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Անցնե՞լ <xliff:g id="CARRIER">%1$s</xliff:g>-ի բջջային ինտերնետին"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi-Fi ցանցերի որոնումը միացված է"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Ավտոմատ կերպով անցնել բջջային ինտերնետի"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Օգտագործել բջջային ինտերնետը, եթե չի հաջողվում միանալ համացանցին Wi-Fi-ի միջոցով։ Կարող են կիրառվել գանձումներ։"</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Գտեք Wi-Fi ցանցեր և միացեք դրանց"</string>
     <string name="learn_more" msgid="8214605928933358604">"Մանրամասն"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Թեժ կետի անունը"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"«<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>» թեժ կետը միանում է…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Այլ սարքեր կարող են միանալ <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>-ին"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Թեժ կետի գաղտնաբառը"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Անվտանգություն"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Չկա"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP դիապազոնը"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Հավելվածների կարգավորումները զրոյացվեցին"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Ջնջել բոլոր տվյալները (գործ. վերակայում)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Ջնջել բոլոր տվյալներն ու պրոֆիլները տեղեկատվաժամանցային համակարգից"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Մեքենայի տեղեկատվաժամանցային համակարգից կջնջվեն բոլոր տվյալները, այդ թվում՝\n\n"<li>"Ձեր Google հաշիվը"</li>\n<li>"Համակարգի և հավելվածների տվյալներն ու կարգավորումները"</li>\n<li>"Ներբեռնված հավելվածները"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Մեքենայի տեղեկատվաժամանցային համակարգից կջնջվեն բոլոր տվյալները, այդ թվում՝\n\n"<li>"ձեր Google հաշիվներն ու պրոֆիլները,"</li>\n<li>"համակարգի և հավելվածների տվյալներն ու կարգավորումները,"</li>\n<li>"ներբեռնված հավելվածները։"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Դուք մտել եք հետևյալ հաշիվներ՝"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Այս մեքենայի համար կարգավորված են այլ պրոֆիլներ։"</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Ջնջել բոլոր տվյալները"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Ընտրեք նոր ադմինիստրատոր"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Հարկավոր է ընտրել առնվազն մեկ ադմինիստրատոր։ Այս ադմինիստրատորին հեռացնելուց առաջ ընտրեք նրան փոխարինողին։"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Ընտրել ադմինիստրատոր"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Հյուր"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Հյուր"</string>
     <string name="user_switch" msgid="6544839750534690781">"Փոխել օգտատիրոջը"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Դուք (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Անուն"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>-ի հաշիվներ"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Ավտոմատ համաժամացնել տվյալները"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Թույլ տալ հավելվածներին ավտոմատ թարմացնել տվյալները"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Միացնե՞լ ավտոմատ համաժամացումը"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Համացանցում կատարած ցանկացած փոփոխություն ավտոմատ կպատճենվի ձեր սարքում:\n\nՈրոշ հաշիվներ կարող են հեռախոսով կատարած փոփոխություններն ավտոմատ պատճենել համացանցում: Google հաշիվն աշխատում է հենց այդպես:"</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Անջատե՞լ ավտոմատ համաժամացումը"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Թույլատրե՞լ տվյալների ավտոմատ համաժամացումը"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Համացանցում կատարած ցանկացած փոփոխություն ավտոմատ կպատճենվի ձեր մեքենայում։\n\nՈրոշ հաշիվներ նաև կարող են հեռախոսով արված փոփոխություններն ավտոմատ պատճենել համացանցում։"</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Չթույլատրե՞լ տվյալների ավտոմատ համաժամացումը"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Դա կկրճատի թրաֆիկի օգտագործումը, բայց դուք պետք է ձեռքով համաժամացնեք բոլոր հաշիվների տվյալները։ Թարմացումների մասին ծանուցումներ չեն ցուցադրվի։"</string>
     <string name="account_details_title" msgid="7529571432258448573">"Հաշվի մասին"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Ավելացրեք հաշիվ"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Գաղտնիություն"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Տեղեկատվաժամանցային համակարգի տվյալներ"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Կառավարել տեղորոշման հասանելիությունը հավելվածների համար"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Տեսախցիկ"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Կառավարել տեսախցիկների հասանելիությունը հավելվածների համար"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Խոսափող"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Կառավարել խոսափողի հասանելիությունը հավելվածների համար"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Տեղեկատվաժամանցային համակարգի տվյալներ"</string>
@@ -641,7 +645,7 @@
     <string name="lockpattern_pattern_confirmed" msgid="5984306638250515385">"Ձեր նոր ապակողպող նախշը"</string>
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"Ապակողպող նախշ գծեք"</string>
     <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"Ավարտելուց հետո մատը բաց թողեք"</string>
-    <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"Նախշը պահվեց"</string>
+    <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"Նախշը գրանցվեց"</string>
     <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Հաստատելու համար նորից նկարեք նախշը"</string>
     <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"Միացրեք առնվազն 4 կետ:"</string>
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Նախշը սխալ է"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Չեղարկել"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Հաստատել"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Պետք է լինի առնվազն 4 նիշ"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Պետք է պարունակի առնվազն <xliff:g id="COUNT">%d</xliff:g> նիշ"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"PIN-ը պետք է պարունակի առնվազն <xliff:g id="COUNT">%d</xliff:g> թվանշան"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Պետք է <xliff:g id="NUMBER">%d</xliff:g>-ից քիչ նիշ պարունակի"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Պետք է <xliff:g id="NUMBER">%d</xliff:g>-ից քիչ թվանշան պարունակի"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Պետք է պարունակի միայն 0-9 թվանշաններ:"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Սարքի ադմինիստրատորը չի թույլատրում օգտագործել վերջին PIN կոդերը"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ՏՏ ադմինիստրատորն արգելափակել է պարզ PIN կոդերը։ Փորձեք մեկ այլ PIN կոդ։"</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Սարքի ադմինիստրատորը թույլ չի տալիս օգտագործել վերջին գաղտնաբառը"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Չհաջողվեց պահել գաղտնաբառը"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"ՏՏ ադմինիստրատորն արգելափակել է պարզ գաղտնաբառերը։ Փորձեք մեկ այլ գաղտնաբառ։"</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Թվանշանների աճող, նվազող կամ կրկնվող հաջորդականությունն արգելված է:"</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Պետք է պարունակի առնվազն մեկ տառ"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Պետք է պարունակի առնվազն մեկ թվանշան"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Պետք է պարունակի առնվազն մեկ նշան"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Պետք է պարունակի առնվազն # տառ}one{Պետք է պարունակի առնվազն # տառ}other{Պետք է պարունակի առնվազն # տառ}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Պետք է պարունակի առնվազն # փոքրատառ}one{Պետք է պարունակի առնվազն # փոքրատառ}other{Պետք է պարունակի առնվազն # փոքրատառ}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Պետք է պարունակի առնվազն # մեծատառ}one{Պետք է պարունակի առնվազն # մեծատառ}other{Պետք է պարունակի առնվազն # մեծատառ}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Պետք է պարունակի առնվազն # թվանշան}one{Պետք է պարունակի առնվազն # թվանշան}other{Պետք է պարունակի առնվազն # թվանշան}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Պետք է պարունակի առնվազն # հատուկ նշան}one{Պետք է պարունակի առնվազն # հատուկ նշան}other{Պետք է պարունակի առնվազն # հատուկ նշան}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Պետք է պարունակի առնվազն # ոչ տառային նիշ}one{Պետք է պարունակի առնվազն # ոչ տառային նիշ}other{Պետք է պարունակի առնվազն # ոչ տառային նիշ}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Պետք է պարունակի առնվազն # ոչ թվային նիշ}one{Պետք է պարունակի առնվազն # ոչ թվային նիշ}other{Պետք է պարունակի առնվազն # ոչ թվային նիշ}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Պետք է պարունակի առնվազն # նիշ}one{Պետք է պարունակի առնվազն # նիշ}other{Պետք է պարունակի առնվազն # նիշ}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Պետք է պարունակի առնվազն # թվանշան}one{Պետք է պարունակի առնվազն # թվանշան}other{Պետք է պարունակի առնվազն # թվանշան}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Չպետք է գերազանցի # նիշը}one{Չպետք է գերազանցի # նիշը}other{Չպետք է գերազանցի # նիշը}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Պետք է #-ից քիչ թվանշան պարունակի}one{Պետք է #-ից քիչ թվանշան պարունակի}other{Պետք է #-ից քիչ թվանշան պարունակի}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Թվանշանների աճող, նվազող կամ կրկնվող հաջորդականությունն արգելված է"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Էկրանի կողպման տարբերակներ"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> – <xliff:g id="NUM_DAYS">%3$s</xliff:g> օր առաջ"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Ջնջել հավաստագրերը"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Հեռացնել"</string>
     <string name="cancel" msgid="750286395700355455">"Չեղարկել"</string>
     <string name="allow" msgid="7519431342750394402">"Թույլատրել"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Չթույլատրել"</string>
     <string name="deny" msgid="340512788979930804">"Մերժել"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace ստեղն"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter ստեղն"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Միացնել տեղեկատվաժամանցային համակարգի այս հավելվածը"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Ապակտիվացնել և ապատեղադրել"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Անջատել տեղեկատվաժամանցային համակարգի այս հավելվածը"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Այլ մանրամասներ"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Կազմակերպության ադմինիստրատորը կարող է վերահսկել և կառավարել այս օգտատիրոջ հետ առնչվող հավելվածները և տվյալները, այդ թվում՝ կարգավորումները, թույլտվությունները, կորպորատիվ մուտքը, ցանցային գործունեությունը և մեքենայի տեղադրության տվյալները։"</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Կազմակերպության ադմինիստրատորը կարող է վերահսկել և կառավարել այս օգտատիրոջ հետ առնչվող հավելվածները և տվյալները, այդ թվում՝ կարգավորումները, թույլտվությունները, կորպորատիվ մուտքը, ցանցային գործունեությունը և սարքի տեղադրության տվյալները։"</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Կազմակերպության ադմինիստրատորը կարող է վերահսկել և կառավարել այս տեղեկատվաժամանցային համակարգի հետ կապված հավելվածները և տվյալները, այդ թվում՝ կարգավորումները, թույլտվությունները, կորպորատիվ մուտքը, ցանցային գործունեությունը և մեքենայի տեղադրության տվյալները։"</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"«<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>» կազմակերպության տրանսպորտային միջոցների կանոններ"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Կազմակերպության ադմինիստրատորի կողմից կառավարվող կարգավորումներ"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Իմանալ ավելին «<xliff:g id="SERVICE">%1$s</xliff:g>» ծառայության մասին"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Կառավարվող մեքենայի մասին"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Ընկերության ադմինիստրատորի կողմից կառավարվող կարգավորումներ"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Այս կառավարվող մեքենայի տվյալները հասանելի դարձնելու համար ընկերության ադմինիստրատորը կարող է փոխել տեղեկատվաժամանցային համակարգի կարգավորումները և ծրագիր տեղադրել այնտեղ։\n\nԼրացուցիչ տեղեկությունների համար դիմեք ձեր ադմինիստրատորին։"</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Տվյալներ, որոնք կարող է տեսնել ընկերության ադմինիստրատորը"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Ընկերության ադմինիստրատորի կատարած փոփոխությունները"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Ձեր կառավարվող մեքենայի հաշվի հետ կապված տվյալները"</li>\n" "<li>"Հավելվածների ցանկը ձեր կառավարվող մեքենայում"</li>\n" "<li>"Յուրաքանչյուր հավելվածի օգտագործման տևողությունն ու ծախսված տվյալները"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Տեղեկատվաժամանցային համակարգից օգտվելու ձեր թույլտվությունը"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Ձեր մեքենայում տեղադրված հավելվածների ցանկը"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Հավելվածների թիվը մոտավոր է։ Հնարավոր է, որ այն չի ներառում Play Խանութից դուրս տեղադրված հավելվածները։"</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="one">Նվազագույնը <xliff:g id="COUNT_1">%d</xliff:g> հավելված</item>
+      <item quantity="other">Նվազագույնը <xliff:g id="COUNT_1">%d</xliff:g> հավելված</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> հավելված</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> հավելված</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Ցանցի թրաֆիկի վերջին մատյանը"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Վրիպակների մասին վերջին զեկույցը"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Անվտանգության վերջին մատյանը"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Չկա"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Տեղադրված հավելվածներ"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Տեղորոշման թույլտվությունները"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Խոսափողի թույլտվությունները"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Տեսախցիկի թույլտվություններ"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Կանխադրված հավելվածներ"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Կանխադրված ստեղնաշար"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Ընտրված է՝ <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Ընդհանուր HTTP պրոքսին կարգավորված է"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Վստահելի հավաստագրեր ձեր անձնական պրոֆիլում"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Ադմինիստրատորը կարող է կողպել տեղեկատվաժամանցային համակարգը և վերակայել գաղտնաբառը"</li>\n" "<li>"Ադմինիստրատորը կարող է ջնջել տեղեկատվաժամանցային համակարգի տվյալները"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Գաղտնաբառը մուտքագրելու անհաջող փորձերի քանակը, որից հետո տեղեկատվաժամանցային համակարգի բոլոր տվյալները կջնջվեն"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Գաղտնաբառը մուտքագրելու անհաջող փորձերի քանակը, որից հետո պրոֆիլի տվյալները կջնջվեն"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> փորձ</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> փորձ</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="one">Տեսախցիկի հավելված</item>
+      <item quantity="other">Տեսախցիկի հավելվածներ</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="one">Փոստային հավելված</item>
+      <item quantity="other">Փոստային հավելվածներ</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="one">Հեռախոսի հավելված</item>
+      <item quantity="other">Հեռախոսի հավելվածներ</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Ուղարկե՞լ վրիպակի զեկույցը"</string>
-    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Այս սարքի անսարքությունների վերացման նպատակով ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին անհրաժեշտ է վրիպակի զեկույց։ Կարող են տրամադրվել տեղեկություններ ձեր հավելվածների մասին և այլ տվյալներ։"</string>
-    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Այս սարքի անսարքությունների վերացման նպատակով ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին անհրաժեշտ է վրիպակի զեկույց։ Կարող են տրամադրվել տեղեկություններ ձեր հավելվածների մասին և այլ տվյալներ, իսկ սարքի աշխատանքը կարող է ժամանակավորապես դանդաղել։"</string>
-    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Այս վրիպակի զեկույցը տրամադրվում է ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին։ Դիմեք նրան՝ լրացուցիչ տեղեկություններ ստանալու համար։"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Այս սարքի անսարքությունների վերացման նպատակով ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին անհրաժեշտ է վրիպակի մասին հաղորդում։ Կարող են տրամադրվել տեղեկություններ ձեր հավելվածների մասին և այլ տվյալներ։"</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Այս սարքի անսարքությունների վերացման նպատակով ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին անհրաժեշտ է վրիպակի մասին հաղորդում։ Կարող են տրամադրվել տեղեկություններ ձեր հավելվածների մասին և այլ տվյալներ, իսկ սարքի աշխատանքը կարող է ժամանակավորապես դանդաղել։"</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Վրիպակի մասին այս հաղորդումը տրամադրվում է ձեր ավտոմեքենայի կազմակերպության ադմինիստրատորին։ Դիմեք նրան՝ լրացուցիչ տեղեկություններ ստանալու համար։"</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Ուղարկել"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Մերժել"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Վերակայեք տեղեկատվաժամանցային համակարգը"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Ձեր համակարգը ստացել է գործարանային կարգավորումների վերականգնման և տվյալների ջնջման հարցում։ Դուք կարող եք վերակայել հիմա կամ համակարգը կվերակայվի, երբ հաջորդ անգամ մեքենան միացնեք։ Այնուհետև կարող եք նոր պրոֆիլ կարգավորել։"</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Վերակայել"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Վերակայել ավելի ուշ"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Համակարգը կվերակայվի, երբ մեքենան հաջորդ անգամ միացնեք։"</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Վերակայումը սկսելու համար մեքենան կայանեք։"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Ներկայումս հնարավոր չէ փոխել այս կարգավորումը"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Հատուկ գործառույթներ"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Ենթագրեր"</string>
@@ -780,8 +849,25 @@
     <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"Շատ մեծ"</string>
     <string name="captions_text_style_title" msgid="8547777957403577760">"Ենթագրերի ոճը"</string>
     <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"Կարգավորված է հավելվածով"</string>
-    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Սպիտակը սևի վրա"</string>
-    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Սևը սպիտակի վրա"</string>
-    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Դեղինը սևի վրա"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Սպիտակ՝ սևի վրա"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Սև՝ սպիտակի վրա"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Դեղին՝ սևի վրա"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Դեղինը կապույտի վրա"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Էկրանի ընթերցիչ"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Անջատված է"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Հնչեցնել էկրանի տարրերը"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Օգտագործել <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> հավելվածը"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Ընտրանքներ"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Կարգավորումներ"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Տեսախցիկ"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Օգտագործել տեսախցիկը"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Հասանելի դարձնել տեսախցիկը բոլոր հավելվածներին"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Կառավարել տեսախցիկի թույլտվությունները"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Տեսախցիկի օգտագործման վերջին հարցումները"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Տեսախցիկը ոչ մի հավելվածի կողմից վերջերս չի օգտագործել"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Հասանելի չէ որևէ հավելվածի"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{Հասանելի է {total_count} հավելվածից #-ին}one{Հասանելի է {total_count} հավելվածից #-ին}other{Հասանելի է {total_count} հավելվածից #-ին}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Տեսախցիկի օգտագործման վերջին հարցումները"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Դիտել բոլորը"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Բեռնում…"</string>
 </resources>

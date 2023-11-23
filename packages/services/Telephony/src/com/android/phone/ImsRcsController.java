@@ -17,9 +17,13 @@
 package com.android.phone;
 
 import android.Manifest;
+import android.app.compat.CompatChanges;
+import android.compat.annotation.ChangeId;
+import android.compat.annotation.EnabledAfter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 import android.os.UserHandle;
@@ -71,6 +75,15 @@ public class ImsRcsController extends IImsRcsController.Stub {
     private ImsResolver mImsResolver;
     // set by shell cmd phone src set-device-enabled true/false
     private Boolean mSingleRegistrationOverride;
+
+    /**
+     * For apps targeting Android T and above, support the publishing state on APIs, such as
+     * {@code RcsUceAdapter#PUBLISH_STATE_PUBLISHING}
+     * @hide
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.S)
+    public static final long SUPPORT_PUBLISHING_STATE = 202894742;
 
     /**
      * Initialize the singleton ImsRcsController instance.
@@ -316,7 +329,9 @@ public class ImsRcsController extends IImsRcsController.Stub {
     @Override
     public @PublishState int getUcePublishState(int subId) {
         enforceReadPrivilegedPermission("getUcePublishState");
+        final int uid = Binder.getCallingUid();
         final long token = Binder.clearCallingIdentity();
+        boolean isSupportPublishingState = false;
         try {
             UceControllerManager uceCtrlManager = getRcsFeatureController(subId).getFeature(
                     UceControllerManager.class);
@@ -324,7 +339,10 @@ public class ImsRcsController extends IImsRcsController.Stub {
                 throw new ServiceSpecificException(ImsException.CODE_ERROR_UNSUPPORTED_OPERATION,
                         "This subscription does not support UCE.");
             }
-            return uceCtrlManager.getUcePublishState();
+            if (CompatChanges.isChangeEnabled(SUPPORT_PUBLISHING_STATE, uid)) {
+                isSupportPublishingState = true;
+            }
+            return uceCtrlManager.getUcePublishState(isSupportPublishingState);
         } catch (ImsException e) {
             throw new ServiceSpecificException(e.getCode(), e.getMessage());
         } finally {
@@ -466,7 +484,9 @@ public class ImsRcsController extends IImsRcsController.Stub {
     @Override
     public void registerUcePublishStateCallback(int subId, IRcsUcePublishStateCallback c) {
         enforceReadPrivilegedPermission("registerUcePublishStateCallback");
+        final int uid = Binder.getCallingUid();
         final long token = Binder.clearCallingIdentity();
+        boolean isSupportPublishingState = false;
         try {
             UceControllerManager uceCtrlManager = getRcsFeatureController(subId).getFeature(
                     UceControllerManager.class);
@@ -474,7 +494,11 @@ public class ImsRcsController extends IImsRcsController.Stub {
                 throw new ServiceSpecificException(ImsException.CODE_ERROR_UNSUPPORTED_OPERATION,
                         "This subscription does not support UCE.");
             }
-            uceCtrlManager.registerPublishStateCallback(c);
+
+            if (CompatChanges.isChangeEnabled(SUPPORT_PUBLISHING_STATE, uid)) {
+                isSupportPublishingState = true;
+            }
+            uceCtrlManager.registerPublishStateCallback(c, isSupportPublishingState);
         } catch (ImsException e) {
             throw new ServiceSpecificException(e.getCode(), e.getMessage());
         } finally {
@@ -582,6 +606,7 @@ public class ImsRcsController extends IImsRcsController.Stub {
             throw new SecurityException("Passed in PackageName can not be found on device");
         }
 
+        final int uid = Binder.getCallingUid();
         final long identity = Binder.clearCallingIdentity();
         SipTransportController transport = getRcsFeatureController(subId).getFeature(
                 SipTransportController.class);
@@ -590,7 +615,7 @@ public class ImsRcsController extends IImsRcsController.Stub {
                     "This subscription does not support the creation of SIP delegates");
         }
         try {
-            transport.createSipDelegate(subId, request, packageName, delegateState,
+            transport.createSipDelegate(subId, uid, request, packageName, delegateState,
                     delegateMessage);
         } catch (ImsException e) {
             throw new ServiceSpecificException(e.getCode(), e.getMessage());

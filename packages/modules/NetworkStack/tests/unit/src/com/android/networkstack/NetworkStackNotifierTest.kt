@@ -50,6 +50,8 @@ import com.android.networkstack.NetworkStackNotifier.CHANNEL_VENUE_INFO
 import com.android.networkstack.NetworkStackNotifier.CONNECTED_NOTIFICATION_TIMEOUT_MS
 import com.android.networkstack.NetworkStackNotifier.Dependencies
 import com.android.networkstack.apishim.NetworkInformationShimImpl
+import com.android.modules.utils.build.SdkLevel.isAtLeastR
+import com.android.modules.utils.build.SdkLevel.isAtLeastS
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
@@ -235,7 +237,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testConnectedNotification_WithSsid() {
         // NetworkCapabilities#getSSID is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         val capabilities = NetworkCapabilities(VALIDATED_CAPABILITIES).setSSID(TEST_SSID)
 
         onCapabilitiesChanged(EMPTY_CAPABILITIES)
@@ -252,7 +254,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testConnectedVenueInfoNotification() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         mNotifier.notifyCaptivePortalValidationPending(TEST_NETWORK)
         onLinkPropertiesChanged(mTestCapportLp)
         onDefaultNetworkAvailable(TEST_NETWORK)
@@ -270,7 +272,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testConnectedVenueInfoNotification_VenueInfoDisabled() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         val channel = NotificationChannel(CHANNEL_VENUE_INFO, "test channel", IMPORTANCE_NONE)
         doReturn(channel).`when`(mNotificationChannelsNm).getNotificationChannel(CHANNEL_VENUE_INFO)
         mNotifier.notifyCaptivePortalValidationPending(TEST_NETWORK)
@@ -289,7 +291,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testVenueInfoNotification() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         onLinkPropertiesChanged(mTestCapportLp)
         onDefaultNetworkAvailable(TEST_NETWORK)
         val capabilities = NetworkCapabilities(VALIDATED_CAPABILITIES).setSSID(TEST_SSID)
@@ -307,7 +309,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testVenueInfoNotification_VenueInfoDisabled() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         doReturn(null).`when`(mNm).getNotificationChannel(CHANNEL_VENUE_INFO)
         onLinkPropertiesChanged(mTestCapportLp)
         onDefaultNetworkAvailable(TEST_NETWORK)
@@ -320,7 +322,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testNonDefaultVenueInfoNotification() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         onLinkPropertiesChanged(mTestCapportLp)
         onCapabilitiesChanged(VALIDATED_CAPABILITIES)
         mLooper.processAllMessages()
@@ -331,7 +333,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testEmptyCaptivePortalDataVenueInfoNotification() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         onLinkPropertiesChanged(EMPTY_CAPPORT_LP)
         onCapabilitiesChanged(VALIDATED_CAPABILITIES)
         mLooper.processAllMessages()
@@ -342,7 +344,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testUnvalidatedNetworkVenueInfoNotification() {
         // Venue info (CaptivePortalData) is not available for API <= Q
-        assumeTrue(NetworkInformationShimImpl.useApiAboveQ())
+        assumeTrue(isAtLeastR())
         onLinkPropertiesChanged(mTestCapportLp)
         onCapabilitiesChanged(EMPTY_CAPABILITIES)
         mLooper.processAllMessages()
@@ -353,7 +355,7 @@ class NetworkStackNotifierTest {
     @Test
     fun testConnectedVenueInfoWithFriendlyNameNotification() {
         // Venue info (CaptivePortalData) with friendly name is not available for API <= R
-        assumeTrue(NetworkInformationShimImpl.useApiAboveR())
+        assumeTrue(isAtLeastS())
         mNotifier.notifyCaptivePortalValidationPending(TEST_NETWORK)
         onLinkPropertiesChanged(mTestCapportVenueUrlWithFriendlyNameLp)
         onDefaultNetworkAvailable(TEST_NETWORK)

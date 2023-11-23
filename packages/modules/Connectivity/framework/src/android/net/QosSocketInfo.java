@@ -16,6 +16,9 @@
 
 package android.net;
 
+import static android.system.OsConstants.SOCK_DGRAM;
+import static android.system.OsConstants.SOCK_STREAM;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
@@ -24,6 +27,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.Parcelable;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -52,6 +56,8 @@ public final class QosSocketInfo implements Parcelable {
 
     @Nullable
     private final InetSocketAddress mRemoteSocketAddress;
+
+    private final int mSocketType;
 
     /**
      * The {@link Network} the socket is on.
@@ -98,6 +104,16 @@ public final class QosSocketInfo implements Parcelable {
     }
 
     /**
+     * The socket type of the socket passed in when this QosSocketInfo object was constructed.
+     *
+     * @return the socket type of the socket.
+     * @hide
+     */
+    public int getSocketType()  {
+        return mSocketType;
+    }
+
+    /**
      * Creates a {@link QosSocketInfo} given a {@link Network} and bound {@link Socket}.  The
      * {@link Socket} must remain bound in order to receive {@link QosSession}s.
      *
@@ -112,6 +128,32 @@ public final class QosSocketInfo implements Parcelable {
         mParcelFileDescriptor = ParcelFileDescriptor.fromSocket(socket);
         mLocalSocketAddress =
                 new InetSocketAddress(socket.getLocalAddress(), socket.getLocalPort());
+        mSocketType = SOCK_STREAM;
+
+        if (socket.isConnected()) {
+            mRemoteSocketAddress = (InetSocketAddress) socket.getRemoteSocketAddress();
+        } else {
+            mRemoteSocketAddress = null;
+        }
+    }
+
+    /**
+     * Creates a {@link QosSocketInfo} given a {@link Network} and bound {@link DatagramSocket}. The
+     * {@link DatagramSocket} must remain bound in order to receive {@link QosSession}s.
+     *
+     * @param network the network
+     * @param socket the bound {@link DatagramSocket}
+     * @hide
+     */
+    public QosSocketInfo(@NonNull final Network network, @NonNull final DatagramSocket socket)
+            throws IOException {
+        Objects.requireNonNull(socket, "socket cannot be null");
+
+        mNetwork = Objects.requireNonNull(network, "network cannot be null");
+        mParcelFileDescriptor = ParcelFileDescriptor.fromDatagramSocket(socket);
+        mLocalSocketAddress =
+                new InetSocketAddress(socket.getLocalAddress(), socket.getLocalPort());
+        mSocketType = SOCK_DGRAM;
 
         if (socket.isConnected()) {
             mRemoteSocketAddress = (InetSocketAddress) socket.getRemoteSocketAddress();
@@ -131,6 +173,8 @@ public final class QosSocketInfo implements Parcelable {
         final int remoteAddressLength = in.readInt();
         mRemoteSocketAddress = remoteAddressLength == 0 ? null
                 : readSocketAddress(in, remoteAddressLength);
+
+        mSocketType = in.readInt();
     }
 
     private @NonNull InetSocketAddress readSocketAddress(final Parcel in, final int addressLength) {
@@ -170,6 +214,7 @@ public final class QosSocketInfo implements Parcelable {
             dest.writeByteArray(remoteAddress);
             dest.writeInt(mRemoteSocketAddress.getPort());
         }
+        dest.writeInt(mSocketType);
     }
 
     @NonNull

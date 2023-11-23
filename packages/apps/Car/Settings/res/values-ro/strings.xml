@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Accesați datele folosind rețeaua mobilă"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Rețea mobilă"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Folosiți datele mobile"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Dezactivată"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Dezactivați datele mobile?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Selectați o opțiune"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Folosiți <xliff:g id="CARRIER">%1$s</xliff:g> pentru date mobile?"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Căutarea de rețele Wi-Fi este activată"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Comutați automat la date mobile"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Folosiți datele mobile atunci când rețeaua Wi-Fi nu are acces la internet. Este posibil să se aplice taxe pentru utilizarea datelor."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Găsiți rețele Wi-Fi și conectați-vă"</string>
     <string name="learn_more" msgid="8214605928933358604">"Aflați mai multe"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Nume hotspot"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Se activează <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Alte dispozitive se pot conecta la <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Parolă hotspot"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Securitate"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2 / WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Fără"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"Bandă AP"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Preferințele pentru aplicații au fost resetate"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Ștergeți datele (setări din fabrică)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Ștergeți toate datele și profilurile de pe sistemul de infotainment"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Astfel, vor fi șterse toate datele de pe sistemul de infotainment al vehiculului, între care:\n\n"<li>"Contul dvs. Google,"</li>\n<li>"datele și setările de sistem și de aplicație,"</li>\n<li>"aplicațiile descărcate."</li>"."</string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Astfel, vor fi șterse toate datele din sistemul de infotainment al vehiculului, între care:\n\n"<li>"conturile și profilurile dvs.;"</li>\n<li>"datele și setările de sistem și de aplicație;"</li>\n<li>"aplicațiile descărcate."</li>"."</string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"V-ați conectat la următoarele conturi:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Alte profiluri au fost configurate pentru acest vehicul."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Ștergeți toate datele"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Alegeți un administrator nou"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Aveți nevoie de cel puțin un administrator. Pentru a-l șterge pe acesta, mai întâi alegeți un înlocuitor."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Alegeți un administrator"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Invitat"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Invitat"</string>
     <string name="user_switch" msgid="6544839750534690781">"Comutați"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Dvs. (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Nume"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"Conturi pentru <xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g>"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Sincronizare automată a datelor"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Permiteți aplicațiilor să actualizeze date automat"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Activați sincronizarea datelor?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Ceea ce modificați în conturi pe web se va reflecta automat și pe dispozitiv.\n\nUnele conturi pot să copieze automat pe web toate modificările de pe telefon. Așa funcționează un Cont Google."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Opriți sincronizarea automată?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Permiteți sincronizarea automată a datelor?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Modificările conturilor dvs. pe web vor fi copiate automat pe vehicul.\n\nUnele conturi pot și să copieze automat pe web toate modificările pe care le efectuați pe vehicul."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Interziceți sincronizarea automată a datelor?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Această acțiune va economisi date, dar va trebui să sincronizați fiecare cont manual pentru a colecta informațiile recente. În plus, nu veți primi notificări atunci când apar actualizări."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Informații despre cont"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Adăugați un cont"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Confidențialitate"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Datele sistemului de infotainment"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"Controlați accesul aplicațiilor la locație"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Camera foto"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"Controlați accesul aplicațiilor la camerele foto"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Microfon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"Controlați accesul aplicațiilor la microfon"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Date sistem de infotainment"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Anulați"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Confirmați"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Trebuie să conțină minimum 4 caractere"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Trebuie să aibă minimum <xliff:g id="COUNT">%d</xliff:g> caractere"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"Codul PIN trebuie să aibă minimum <xliff:g id="COUNT">%d</xliff:g> cifre"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"Trebuie să aibă maximum <xliff:g id="NUMBER">%d</xliff:g> caractere"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Trebuie să conțină maximum <xliff:g id="NUMBER">%d</xliff:g> cifre"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Trebuie să conțină numai cifre de la 0 la 9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Administratorul dispozitivului nu permite folosirea unui PIN recent"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Codurile PIN obișnuite sunt blocate de administratorul IT. Încercați alt cod PIN."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Administratorul dispozitivului nu permite folosirea unei parole recente"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Eroare la salvarea parolei"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Parolele obișnuite sunt blocate de administratorul IT. Încercați altă parolă."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Șirurile de cifre ascendente, descendente sau repetate nu sunt permise."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Trebuie să conțină cel puțin o literă"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Trebuie să conțină cel puțin o cifră"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Trebuie să conțină cel puțin un simbol"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Trebuie să conțină cel puțin # literă}few{Trebuie să conțină cel puțin # litere}other{Trebuie să conțină cel puțin # de litere}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Trebuie să conțină cel puțin # minusculă}few{Trebuie să conțină cel puțin # minuscule}other{Trebuie să conțină cel puțin # de minuscule}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Trebuie să conțină cel puțin # majusculă}few{Trebuie să conțină cel puțin # majuscule}other{Trebuie să conțină cel puțin # de majuscule}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Trebuie să conțină cel puțin # cifră}few{Trebuie să conțină cel puțin # cifre}other{Trebuie să conțină cel puțin # de cifre}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Trebuie să conțină cel puțin # simbol special}few{Trebuie să conțină cel puțin # simboluri speciale}other{Trebuie să conțină cel puțin # de simboluri speciale}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Trebuie să conțină cel puțin # caracter care să nu fie literă}few{Trebuie să conțină cel puțin # caractere care să nu fie litere}other{Trebuie să conțină cel puțin # de caractere care să nu fie litere}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Trebuie să conțină cel puțin # caracter care să nu fie cifră}few{Trebuie să conțină cel puțin # caractere care să nu fie cifre}other{Trebuie să conțină cel puțin # de caractere care să nu fie cifre}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Trebuie să conțină cel puțin # caracter}few{Trebuie să conțină cel puțin # caractere}other{Trebuie să conțină cel puțin # de caractere}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Trebuie să conțină cel puțin # cifră}few{Trebuie să conțină cel puțin # cifre}other{Trebuie să conțină cel puțin # de cifre}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{Trebuie să conțină mai puțin de # caracter}few{Trebuie să conțină mai puțin de # caractere}other{Trebuie să conțină mai puțin de # de caractere}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{Trebuie să conțină mai puțin de # cifră}few{Trebuie să conțină mai puțin de # cifre}other{Trebuie să conțină mai puțin de # de cifre}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Șirurile de cifre ascendente, descendente sau repetate nu sunt permise"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opțiuni de blocare a ecranului"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: acum <xliff:g id="NUM_DAYS">%3$s</xliff:g> zile"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Ștergeți datele de conectare"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Eliminați"</string>
     <string name="cancel" msgid="750286395700355455">"Anulați"</string>
     <string name="allow" msgid="7519431342750394402">"Permiteți"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Nu permiteți"</string>
     <string name="deny" msgid="340512788979930804">"Refuzați"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Tasta Backspace"</string>
     <string name="enter_key" msgid="2121394305541579468">"Tasta Enter"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Activați această aplicație pentru sistemul de infotainment"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Dezactivați și dezinstalați"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Dezactivați aplicația pentru sistemul de infotainment"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"Mai multe detalii"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"Administratorul organizației poate să monitorizeze și să gestioneze aplicațiile și datele asociate acestui profil, inclusiv setările, permisiunile, accesul la nivelul companiei, activitatea în rețea și informațiile despre locația vehiculului."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Administratorul organizației poate să monitorizeze și să gestioneze aplicațiile și datele asociate acestui profil, inclusiv setările, permisiunile, accesul la nivelul companiei, activitatea în rețea și informațiile despre locația dispozitivului."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"Administratorul organizației poate să monitorizeze și să gestioneze aplicațiile și datele asociate acestui sistem de infotainment, inclusiv setările, permisiunile, accesul la nivelul companiei, activitatea în rețea și informațiile despre locația vehiculului."</string>
@@ -757,12 +771,73 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Politica <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> privind vehiculele"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Setări gestionate de administratorul organizației"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Aflați mai multe despre <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Informații despre vehiculul gestionat"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"Setări gestionate de administratorul flotei"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Pentru a acorda acces la datele acestui vehicul gestionat, administratorul flotei poate să modifice setările și să instaleze software pe sistemul de infotainment.\n\nPentru detalii suplimentare, contactați administratorul flotei."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"Informații pe care le poate vedea administratorul flotei"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"Modificări făcute de administratorul flotei"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"Datele asociate cu contul vehiculului gestionat"</li>\n" "<li>"Lista de aplicații vehiculului gestionat"</li>\n" "<li>"Timpul petrecut și cantitatea de date folosite pentru fiecare aplicație"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Accesul la sistemul de infotainment"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"Lista de aplicații ale vehiculului"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Numărul de aplicații este estimat. Este posibil ca acesta să nu includă aplicațiile instalate în afara Magazinului Play."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="few">Minimum <xliff:g id="COUNT_1">%d</xliff:g> aplicații</item>
+      <item quantity="other">Minimum <xliff:g id="COUNT_1">%d</xliff:g> de aplicații</item>
+      <item quantity="one">Minimum <xliff:g id="COUNT_0">%d</xliff:g> aplicație</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> aplicații</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> de aplicații</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> aplicație</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Cel mai recent jurnal de trafic de rețea"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Cel mai recent raport de eroare"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Cel mai recent jurnal de securitate"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Niciuna"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Aplicații instalate"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Permisiuni pentru locație"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Permisiuni pentru microfon"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Permisiuni pentru camera foto"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Aplicații prestabilite"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Tastatură prestabilită"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Setată la <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Proxy global HTTP setat"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Date de conectare de încredere în profilul personal"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"Administratorii pot să blocheze sistemul de infotainment și să reseteze parola"</li>\n" "<li>"Administratorii pot să șteargă date de pe sistemul de infotainment"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Încercări nereușite de introducere a parolei înainte de a șterge toate datele de pe sistemul de infotainment"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Încercări nereușite de introducere a parolei înainte de a șterge datele din profil"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> încercări</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> de încercări</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> încercare</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="few">Aplicațiile Cameră foto</item>
+      <item quantity="other">Aplicațiile Cameră foto</item>
+      <item quantity="one">Aplicația Cameră foto</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="few">Aplicațiile Client de e-mail</item>
+      <item quantity="other">Aplicațiile Client de e-mail</item>
+      <item quantity="one">Aplicația Client de e-mail</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="few">Aplicațiile Telefon</item>
+      <item quantity="other">Aplicațiile Telefon</item>
+      <item quantity="one">Aplicația Telefon</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Trimiteți raportul de eroare?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Administratorul organizației care deține vehiculul a solicitat un raport de eroare pentru a remedia problemele acestui dispozitiv. Este posibil să se permită accesul la aplicații și date."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Administratorul organizației care deține vehiculul a solicitat un raport de eroare pentru a remedia problemele acestui dispozitiv. Este posibil să se permită accesul la aplicații și date, iar funcționarea dispozitivului poate fi încetinită temporar."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Raportul de eroare este trimis administratorului organizației care deține vehiculul. Contactați administratorul pentru mai multe detalii."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Trimiteți"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Refuzați"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Resetați sistemul de infotainment"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"Sistemul dvs. a primit solicitarea de a reveni la setările din fabrică și a șterge toate datele. Îl puteți reseta acum sau se va reseta data viitoare când pornește mașina. Apoi puteți configura un nou profil."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Resetați acum"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Resetați mai târziu"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"Sistemul de infotainment se va reseta când pornește mașina."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"Mașina trebuie să fie parcată pentru a reseta."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Setarea nu poate fi modificată momentan"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Accesibilitate"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Subtitrări"</string>
@@ -784,4 +859,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Negru pe alb"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Galben pe negru"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Galben pe albastru"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Cititor de ecran"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Dezactivat"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"Rostește elementele de pe ecran"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"Folosiți <xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g>"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Opțiuni"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Setări"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Camera foto"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"Folosiți camera foto"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Permiteți accesul tuturor aplicațiilor la camera foto"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Gestionați permisiunile pentru camera foto"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"Accesate recent"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Nicio aplicație recentă"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"Nicio aplicație nu are acces"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{# din {total_count} aplicații are acces}few{# din {total_count} aplicații au acces}other{# din {total_count} aplicații au acces}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"Accesate recent"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Afișați tot"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Se încarcă…"</string>
 </resources>

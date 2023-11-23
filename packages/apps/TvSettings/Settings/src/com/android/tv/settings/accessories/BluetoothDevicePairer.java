@@ -19,7 +19,6 @@ package com.android.tv.settings.accessories;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.IBluetoothA2dp;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -36,6 +35,7 @@ import android.view.InputDevice;
 import com.android.tv.settings.util.bluetooth.BluetoothDeviceCriteria;
 import com.android.tv.settings.util.bluetooth.BluetoothScanner;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -98,6 +98,11 @@ public class BluetoothDevicePairer {
      * Device has been paired with, we are opening a connection to the device.
      */
     public static final int STATUS_CONNECTING = 4;
+    /**
+     * BR/EDR mice need to be handled separately because of the unique
+     * connection establishment sequence.
+     */
+    public static final int STATUS_SUCCEED_BREDRMOUSE = 5;
 
 
     public interface EventListener {
@@ -180,6 +185,14 @@ public class BluetoothDevicePairer {
             }
 
             if ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+                isCompatible = true;
+            }
+
+            if ((sources & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
+                isCompatible = true;
+            }
+
+            if ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
                 isCompatible = true;
             }
 
@@ -307,7 +320,7 @@ public class BluetoothDevicePairer {
 
         // Add Bluetooth a2dp on if the service is running and the
         // setting profile_supported_a2dp is set to true.
-        Intent intent = new Intent(IBluetoothA2dp.class.getName());
+        Intent intent = new Intent("android.bluetooth.IBluetoothA2dp");
         ComponentName comp = intent.resolveSystemService(mContext.getPackageManager(), 0);
         if (comp != null) {
             int enabledState = mContext.getPackageManager().getComponentEnabledSetting(comp);
@@ -358,9 +371,10 @@ public class BluetoothDevicePairer {
         if (scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Log.d(TAG, "Turning on discoverability, default scan mode: " + scanMode);
             mDefaultScanMode = scanMode;
+            // Remove discoverable timeout.
+            bluetoothAdapter.setDiscoverableTimeout(Duration.ZERO);
             bluetoothAdapter.setScanMode(
-                    BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE,
-                    0 /* no timeout */);
+                    BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE);
         }
 
         // set status to scanning before we start listening since
@@ -595,7 +609,17 @@ public class BluetoothDevicePairer {
     }
 
     private void onBonded() {
-        openConnection();
+        BluetoothDevice target = getTargetDevice();
+        if (!(target.getBluetoothClass().getDeviceClass()
+                    == BluetoothClass.Device.PERIPHERAL_POINTING)
+                || !(target.getType() == BluetoothDevice.DEVICE_TYPE_CLASSIC)) {
+            openConnection();
+        } else if (target.isConnected()) {
+            setStatus(STATUS_SUCCEED_BREDRMOUSE);
+        } else {
+            Log.w(TAG, "There was an error connect by BR/EDR Mouse.");
+            setStatus(STATUS_ERROR);
+        }
     }
 
     private void openConnection() {

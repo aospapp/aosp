@@ -20,7 +20,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.http.AndroidHttpClient;
 import android.os.Build;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -33,16 +32,17 @@ import com.android.quicksearchbox.SourceResult;
 import com.android.quicksearchbox.SuggestionCursor;
 import com.android.quicksearchbox.util.NamedTaskExecutor;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.params.HttpParams;
-import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Locale;
 
@@ -60,15 +60,13 @@ public class GoogleSuggestClient extends AbstractGoogleSource {
     // TODO: this should be defined somewhere
     private static final String HTTP_TIMEOUT = "http.conn-manager.timeout";
 
-    private final HttpClient mHttpClient;
+    private final int mConnectTimeout;
 
     public GoogleSuggestClient(Context context, Handler uiThread,
             NamedTaskExecutor iconLoader, Config config) {
         super(context, uiThread, iconLoader);
-        mHttpClient = AndroidHttpClient.newInstance(USER_AGENT, context);
-        HttpParams params = mHttpClient.getParams();
-        params.setLongParameter(HTTP_TIMEOUT, config.getHttpConnectTimeout());
 
+        mConnectTimeout = config.getHttpConnectTimeout();
         // NOTE:  Do not look up the resource here;  Localization changes may not have completed
         // yet (e.g. we may still be reading the SIM card).
         mSuggestUri = null;
@@ -101,33 +99,48 @@ public class GoogleSuggestClient extends AbstractGoogleSource {
             Log.i(LOG_TAG, "Not connected to network.");
             return null;
         }
+        HttpURLConnection connection = null;
         try {
             String encodedQuery = URLEncoder.encode(query, "UTF-8");
             if (mSuggestUri == null) {
                 Locale l = Locale.getDefault();
                 String language = GoogleSearch.getLanguage(l);
                 mSuggestUri = getContext().getResources().getString(R.string.google_suggest_base,
-                                                                    language);
+                    language);
             }
 
             String suggestUri = mSuggestUri + encodedQuery;
             if (DBG) Log.d(LOG_TAG, "Sending request: " + suggestUri);
-            HttpGet method = new HttpGet(suggestUri);
-            HttpResponse response = mHttpClient.execute(method);
-            if (response.getStatusLine().getStatusCode() == 200) {
+            URL url = URI.create(suggestUri).toURL();
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(mConnectTimeout);
+            connection.setRequestProperty("User-Agent", USER_AGENT);
+            connection.setRequestMethod("GET");
+            connection.setDoInput(true);
+            connection.connect();
+            InputStream inputStream = connection.getInputStream();
+            if (connection.getResponseCode() == 200) {
 
                 /* Goto http://www.google.com/complete/search?json=true&q=foo
                  * to see what the data format looks like. It's basically a json
                  * array containing 4 other arrays. We only care about the middle
                  * 2 which contain the suggestions and their popularity.
                  */
-                JSONArray results = new JSONArray(EntityUtils.toString(response.getEntity()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                reader.close();
+                JSONArray results = new JSONArray(sb.toString());
                 JSONArray suggestions = results.getJSONArray(1);
                 JSONArray popularity = results.getJSONArray(2);
                 if (DBG) Log.d(LOG_TAG, "Got " + suggestions.length() + " results");
                 return new GoogleSuggestCursor(this, query, suggestions, popularity);
             } else {
-                if (DBG) Log.d(LOG_TAG, "Request failed " + response.getStatusLine());
+                if (DBG)
+                    Log.d(LOG_TAG, "Request failed " + connection.getResponseMessage());
             }
         } catch (UnsupportedEncodingException e) {
             Log.w(LOG_TAG, "Error", e);
@@ -135,6 +148,8 @@ public class GoogleSuggestClient extends AbstractGoogleSource {
             Log.w(LOG_TAG, "Error", e);
         } catch (JSONException e) {
             Log.w(LOG_TAG, "Error", e);
+        } finally {
+            if (connection != null) connection.disconnect();
         }
         return null;
     }

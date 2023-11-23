@@ -143,7 +143,7 @@
     <string name="stk_cc_ss_to_dial_error" msgid="5147693491690618704">"SS eskaera ohiko deira aldatu da"</string>
     <string name="stk_cc_ss_to_ussd_error" msgid="8330749347425752192">"SS eskaera USSD eskaerara aldatu da"</string>
     <string name="stk_cc_ss_to_ss_error" msgid="8297155544652134278">"SS eskaera berrira aldatu da"</string>
-    <string name="stk_cc_ss_to_dial_video_error" msgid="4255261231466032505">"SS eskaera bideo-deira aldatu da"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="4255261231466032505">"SS eskaera bideodeira aldatu da"</string>
     <string name="fdn_check_failure" msgid="1833769746374185247">"Telefonoa aplikazioaren Markatze finkoko zenbakiak ezarpena aktibatuta daukazu. Ondorioz, deiekin lotutako eginbide batzuk ez dira funtzionatzen ari."</string>
     <string name="radio_off_error" msgid="8321564164914232181">"Ezarpenak ikusi aurretik, piztu irratia."</string>
     <string name="close_dialog" msgid="1074977476136119408">"Ados"</string>
@@ -310,10 +310,10 @@
     <string name="sim_change_data_title" msgid="9142726786345906606">"Datuetarako SIMa aldatu nahi duzu?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Datu-konexiorako, <xliff:g id="NEW_SIM">%1$s</xliff:g> txartela erabili nahi duzu <xliff:g id="OLD_SIM">%2$s</xliff:g> txartelaren ordez?"</string>
     <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Wifi bidezko deiak"</string>
-    <string name="video_calling_settings_title" msgid="342829454913266078">"Operadorearen bideo-deiak"</string>
+    <string name="video_calling_settings_title" msgid="342829454913266078">"Operadorearen bideodeiak"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"GSM/UMTS aukerak"</string>
     <string name="cdma_options" msgid="3669592472226145665">"CDMA aukerak"</string>
-    <string name="throttle_data_usage" msgid="1944145350660420711">"Datuen erabilera"</string>
+    <string name="throttle_data_usage" msgid="1944145350660420711">"Datu-erabilera"</string>
     <string name="throttle_current_usage" msgid="7483859109708658613">"Une honetan erabilitako datuak"</string>
     <string name="throttle_time_frame" msgid="1813452485948918791">"Datuak erabiltzeko epea"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Datu-abiaduraren gidalerroak"</string>
@@ -457,7 +457,7 @@
     <string name="tty_mode_option_summary" msgid="4770510287236494371">"Ezarri TTY modua"</string>
     <string name="auto_retry_mode_title" msgid="2985801935424422340">"Saiatu berriro automatikoki"</string>
     <string name="auto_retry_mode_summary" msgid="2863919925349511402">"Gaitu automatikoki berriro saiatzeko modua"</string>
-    <string name="tty_mode_not_allowed_video_call" msgid="6551976083652752815">"Ezin da aldatu TTY modua bideo-deiak abian direnean"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="6551976083652752815">"Ezin da aldatu TTY modua bideodeiak abian direnean"</string>
     <string name="menu_add" msgid="5616487894975773141">"Gehitu kontaktua"</string>
     <string name="menu_edit" msgid="3593856941552460706">"Editatu kontaktua"</string>
     <string name="menu_delete" msgid="6326861853830546488">"Ezabatu kontaktua"</string>
@@ -585,7 +585,7 @@
     <string name="onscreenManageCallsText" msgid="1162047856081836469">"Kudeatu deiak"</string>
     <string name="onscreenManageConferenceText" msgid="4700574060601755137">"Kudeatu konferentzia"</string>
     <string name="onscreenAudioText" msgid="7224226735052019986">"Audioa"</string>
-    <string name="onscreenVideoCallText" msgid="1743992456126258698">"Bideo-deia"</string>
+    <string name="onscreenVideoCallText" msgid="1743992456126258698">"Bideodeia"</string>
     <string name="importSimEntry" msgid="3892354284082689894">"Inportatu"</string>
     <string name="importAllSimEntries" msgid="2628391505643564007">"Inportatu guztiak"</string>
     <string name="importingSimContacts" msgid="4995457122107888932">"SIM txarteleko kontaktuak inportatzen"</string>
@@ -596,7 +596,7 @@
     <string name="hac_mode_summary" msgid="7774989500136009881">"Aktibatu audifonoen bateragarritasuna"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"Deietan testua bidaltzeko eginbidea"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"Baimendu mezuak bidali eta jasotzea ahots-deien barruan"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"Deietan testua bidaltzeko eginbideak deitzaile gorrei, entzumen-arazoak dituztenei, hitz egiteko ezintasunen bat dutenei edota ahotsaz gain beste makuluren bat behar dutenei laguntzen die.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Lortu informazio gehiago&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - Deietan testua bidaltzeko eginbidearekin egindako deiak mezu-transkripzio gisa gordetzen dira.\n       &lt;br&gt; - Deietan testua bidaltzeko eginbidea ez da bateragarria bideo-deiekin."</string>
+    <string name="rtt_mode_more_information" msgid="587500128658756318">"Deietan testua bidaltzeko eginbideak deitzaile gorrei, entzumen-arazoak dituztenei, hitz egiteko ezintasunen bat dutenei edota ahotsaz gain beste makuluren bat behar dutenei laguntzen die.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Lortu informazio gehiago&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - Deietan testua bidaltzeko eginbidearekin egindako deiak mezu-transkripzio gisa gordetzen dira.\n       &lt;br&gt; - Deietan testua bidaltzeko eginbidea ez da bateragarria bideodeiekin."</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Oharra: Deietan testua bidaltzeko eginbidea ez dago erabilgarri ibiltaritzan"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"TTY desaktibatuta"</item>
@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Larrialdi-zerbitzuen deiak jasotzeko modua"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Datu-konexioa desgaituta"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Ez duzu izango datu-konexiorik ordu honetara arte: <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da <xliff:g id="COUNT_1">%s</xliff:g> minutuz. Modu horretan dagoen bitartean, ezingo duzu datu-konexioa behar duen aplikaziorik erabili. Irten nahi duzu?</item>
-      <item quantity="one">Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da <xliff:g id="COUNT_0">%s</xliff:g> minutuz. Modu horretan dagoen bitartean, ezingo duzu datu-konexioa behar duen aplikaziorik erabili. Irten nahi duzu?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Hautatutako ekintza ez dago larrialdi-zerbitzuen deiak jasotzeko moduan erabilgarri. Telefonoa <xliff:g id="COUNT_1">%s</xliff:g> minutuz egongo da modu horretan. Irten nahi duzu?</item>
-      <item quantity="one">Hautatutako ekintza ez dago larrialdi-zerbitzuen deiak jasotzeko moduan erabilgarri. Telefonoa <xliff:g id="COUNT_0">%s</xliff:g> minutuz egongo da modu horretan. Irten nahi duzu?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da minutu batez. Modu horretan dagoen bitartean, ezingo duzu erabili datu-konexioa behar duen aplikaziorik. Irten nahi duzu?}other{Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da %s minutuz. Modu horretan dagoen bitartean, ezingo duzu erabili datu-konexioa behar duen aplikaziorik. Irten nahi duzu?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Hautatutako ekintza ez dago erabilgarri larrialdi-zerbitzuen deiak jasotzeko moduan. Telefonoa minutu batez egongo da modu horretan. Irten nahi duzu?}other{Hautatutako ekintza ez dago erabilgarri larrialdi-zerbitzuen deiak jasotzeko moduan. Telefonoa %s minutuz egongo da modu horretan. Irten nahi duzu?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Hautatutako ekintza ez dago erabilgarri larrialdi-deia egiten ari den bitartean."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Larrialdi-zerbitzuen deiak jasotzeko modutik irteten"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Bai"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Baztertu"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Larrialdi-zerbitzuen deiak jasotzeko moduan dago telefonoa"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> arte"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Telefonoa <xliff:g id="COUNT_1">%s</xliff:g> minutuz egongo da larrialdi-zerbitzuen deiak jasotzeko moduan.\nIrten nahi duzu?</item>
-      <item quantity="one">Telefonoa <xliff:g id="COUNT_0">%s</xliff:g> minutuz egongo da larrialdi-zerbitzuen deiak jasotzeko moduan.\nIrten nahi duzu?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da minutu batez.\nIrten nahi duzu?}other{Telefonoa larrialdi-zerbitzuen deiak jasotzeko moduan egongo da %s minutuz.\nIrten nahi duzu?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Zerbitzua"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Konfigurazioa"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Ezarri gabe&gt;"</string>
@@ -673,8 +664,8 @@
     <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"Aldatu PINa"</string>
     <string name="preference_category_ringtone" msgid="8787281191375434976">"Tonua eta dardara"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"SIM txartel integratuak"</string>
-    <string name="enable_video_calling_title" msgid="7246600931634161830">"Aktibatu bideo-deiak"</string>
-    <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"Bideo-deiak aktibatzeko, 4G LTE modu hobetua aktibatu behar duzu \"Sarearen ezarpenak\" atalean."</string>
+    <string name="enable_video_calling_title" msgid="7246600931634161830">"Aktibatu bideodeiak"</string>
+    <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"Bideodeiak aktibatzeko, 4G LTE modu hobetua aktibatu behar duzu \"Sarearen ezarpenak\" atalean."</string>
     <string name="enable_video_calling_dialog_settings" msgid="8697890611305307110">"Sareko ezarpenak"</string>
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"Itxi"</string>
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"Larrialdi-deiak"</string>
@@ -683,14 +674,13 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Erabilerraztasuna"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi bidezko deia:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi deia"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Irekitzeko, sakatu berriro"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Errore bat gertatu mezua deskodetzean."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM txartel batek zerbitzua aktibatu du eta telefonoaren ibiltaritza-gaitasunak eguneratu ditu."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Dei gehiegi daude aktibo. Amaitu edo bateratu abian diren deiak beste bat egin aurretik."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Ezin da konektatu. Erabili balio duen SIM txartel bat."</string>
     <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Galdu egin da wifi-konexioa. Amaitu da deia."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"Ezin da egin deia, bateria gutxi gelditzen delako."</string>
-    <string name="callFailed_low_battery" msgid="4056828320214416182">"Bideo-deia amaitu egin da bateria gutxi gelditzen delako."</string>
+    <string name="callFailed_low_battery" msgid="4056828320214416182">"Bideodeia amaitu egin da bateria gutxi gelditzen delako."</string>
     <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Ez daude erabilgarri wifi bidezko larrialdi-deiak kokapen honetan."</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Ez daude erabilgarri wifi bidezko deiak kokapen honetan."</string>
     <string name="change_pin_title" msgid="3564254326626797321">"Aldatu erantzungailuaren PINa"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Ezin da egin deia, beste dei bat abian delako."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Ezin da egin deia, oraindik erantzun ez diozun dei bat jasotzen ari zarelako. Beste dei bat egin aurretik, erantzun deiari edo bazter ezazu."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Ezin da egin deia, deiak egiteko aukera desgaitu egin delako sistemaren ro.telephony.disable-call propietatea erabilita."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Ezin da egin deia, dagoeneko bi dei daudelako abian. Beste dei bat egin aurretik, eten deietako bat edo bateratu deiak konferentzia-dei bakarrean."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Ezin da egin deia, dagoeneko bi dei daudelako abian. Beste dei bat egin aurretik, eten deietako bat edo bateratu deiak konferentzia-dei bakarrean."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> erabiltzeko, ziurtatu datu-konexioa aktibatuta dagoela. Sare mugikorren ezarpenetan alda dezakezu aukera hau."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> erabiltzeko, ziurtatu datu-konexioa eta datu-ibiltaritza aktibatuta daudela. Sare mugikorren ezarpenetan alda ditzakezu aukera horiek."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> erabiltzeko, ziurtatu datu-konexioa aktibatuta dagoela <xliff:g id="SIM_NUMBER">%2$d</xliff:g> SIM txartelean. Sare mugikorren ezarpenetan alda dezakezu aukera hori."</string>
@@ -836,7 +826,7 @@
     <string name="radio_info_data_connection_enable" msgid="6183729739783252840">"Gaitu datu-konexioa"</string>
     <string name="radio_info_data_connection_disable" msgid="6404751291511368706">"Desgaitu datu-konexioa"</string>
     <string name="volte_provisioned_switch_string" msgid="4812874990480336178">"VoLTE hornituta"</string>
-    <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Bideo-deiak aktibatuta"</string>
+    <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Bideodeiak aktibatuta"</string>
     <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"Wifi bidezko deiak aktibatuta"</string>
     <string name="eab_provisioned_switch_string" msgid="4449676720736033035">"EAB/Presence hornitu da"</string>
     <string name="cbrs_data_switch_string" msgid="6060356430838077653">"CBRS datuak"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Ezarpen hau aldatzeko, gailua berrabiarazi egin behar duzu."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Berrabiarazi"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Utzi"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Ezarri eSIM aldagarria lehenetsi gisa"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Sare mugikor bidezko irratiaren indarra"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Ikusi SIMeko kontaktuak"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Ikusi markatze finkoko zenbakiak"</string>
@@ -855,7 +846,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"Erregistratu gabe"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"Libre"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"Ez dago erabilgarri"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS erregistroa: <xliff:g id="STATUS">%1$s</xliff:g>\nLTE bidezko ahots-deiak: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nWifi bidezko ahots-deiak: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nBideo-deiak: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT interfazea: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS erregistroa: <xliff:g id="STATUS">%1$s</xliff:g>\nLTE bidezko ahots-deiak: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nWifi bidezko ahots-deiak: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nBideodeiak: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT interfazea: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"Erabilgarri"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"Ez erabilgarri"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"Larrialdi-deiak soilik"</string>
@@ -885,7 +876,7 @@
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Sare mugikorraren neurketa guztien informazioa:"</string>
     <string name="radio_info_gprs_service_label" msgid="6819204246355412952">"Datu-zerbitzua:"</string>
     <string name="radio_info_roaming_label" msgid="6636932886446857120">"Ibiltaritza:"</string>
-    <string name="radio_info_imei_label" msgid="8947899706930120368">"IMEI:"</string>
+    <string name="radio_info_imei_label" msgid="8947899706930120368">"IMEIa:"</string>
     <string name="radio_info_call_redirect_label" msgid="4526480903023362276">"Dei-desbideratzea:"</string>
     <string name="radio_info_ppp_resets_label" msgid="9131901102339077661">"PPP berrezarpen kopurua abiarazi ezkero:"</string>
     <string name="radio_info_current_network_label" msgid="3052098695239642450">"Oraingo sarea:"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Hautatu irrati-banda"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Ahots-deien sare mota:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Datu-sare mota:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Ordeztu sare mota:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Hautatu telefonoaren indizea"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Ezarri sare mota hobetsia:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping egiteko ostalari-izena (www.google.com) IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Freskatu"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Aldatu DNS egiaztapenaren egoera"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Jatorrizko fabrikatzailearen berariazko informazioa edota ezarpenak"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC erabilgarri:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR mugatuta:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR erabilgarri:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR estatua:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC erabilgarri (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR murriztua (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR erabilgarri (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR egoera (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR maiztasuna:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Ezarri irrati-bandaren modua"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Banden zerrenda kargatzen…"</string>

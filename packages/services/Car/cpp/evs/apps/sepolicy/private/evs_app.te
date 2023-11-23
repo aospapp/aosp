@@ -18,7 +18,12 @@ allow evs_app evs_app_files:dir search;
 allow evs_app gpu_device:chr_file rw_file_perms;
 allow evs_app ion_device:chr_file r_file_perms;
 allow evs_app system_file:dir r_dir_perms;
+allow evs_app gpu_device:dir search;
+allow evs_app self:process execmem;
 
 # Allow use of binder and find surfaceflinger
 binder_use(evs_app);
 allow evs_app surfaceflinger_service:service_manager find;
+
+# Allow use of cartelemetry service
+allow evs_app cartelemetryd_service:service_manager find;

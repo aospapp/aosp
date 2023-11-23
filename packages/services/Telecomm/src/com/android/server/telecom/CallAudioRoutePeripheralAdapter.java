@@ -45,6 +45,16 @@ public class CallAudioRoutePeripheralAdapter implements WiredHeadsetManager.List
         return mBluetoothRouteManager.isBluetoothAudioConnectedOrPending();
     }
 
+    public boolean isHearingAidDeviceOn() {
+        return mBluetoothRouteManager.isCachedHearingAidDevice(
+                mBluetoothRouteManager.getBluetoothAudioConnectedDevice());
+    }
+
+    public boolean isLeAudioDeviceOn() {
+        return mBluetoothRouteManager.isCachedLeAudioDevice(
+                mBluetoothRouteManager.getBluetoothAudioConnectedDevice());
+    }
+
     @Override
     public void onBluetoothDeviceListChanged() {
         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(

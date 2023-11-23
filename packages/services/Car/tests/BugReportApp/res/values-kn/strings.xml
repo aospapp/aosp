@@ -29,7 +29,7 @@
     <string name="bugreport_dialog_show_bugreports" msgid="6964385141627170297">"ಬಗ್ ವರದಿಗಳನ್ನು ತೋರಿಸಿ"</string>
     <string name="bugreport_dialog_close" msgid="289925437277364266">"ಮುಚ್ಚಿರಿ"</string>
     <string name="bugreport_dialog_title" msgid="3315160684205929910">"ಸಮಸ್ಯೆಯ ಕುರಿತು ಮಾತನಾಡಿ ಮತ್ತು ವಿವರಿಸಿ"</string>
-    <string name="bugreport_dialog_add_audio_to_existing" msgid="4958460267276935700">"%s ನಲ್ಲಿ ಬಗ್ ವರದಿ ಮಾಡುವಿಕೆಗಾಗಿ ಆಡಿಯೊ ಸಂದೇಶ"</string>
+    <string name="bugreport_dialog_add_audio_to_existing" msgid="4958460267276935700">"%s ನಲ್ಲಿ ಬಗ್ ವರದಿ ಮಾಡುವಿಕೆಗಾಗಿ ಆಡಿಯೋ ಸಂದೇಶ"</string>
     <string name="bugreport_dialog_recording_finished" msgid="3982335902169398758">"ರೆಕಾರ್ಡಿಂಗ್ ಪೂರ್ಣಗೊಂಡಿದೆ"</string>
     <string name="bugreport_dialog_in_progress_title" msgid="1663500052146177338">"ಬಗ್ ವರದಿಮಾಡುವಿಕೆ ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ"</string>
     <string name="bugreport_dialog_in_progress_title_finished" msgid="1610236990020413471">"ಬಗ್ ವರದಿಯನ್ನು ಸಂಗ್ರಹಿಸಲಾಗಿದೆ"</string>

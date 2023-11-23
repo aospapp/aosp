@@ -152,6 +152,7 @@ public class RcsProvisioningMonitorTest {
     private MockContentResolver mContentResolver = new MockContentResolver();
     private SimInfoContentProvider mProvider;
     private BroadcastReceiver mReceiver;
+    private static final int TEST_SUB_ID = 1;
     @Mock
     private Cursor mCursor;
     @Mock
@@ -853,7 +854,7 @@ public class RcsProvisioningMonitorTest {
         } catch (Exception e) {
             logd("Unable to create looper from handler.");
         }
-        mConnectorListener.getValue().connectionReady(mFeatureManager);
+        mConnectorListener.getValue().connectionReady(mFeatureManager, TEST_SUB_ID);
 
         verify(mFeatureConnector, atLeastOnce()).connect();
     }

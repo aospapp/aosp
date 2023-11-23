@@ -77,4 +77,10 @@
 
     <!-- Whether the user can mute the alert by physical button -->
     <bool name="mute_by_physical_button">false</bool>
+
+    <!-- Allow user to enable/disable audio speech alert (text-to-speech for received messages)-->
+    <bool name="show_alert_speech_setting">true</bool>
+
+    <!-- Default value which determines whether spoken alerts enabled -->
+    <bool name="enable_alert_speech_default">false</bool>
 </resources>

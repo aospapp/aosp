@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"車載カメラにアクセスします。"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"車のエネルギー情報へのアクセス"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"車のエネルギー情報にアクセスします。"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"車の EV 充電器の設定の制御"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"車の EV 充電器の設定の制御。"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"車の航続可能距離の調整"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"車の航続可能距離の値を調整します。"</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"車のエアコン ユニットへのアクセス"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"アプリがインストルメント クラスタに表示されるアクティビティを指定できるようにします"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"インストルメント クラスタ制御"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"インストルメント クラスタでアプリを起動します"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"インストルメント クラスタのナビゲーション状態"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"インストルメント クラスタのナビゲーション状態の変更をリッスンする"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"インストルメント クラスタのレンダリング"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"インストルメント クラスタ データを受信します"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"UX 制限の設定"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"乗員検知システムの検知グラフの開始および終了操作を許可します"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"車の入力サービス"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"入力イベントを処理します"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN バスでエラーが発生しました"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN バスが応答しません。ヘッドユニット ボックスのプラグを抜いて接続し直し、車を再始動してください"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"運転中はこの機能を利用できません"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"アプリをセーフモードで再起動するには、<xliff:g id="EXIT_BUTTON">%s</xliff:g> を選択します。"</string>
-    <string name="exit_button" msgid="5829638404777671253">"戻る"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"アプリを閉じる"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"戻る"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"診断データの読み取り"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"車から診断データを読み取ります。"</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"診断データの消去"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"カーシートを調節します。"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"車の基本情報へのアクセス"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"車の基本情報にアクセスします。"</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"車の秘匿特権対象情報へのアクセス"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"車の秘匿特権対象情報へのアクセス。"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"車のベンダー権限情報へのアクセス"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"車のベンダー権限情報にアクセスします。"</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"車のエクステリア ライトの状態の読み取り"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"車の電源ポリシーの読み取り。"</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"車の電源ポリシーの制御"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"車の電源ポリシーの制御。"</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"シャットダウン プロセスの調整"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"シャットダウン プロセスの調整。"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"テンプレートの表示"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"テンプレートの表示。"</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"起動アプリの管理"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"起動アプリの管理。"</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN バスでエラーが発生しました"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN バスが応答しません。ヘッドユニット ボックスのプラグを抜いて接続し直し、車を再始動してください"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"自分のデバイス"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ゲスト"</string>
-    <string name="importance_default" msgid="8587741629268312938">"重要度: デフォルト"</string>
-    <string name="importance_high" msgid="3141530792377745041">"重要度: 高"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"出荷時設定へのリセットが必要です"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"インフォテインメント システムのデータはすべて消去されます。リセット後、新しいプロファイルを設定できます。"</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"詳細"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"インフォテインメント システムのリセット"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"システムが、出荷時の設定にリセットしてすべてのデータを消去するリクエストを受信しました。今すぐリセットできます。すぐにリセットしない場合は、次回車が始動したときに自動的にリセットされます。リセット後、新しいプロファイルを設定できます。"</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"今すぐリセット"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"後でリセット"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"インフォテインメント システムは、車の次回始動時にリセットされます。"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"リセットを開始するには、車を駐車してください。"</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> がシステムのパフォーマンスに影響しています"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"システムのパフォーマンスを改善するには、アプリを無効にしてください。[設定] でアプリを有効に戻すことができます。"</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"アプリを引き続き使用するには、優先アプリとして指定してください。"</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"システムのパフォーマンスを改善するには、アプリをアンインストールしてください。"</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"アプリを無効にする"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"優先アプリとして指定する"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"アプリをアンインストールする"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> を無効にしました。[設定] で有効に戻すことができます。"</string>
 </resources>

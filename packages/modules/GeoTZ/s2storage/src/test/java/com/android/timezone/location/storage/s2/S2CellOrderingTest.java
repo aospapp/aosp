@@ -18,6 +18,7 @@ package com.android.timezone.location.storage.s2;
 
 import static com.android.timezone.location.storage.s2.S2CellOrdering.asUnsignedNumeric;
 import static com.android.timezone.location.storage.s2.S2Support.MAX_FACE_ID;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

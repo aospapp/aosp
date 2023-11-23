@@ -50,7 +50,7 @@ public class DevDetailMo {
 
     private static final String MO_NAME = "DevDetail";
 
-    private static final String TAG_EXT = "ext";
+    private static final String TAG_EXT = "Ext";
     private static final String TAG_ORG_WIFI = "org.wi-fi";
     private static final String TAG_WIFI = "Wi-Fi";
     private static final String TAG_EAP_METHOD_LIST = "EAPMethodList"; //Required field

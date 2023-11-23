@@ -44,6 +44,7 @@ public class ProvisioningManagerHelper {
 
     private int mLastCallback = CALLBACK_NONE;
     private Pair<Pair<Integer, Integer>, Boolean> mLastError; // TODO: refactor
+    private Pair<Pair<Integer, String>, Boolean> mLastTextError; // TODO: refactor
     private HandlerThread mHandlerThread;
 
     public ProvisioningManagerHelper() {
@@ -58,6 +59,7 @@ public class ProvisioningManagerHelper {
         }
         mLastCallback = CALLBACK_NONE;
         mLastError = null;
+        mLastTextError = null;
 
         controller.start(mHandlerThread.getLooper());
     }
@@ -87,13 +89,32 @@ public class ProvisioningManagerHelper {
         }
     }
 
+    public void error(int titleId, String message, boolean factoryResetRequired) {
+        synchronized (this) {
+            for (ProvisioningManagerCallback callback : mCallbacks) {
+                postCallbackToUiHandler(callback, () -> {
+                    callback.error(titleId, message, factoryResetRequired);
+                });
+            }
+            mLastCallback = CALLBACK_ERROR;
+            mLastTextError = Pair.create(Pair.create(titleId, message), factoryResetRequired);
+        }
+    }
+
     private void callLastCallbackLocked(ProvisioningManagerCallback callback) {
         switch (mLastCallback) {
             case CALLBACK_ERROR:
-                final Pair<Pair<Integer, Integer>, Boolean> error = mLastError;
-                postCallbackToUiHandler(callback, () -> {
-                    callback.error(error.first.first, error.first.second, error.second);
-                });
+                if (mLastError != null) {
+                    final Pair<Pair<Integer, Integer>, Boolean> error = mLastError;
+                    postCallbackToUiHandler(callback, () -> {
+                        callback.error(error.first.first, error.first.second, error.second);
+                    });
+                } else {
+                    final Pair<Pair<Integer, String>, Boolean> error = mLastTextError;
+                    postCallbackToUiHandler(callback, () -> {
+                        callback.error(error.first.first, error.first.second, error.second);
+                    });
+                }
                 break;
             case CALLBACK_PRE_FINALIZED:
                 postCallbackToUiHandler(callback, callback::preFinalizationCompleted);

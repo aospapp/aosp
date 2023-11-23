@@ -76,7 +76,7 @@ android_app {
         enabled: false,
     },
     libs: [
-        "android.car",
+        "android.car-system-stubs",
     ],
     static_libs: [
         "car-ui-lib",
@@ -112,7 +112,7 @@ android_library {
         enabled: false,
     },
     libs: [
-        "android.car",
+        "android.car-system-stubs",
     ],
     static_libs: [
         "car-ui-lib",

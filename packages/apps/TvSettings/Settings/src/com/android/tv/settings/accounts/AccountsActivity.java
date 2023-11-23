@@ -23,7 +23,6 @@ import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
 import com.android.tv.settings.basic.BasicModeAccountsAndSignInInfoFragment;
-import com.android.tv.settings.overlay.FlavorUtils;
 
 /** Activity for showing account settings (without slices). */
 public class AccountsActivity extends TvSettingsActivity {
@@ -34,11 +33,13 @@ public class AccountsActivity extends TvSettingsActivity {
     protected Fragment createSettingsFragment() {
         if (getIntent().getIntExtra(EXTRA_FRAGMENT_TYPE, ACCOUNTS_FRAGMENT_DEFAULT)
                 == ACCOUNTS_BASIC_MODE_FRAGMENT) {
-            return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
                     .newSettingsFragment(BasicModeAccountsAndSignInInfoFragment.class.getName(),
                             null);
         } else {
-            return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
+            return com.android.tv.settings.overlay.FlavorUtils.getFeatureFactory(
+                    this).getSettingsFragmentProvider()
                     .newSettingsFragment(AccountsFragment.class.getName(), null);
         }
     }

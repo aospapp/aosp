@@ -18,7 +18,7 @@ package {
 
 cc_library_static {
     name: "libcomputepipeprotosfuzz",
-    proto: {        
+    proto: {
         export_proto_headers: true,
     },
     shared_libs: ["libprotobuf-cpp-full"],
@@ -74,12 +74,13 @@ cc_defaults {
 
     fuzz_config: {
         cc: [
-            "guodonghu@google.com",
-            "hanumantsingh@google.com",
+            "aae-engprod-fuzz@google.com",
             "kathan@google.com",
-            "smara@google.com",
-            "zhaomingyin@google.com",
         ],
+        // Android > Automotive > Embedded > Test Bugs
+        componentid: 162915,
+        // aae-fuzz-bugs
+        hotlists: ["1986127"],
     },
 }
 

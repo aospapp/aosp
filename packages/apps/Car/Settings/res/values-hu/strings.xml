@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Adathozzáférés a mobilhálózaton keresztül"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Mobilhálózat"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Mobiladatok használata"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"Ki"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Kikapcsolja a mobiladatokat?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Kiválasztás szükséges"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"A(z) <xliff:g id="CARRIER">%1$s</xliff:g> szolgáltatót használja?"</string>
@@ -62,7 +63,7 @@
     <string name="launch_manage_plan_text" msgid="906657488611815787">"Csomag megtekintése"</string>
     <string name="app_data_usage" msgid="3878609885080232877">"Alkalmazás adathasználata"</string>
     <string name="data_usage_app_restricted" msgid="4570970078120010951">"korlátozott"</string>
-    <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"Adatforgalom-számlálás visszaállításának napja"</string>
+    <string name="cycle_reset_day_of_month_picker_title" msgid="1374568502823735361">"Adatforgalom-mérés nullázásának napja"</string>
     <string name="cycle_reset_day_of_month_picker_subtitle" msgid="5361061448258189846">"Minden hónapban ezen a napon:"</string>
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Beállítás"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Adatfigyelmeztetés és -korlát"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi-keresés bekapcsolva"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Automatikus váltás mobiladat-kapcsolatra"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Mobilhálózat használata, ha nincs Wi-Fi-kapcsolat. A szolgáltató adatforgalmi díjat számíthat fel."</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi‑Fi-hálózatok keresése és csatlakozás"</string>
     <string name="learn_more" msgid="8214605928933358604">"További információ"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Hotspot neve"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> bekapcsolása…"</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Más eszközök is csatlakozhatnak a(z) <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> hotspothoz"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Hotspot jelszava"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"Biztonság"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-Personal"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"Nincs"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP-sáv"</string>
@@ -488,7 +492,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Az alkalmazásbeállítások vissza lettek állítva"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"Összes adat törlése"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"Minden adat és profil törlése az infotainmentrendszerről"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"Ez minden adatot töröl a jármű infotainmentrendszeréből, beleértve a következőket:\n\n"<li>"Az Ön Google-fiókja"</li>\n<li>"A rendszer- és alkalmazásadatok, illetve -beállítások"</li>\n<li>"A letöltött alkalmazások"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"Ezzel minden adatot töröl a jármű infotainmentrendszeréből, beleértve a következőket:\n\n"<li>"Az Ön fiókjai és profiljai"</li>\n<li>"Rendszer- és alkalmazásadatok, valamint -beállítások"</li>\n<li>"Letöltött alkalmazások"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"Jelenleg a következő fiókokba van bejelentkezve:"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Be lettek állítva más profilok ennél a járműnél."</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"Minden adat törlése"</string>
@@ -545,8 +549,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Új adminisztrátor kiválasztása"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Legalább egy adminisztrátorra szükség van. Ha törölni szeretné a jelenlegit, előbb válassza ki azt, akivel helyettesítené."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Adminisztrátor választása"</string>
-    <string name="user_guest" msgid="3465399481257448601">"Vendég"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"Vendég"</string>
     <string name="user_switch" msgid="6544839750534690781">"Váltás"</string>
     <string name="current_user_name" msgid="3813671533249316823">"Ön (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Név"</string>
@@ -582,9 +584,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> fiókjai"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"Adatok automatikus szinkronizálása"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"Az adatok automatikus frissítésének engedélyezése"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"Bekapcsolja a szinkronizálást?"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"Az interneten végrehajtott fiókmódosítások automatikusan megjelennek az eszközén is.\n\nEgyes fiókok esetében ez fordítva is igaz. A Google-fiók így működik."</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"Kikapcsolja a szinkronizálást?"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"Engedélyezi az automatikus adatszinkronizálást?"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"Az interneten végrehajtott fiókmódosítások automatikusan megjelennek a járművében is.\n\nEgyes fiókok esetében ez fordítva is igaz."</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"Letiltja az automatikus adatszinkronizálást?"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"Ez mérsékli az adathasználatot, de minden egyes fiókot manuálisan kell majd szinkronizálnia a legfrissebb információk begyűjtéséhez. Emellett a frissítésekről sem kap értesítéseket."</string>
     <string name="account_details_title" msgid="7529571432258448573">"Fiókadatok"</string>
     <string name="add_account_title" msgid="5988746086885210040">"Fiók hozzáadása"</string>
@@ -610,6 +612,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"Adatvédelem"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Infotainmentrendszer-adatok"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"A helyadatokhoz hozzáférő alkalmazások kezelése"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"Kamera"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"A kamerákhoz hozzáférő alkalmazások kezelése"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"A mikrofonhoz hozzáférő alkalmazások kezelése"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"Infotainmentrendszer-adatok"</string>
@@ -671,10 +675,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Mégse"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Megerősítés"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Legalább 4 karakterből kell állnia"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Legalább <xliff:g id="COUNT">%d</xliff:g> karakter hosszúnak kell lennie"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"A PIN-kód legalább <xliff:g id="COUNT">%d</xliff:g> számjegy legyen"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"<xliff:g id="NUMBER">%d</xliff:g> karakternél rövidebbnek kell lennie"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g> számjegynél rövidebbnek kell lennie"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Csak számokat tartalmazhat, 0-tól 9-ig."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Az eszközrendszergazda nem engedélyezi a legutóbbi PIN-kódok használatát"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Rendszergazdája letiltotta a gyakran használt PIN-kódokat. Próbálkozzon másik PIN-kóddal."</string>
@@ -683,7 +683,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Az eszközrendszergazda nem engedélyezi a legutóbbi jelszavak használatát"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Hiba történt a jelszó mentése során"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Rendszergazdája letiltotta a gyakran használt jelszavakat. Próbálkozzon másik jelszóval."</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Növekvő, csökkenő vagy ismétlődő számsor megadása nem engedélyezett."</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"Tartalmaznia kell legalább egy betűt"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"Tartalmaznia kell legalább egy számjegyet"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"Tartalmaznia kell legalább egy szimbólumot"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{Tartalmaznia kell legalább # betűt}other{Tartalmaznia kell legalább # betűt}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{Tartalmaznia kell legalább # kisbetűt}other{Tartalmaznia kell legalább # kisbetűt}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{Tartalmaznia kell legalább # nagybetűt}other{Tartalmaznia kell legalább # nagybetűt}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{Tartalmaznia kell legalább # számjegyet}other{Tartalmaznia kell legalább # számjegyet}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{Tartalmaznia kell legalább # speciális karaktert}other{Tartalmaznia kell legalább # speciális karaktert}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{Tartalmaznia kell legalább # olyan karaktert, amely nem betű}other{Tartalmaznia kell legalább # olyan karaktert, amely nem betű}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{Tartalmaznia kell legalább # olyan karaktert, amely nem szám}other{Tartalmaznia kell legalább # olyan karaktert, amely nem szám}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{Tartalmaznia kell legalább # karaktert}other{Tartalmaznia kell legalább # karaktert}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{Tartalmaznia kell legalább # számjegyet}other{Tartalmaznia kell legalább # számjegyet}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{# karakternél rövidebbnek kell lennie}other{# karakternél rövidebbnek kell lennie}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{# számjegynél rövidebbnek kell lennie}other{# számjegynél rövidebbnek kell lennie}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"Növekvő, csökkenő vagy ismétlődő számsor megadása nem engedélyezett"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"A képernyőzár beállításai"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g> nappal ezelőtt"</string>
     <string name="credentials_reset" msgid="873900550885788639">"Hitelesítési adatok törlése"</string>
@@ -698,6 +712,7 @@
     <string name="remove_button" msgid="6664656962868194178">"Eltávolítás"</string>
     <string name="cancel" msgid="750286395700355455">"Mégse"</string>
     <string name="allow" msgid="7519431342750394402">"Engedélyezés"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"Tiltás"</string>
     <string name="deny" msgid="340512788979930804">"Tiltás"</string>
     <string name="backspace_key" msgid="1545590866688979099">"Backspace billentyű"</string>
     <string name="enter_key" msgid="2121394305541579468">"Enter billentyű"</string>
@@ -736,7 +751,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"Az infotainmentrendszer-app aktiválása"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Kikapcsolás és eltávolítás"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"Az infotainmentrendszer-alkalmazás deaktiválása"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"További részletek"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"A szervezetkezelő figyelheti és kezelheti az ezzel a profillal társított alkalmazásokat és adatokat, beleértve a beállításokat, az engedélyeket, a vállalati hozzáférést, a hálózati tevékenységeket és a jármű helyadatait is."</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"A szervezetkezelő figyelheti és kezelheti az ezzel a profillal társított alkalmazásokat és adatokat, beleértve a beállításokat, az engedélyeket, a vállalati hozzáférést, a hálózati tevékenységeket és az eszköz helyadatait is."</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"A szervezetkezelő figyelheti és kezelheti az ezzel az infotainmentrendszerrel társított alkalmazásokat és adatokat, beleértve a beállításokat, az engedélyeket, a vállalati hozzáférést, a hálózati tevékenységeket és a jármű helyadatait is."</string>
@@ -757,12 +771,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"A(z) <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> járművekre vonatkozó irányelvei"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"A szervezetkezelő által kezelt beállítások"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"További információ erről: <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"Kezelt jármű adatai"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"A flotta rendszergazdája által kezelt beállítások"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"Az ezen a kezelt járművön található adatokhoz való hozzáférés biztosítása érdekében a jármű rendszergazdája módosíthat beállításokat az infotainmentrendszerben, és telepíthet rá szoftvereket.\n\nTovábbi információért forduljon a flotta rendszergazdájához."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"A flotta rendszergazdája számára látható információk"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"A flotta rendszergazdája által végzett módosítások"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"A kezelt jármű fiókjához tartozó adatok."</li>\n" "<li>"A kezelt járművön található alkalmazások listája."</li>\n" "<li>"Az egyes alkalmazásokban töltött idő és használt adatforgalom."</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"Hozzáférés az infotainmentrendszerhez"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"A járművön található alkalmazások listája"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"Az alkalmazások száma becsült érték. Elképzelhető, hogy nem tartalmazza a Play Áruházon kívülről származó alkalmazásokat."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">Legalább <xliff:g id="COUNT_1">%d</xliff:g> alkalmazás</item>
+      <item quantity="one">Legalább <xliff:g id="COUNT_0">%d</xliff:g> alkalmazás</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> alkalmazás</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> alkalmazás</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"Legutóbbi hálózati forgalom naplója"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"Legutóbbi hibajelentés"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"Legutóbbi biztonsági napló"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"Nincs"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"Telepített alkalmazások"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"Helymeghatározási jogosultságok"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"Mikrofonhasználati engedélyek"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"Kamerahasználati engedélyek"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"Alapértelmezett alkalmazások"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"Alapértelmezett billentyűzet"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"Beállítva: <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"Globális HTTP-proxy beállítva"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"Megbízható hitelesítési adatok a személyes profilban"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"A rendszergazda zárolhatja az infotainmentrendszert, és képes a jelszó visszaállítására."</li>\n" "<li>"A rendszergazda törölheti az infotainmentrendszer adatait."</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"Sikertelen jelszómegadási próbálkozások száma az infotainmentrendszer összes adatának törlése előtt"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"Sikertelen jelszómegadási próbálkozások száma a profiladatok törlése előtt"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> próbálkozás</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> próbálkozás</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">Kameraalkalmazások</item>
+      <item quantity="one">Kameraalkalmazás</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">Levelezőprogram-alkalmazások</item>
+      <item quantity="one">Levelezőprogram-alkalmazás</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">Telefonalkalmazások</item>
+      <item quantity="one">Telefonalkalmazás</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Megosztja a hibajelentést?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"A jármű szervezetkezelője hibajelentést kért az eszközzel kapcsolatos probléma megoldása érdekében. Előfordulhat, hogy a rendszer megoszt alkalmazásokat és adatokat."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"A jármű szervezetkezelője hibajelentést kért az eszközzel kapcsolatos probléma megoldása érdekében. Előfordulhat, hogy a rendszer megoszt alkalmazásokat és adatokat, továbbá eszköze átmenetileg lelassulhat."</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"A rendszer megosztja a hibajelentést a szervezetkezelővel, aki alá a jármű tartozik. További részletekért forduljon hozzá."</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Megosztás"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Elutasítás"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"Infotainmentrendszer visszaállítása"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"A rendszer a gyári beállítások visszaállítására és az összes adat törlésére vonatkozó kérést kapott. Visszaállíthatja a beállításokat most, vagy az autó következő elindításakor automatikusan megtörténik a visszaállítás. Ezt követően új profilt állíthat be."</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"Visszaállítás most"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"Visszaállítás később"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"A rendszer a következő indításkor áll vissza."</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"A visszaállításhoz le kell parkolni az autót."</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Ez a beállítás jelenleg nem módosítható"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"Kisegítő lehetőségek"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Feliratok"</string>
@@ -784,4 +853,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Fehér alapon fekete"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Fekete alapon sárga"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Kék alapon sárga"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"Képernyőolvasó"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"Ki"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"A képernyő elemeinek felolvasása"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> használata"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"Lehetőségek"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"Beállítások"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"Kamera"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"A kamera használata"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"Kamerához való hozzáférés engedélyezése az összes alkalmazás számára"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"Kamerahasználati engedélyek kezelése"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"A közelmúltban hozzáférő alkalmazások"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"Nincs a közelmúltban hozzáférő alkalmazás"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"0 alkalmazás rendelkezik hozzáféréssel"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{{total_count} alkalmazásból # rendelkezik hozzáféréssel}other{{total_count} alkalmazásból # rendelkezik hozzáféréssel}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"A közelmúltban hozzáférő alkalmazások"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"Összes megtekintése"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"Betöltés…"</string>
 </resources>

@@ -20,6 +20,9 @@ import android.content.ContentUris;
 import android.net.Uri;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
+
+import com.android.modules.utils.build.SdkLevel;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -577,11 +580,21 @@ public class UriTest extends AndroidTestCase {
                 "rtsp://username:password@rtsp.android.com:2121/");
     }
 
-    public void testToSafeString_notSupport() {
-        checkToSafeString("unsupported://ajkakjah/askdha/secret?secret",
-                "unsupported://ajkakjah/askdha/secret?secret");
-        checkToSafeString("unsupported:ajkakjah/askdha/secret?secret",
-                "unsupported:ajkakjah/askdha/secret?secret");
+    public void testToSafeString_customUri() {
+        if (SdkLevel.isAtLeastT()) {
+            checkToSafeString("other://ajkakjah/...",
+                    "other://ajkakjah/askdha/secret?secret");
+            checkToSafeString("unsupported:", "unsupported:foo//bar");
+            checkToSafeString("other://host:80/...", "other://user@host:80/secret/path/");
+            checkToSafeString("content://contacts/...",
+                    "content://contacts/secret/path/name@foo.com");
+            checkToSafeString("file:///...", "file:///path/to/secret.doc");
+        } else {
+            checkToSafeString("unsupported://ajkakjah/askdha/secret?secret",
+                    "unsupported://ajkakjah/askdha/secret?secret");
+            checkToSafeString("unsupported:ajkakjah/askdha/secret?secret",
+                    "unsupported:ajkakjah/askdha/secret?secret");
+        }
     }
 
     private void checkToSafeString(String expectedSafeString, String original) {

@@ -22,16 +22,17 @@ import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.app.Service;
 import android.car.Car;
+import android.car.annotation.AddedInOrBefore;
 import android.car.annotation.RequiredFeature;
 import android.car.vms.VmsClientManager.VmsClientCallback;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Handler;
-import android.os.HandlerExecutor;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 
+import com.android.car.internal.os.HandlerExecutor;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -69,6 +70,7 @@ public abstract class VmsPublisherClientService extends Service {
     private @Nullable VmsClient mClient;
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onCreate() {
         if (DBG) Log.d(TAG, "Connecting to Car service");
         synchronized (mLock) {
@@ -78,6 +80,7 @@ public abstract class VmsPublisherClientService extends Service {
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public void onDestroy() {
         if (DBG) Log.d(TAG, "Disconnecting from Car service");
         synchronized (mLock) {
@@ -89,6 +92,7 @@ public abstract class VmsPublisherClientService extends Service {
     }
 
     @Override
+    @AddedInOrBefore(majorVersion = 33)
     public IBinder onBind(Intent intent) {
         if (DBG) Log.d(TAG, "onBind, intent: " + intent);
         return new Binder();
@@ -98,6 +102,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @hide
      */
     @VisibleForTesting
+    @AddedInOrBefore(majorVersion = 33)
     protected void onCarLifecycleChanged(Car car, boolean ready) {
         if (DBG) Log.d(TAG, "Car service ready: " + ready);
         if (ready) {
@@ -116,6 +121,7 @@ public abstract class VmsPublisherClientService extends Service {
     /**
      * Notifies the client that publisher services are ready.
      */
+    @AddedInOrBefore(majorVersion = 33)
     protected abstract void onVmsPublisherServiceReady();
 
     /**
@@ -123,6 +129,7 @@ public abstract class VmsPublisherClientService extends Service {
      *
      * @param subscriptionState state of layer subscriptions
      */
+    @AddedInOrBefore(majorVersion = 33)
     public abstract void onVmsSubscriptionChange(@NonNull VmsSubscriptionState subscriptionState);
 
     /**
@@ -135,6 +142,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @param payload     data packet to be sent
      * @throws IllegalStateException if publisher services are not available
      */
+    @AddedInOrBefore(majorVersion = 33)
     public final void publish(@NonNull VmsLayer layer, int publisherId, byte[] payload) {
         getVmsClient().publishPacket(publisherId, layer, payload);
     }
@@ -145,6 +153,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @param offering layers being offered for subscription by the publisher
      * @throws IllegalStateException if publisher services are not available
      */
+    @AddedInOrBefore(majorVersion = 33)
     public final void setLayersOffering(@NonNull VmsLayersOffering offering) {
         getVmsClient().setProviderOfferings(offering.getPublisherId(), offering.getDependencies());
     }
@@ -159,6 +168,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @return a publisher ID for the given publisher description
      * @throws IllegalStateException if publisher services are not available
      */
+    @AddedInOrBefore(majorVersion = 33)
     public final int getPublisherId(byte[] publisherInfo) {
         return getVmsClient().registerProvider(publisherInfo);
     }
@@ -169,6 +179,7 @@ public abstract class VmsPublisherClientService extends Service {
      * @return state of layer subscriptions
      * @throws IllegalStateException if publisher services are not available
      */
+    @AddedInOrBefore(majorVersion = 33)
     public final VmsSubscriptionState getSubscriptions() {
         return getVmsClient().getSubscriptionState();
     }

@@ -36,6 +36,7 @@ java_library {
         "modules-utils-build",
         "net-tests-utils",
         "net-utils-framework-common",
+        "platform-compat-test-rules",
         "platform-test-annotations",
     ],
     libs: [
@@ -43,10 +44,23 @@ java_library {
     ],
 }
 
-// Connectivity coverage tests combines Tethering and Connectivity tests, each with their
-// respective jarjar rules applied.
-// Some tests may be duplicated (in particular static lib tests), as they need to be run under both
-// jarjared packages to cover both usages.
+// Combine Connectivity, NetworkStack and Tethering jarjar rules for coverage target.
+// The jarjar files are simply concatenated in the order specified in srcs.
+// jarjar stops at the first matching rule, so order of concatenation affects the output.
+genrule {
+    name: "ConnectivityCoverageJarJarRules",
+    srcs: [
+        "tethering-jni-jarjar-rules.txt",
+        ":connectivity-jarjar-rules",
+        ":TetheringTestsJarJarRules",
+        ":NetworkStackJarJarRules",
+    ],
+    out: ["jarjar-rules-connectivity-coverage.txt"],
+    // Concat files with a line break in the middle
+    cmd: "for src in $(in); do cat $${src}; echo; done > $(out)",
+    visibility: ["//visibility:private"],
+}
+
 android_library {
     name: "ConnectivityCoverageTestsLib",
     min_sdk_version: "30",
@@ -54,8 +68,11 @@ android_library {
         "FrameworksNetTestsLib",
         "NetdStaticLibTestsLib",
         "NetworkStaticLibTestsLib",
+        "NetworkStackTestsLib",
+        "TetheringTestsLatestSdkLib",
+        "TetheringIntegrationTestsLatestSdkLib",
     ],
-    jarjar_rules: ":connectivity-jarjar-rules",
+    jarjar_rules: ":ConnectivityCoverageJarJarRules",
     manifest: "AndroidManifest_coverage.xml",
     visibility: ["//visibility:private"],
 }
@@ -64,9 +81,8 @@ android_test {
     name: "ConnectivityCoverageTests",
     // Tethering started on SDK 30
     min_sdk_version: "30",
-    // TODO: change to 31 as soon as it is available
-    target_sdk_version: "30",
-    test_suites: ["general-tests", "mts"],
+    target_sdk_version: "31",
+    test_suites: ["general-tests", "mts-tethering"],
     defaults: [
         "framework-connectivity-test-defaults",
         "FrameworksNetTests-jni-defaults",
@@ -81,7 +97,6 @@ android_test {
         "mockito-target-extended-minus-junit4",
         "modules-utils-native-coverage-listener",
         "ConnectivityCoverageTestsLib",
-        "TetheringCoverageTestsLib",
     ],
     jni_libs: [
         // For mockito extended
@@ -89,7 +104,8 @@ android_test {
         "libstaticjvmtiagent",
         // For NetworkStackUtils included in NetworkStackBase
         "libnetworkstackutilsjni",
-        "libtetherutilsjni",
+        "libandroid_net_connectivity_com_android_net_module_util_jni",
+        "libcom_android_networkstack_tethering_util_jni",
         // For framework tests
         "libservice-connectivity",
     ],
@@ -115,9 +131,57 @@ java_defaults {
         // meaning @hide APIs in framework-connectivity are resolved before @SystemApi
         // stubs in framework
         "framework-connectivity.impl",
+        "framework-connectivity-t.impl",
+        "framework-tethering.impl",
         "framework",
 
         // if sdk_version="" this gets automatically included, but here we need to add manually.
         "framework-res",
     ],
+}
+
+// defaults for tests that need to build against framework-connectivity's @hide APIs, but also
+// using fully @hide classes that are jarjared (because they have no API member). Similar to
+// framework-connectivity-test-defaults above but uses pre-jarjar class names.
+// Only usable from targets that have visibility on framework-connectivity-pre-jarjar, and apply
+// connectivity jarjar rules so that references to jarjared classes still match: this is limited to
+// connectivity internal tests only.
+java_defaults {
+    name: "framework-connectivity-internal-test-defaults",
+    sdk_version: "core_platform", // tests can use @CorePlatformApi's
+    libs: [
+        // order matters: classes in framework-connectivity are resolved before framework,
+        // meaning @hide APIs in framework-connectivity are resolved before @SystemApi
+        // stubs in framework
+        "framework-connectivity-pre-jarjar",
+        "framework-connectivity-t-pre-jarjar",
+        "framework-tethering.impl",
+        "framework",
+
+        // if sdk_version="" this gets automatically included, but here we need to add manually.
+        "framework-res",
+    ],
+    defaults_visibility: ["//packages/modules/Connectivity/tests:__subpackages__"],
+}
+
+// Defaults for tests that want to run in mainline-presubmit.
+// Not widely used because many of our tests have AndroidTest.xml files and
+// use the mainline-param config-descriptor metadata in AndroidTest.xml.
+
+// test_mainline_modules is an array of strings. Each element in the array is a list of modules
+// separated by "+". The modules in this list must be in alphabetical order.
+// See SuiteModuleLoader.java.
+// TODO: why are the modules separated by + instead of being separate entries in the array?
+mainline_presubmit_modules = [
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex",
+]
+
+cc_defaults {
+    name: "connectivity-mainline-presubmit-cc-defaults",
+    test_mainline_modules: mainline_presubmit_modules,
+}
+
+java_defaults {
+    name: "connectivity-mainline-presubmit-java-defaults",
+    test_mainline_modules: mainline_presubmit_modules,
 }

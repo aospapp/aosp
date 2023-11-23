@@ -33,6 +33,7 @@ import android.os.Bundle;
 public class SimpleDialog extends DialogFragment {
     private static final String TITLE = "title";
     private static final String MESSAGE = "message";
+    private static final String LOCALIZED_MESSAGE = "localized_message";
     private static final String NEGATIVE_BUTTON_MESSAGE = "negativeButtonMessage";
     private static final String POSITIVE_BUTTON_MESSAGE = "positiveButtonMessage";
 
@@ -56,6 +57,10 @@ public class SimpleDialog extends DialogFragment {
 
         if (args.containsKey(MESSAGE)) {
             builder.setMessage(args.getInt(MESSAGE));
+        }
+
+        if (args.containsKey(LOCALIZED_MESSAGE)) {
+            builder.setMessage(args.getString(LOCALIZED_MESSAGE));
         }
 
         if (args.containsKey(NEGATIVE_BUTTON_MESSAGE)) {
@@ -93,6 +98,7 @@ public class SimpleDialog extends DialogFragment {
     public static class Builder implements DialogBuilder {
         private Integer mTitle;
         private Integer mMessage;
+        private String mLocalizedMessage;
         private Integer mNegativeButtonMessage;
         private Integer mPositiveButtonMessage;
         private Boolean mCancelable;
@@ -112,6 +118,15 @@ public class SimpleDialog extends DialogFragment {
          */
         public Builder setMessage(int message) {
             mMessage = message;
+            return this;
+        }
+
+        /**
+         * Sets the message
+         * @param localizedMessage Message resource id.
+         */
+        public Builder setMessage(String localizedMessage) {
+            mLocalizedMessage = localizedMessage;
             return this;
         }
 
@@ -161,6 +176,10 @@ public class SimpleDialog extends DialogFragment {
 
             if (mMessage != null) {
                 args.putInt(MESSAGE, mMessage);
+            }
+
+            if (mLocalizedMessage != null) {
+                args.putString(LOCALIZED_MESSAGE, mLocalizedMessage);
             }
 
             if (mNegativeButtonMessage != null) {

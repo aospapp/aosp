@@ -13,3 +13,11 @@ package android.app.role {
 
 }
 
+package android.safetycenter {
+
+  public final class SafetyCenterFrameworkInitializer {
+    method public static void registerServiceWrappers();
+  }
+
+}
+

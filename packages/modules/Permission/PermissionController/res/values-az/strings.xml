@@ -21,6 +21,8 @@
     <string name="permission_search_keyword" msgid="1214451577494730543">"icazələr"</string>
     <string name="cancel" msgid="8943320028373963831">"Ləğv edin"</string>
     <string name="back" msgid="6249950659061523680">"Geri"</string>
+    <string name="available" msgid="6007778121920339498">"Əlçatan"</string>
+    <string name="blocked" msgid="9195547604866033708">"Bloklanıb"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Ləğv edin və ya deaktiv edin"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Tətbiq tapılmadı"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"İcazə verməyin"</string>
@@ -53,6 +55,13 @@
     <string name="unused_apps" msgid="2058057455175955094">"İşlədilməyən tətbiqlər"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"İstifadə olunmayan tətbiq yoxdur"</string>
     <string name="zero_unused_apps" msgid="9024448554157499748">"0 istifadə olunmayan tətbiq"</string>
+    <string name="review_permission_decisions" msgid="309559429150613632">"Son icazə qərarları"</string>
+    <string name="review_permission_decisions_view_all" msgid="90391040431566130">"Bütün son icazə qərarlarına baxın"</string>
+    <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Son icazə qərarları yoxdur"</string>
+    <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Təqvimə, zəng qeydlərinə və s. data girişini idarə edin"</string>
+    <string name="granted_permission_decision" msgid="7824827491551861365">"<xliff:g id="APP_NAME">%1$s</xliff:g> tətbiqinə <xliff:g id="PERMISSION_NAME">%2$s</xliff:g> üçün icazə verdiniz"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"<xliff:g id="APP_NAME">%1$s</xliff:g> tətbiqinə <xliff:g id="PERMISSION_NAME">%2$s</xliff:g> üçün icazə vermədiniz"</string>
+    <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Bugün}=1{1 gün əvvəl}other{# gün əvvəl}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Tətbiqi deaktiv edin"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Əgər bu tətbiqi deaktiv etsəniz, Android və digər tətbiqlər düzgün işləməyə bilər. Yadda saxlayın ki, cihazda əvvəlcədən quraşdırıldığına görə bu tətbiqi silə bilməzsiniz. Deaktiv etməklə, bu tətbiqi söndürür və cihazda gizlədirsiniz."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"İcazə meneceri"</string>
@@ -60,21 +69,24 @@
     <string name="no_permissions" msgid="3881676756371148563">"İcazə yoxdur"</string>
     <string name="additional_permissions" msgid="5801285469338873430">"Əlavə icazələr"</string>
     <string name="app_permissions_info_button_label" msgid="7633312050729974623">"Tətbiq məlumatını açın"</string>
-    <plurals name="additional_permissions_more" formatted="false" msgid="5297511511961335277">
-      <item quantity="other">+ <xliff:g id="COUNT_1">%1$d</xliff:g></item>
-      <item quantity="one">+ <xliff:g id="COUNT_0">%1$d</xliff:g></item>
-    </plurals>
+    <string name="additional_permissions_more" msgid="5681220714755304407">"{count,plural, =1{Daha # icazə}other{Daha # icazə}}"</string>
     <string name="old_sdk_deny_warning" msgid="2382236998845153919">"Bu tətbiq köhnə Android versiyası üçün nəzərdə tutulub. İcazəni rədd etmək onun lazımi şəkildə işləməməsinə səbəb ola bilər."</string>
+    <string name="storage_supergroup_warning_allow" msgid="103093462784523190">"Bu tətbiq köhnə Android versiyası üçün nəzərdə tutulub. Bu icazəni versəniz, bütün yaddaşa (fotolar, videolar, musiqi, audio və digər fayllar daxil olmaqla) girişə icazə veriləcək."</string>
+    <string name="storage_supergroup_warning_deny" msgid="6420765672683284347">"Bu tətbiq köhnə Android versiyası üçün nəzərdə tutulub. Bu icazəni verməsəniz, bütün yaddaşa (fotolar, videolar, musiqi, audio və digər fayllar daxil olmaqla) girişə icazə verilməyəcək."</string>
     <string name="default_permission_description" msgid="4624464917726285203">"naməlum əməliyyat etmək"</string>
     <string name="app_permissions_group_summary" msgid="8788419008958284002">"<xliff:g id="COUNT_1">%2$d</xliff:g> tətbiqdən <xliff:g id="COUNT_0">%1$d</xliff:g> ədədi icazəlidir"</string>
     <string name="app_permissions_group_summary2" msgid="4329922444840521150">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="COUNT_1">%2$d</xliff:g> tətbiqə icazə verilir"</string>
     <string name="menu_show_system" msgid="4254021607027872504">"Sistemi göstərin"</string>
     <string name="menu_hide_system" msgid="3855390843744028465">"Sistemi gizlədin"</string>
+    <string name="menu_show_7_days_data" msgid="8979611198508523706">"7 günü göstərin"</string>
+    <string name="menu_show_24_hours_data" msgid="8228054833323380780">"24 saatı göstərin"</string>
     <string name="manage_permission" msgid="2895385393037061964">"İcazənin idarə edilməsi"</string>
     <string name="no_apps" msgid="2412612731628386816">"Tətbiq yoxdur"</string>
     <string name="location_settings" msgid="3624412509133422562">"Məkan Ayarları"</string>
     <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> bu cihaz üçün məkan xidmətləri təminatçısıdır. Məkana giriş məkan ayarlarından dəyişdirilə bilər."</string>
     <string name="system_warning" msgid="1173400963234358816">"Bu icazəni rədd etsəniz, cihazınızın əsas funksiyaları lazımi qaydada işləməyə bilər."</string>
+    <string name="deny_read_media_visual_warning" msgid="3982586279917232827">"Bu tətbiq köhnə Android versiyası üçün nəzərdə tutulub. Bu tətbiqin foto və videolara girişinə icazə verməsəniz, musiqi və digər audiolara girişə də icazə verilməyəcək."</string>
+    <string name="deny_read_media_aural_warning" msgid="8928699919508646732">"Bu tətbiq köhnə Android versiyası üçün nəzərdə tutulub. Bu tətbiqin musiqi və digər audiolara girişinə icazə verməsəniz, foto və videolar girişə də icazə verilməyəcək."</string>
     <string name="cdm_profile_revoke_warning" msgid="4443893270719106700">"Bu icazəni rədd etsəniz, bu tətbiqin idarə etdiyi cihazınızın bəzi funksiyaları lazımi qaydada işləməyə bilər."</string>
     <string name="permission_summary_enforced_by_policy" msgid="4443598170942950519">"Siyasət tərəfindən tətbiq olunur"</string>
     <string name="permission_summary_disabled_by_policy_background_only" msgid="221995005556362660">"Arxa fon girişi siyasətə əsasən deaktiv edildi"</string>
@@ -109,47 +121,23 @@
     <string name="message_staging" msgid="9110563899955511866">"Tətbiq hazırlanır..."</string>
     <string name="app_name_unknown" msgid="1319665005754048952">"Naməlum"</string>
     <string name="permission_usage_title" msgid="1568233336351734538">"Məxfilik paneli"</string>
+    <string name="auto_permission_usage_summary" msgid="7335667266743337075">"Hansı tətbiqlərin bu yaxınlarda icazələri istifadə etdiyinə baxın"</string>
     <string name="permission_group_usage_title" msgid="2595013198075285173">"<xliff:g id="PERMGROUP">%1$s</xliff:g> istifadəsi"</string>
     <string name="perm_usage_adv_info_title" msgid="3357831829538873708">"Digər icazələrə baxın"</string>
     <string name="perm_usage_adv_info_summary_2_items" msgid="3702175198750127822">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>, <xliff:g id="PERMGROUP_1">%2$s</xliff:g>"</string>
     <string name="perm_usage_adv_info_summary_more_items" msgid="949055326299562218">"<xliff:g id="PERMGROUP_0">%1$s</xliff:g>, <xliff:g id="PERMGROUP_1">%2$s</xliff:g> və daha <xliff:g id="NUM">%3$s</xliff:g> icazə"</string>
-    <string name="permission_group_usage_subtitle" msgid="712843174810251274">"<xliff:g id="PERMGROUP">%1$s</xliff:g> icazənizin son 24 saat ərzində tətbiqlərin nə zaman istifadə edildiyini göstərən taymlayn"</string>
+    <string name="permission_group_usage_subtitle_24h" msgid="5120155996322114181">"<xliff:g id="PERMGROUP">%1$s</xliff:g> icazənizin son 24 saat ərzində tətbiqlərin nə zaman istifadə edildiyini göstərən taymlayn"</string>
+    <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"<xliff:g id="PERMGROUP">%1$s</xliff:g> icazənizin son 7 gün ərzində tətbiqlərin nə zaman istifadə edildiyini göstərən taymlayn"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Bu tətbiqin <xliff:g id="PERMGROUP">%1$s</xliff:g> icazənizdən istifadə etdiyi vaxt"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Ətraflı məlumat"</string>
-    <string name="permission_usage_duration_and_proxy" msgid="573959201368716399">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
-    <plurals name="duration_used_days" formatted="false" msgid="1993098309578536308">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> gün</item>
-      <item quantity="one">1 gün</item>
-    </plurals>
-    <plurals name="duration_used_hours" formatted="false" msgid="1020075479447003242">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> saat</item>
-      <item quantity="one">1 saat</item>
-    </plurals>
-    <plurals name="duration_used_minutes" formatted="false" msgid="3422338854436291744">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> dəq</item>
-      <item quantity="one">1 dəq</item>
-    </plurals>
-    <plurals name="duration_used_seconds" formatted="false" msgid="2726799598314248110">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> san</item>
-      <item quantity="one">1 san</item>
-    </plurals>
-    <plurals name="permission_usage_summary" formatted="false" msgid="2837021459986644819">
-      <item quantity="other">Son giriş: <xliff:g id="TIME_2">%1$s</xliff:g>\n<xliff:g id="NUM_3">%2$s</xliff:g> giriş</item>
-      <item quantity="one">Son giriş: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> giriş</item>
-    </plurals>
-    <plurals name="permission_usage_summary_background" formatted="false" msgid="8810001960357233836">
-      <item quantity="other">Son giriş: <xliff:g id="TIME_3">%1$s</xliff:g>\n<xliff:g id="NUM_4">%2$s</xliff:g> giriş (arxa fonda <xliff:g id="NUM_5">%3$s</xliff:g>)</item>
-      <item quantity="one">Son giriş: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> giriş (arxa fonda <xliff:g id="NUM_2">%3$s</xliff:g>)</item>
-    </plurals>
-    <plurals name="permission_usage_summary_duration" formatted="false" msgid="2223071401812931873">
-      <item quantity="other">Son giriş: <xliff:g id="TIME_3">%1$s</xliff:g>\n<xliff:g id="NUM_4">%2$s</xliff:g> giriş\nMüddət: <xliff:g id="TIME_5">%3$s</xliff:g></item>
-      <item quantity="one">Son giriş: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> giriş\nMüddət: <xliff:g id="TIME_2">%3$s</xliff:g></item>
-    </plurals>
-    <plurals name="permission_usage_summary_background_duration" formatted="false" msgid="6893924292010006727">
-      <item quantity="other">Son giriş: <xliff:g id="TIME_4">%1$s</xliff:g>\n<xliff:g id="NUM_5">%2$s</xliff:g> giriş (arxa fonda <xliff:g id="NUM_6">%3$s</xliff:g>)\nMüddət: <xliff:g id="TIME_7">%3$s</xliff:g></item>
-      <item quantity="one">Son giriş: <xliff:g id="TIME_0">%1$s</xliff:g>\n<xliff:g id="NUM_1">%2$s</xliff:g> giriş (arxa fonda<xliff:g id="NUM_2">%3$s</xliff:g>)\nMüddət: <xliff:g id="TIME_3">%3$s</xliff:g></item>
-    </plurals>
-    <string name="permission_usage_summary_background" msgid="6136171928959340697">"Son giriş: <xliff:g id="TIME">%1$s</xliff:g>\nArxa fonda ən son giriş"</string>
+    <string name="manage_permission_summary" msgid="4117555482684114317">"<xliff:g id="PERMGROUP">%1$s</xliff:g> üçün tətbiq girişinə nəzarət edin"</string>
+    <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
+    <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
+    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 gün}other{# gün}}"</string>
+    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 saat}other{# saat}}"</string>
+    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 dəq}other{# dəq}}"</string>
+    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 san}other{# san}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Hər hansı icazə"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"İstənilən vaxt"</string>
     <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Son 7 gün"</string>
@@ -170,15 +158,9 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Son 1 saat ərzində icazə istifadəsi"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Son 15 dəqiqə ərzində icazə istifadəsi"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Son 1 dəqiqə ərinzdə icazə istifadəsi"</string>
-    <plurals name="permission_usage_bar_label" formatted="false" msgid="2316692513662993785">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> tətbiq</item>
-      <item quantity="one">1 tətbiq</item>
-    </plurals>
-    <string name="permission_usage_preference_summary_not_used" msgid="8806755646449754282">"Keçən 24 saat ərzində istifadə edilməyib"</string>
-    <plurals name="permission_usage_preference_label" formatted="false" msgid="9033113721294293706">
-      <item quantity="other"><xliff:g id="NUMBER">%1$d</xliff:g> tətbiq istifadə edir</item>
-      <item quantity="one">1 tətbiq istifadə edir</item>
-    </plurals>
+    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Son 24 saat ərzində istifadə edilməyib"</string>
+    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Son 7 gün ərzində istifadə edilməyib"</string>
+    <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{1 tətbiq istifadə edir}other{# tətbiq istifadə edir}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Hamısına İdarə panelində baxın"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Filtrlədi: <xliff:g id="PERM">%1$s</xliff:g>"</string>
     <string name="app_permission_usage_remove_filter" msgid="2926157607436428207">"Filtri silin"</string>
@@ -192,10 +174,6 @@
     <string name="sort_by_time" msgid="5435045320002150456">"Vaxta görə çeşidləyin"</string>
     <string name="item_separator" msgid="4030255389809224513">", "</string>
     <string name="permission_usage_refresh" msgid="2264056346561305420">"Yeniləyin"</string>
-    <plurals name="permission_usage_permission_filter_subtitle" formatted="false" msgid="2452104463317798268">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> tətbiq</item>
-      <item quantity="one">1 tətbiq</item>
-    </plurals>
     <string name="permission_history_title" msgid="8340081285133025225">"İcazə tarixçəsi"</string>
     <string name="permission_history_category_today" msgid="7496389369158806620">"Bugün"</string>
     <string name="permission_history_category_yesterday" msgid="7242517121222012521">"Dünən"</string>
@@ -218,8 +196,11 @@
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"Bütün <xliff:g id="APP">%1$s</xliff:g> icazələrinə baxın"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"Bu icazəyə sahib olan bütün tətbiqlərə baxın"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"Assistent üçün mikrofon istifadəsini göstərin"</string>
+    <string name="unused_apps_category_title" msgid="2988455616845243901">"İstifadə edilməyən tətbiq ayarları"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"Tətbiq işlənməyəndə icazə ləğv edilsin"</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"İcazələri silin və yer boşaldın"</string>
+    <string name="unused_apps_label_v2" msgid="7058776770056517980">"İstifadə edilmədikdə tətbiq fəaliyyətini durdurun"</string>
+    <string name="unused_apps_summary" msgid="8839466950318403115">"İcazələri silin, müvəqqəti faylları silin və bildirişləri dayandırın"</string>
     <string name="auto_revoke_summary" msgid="5867548789805911683">"Bir neçə ay istifadə etmədiyiniz tətbiqlərdən icazələr datanızın qorunması məqsədilə silinib."</string>
     <string name="auto_revoke_summary_with_permissions" msgid="389712086597285013">"Bir neçə ay istifadə etmədiyiniz tətbiqlərdən icazələr datanızın qorunması məqsədilə silinib: <xliff:g id="PERMS">%1$s</xliff:g>"</string>
     <string name="auto_revoked_apps_page_summary" msgid="6594753657893756536">"Bir neçə ay istifadə etmədiyiniz tətbiqlərdən icazələr datanızın qorunması məqsədilə silinib."</string>
@@ -236,6 +217,7 @@
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> və digər <xliff:g id="NUMBER">%2$s</xliff:g> icazə silindi"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"İstifadə olunmayan tətbiqlər"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Tətbiq bir neçə ay istifadə edilmirsə:\n\n• Datanızı qorumaq üçün icazələr silinir\n• Enerjiyə qənaət üçün bildirişlər dayandırılır\n• Yer boşaltmaq üçün müvəqqəti fayllar silinir\n\nİcazələrə və bildirişlərə yenidən icazə vermək üçün tətbiqi açın."</string>
+    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Tətbiq bir neçə ay istifadə edilmirsə:\n\n• Datanızı qorumaq üçün icazələr silinir\n• Yer boşaltmaq üçün müvəqqəti fayllar silinir\n\nYenidən icazə vermək üçün tətbiqi açın."</string>
     <string name="last_opened_category_title" msgid="7871347400611202595">"Sonuncu dəfə ən azı <xliff:g id="NUMBER">%s</xliff:g> ay əvvəl açılıb"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Tətbiq sonuncu dəfə <xliff:g id="DATE">%s</xliff:g> tarixində açılıb"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Sonuncu dəfə <xliff:g id="DATE">%s</xliff:g> tarixində açılıb"</string>
@@ -254,6 +236,8 @@
     <string name="permission_description_summary_sensors" msgid="1836045815643119949">"Bu icazəsi olan tətbiqlər sağlamlığınız haqqında sensor datasına giriş edə bilər"</string>
     <string name="permission_description_summary_sms" msgid="725999468547768517">"Bu icazəyə sahib tətbiqlər SMS mesajları göndərə və baxa bilər"</string>
     <string name="permission_description_summary_storage" msgid="6575759089065303346">"Bu icazəyə sahib tətbiqlər cihazdakı foto, media və fayllara daxil ola bilər"</string>
+    <string name="permission_description_summary_read_media_aural" msgid="3354728149930482199">"Bu icazəsi olan tətbiqlər bu cihazdakı musiqi və digər audio fayllara giriş edə bilər"</string>
+    <string name="permission_description_summary_read_media_visual" msgid="4991801977881732641">"Bu icazəsi olan tətbiqlər bu cihazdakı foto və videolara giriş edə bilər"</string>
     <string name="app_permission_most_recent_summary" msgid="4292074449384040590">"Son giriş: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_most_recent_denied_summary" msgid="7659497197737708112">"Hazırda rədd edilib / Son giriş: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_permission_never_accessed_summary" msgid="401346181461975090">"Heç vaxt giriş edilməyib"</string>
@@ -265,42 +249,26 @@
     <string name="allowed_storage_full" msgid="5356699280625693530">"Bütün fayllara girişi olanlar"</string>
     <string name="ask_header" msgid="2633816846459944376">"Həmişə soruşulsun"</string>
     <string name="denied_header" msgid="903209608358177654">"İcazə verilməyib"</string>
-    <plurals name="days" formatted="false" msgid="7882807103511175827">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> gün</item>
-      <item quantity="one">1 gün</item>
-    </plurals>
-    <plurals name="hours" formatted="false" msgid="2100550424145061396">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> saat</item>
-      <item quantity="one">1 saat</item>
-    </plurals>
-    <plurals name="minutes" formatted="false" msgid="2154398822027154606">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> dəqiqə</item>
-      <item quantity="one">1 dəqiqə</item>
-    </plurals>
-    <plurals name="seconds" formatted="false" msgid="1564519426522404832">
-      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> saniyə</item>
-      <item quantity="one">1 saniyə</item>
-    </plurals>
+    <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Bütün fayllara giriş edə bilən digər tətbiqlərə baxın"</string>
+    <string name="days" msgid="609563020985571393">"{count,plural, =1{1 gün}other{# gün}}"</string>
+    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 saat}other{# saat}}"</string>
+    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 dəqiqə}other{# dəqiqə}}"</string>
+    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 saniyə}other{# saniyə}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"İcazə xatırladıcıları"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 tətbiq istifadə edilmir"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> istifadə olunmayan tətbiq"</string>
     <string name="auto_revoke_permission_reminder_notification_content" msgid="4492228990462107487">"Məxfiliyinizi qorumaq üçün icazələr silinib. Nəzərdən keçirmək üçün toxunun"</string>
     <string name="auto_revoke_permission_notification_title" msgid="2629844160853454657">"İstifadə edilməyən tətbiqlər üçün icazələr silinib"</string>
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Bəzi tətbiqlər bir neçə aydır ki, istifadə edilməyib. Nəzərdən keçirmək üçün toxunun."</string>
-    <plurals name="auto_revoke_permission_notification_content_count" formatted="false" msgid="9159794096518540350">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> tətbiq bir neçə aydır ki, istifadə edilməyib. Nəzərdən keçirmək üçün toxunun</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> tətbiq bir neçə aydır ki, istifadə edilməyib. Nəzərdən keçirmək üçün toxunun</item>
-    </plurals>
-    <plurals name="unused_apps_notification_title" formatted="false" msgid="8046612559038762856">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> istifadə olunmayan tətbiq</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> istifadə olunmayan tətbiq</item>
-    </plurals>
+    <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# istifadə olunmayan tətbiq}other{# istifadə olunmayan tətbiq}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"İcazə ləğv edildi, müvəqqəti fayllar silindi və bildirişlər söndürüldü. Ətraflı məlumat üçün toxunun."</string>
+    <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Son icazələri yoxlayın"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Avtomobil sürərkən <xliff:g id="APP">%1$s</xliff:g> tətbiqinə <xliff:g id="PERMISSION">%2$s</xliff:g> icazəsi vermisiniz"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Avtomobil sürərkən <xliff:g id="APP">%1$s</xliff:g> tətbiqinə <xliff:g id="PERMISSION_1">%2$s</xliff:g> və <xliff:g id="PERMISSION_2">%3$s</xliff:g> icazəsi vermisiniz"</string>
+    <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Avtomobil sürərkən <xliff:g id="APP">%2$s</xliff:g> tətbiqinə <xliff:g id="COUNT">%1$d</xliff:g> icazə vermisiniz"</string>
+    <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{Avtomobil sürərkən <xliff:g id="APP_0">%1$s</xliff:g> tətbiqinə və digər # tətbiqə giriş icazəsi vermisiniz}other{Avtomobil sürərkən <xliff:g id="APP_1">%1$s</xliff:g> tətbiqinə və digər # tətbiqə giriş icazəsi vermisiniz}}"</string>
+    <string name="go_to_settings" msgid="1053735612211228335">"Ayarlara keçin"</string>
     <string name="auto_revoke_setting_subtitle" msgid="8631720570723050460">"Bəzi tətbiqlər bir neçə aydır ki, istifadə edilməyib"</string>
-    <plurals name="auto_revoke_setting_subtitle_count" formatted="false" msgid="85594789277193087">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> tətbiq bir neçə aydır ki, istifadə edilməyib</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> tətbiq bir neçə aydır ki, istifadə edilməyib</item>
-    </plurals>
     <string name="permissions_removed_category_title" msgid="1064754271178447643">"Silinmiş icazələr"</string>
     <string name="permission_removed_page_title" msgid="2627436155091001209">"İcazələr silinib"</string>
     <string name="all_unused_apps_category_title" msgid="755663524704745414">"Bütün istifadə edilməyən tətbiqlər"</string>
@@ -330,16 +298,24 @@
     <string name="permission_subtitle_background" msgid="8916750995309083180">"Həmişə icazə verilir"</string>
     <string name="app_perms_24h_access" msgid="99069906850627181">"Son giriş: <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
     <string name="app_perms_24h_access_yest" msgid="5411926024794555022">"Son giriş: dünən <xliff:g id="TIME_DATE">%1$s</xliff:g>"</string>
-    <string name="app_perms_content_provider" msgid="6996750793881252778">"Son 24 saat ərzində giriş edilib"</string>
+    <string name="app_perms_7d_access" msgid="4945055548894683751">"Son giriş: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>, <xliff:g id="TIME_DATE_1">%2$s</xliff:g>"</string>
+    <string name="app_perms_content_provider_24h" msgid="1055526027667508972">"Son 24 saat ərzində giriş edilib"</string>
+    <string name="app_perms_content_provider_7d" msgid="3215454898257814868">"Son 7 gün ərzində giriş edilib"</string>
     <string name="app_perms_24h_access_background" msgid="3413674718969576843">"Son dəfə giriş edilib: <xliff:g id="TIME_DATE">%1$s</xliff:g> • Həmişə icazə verilir"</string>
     <string name="app_perms_24h_access_yest_background" msgid="9174750810998076725">"Son dəfə dünən bu vaxt giriş edilib: <xliff:g id="TIME_DATE">%1$s</xliff:g> • Həmişə icazə verilir"</string>
-    <string name="app_perms_content_provider_background" msgid="7793984056711923997">"Son 24 saat ərzində giriş edilib • Həmişə icazə verilir"</string>
+    <string name="app_perms_7d_access_background" msgid="408099213372185627">"Son giriş: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>, <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Həmişə icazə verilir"</string>
+    <string name="app_perms_content_provider_24h_background" msgid="3825902995186961496">"Son 24 saat ərzində giriş edilib • Həmişə icazə verilir"</string>
+    <string name="app_perms_content_provider_7d_background" msgid="4818839672116463542">"Son 7 gün ərzində giriş edilib • Həmişə icazə verilir"</string>
     <string name="app_perms_24h_access_media_only" msgid="6651699644199132054">"Son giriş: <xliff:g id="TIME_DATE">%1$s</xliff:g> • Media"</string>
     <string name="app_perms_24h_access_yest_media_only" msgid="7213187706424998792">"Son giriş: dünən <xliff:g id="TIME_DATE">%1$s</xliff:g> • Media"</string>
-    <string name="app_perms_content_provider_media_only" msgid="6206759230589923421">"Son 24 saat ərzində giriş edilib • Media"</string>
+    <string name="app_perms_7d_access_media_only" msgid="1031096653668235200">"Son giriş: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>, <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Media"</string>
+    <string name="app_perms_content_provider_24h_media_only" msgid="7797963000596179491">"Son 24 saat ərzində giriş edilib • Media"</string>
+    <string name="app_perms_content_provider_7d_media_only" msgid="8446239884570262243">"Son 7 gün ərzində giriş edilib • Media"</string>
     <string name="app_perms_24h_access_all_files" msgid="8902360456978159091">"Son giriş: <xliff:g id="TIME_DATE">%1$s</xliff:g> • Bütün Fayllar"</string>
     <string name="app_perms_24h_access_yest_all_files" msgid="5708424073126844909">"Son giriş: dünən <xliff:g id="TIME_DATE">%1$s</xliff:g> • Bütün Fayllar"</string>
-    <string name="app_perms_content_provider_all_files" msgid="3315281519230304799">"Son 24 saat ərzində giriş edilib • Bütün Fayllar"</string>
+    <string name="app_perms_7d_access_all_files" msgid="8246193786397635824">"Son giriş: <xliff:g id="TIME_DATE_0">%1$s</xliff:g>, <xliff:g id="TIME_DATE_1">%2$s</xliff:g> • Bütün Fayllar"</string>
+    <string name="app_perms_content_provider_24h_all_files" msgid="573104317727770850">"Son 24 saat ərzində giriş edilib • Bütün Fayllar"</string>
+    <string name="app_perms_content_provider_7d_all_files" msgid="7962416229708835558">"Son 7 gün ərzində giriş edilib • Bütün Fayllar"</string>
     <string name="no_permissions_allowed" msgid="6081976856354669209">"İcazə verilmədi"</string>
     <string name="no_permissions_denied" msgid="8159923922804043282">"İcazə verilib"</string>
     <string name="no_apps_allowed" msgid="7718822655254468631">"İcazəli tətbiq yoxdur"</string>
@@ -355,8 +331,6 @@
     <string name="role_assistant_label" msgid="4727586018198208128">"Standart rəqəmsal assistent"</string>
     <string name="role_assistant_short_label" msgid="3369003713187703399">"Rəq. assistent tətbiqi"</string>
     <string name="role_assistant_description" msgid="6622458130459922952">"Köməkçi tətbiqlər ekrandakı məlumatı istifadə edə bilər. Rahat olmaları üçün onlardan bəziləri digər tətbiqlərin işə salınmasını və səsli əmr funksiyasını dəstəkləyir."</string>
-    <string name="role_assistant_request_title" msgid="5964976301922776060">"<xliff:g id="APP_NAME">%1$s</xliff:g> defolt yardım tətbiqi olaraq ayarlansın?"</string>
-    <string name="role_assistant_request_description" msgid="6836644847620178483">"SMS, zəng siyahısına giriş əldə edir"</string>
     <string name="role_browser_label" msgid="2877796144554070207">"Defolt brauzer tətbiqi"</string>
     <string name="role_browser_short_label" msgid="6745009127123292296">"Brauzer tətbiqi"</string>
     <string name="role_browser_description" msgid="3465253637499842671">"İnternet girişini təmin edən və kliklədiyiniz linkləri göstərən tətbiqlər"</string>
@@ -366,13 +340,13 @@
     <string name="role_dialer_short_label" msgid="7186888549465352489">"Telefon tətbiqi"</string>
     <string name="role_dialer_description" msgid="8768708633696539612">"Cihazda telefon zəngləri qəbul etməyinizə icazə verən tətbiqlər"</string>
     <string name="role_dialer_request_title" msgid="5959618560705912058">"<xliff:g id="APP_NAME">%1$s</xliff:g> defolt telefon tətbiqi olaraq ayarlansın?"</string>
-    <string name="role_dialer_request_description" msgid="2264219375528345270">"Zəng siyahısına giriş əldə edir, SMS göndərin"</string>
+    <string name="role_dialer_request_description" msgid="6288839625724909320">"Bu tətbiqə Kamera, Kontaktlar, Mikrofon, Telefon və SMS-ə giriş icazəsi veriləcək"</string>
     <string name="role_dialer_search_keywords" msgid="3324448983559188087">"nömrə yığan"</string>
     <string name="role_sms_label" msgid="8456999857547686640">"Defolt SMS tətbiqi"</string>
     <string name="role_sms_short_label" msgid="4371444488034692243">"SMS tətbiqi"</string>
     <string name="role_sms_description" msgid="3424020199148153513">"Telefon nömrəsini istifadə etməklə mesaj, foto, video və digər məlumatları göndərən tətbiqlər."</string>
     <string name="role_sms_request_title" msgid="7953552109601185602">"<xliff:g id="APP_NAME">%1$s</xliff:g> defolt SMS tətbiqi olaraq ayarlansın?"</string>
-    <string name="role_sms_request_description" msgid="983371022668134198">"Kontaktlar, SMS, telefona giriş əldə edir"</string>
+    <string name="role_sms_request_description" msgid="2691004766132144886">"Bu tətbiqə Kamera, Kontaktlar, Fayllar və sənədlər, Mikrofon, Telefon və SMS-ə giriş icazəsi veriləcək"</string>
     <string name="role_sms_search_keywords" msgid="8022048144395047352">"mətn mesajı, mətn yazmaq, mesajlar, mesaj yazmaq"</string>
     <string name="role_emergency_label" msgid="7028825857206842366">"Fövqəladə hal üçün defolt tətbiq"</string>
     <string name="role_emergency_short_label" msgid="2388431453335350348">"Fövqəladə hallar üçün tətbiq"</string>
@@ -396,7 +370,14 @@
     <string name="role_call_screening_description" msgid="2349431420497468981">"Nömrələri aşkarlamağa, spam, avtomatik zəng və arzuolunmaz nömrələri blok etməyə imkan verən tətbiqlər"</string>
     <string name="role_call_screening_request_title" msgid="7358309224566977290">"<xliff:g id="APP_NAME">%1$s</xliff:g> defolt zəng edənin ID-si və spam tətbiqi olaraq ayarlansın?"</string>
     <string name="role_call_screening_request_description" msgid="7338511921032446006">"İcazəyə ehtiyac yoxdur"</string>
+    <string name="role_automotive_navigation_label" msgid="2701890757955474751">"Defolt naviqasiya tətbiqi"</string>
+    <string name="role_automotive_navigation_short_label" msgid="5165823092506922457">"Naviqasiya tətbiqi"</string>
+    <string name="role_automotive_navigation_description" msgid="7834601873792870134">"Diqqətəlayiq yer üzrə axtarış və növbəli naviqasiya bələdçisini təmin edən tətbiqlər"</string>
+    <string name="role_automotive_navigation_request_title" msgid="7525693151489384300">"<xliff:g id="APP_NAME">%1$s</xliff:g> defolt naviqasiya tətbiqi olaraq ayarlansın?"</string>
+    <string name="role_automotive_navigation_request_description" msgid="7073023813249245540">"İcazəyə ehtiyac yoxdur"</string>
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> bildirişlərinizə, Telefon, SMS, Kontaktlar və Təqvimə giriş əldə edəcək."</string>
+    <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> bildirişlərinizə giriş əldə edəcək və tətbiqlərinizi qoşulmuş cihazda yayımlaya biləcək"</string>
+    <string name="role_companion_device_computer_description" msgid="416099879217066377">"Bu xidmət telefonunuzdakı foto, media və bildirişləri digər cihazlarla paylaşır."</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Cari defolt"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Bir daha soruşmayın"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Defolt olaraq seçin"</string>
@@ -467,6 +448,10 @@
     <string name="permgrouprequest_calendar" msgid="1493150855673603806">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə təqvimə daxil olmaq icazəsi verilsin?"</string>
     <string name="permgrouprequest_sms" msgid="5672063688745420991">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə SMS mesajları göndərmək və onlara baxmaq icazəsi verilsin?"</string>
     <string name="permgrouprequest_storage" msgid="8717773092518621602">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə cihazdakı foto, media və fayllara daxil olmaq icazəsi verilsin?"</string>
+    <string name="permgrouprequest_storage_q_to_s" msgid="8213701872983685505">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinin bu cihazdakı &lt;b&gt;foto, video, musiqi və audiolara&lt;/b&gt; girişinə icazə verilsin?"</string>
+    <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinin bu cihazdakı &lt;b&gt;foto, video, musiqi, audio və digər fayllara&lt;/b&gt; girişinə icazə verilsin?"</string>
+    <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə bu cihazdakı musiqi və audioya girişinə icazə verilsin?"</string>
+    <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinin cihazdakı foto və videolara girişinə icazə verilsin?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə səs yazmaq icazəsi verilsin?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Tətbiq yalnız ondan istifadə etiyiniz zaman audio yaza biləcək"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə audio yazmaq icazəsi verilsin?"</string>
@@ -483,6 +468,11 @@
     <string name="permgrouprequest_calllog" msgid="2065327180175371397">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə telefonun zəng qeydlərinə daxil olmaq icazəsi verilsin?"</string>
     <string name="permgrouprequest_phone" msgid="1829234136997316752">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə telefon zəngləri etmək və onları idarə etmək icazəsi verilsin?"</string>
     <string name="permgrouprequest_sensors" msgid="4397358316850652235">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə həyati əlamətlər haqqında sensor dataya daxil olmaq icazəsi verilsin?"</string>
+    <string name="permgroupupgraderequestdetail_sensors" msgid="6651914048792092835">"Bu tətbiq hər zaman, hətta ondan istifadə etmədiyiniz zaman belə sağlamlıq göstəriciləriniz haqqında sensor datasına giriş etmək istəyir. Bu dəyişikliyi etmək üçün "<annotation id="link">"ayarlara keçin"</annotation>"."</string>
+    <string name="permgroupbackgroundrequest_sensors" msgid="5661924322018503886">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə sağlamlıq göstəriciləriniz haqqında sensor datasına giriş icazəsi verilsin?"</string>
+    <string name="permgroupbackgroundrequestdetail_sensors" msgid="7726767635834043501">"Tətbiqdən istifadə etmədiyiniz zaman belə, bu tətbiqin bədən sensoru datasına hər zaman giriş etməsinə icazə vermək üçün "<annotation id="link">"ayarlara keçin."</annotation></string>
+    <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinin istifadə zamanı bədən sensoru datasına giriş etməsinə icazə verilməyə davam edilsin?"</string>
+    <string name="permgrouprequest_notifications" msgid="6396739062335106181">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tətbiqinə sizə bildiriş göndərmək icazəsi verilsin?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"İdarə edilən icazələr"</string>
     <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Məkana giriş edilə bilər"</string>
     <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"İT admininiz <xliff:g id="APP_NAME">%s</xliff:g> tətbiqinə məkanınıza giriş icazəsi verir"</string>
@@ -497,4 +487,54 @@
     <string name="privdash_label_other" msgid="3710394147423236033">"Digər"</string>
     <string name="privdash_label_none" msgid="5991866260360484858">"Heç bir"</string>
     <string name="privdash_label_24h" msgid="1512532123865375319">"Ötən\n24 saat"</string>
+    <string name="privdash_label_7d" msgid="5645301995348656931">"Son\n7 gün"</string>
+    <string name="exempt_mic_camera_info_label" msgid="6273581737010902815">"<xliff:g id="APP_NAME">%1$s</xliff:g> Android tərəfindən qorunur. Məlumatlarınız bu cihazda işləndiyinə görə bu tətbiqin icazə istifadəsi status panelində və ya məxfilik panelinizdə göstərilmir."</string>
+    <string name="exempt_info_label" msgid="6286190981253476699">"<xliff:g id="APP_NAME">%1$s</xliff:g> Android tərəfindən qorunur. Məlumatlarınız bu cihazda işləndiyinə görə bu tətbiqin icazə istifadəsi məxfilik panelində göstərilmir."</string>
+    <string name="blocked_camera_title" msgid="1128510551791284384">"Cihazın kamerası bloklanıb"</string>
+    <string name="blocked_microphone_title" msgid="1631517143648232585">"Cihazın mikrofonu bloklanıb"</string>
+    <string name="blocked_location_title" msgid="2005608279812892383">"Cihaz məkanı deaktivdir"</string>
+    <string name="blocked_sensor_summary" msgid="4443707628305027375">"Tətbiqlər və xidmətlər üçün"</string>
+    <string name="blocked_mic_summary" msgid="8960466941528458347">"Fövqəladə hallar nömrəsinə zəng etdiyiniz zaman mikrofon datası yenə də paylaşıla bilər."</string>
+    <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Dəyişin"</string>
+    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Güvənlik və məxfilik"</string>
+    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Skan edin"</string>
+    <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Qapadın"</string>
+    <string name="security_settings" msgid="3808106921175271317">"Təhlükəsizlik Ayarları"</string>
+    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Sensor İcazələri"</string>
+    <string name="privacy_controls_qs" msgid="471793881466080745">"Məxfilik Nizamlayıcıları"</string>
+    <string name="permissions_removed_qs" msgid="8957319130625294572">"İcazəsi silindi"</string>
+    <string name="camera_usage_qs" msgid="7943349178368641820">"Digər kamera istifadəsinə baxın"</string>
+    <string name="microphone_usage_qs" msgid="2393193350541830472">"Digər mikrofon istifadəsinə baxın"</string>
+    <string name="remove_camera_qs" msgid="8209716677879809162">"Kamera icazəsini silin"</string>
+    <string name="remove_microphone_qs" msgid="2893536836641560183">"Mikrofon icazəsini silin"</string>
+    <string name="manage_service_qs" msgid="7862555549364153805">"Xidməti idarə edin"</string>
+    <string name="manage_permissions_qs" msgid="3780541819763475434">"İcazələri idarə edin"</string>
+    <string name="active_call_usage_qs" msgid="8559974395932523391">"Telefon zəngində istifadə edilir"</string>
+    <string name="recent_call_usage_qs" msgid="743044899599410935">"Bu yaxınlarda telefon zəngində istifadə edilib"</string>
+    <string name="active_app_usage_qs" msgid="4063912870936464727">"<xliff:g id="APP_NAME">%1$s</xliff:g> tərəfindən istifadə edilir"</string>
+    <string name="recent_app_usage_qs" msgid="6650259601306212327">"Bu yaxınlarda <xliff:g id="APP_NAME">%1$s</xliff:g> tərəfindən istifadə edilib"</string>
+    <string name="active_app_usage_1_qs" msgid="4325136375823357052">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) tərəfindən istifadə edilir"</string>
+    <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Bu yaxınlarda <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) tərəfindən istifadə edilib"</string>
+    <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) tərəfindən istifadə edilir"</string>
+    <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Bu yaxınlarda <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) tərəfindən istifadə edilib"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Güvənlik və məxfilik"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Statusu yoxlayın"</string>
+    <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Təsdiq"</string>
+    <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Geriyə"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Digər fayllara da giriş etməyə icazə veriləcək"</string>
+    <string name="media_confirm_dialog_title_a_to_p_aural_deny" msgid="7841428716317307685">"Digər fayllara da giriş etməyə icazə verilməyəcək"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_allow" msgid="6469086448310893751">"Digər fayllara da giriş etməyə icazə veriləcək"</string>
+    <string name="media_confirm_dialog_title_a_to_p_visual_deny" msgid="5767849609024384226">"Digər fayllara da giriş etməyə icazə verilməyəcək"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_allow" msgid="3191904399336990537">"Foto və videolara girişə də icazə veriləcək"</string>
+    <string name="media_confirm_dialog_title_q_to_s_aural_deny" msgid="3128147568953297969">"Foto və videolara girişə də icazə verilməyəcək"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_allow" msgid="6310682466493330434">"Musiqi və audio fayllarına da girişə icazə veriləcək"</string>
+    <string name="media_confirm_dialog_title_q_to_s_visual_deny" msgid="1123845663785900471">"Musiqi və audio fayllarına da girişə icazə verilməyəcək"</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_allow" msgid="7865167246140107623">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq musiqi və audio fayllarına giriş edə bilirsə, ona foto, video və digər fayllara da giriş etməyə icazə veriləcək."</string>
+    <string name="media_confirm_dialog_message_a_to_p_aural_deny" msgid="287502523664804786">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq musiqi və audio fayllarına giriş edə bilmirsə, ona foto, video və digər fayllara da giriş etməyə icazə verilməyəcək."</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_allow" msgid="4952410892939590487">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq foto və video fayllarına giriş edə bilirsə, ona musiqi, audio və digər fayllara da giriş etməyə icazə veriləcək."</string>
+    <string name="media_confirm_dialog_message_a_to_p_visual_deny" msgid="6609500525590757681">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq foto və video fayllarına giriş edə bilmirsə, ona musiqi, audio və digər fayllara da giriş etməyə icazə verilməyəcək."</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_allow" msgid="1702402580147536160">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq musiqi və audio fayllarına giriş edə bilirsə, ona foto və videolara da giriş etməyə icazə veriləcək."</string>
+    <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq musiqi və audio fayllarına giriş edə bilmirsə, ona foto və videolara da giriş etməyə icazə verilməyəcək."</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq foto və video fayllarına giriş edə bilirsə, ona musiqi və audio fayllarına da giriş etməyə icazə veriləcək."</string>
+    <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Bu tətbiq Android\'in ən son versiyasını dəstəkləmir. Əgər bu tətbiq musiqi və audio fayllarına giriş edə bilmirsə, ona foto və videolara da giriş etməyə icazə verilməyəcək."</string>
 </resources>

@@ -27,6 +27,7 @@
 #include "getaddrinfo.h"
 #include "resolv_cache.h"
 #include "resolv_private.h"
+#include "tests/resolv_test_base.h"
 #include "tests/resolv_test_utils.h"
 
 namespace android::net {
@@ -101,7 +102,7 @@ void resetCallbackParams() {
     testUid = 0;
 }
 
-class CallbackTest : public ::testing::Test {
+class CallbackTest : public ResolvTestBase {
   protected:
     void SetUp() override {
         initDnsResolverCallbacks();

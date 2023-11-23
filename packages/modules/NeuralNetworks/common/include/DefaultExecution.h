@@ -42,14 +42,15 @@ class DefaultExecution final : public IExecution {
 
     ExecutionResult<std::pair<std::vector<OutputShape>, Timing>> compute(
             const OptionalTimePoint& deadline) const override {
-        return kPreparedModel->execute(kRequest, kMeasure, deadline, kLoopTimeoutDuration);
+        return kPreparedModel->execute(kRequest, kMeasure, deadline, kLoopTimeoutDuration, {}, {});
     }
 
     GeneralResult<std::pair<SyncFence, ExecuteFencedInfoCallback>> computeFenced(
             const std::vector<SyncFence>& waitFor, const OptionalTimePoint& deadline,
             const OptionalDuration& timeoutDurationAfterFence) const override {
         return kPreparedModel->executeFenced(kRequest, waitFor, kMeasure, deadline,
-                                             kLoopTimeoutDuration, timeoutDurationAfterFence);
+                                             kLoopTimeoutDuration, timeoutDurationAfterFence, {},
+                                             {});
     }
 
    private:

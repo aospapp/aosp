@@ -19,9 +19,10 @@ package com.android.server.wifi.aware;
 import static com.android.server.wifi.WifiSettingsConfigStore.WIFI_VERBOSE_LOGGING_ENABLED;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,14 +37,18 @@ import android.Manifest;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.hardware.wifi.V1_0.NanCipherSuiteType;
+import android.net.wifi.WifiScanner;
 import android.net.wifi.aware.Characteristics;
 import android.net.wifi.aware.ConfigRequest;
 import android.net.wifi.aware.IWifiAwareDiscoverySessionCallback;
 import android.net.wifi.aware.IWifiAwareEventCallback;
 import android.net.wifi.aware.IWifiAwareMacAddressProvider;
+import android.net.wifi.aware.MacAddrMapping;
 import android.net.wifi.aware.PublishConfig;
 import android.net.wifi.aware.SubscribeConfig;
+import android.net.wifi.aware.WifiAwareDataPathSecurityConfig;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -54,6 +59,8 @@ import android.util.SparseIntArray;
 import androidx.test.filters.SmallTest;
 
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.HalDeviceManager;
+import com.android.server.wifi.InterfaceConflictManager;
 import com.android.server.wifi.WifiBaseTest;
 import com.android.server.wifi.WifiSettingsConfigStore;
 import com.android.server.wifi.util.NetdWrapper;
@@ -68,9 +75,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 
 /**
@@ -85,6 +89,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     private String mPackageName = "some.package";
     private String mFeatureId = "some.feature";
     private TestLooper mMockLooper;
+    private Bundle mExtras = new Bundle();
 
     @Mock
     private Context mContextMock;
@@ -105,8 +110,8 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Mock private WifiAwareMetrics mAwareMetricsMock;
     @Mock private WifiPermissionsUtil mWifiPermissionsUtil;
     @Mock private WifiPermissionsWrapper mPermissionsWrapperMock;
-    @Mock
-    WifiSettingsConfigStore mWifiSettingsConfigStore;
+    @Mock private WifiSettingsConfigStore mWifiSettingsConfigStore;
+    @Mock private InterfaceConflictManager mInterfaceConflictManager;
 
     /**
      * Using instead of spy to avoid native crash failures - possibly due to
@@ -150,6 +155,13 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
                 .thenReturn(true);
         when(mAwareStateManagerMock.getCharacteristics()).thenReturn(getCharacteristics());
         when(mWifiSettingsConfigStore.get(eq(WIFI_VERBOSE_LOGGING_ENABLED))).thenReturn(true);
+        // mock target SDK version to be pre-T by default to keep existing tests working.
+        when(mWifiPermissionsUtil.isTargetSdkLessThan(any(), eq(Build.VERSION_CODES.TIRAMISU),
+                anyInt())).thenReturn(true);
+
+        when(mInterfaceConflictManager.manageInterfaceConflictForStateMachine(any(), any(), any(),
+                any(), any(), eq(HalDeviceManager.HDM_CREATE_IFACE_NAN), any())).thenReturn(
+                InterfaceConflictManager.ICM_EXECUTE_COMMAND);
 
         mDut = new WifiAwareServiceImplSpy(mContextMock);
         mDut.fakeUid = mDefaultUid;
@@ -157,10 +169,12 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
                 mAwareMetricsMock, mWifiPermissionsUtil, mPermissionsWrapperMock,
                 mWifiSettingsConfigStore,
                 mock(WifiAwareNativeManager.class), mock(WifiAwareNativeApi.class),
-                mock(WifiAwareNativeCallback.class), mock(NetdWrapper.class));
+                mock(WifiAwareNativeCallback.class), mock(NetdWrapper.class),
+                mInterfaceConflictManager);
         mMockLooper.dispatchAll();
         verify(mAwareStateManagerMock).start(eq(mContextMock), any(), eq(mAwareMetricsMock),
-                eq(mWifiPermissionsUtil), eq(mPermissionsWrapperMock), any(), any());
+                eq(mWifiPermissionsUtil), eq(mPermissionsWrapperMock), any(), any(),
+                eq(mInterfaceConflictManager));
     }
 
     /**
@@ -185,7 +199,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Test
     public void testInstantCommunicationMode() {
         mDut.isInstantCommunicationModeEnabled();
-        verify(mAwareStateManagerMock).isInstantCommunicationModeEnabled();
+        verify(mAwareStateManagerMock).isInstantCommModeGlobalEnable();
 
         // Non-system package could not enable this mode.
         when(mWifiPermissionsUtil.isSystem(anyString(), anyInt())).thenReturn(false);
@@ -215,13 +229,11 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         ConfigRequest configRequest = new ConfigRequest.Builder().setMasterPreference(55).build();
         String callingPackage = "com.google.somePackage";
         String callingFeatureId = "com.google.someFeature";
-        assertFalse(mDut.isDeviceAttached());
         mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock,
-                configRequest, false);
+                configRequest, false, mExtras);
 
         verify(mAwareStateManagerMock).connect(anyInt(), anyInt(), anyInt(), eq(callingPackage),
-                eq(callingFeatureId), eq(mCallbackMock), eq(configRequest), eq(false));
-        assertTrue(mDut.isDeviceAttached());
+                eq(callingFeatureId), eq(mCallbackMock), eq(configRequest), eq(false), any());
     }
 
     /**
@@ -232,12 +244,10 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Test
     public void testDisconnect() throws Exception {
         int clientId = doConnect();
-        assertTrue(mDut.isDeviceAttached());
         mDut.disconnect(clientId, mBinderMock);
 
         verify(mAwareStateManagerMock).disconnect(clientId);
         validateInternalStateCleanedUp(clientId);
-        assertFalse(mDut.isDeviceAttached());
     }
 
     /**
@@ -292,7 +302,8 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
 
         PublishConfig publishConfig = new PublishConfig.Builder().setServiceName("valid.value")
                 .build();
-        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mSessionCallbackMock);
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mSessionCallbackMock,
+                mExtras);
 
         verify(mAwareStateManagerMock).publish(clientId, publishConfig, mSessionCallbackMock);
         assertTrue("SecurityException for invalid access from wrong UID thrown", failsAsExpected);
@@ -312,7 +323,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback);
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
     }
 
     /**
@@ -329,7 +340,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback);
+        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
     }
 
 
@@ -361,9 +372,9 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
 
         int prevId = 0;
         for (int i = 0; i < loopCount; ++i) {
-            mDut.connect(mBinderMock, "", "", mCallbackMock, null, false);
+            mDut.connect(mBinderMock, "", "", mCallbackMock, null, false, mExtras);
             inOrder.verify(mAwareStateManagerMock).connect(clientIdCaptor.capture(), anyInt(),
-                    anyInt(), any(), any(), eq(mCallbackMock), any(), eq(false));
+                    anyInt(), any(), any(), eq(mCallbackMock), any(), eq(false), any());
             int id = clientIdCaptor.getValue();
             if (i != 0) {
                 assertTrue("Client ID incrementing", id > prevId);
@@ -396,9 +407,42 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback);
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
 
         verify(mAwareStateManagerMock).publish(clientId, publishConfig, mockCallback);
+    }
+
+    @Test
+    public void testPublishPostT() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        setTargetSdkToT();
+
+        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName("something.valid")
+                .setRangingEnabled(true).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
+
+        verify(mAwareStateManagerMock).publish(clientId, publishConfig, mockCallback);
+        verify(mWifiPermissionsUtil).enforceNearbyDevicesPermission(any(), eq(true), any());
+    }
+
+    @Test(expected = SecurityException.class)
+    public void testPublishExceptionPostT() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        setTargetSdkToT();
+        // app has no nearby permission
+        doThrow(new SecurityException()).when(mWifiPermissionsUtil)
+                .enforceNearbyDevicesPermission(any(), anyBoolean(), any());
+        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName("something.valid")
+                .setRangingEnabled(true).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
     }
 
     /**
@@ -491,9 +535,48 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback);
+        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
 
         verify(mAwareStateManagerMock).subscribe(clientId, subscribeConfig, mockCallback);
+    }
+
+    private void setTargetSdkToT() {
+        when(mWifiPermissionsUtil.isTargetSdkLessThan(any(),
+                eq(Build.VERSION_CODES.TIRAMISU), anyInt())).thenReturn(false);
+    }
+
+    @Test
+    public void testSubscribePostT() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        setTargetSdkToT();
+
+        SubscribeConfig subscribeConfig = new SubscribeConfig.Builder()
+                .setServiceName("something.valid").setMaxDistanceMm(100).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
+
+        verify(mAwareStateManagerMock).subscribe(clientId, subscribeConfig, mockCallback);
+        verify(mWifiPermissionsUtil, never()).enforceLocationPermission(any(), any(), anyInt());
+        verify(mWifiPermissionsUtil).enforceNearbyDevicesPermission(any(), eq(true), any());
+    }
+
+    @Test(expected = SecurityException.class)
+    public void testSubscribeExceptionPostT() {
+        assumeTrue(SdkLevel.isAtLeastT());
+        setTargetSdkToT();
+        // app has no nearby permission
+        doThrow(new SecurityException()).when(mWifiPermissionsUtil)
+                .enforceNearbyDevicesPermission(any(), anyBoolean(), any());
+        SubscribeConfig subscribeConfig = new SubscribeConfig.Builder()
+                .setServiceName("something.valid").setMaxDistanceMm(100).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
     }
 
     /**
@@ -613,10 +696,10 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
     @Test
     public void testRequestMacAddress() {
         int uid = 1005;
-        List<Integer> list = new ArrayList<>();
+        int[] peerIdArray = new int[0];
         IWifiAwareMacAddressProvider callback = new IWifiAwareMacAddressProvider() { // placeholder
             @Override
-            public void macAddress(Map peerIdToMacMap) throws RemoteException {
+            public void macAddress(MacAddrMapping[] peerIdToMacList) throws RemoteException {
                 // empty
             }
 
@@ -626,9 +709,9 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
             }
         };
 
-        mDut.requestMacAddresses(uid, list, callback);
+        mDut.requestMacAddresses(uid, peerIdArray, callback);
 
-        verify(mAwareStateManagerMock).requestMacAddresses(uid, list, callback);
+        verify(mAwareStateManagerMock).requestMacAddresses(uid, peerIdArray, callback);
     }
 
     @Test(expected = SecurityException.class)
@@ -636,9 +719,10 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         doThrow(new SecurityException()).when(mContextMock).enforceCallingOrSelfPermission(
                 eq(Manifest.permission.NETWORK_STACK), anyString());
 
-        mDut.requestMacAddresses(1005, new ArrayList<>(), new IWifiAwareMacAddressProvider() {
+        mDut.requestMacAddresses(1005, new int[0], new IWifiAwareMacAddressProvider() {
             @Override
-            public void macAddress(Map peerIdToMacMap) throws RemoteException {
+            public void macAddress(MacAddrMapping[] peerIdToMacList) throws RemoteException {
+                // empty
             }
 
             @Override
@@ -667,7 +751,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         cap.maxNdpSessions = 1;
         cap.maxAppInfoLen = 255;
         cap.maxQueuedTransmitMessages = 6;
-        cap.supportedCipherSuites = NanCipherSuiteType.SHARED_KEY_256_MASK;
+        cap.supportedCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
         cap.isInstantCommunicationModeSupported = true;
 
         Characteristics characteristics = cap.toPublicCharacteristics();
@@ -676,9 +760,45 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         assertEquals(characteristics.getMaxMatchFilterLength(), maxMatchFilter);
         assertEquals(characteristics.getSupportedCipherSuites(),
                 Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256);
+        assertEquals(characteristics.getNumberOfSupportedDataPaths(), 1);
+        assertEquals(characteristics.getNumberOfSupportedDataInterfaces(), 1);
+        assertEquals(characteristics.getNumberOfSupportedPublishSessions(), 2);
+        assertEquals(characteristics.getNumberOfSupportedSubscribeSessions(), 2);
         if (SdkLevel.isAtLeastS()) {
             assertEquals(characteristics.isInstantCommunicationModeSupported(), true);
         }
+    }
+
+    @Test
+    public void testPublishWifiValidSecurityConfig() {
+        WifiAwareDataPathSecurityConfig securityConfig = new WifiAwareDataPathSecurityConfig
+                .Builder(Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256)
+                .setPskPassphrase("somePassphrase").build();
+        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName("something.valid")
+                .setDataPathSecurityConfig(securityConfig)
+                .setRangingEnabled(true).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
+
+        verify(mAwareStateManagerMock).publish(clientId, publishConfig, mockCallback);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPublishWifiInvalidSecurityConfig() {
+        WifiAwareDataPathSecurityConfig securityConfig = new WifiAwareDataPathSecurityConfig
+                .Builder(Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128)
+                .setPskPassphrase("somePassphrase").build();
+        PublishConfig publishConfig = new PublishConfig.Builder().setServiceName("something.valid")
+                .setDataPathSecurityConfig(securityConfig)
+                .setRangingEnabled(true).build();
+        int clientId = doConnect();
+        IWifiAwareDiscoverySessionCallback mockCallback = mock(
+                IWifiAwareDiscoverySessionCallback.class);
+
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
     }
 
     /*
@@ -705,12 +825,13 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         // caught by the Builder. Want to test whether service side will catch invalidly
         // constructed configs.
         PublishConfig publishConfig = new PublishConfig(serviceName.getBytes(), ssi, matchFilter,
-                PublishConfig.PUBLISH_TYPE_UNSOLICITED, 0, true, false);
+                PublishConfig.PUBLISH_TYPE_UNSOLICITED, 0, true, false, false,
+                WifiScanner.WIFI_BAND_24_GHZ, null);
         int clientId = doConnect();
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback);
+        mDut.publish(mPackageName, mFeatureId, clientId, publishConfig, mockCallback, mExtras);
 
         verify(mAwareStateManagerMock).publish(clientId, publishConfig, mockCallback);
     }
@@ -721,12 +842,13 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         // caught by the Builder. Want to test whether service side will catch invalidly
         // constructed configs.
         SubscribeConfig subscribeConfig = new SubscribeConfig(serviceName.getBytes(), ssi,
-                matchFilter, SubscribeConfig.SUBSCRIBE_TYPE_PASSIVE, 0, true, false, 0, false, 0);
+                matchFilter, SubscribeConfig.SUBSCRIBE_TYPE_PASSIVE, 0, true, false, 0, false, 0,
+                false, WifiScanner.WIFI_BAND_24_GHZ);
         int clientId = doConnect();
         IWifiAwareDiscoverySessionCallback mockCallback = mock(
                 IWifiAwareDiscoverySessionCallback.class);
 
-        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback);
+        mDut.subscribe(mPackageName, mFeatureId, clientId, subscribeConfig, mockCallback, mExtras);
 
         verify(mAwareStateManagerMock).subscribe(clientId, subscribeConfig, mockCallback);
     }
@@ -735,12 +857,13 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         String callingPackage = "com.google.somePackage";
         String callingFeatureId = "com.google.someFeature";
 
-        mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock, null, false);
+        mDut.connect(mBinderMock, callingPackage, callingFeatureId, mCallbackMock, null, false,
+                mExtras);
 
         ArgumentCaptor<Integer> clientId = ArgumentCaptor.forClass(Integer.class);
         verify(mAwareStateManagerMock).connect(clientId.capture(), anyInt(), anyInt(),
                 eq(callingPackage), eq(callingFeatureId), eq(mCallbackMock),
-                eq(new ConfigRequest.Builder().build()), eq(false));
+                eq(new ConfigRequest.Builder().build()), eq(false), any());
 
         return clientId.getValue();
     }
@@ -759,7 +882,7 @@ public class WifiAwareServiceImplTest extends WifiBaseTest {
         cap.maxNdpSessions = 1;
         cap.maxAppInfoLen = 255;
         cap.maxQueuedTransmitMessages = 6;
-        cap.supportedCipherSuites = NanCipherSuiteType.SHARED_KEY_256_MASK;
+        cap.supportedCipherSuites = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
         cap.isInstantCommunicationModeSupported = false;
         return cap.toPublicCharacteristics();
     }

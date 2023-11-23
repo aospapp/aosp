@@ -16,6 +16,7 @@
 package android.car;
 
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 /**
  * Define value for getAccess() in {@link android.car.hardware.CarPropertyConfig}
@@ -26,9 +27,13 @@ public final class VehiclePropertyAccess {
     /**
      * List of VehiclePropertyAccess from VHAL
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int NONE = 0x00;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int READ = 0x01;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int WRITE = 0x02;
+    @AddedInOrBefore(majorVersion = 33)
     public static final int READ_WRITE = 0x03;
 
     private VehiclePropertyAccess() {}

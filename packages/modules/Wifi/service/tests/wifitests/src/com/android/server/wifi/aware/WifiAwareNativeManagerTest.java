@@ -59,6 +59,7 @@ public class WifiAwareNativeManagerTest extends WifiBaseTest {
     @Mock private IWifiNanIface mWifiNanIfaceMock;
     @Mock android.hardware.wifi.V1_2.IWifiNanIface mIWifiNanIface12Mock;
     @Mock android.hardware.wifi.V1_5.IWifiNanIface mIWifiNanIface15Mock;
+    @Mock android.hardware.wifi.V1_6.IWifiNanIface mIWifiNanIface16Mock;
     @Mock private Handler mHandlerMock;
     private ArgumentCaptor<HalDeviceManager.ManagerStatusListener> mManagerStatusListenerCaptor =
             ArgumentCaptor.forClass(HalDeviceManager.ManagerStatusListener.class);
@@ -85,6 +86,11 @@ public class WifiAwareNativeManagerTest extends WifiBaseTest {
         @Override
         public android.hardware.wifi.V1_5.IWifiNanIface mockableCastTo_1_5(IWifiNanIface iface) {
             return (iface == mIWifiNanIface15Mock) ? mIWifiNanIface15Mock : null;
+        }
+
+        @Override
+        public android.hardware.wifi.V1_6.IWifiNanIface mockableCastTo_1_6(IWifiNanIface iface) {
+            return (iface == mIWifiNanIface16Mock) ? mIWifiNanIface16Mock : null;
         }
     }
 
@@ -137,7 +143,7 @@ public class WifiAwareNativeManagerTest extends WifiBaseTest {
         when(mHalDeviceManager.isStarted()).thenReturn(false);
         mManagerStatusListenerCaptor.getValue().onStatusChanged();
 
-        mInOrder.verify(mWifiAwareStateManagerMock).disableUsage(true);
+        mInOrder.verify(mWifiAwareStateManagerMock).disableUsage(false);
 
         // 3. onStatusChange (ready/started) + available -> enableUsage
         when(mHalDeviceManager.isStarted()).thenReturn(true);

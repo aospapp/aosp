@@ -45,6 +45,9 @@ struct GaugeBucket {
     int64_t mBucketStartNs;
     int64_t mBucketEndNs;
     std::vector<GaugeAtom> mGaugeAtoms;
+
+    // Maps the field/value pairs of an atom to a list of timestamps used to deduplicate atoms.
+    std::unordered_map<AtomDimensionKey, std::vector<int64_t>> mAggregatedAtoms;
 };
 
 typedef std::unordered_map<MetricDimensionKey, std::vector<GaugeAtom>>
@@ -66,7 +69,9 @@ public:
             const sp<StatsPullerManager>& pullerManager,
             const std::unordered_map<int, std::shared_ptr<Activation>>& eventActivationMap = {},
             const std::unordered_map<int, std::vector<std::shared_ptr<Activation>>>&
-                    eventDeactivationMap = {});
+                    eventDeactivationMap = {},
+            const size_t dimensionSoftLimit = StatsdStats::kDimensionKeySizeSoftLimit,
+            const size_t dimensionHardLimit = StatsdStats::kDimensionKeySizeHardLimit);
 
     virtual ~GaugeMetricProducer();
 
@@ -75,12 +80,7 @@ public:
                       bool pullSuccess, int64_t originalPullTimeNs) override;
 
     // GaugeMetric needs to immediately trigger another pull when we create the partial bucket.
-    void notifyAppUpgrade(const int64_t& eventTimeNs) override {
-        std::lock_guard<std::mutex> lock(mMutex);
-
-        if (!mSplitBucketForAppUpgrade) {
-            return;
-        }
+    void notifyAppUpgradeInternalLocked(const int64_t eventTimeNs) override {
         flushLocked(eventTimeNs);
         if (mIsPulled && mSamplingType == GaugeMetric::RANDOM_ONE_SAMPLE) {
             pullAndMatchEventsLocked(eventTimeNs);
@@ -120,7 +120,7 @@ private:
     void onConditionChangedLocked(const bool conditionMet, const int64_t eventTime) override;
 
     // Internal interface to handle active state change.
-    void onActiveStateChangedLocked(const int64_t& eventTimeNs) override;
+    void onActiveStateChangedLocked(const int64_t eventTimeNs) override;
 
     // Internal interface to handle sliced condition change.
     void onSlicedConditionMayChangeLocked(bool overallCondition, const int64_t eventTime) override;
@@ -211,8 +211,6 @@ private:
     const size_t mDimensionHardLimit;
 
     const size_t mGaugeAtomsPerDimensionLimit;
-
-    const bool mSplitBucketForAppUpgrade;
 
     FRIEND_TEST(GaugeMetricProducerTest, TestPulledEventsWithCondition);
     FRIEND_TEST(GaugeMetricProducerTest, TestPulledEventsWithSlicedCondition);

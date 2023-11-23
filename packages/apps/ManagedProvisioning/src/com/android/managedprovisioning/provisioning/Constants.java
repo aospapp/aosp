@@ -17,6 +17,8 @@
 package com.android.managedprovisioning.provisioning;
 
 import android.annotation.IntDef;
+import android.annotation.Nullable;
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +29,7 @@ import java.io.File;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
+import java.util.Set;
 
 /**
  * Constants used for communication between service and activity.
@@ -89,6 +92,22 @@ public final class Constants {
             new ComponentName(
                     Globals.MANAGED_PROVISIONING_PACKAGE_NAME,
                     ProvisioningService.class.getName()));
+
+    private static final Set<String> sManagedProvisioningProvisioningActions =
+            Set.of(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE,
+                    DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE);
+
+    /**
+     * Returns whether the supplied provisioning action is supported for role holder-driven
+     * provisioning.
+     */
+    public static boolean isRoleHolderProvisioningAllowedForAction(
+            @Nullable String managedProvisioningAction) {
+        if (managedProvisioningAction == null) {
+            return false;
+        }
+        return sManagedProvisioningProvisioningActions.contains(managedProvisioningAction);
+    }
 
     private Constants() {
         // Do not instantiate

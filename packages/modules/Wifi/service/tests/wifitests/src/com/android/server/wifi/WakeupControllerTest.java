@@ -37,6 +37,8 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.net.wifi.WifiScanner;
+import android.net.wifi.WifiSsid;
+import android.net.wifi.util.ScanResultUtil;
 import android.os.Handler;
 import android.os.test.TestLooper;
 import android.provider.Settings;
@@ -44,7 +46,6 @@ import android.provider.Settings;
 import androidx.test.filters.SmallTest;
 
 import com.android.server.wifi.ActiveModeWarden.PrimaryClientModeManagerChangedCallback;
-import com.android.server.wifi.util.ScanResultUtil;
 import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 
 import org.junit.After;
@@ -141,6 +142,7 @@ public class WakeupControllerTest extends WifiBaseTest {
         // scanlistener input
         mTestScanResult = new ScanResult();
         mTestScanResult.SSID = SAVED_SSID;
+        mTestScanResult.setWifiSsid(WifiSsid.fromUtf8Text(SAVED_SSID));
         mTestScanResult.capabilities = "";
         mTestScanResult.frequency = 2412;
         ScanResult[] scanResults = new ScanResult[1];
@@ -206,17 +208,19 @@ public class WakeupControllerTest extends WifiBaseTest {
         }
     }
 
-    private ScanResult createOpenScanResult(String ssid, int frequency) {
+    private ScanResult createOpenScanResult(String utf8Ssid, int frequency) {
         ScanResult scanResult = new ScanResult();
-        scanResult.SSID = ssid;
+        scanResult.SSID = utf8Ssid;
+        scanResult.setWifiSsid(WifiSsid.fromUtf8Text(utf8Ssid));
         scanResult.capabilities = "";
         scanResult.frequency = frequency;
         return scanResult;
     }
 
-    private ScanResult createOweScanResult(String ssid, int frequency) {
+    private ScanResult createOweScanResult(String utf8Ssid, int frequency) {
         ScanResult scanResult = new ScanResult();
-        scanResult.SSID = ssid;
+        scanResult.SSID = utf8Ssid;
+        scanResult.setWifiSsid(WifiSsid.fromUtf8Text(utf8Ssid));
         scanResult.capabilities = "OWE";
         scanResult.frequency = frequency;
         return scanResult;
@@ -387,7 +391,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     public void startInitializesWakeupLockWithSavedScanResults() {
         String ssid1 = "ssid 1";
         String ssid2 = "ssid 2";
-        String quotedSsid = ScanResultUtil.createQuotedSSID(ssid1);
+        String quotedSsid = ScanResultUtil.createQuotedSsid(ssid1);
 
         // saved configs
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid);
@@ -422,7 +426,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     public void startInitializesWakeupLockWithNetworkSuggestions() {
         String ssid1 = "ssid 1";
         String ssid2 = "ssid 2";
-        String quotedSsid = ScanResultUtil.createQuotedSSID(ssid1);
+        String quotedSsid = ScanResultUtil.createQuotedSsid(ssid1);
 
         // suggestions
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid);
@@ -463,8 +467,8 @@ public class WakeupControllerTest extends WifiBaseTest {
         String ssid1 = "ssid 1";
         String ssid2 = "ssid 2";
         String ssid3 = "ssid 3";
-        String quotedSsid1 = ScanResultUtil.createQuotedSSID(ssid1);
-        String quotedSsid2 = ScanResultUtil.createQuotedSSID(ssid2);
+        String quotedSsid1 = ScanResultUtil.createQuotedSsid(ssid1);
+        String quotedSsid2 = ScanResultUtil.createQuotedSsid(ssid2);
 
         // saved config + suggestion
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid1);
@@ -506,7 +510,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     @Test
     public void getGoodSavedNetworksAndSuggestionsIgnoreInvalidatedCaptivePortal() {
         String ssid1 = "ssid 1";
-        String quotedSsid1 = ScanResultUtil.createQuotedSSID(ssid1);
+        String quotedSsid1 = ScanResultUtil.createQuotedSsid(ssid1);
 
         // saved captive portal config without validated network
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid1);
@@ -527,7 +531,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     @Test
     public void getGoodSavedNetworksAndSuggestionsIncludeValidatedCaptivePortal() {
         String ssid1 = "ssid 1";
-        String quotedSsid1 = ScanResultUtil.createQuotedSSID(ssid1);
+        String quotedSsid1 = ScanResultUtil.createQuotedSsid(ssid1);
 
         // saved captive portal config with validated network
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork(quotedSsid1);
@@ -552,10 +556,10 @@ public class WakeupControllerTest extends WifiBaseTest {
 
         // saved configs
         WifiConfiguration openNetworkDfs = WifiConfigurationTestUtil
-                .createOpenNetwork(ScanResultUtil.createQuotedSSID(ssidDfs));
+                .createOpenNetwork(ScanResultUtil.createQuotedSsid(ssidDfs));
         openNetworkDfs.getNetworkSelectionStatus().setHasEverConnected(true);
         WifiConfiguration openNetwork24 = WifiConfigurationTestUtil
-                .createOpenNetwork(ScanResultUtil.createQuotedSSID(ssid24));
+                .createOpenNetwork(ScanResultUtil.createQuotedSsid(ssid24));
         openNetwork24.getNetworkSelectionStatus().setHasEverConnected(true);
 
         when(mWifiConfigManager.getSavedNetworks(anyInt()))
@@ -585,7 +589,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     public void onResultsUpdatesWakeupLockForSavedNetworks() {
         // saved config
         WifiConfiguration openNetwork = WifiConfigurationTestUtil
-                .createOpenNetwork(ScanResultUtil.createQuotedSSID(SAVED_SSID));
+                .createOpenNetwork(ScanResultUtil.createQuotedSsid(SAVED_SSID));
         openNetwork.getNetworkSelectionStatus().setHasEverConnected(true);
         when(mWifiConfigManager.getSavedNetworks(anyInt()))
                 .thenReturn(Collections.singletonList(openNetwork));
@@ -613,7 +617,7 @@ public class WakeupControllerTest extends WifiBaseTest {
     public void onResultsUpdatesWakeupLockForNetworkSuggestions() {
         // suggestions
         WifiConfiguration openNetwork = WifiConfigurationTestUtil
-                .createOpenNetwork(ScanResultUtil.createQuotedSSID(SAVED_SSID));
+                .createOpenNetwork(ScanResultUtil.createQuotedSsid(SAVED_SSID));
         WifiNetworkSuggestion openNetworkSuggestion =
                 new WifiNetworkSuggestion(openNetwork, null, false, false, true, true,
                         TEST_PRIORITY_GROUP);

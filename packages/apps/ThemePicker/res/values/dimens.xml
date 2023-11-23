@@ -38,6 +38,7 @@
     <dimen name="option_tile_margin_horizontal">6dp</dimen>
     <dimen name="option_tile_padding_vertical">12dp</dimen>
     <dimen name="option_tile_padding_horizontal">12dp</dimen>
+    <dimen name="option_tile_grid_padding_horizontal">4dp</dimen>
     <dimen name="option_icon_size">16dp</dimen>
     <dimen name="theme_option_icon_sample_height">22dp</dimen>
     <dimen name="theme_option_icon_sample_width">22dp</dimen>
@@ -123,4 +124,15 @@
 
     <dimen name="beta_tag_background_width">46dp</dimen>
     <dimen name="beta_tag_background_height">24dp</dimen>
+
+    <!-- For the color option section -->
+    <dimen name="color_options_container_top_margin">24dp</dimen>
+
+    <!-- For the color page. -->
+    <dimen name="color_page_indicator_margin_top">16dp</dimen>
+
+    <dimen name="component_color_chip_small_size_default">29dp</dimen>
+    <dimen name="color_seed_option_tile_padding">10dp</dimen>
+    <dimen name="color_seed_option_tile_padding_selected">6dp</dimen>
+    <dimen name="color_seed_chip_margin">14dp</dimen>
 </resources>

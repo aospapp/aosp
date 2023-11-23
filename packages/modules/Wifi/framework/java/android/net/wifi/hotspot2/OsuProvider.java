@@ -88,7 +88,7 @@ public final class OsuProvider implements Parcelable {
     /** @hide */
     public OsuProvider(String osuSsid, Map<String, String> friendlyNames,
             String serviceDescription, Uri serverUri, String nai, List<Integer> methodList) {
-        this(WifiSsid.createFromByteArray(osuSsid.getBytes(StandardCharsets.UTF_8)),
+        this(WifiSsid.fromBytes(osuSsid.getBytes(StandardCharsets.UTF_8)),
                 friendlyNames, serviceDescription, serverUri, nai, methodList);
     }
 

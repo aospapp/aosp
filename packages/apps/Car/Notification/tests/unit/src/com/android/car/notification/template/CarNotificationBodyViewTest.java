@@ -54,32 +54,36 @@ public class CarNotificationBodyViewTest {
 
     @Test
     public void onBind_launcherIconUsed_titleTextSet() {
-        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, TEST_DRAWABLE,
-                /* largeIcon= */ null, /* titleIcon= */ null, TEST_COUNT, TEST_WHEN);
+        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, /* useLauncherIcon= */ true,
+                TEST_DRAWABLE, /* largeIcon= */ null, /* titleIcon= */ null,
+                TEST_COUNT, TEST_WHEN);
 
         assertThat(mCarNotificationBodyView.getTitleView().getText()).isEqualTo(TEST_TITLE);
     }
 
     @Test
     public void onBind_launcherIconUsed_contentTextSet() {
-        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, TEST_DRAWABLE,
-                /* largeIcon= */ null, /* titleIcon= */ null, TEST_COUNT, TEST_WHEN);
+        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, /* useLauncherIcon= */ true,
+                TEST_DRAWABLE, /* largeIcon= */ null, /* titleIcon= */ null,
+                TEST_COUNT, TEST_WHEN);
 
         assertThat(mCarNotificationBodyView.getContentView().getText()).isEqualTo(TEST_BODY);
     }
 
     @Test
     public void onBind_launcherIconUsed_countTextSet() {
-        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, TEST_DRAWABLE,
-                /* largeIcon= */ null, /* titleIcon= */ null, TEST_COUNT, TEST_WHEN);
+        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, /* useLauncherIcon= */ true,
+                TEST_DRAWABLE, /* largeIcon= */ null, /* titleIcon= */ null,
+                TEST_COUNT, TEST_WHEN);
 
         assertThat(mCarNotificationBodyView.getCountView().getText()).isEqualTo(TEST_COUNT);
     }
 
     @Test
     public void onBind_launcherIconUsed_timeSet() {
-        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, TEST_DRAWABLE,
-                /* largeIcon= */ null, /* titleIcon= */ null, TEST_COUNT, TEST_WHEN);
+        mCarNotificationBodyView.bind(TEST_TITLE, TEST_BODY, /* useLauncherIcon= */ true,
+                TEST_DRAWABLE, /* largeIcon= */ null, /* titleIcon= */ null,
+                TEST_COUNT, TEST_WHEN);
 
         assertThat(mCarNotificationBodyView.getTimeView().getText()).isEqualTo(EXPECTED_WHEN);
     }

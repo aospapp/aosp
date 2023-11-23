@@ -22,6 +22,7 @@ import android.os.Message;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
@@ -59,10 +60,12 @@ abstract class AbstractSessionStateMachine extends StateMachine {
     /** Timeout when the remote side fails to send a Rekey-Delete request. */
     @VisibleForTesting static final int TIMEOUT_REKEY_REMOTE_DELETE = CMD_TIMEOUT_BASE + 1;
 
-    /** Commands for testing only */
-    protected static final int CMD_TEST_BASE = CMD_SHARED_BASE + 2 * CMD_CATEGORY_SIZE;
+    /** Commands for generic usages */
+    protected static final int CMD_GENERIC_BASE = CMD_SHARED_BASE + 2 * CMD_CATEGORY_SIZE;
     /** Force state machine to a target state for testing purposes. */
-    @VisibleForTesting static final int CMD_FORCE_TRANSITION = CMD_TEST_BASE + 1;
+    @VisibleForTesting static final int CMD_FORCE_TRANSITION = CMD_GENERIC_BASE + 1;
+    /** Force close the session. */
+    @VisibleForTesting static final int CMD_KILL_SESSION = CMD_GENERIC_BASE + 2;
 
     /** Private commands for subclasses */
     protected static final int CMD_PRIVATE_BASE = CMD_SHARED_BASE + 3 * CMD_CATEGORY_SIZE;
@@ -75,6 +78,7 @@ abstract class AbstractSessionStateMachine extends StateMachine {
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_DELETE_CHILD, "Delete Child");
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_REKEY_CHILD, "Rekey Child");
         SHARED_CMD_TO_STR.put(CMD_LOCAL_REQUEST_REKEY_CHILD_MOBIKE, "Rekey Child (MOBIKE)");
+        SHARED_CMD_TO_STR.put(CMD_KILL_SESSION, "Kill session");
         SHARED_CMD_TO_STR.put(TIMEOUT_REKEY_REMOTE_DELETE, "Timout rekey remote delete");
         SHARED_CMD_TO_STR.put(CMD_FORCE_TRANSITION, "Force transition");
     }
@@ -87,6 +91,8 @@ abstract class AbstractSessionStateMachine extends StateMachine {
 
     protected final Executor mUserCbExecutor;
     private final String mLogTag;
+
+    protected volatile boolean mIsClosing = false;
 
     protected AbstractSessionStateMachine(String name, Looper looper, Executor userCbExecutor) {
         super(name, looper);
@@ -112,18 +118,34 @@ abstract class AbstractSessionStateMachine extends StateMachine {
             }
         }
 
+        private String getCmdStr(int cmd) {
+            String cmdName = SHARED_CMD_TO_STR.get(cmd);
+            if (cmdName != null) {
+                return cmdName;
+            }
+
+            cmdName = getCmdString(cmd);
+            if (cmdName != null) {
+                return cmdName;
+            }
+
+            // Unrecognized message
+            return Integer.toString(cmd);
+        }
+
         @Override
         public final boolean processMessage(Message message) {
             try {
-                String cmdName = SHARED_CMD_TO_STR.get(message.what);
-                if (cmdName == null) {
-                    cmdName = getCmdString(message.what);
+                if (mIsClosing && message.what != CMD_KILL_SESSION) {
+                    logd(
+                            "Ignore "
+                                    + getCmdStr(message.what)
+                                    + " since this session is going to be closed");
+                    return HANDLED;
+                } else {
+                    logd("processStateMessage: " + getCmdStr(message.what));
+                    return processStateMessage(message);
                 }
-
-                // Unrecognized message will be logged by super class(Android StateMachine)
-                if (cmdName != null) logd("processStateMessage: " + cmdName);
-
-                return processStateMessage(message);
             } catch (RuntimeException e) {
                 cleanUpAndQuit(e);
                 return HANDLED;
@@ -162,6 +184,38 @@ abstract class AbstractSessionStateMachine extends StateMachine {
         } catch (Exception e) {
             logd("Callback execution failed", e);
         }
+    }
+
+    /** Forcibly close this session. */
+    public void killSession() {
+        log("killSession");
+
+        mIsClosing = true;
+        sendMessage(CMD_KILL_SESSION);
+    }
+
+    /**
+     * Quit SessionStateMachine immediately.
+     *
+     * <p>This method pushes SM_QUIT_CMD in front of the message queue and mark mIsClosing as true.
+     * All currently queued messages will be discarded.
+     *
+     * <p>Subclasses MUST call this method instead of quitNow()
+     */
+    // quitNow() is a public final method in the base class. Thus there is no good way to prevent
+    // caller from calling it within the current inheritance structure.
+    protected void quitSessionNow() {
+        mIsClosing = true;
+        quitNow();
+    }
+
+    protected String getCurrentStateName() {
+        final IState state = getCurrentState();
+        if (state != null) {
+            return state.getName();
+        }
+
+        return "Null State";
     }
 
     @Override

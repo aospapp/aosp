@@ -56,14 +56,20 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 @RunWith(AndroidJUnit4.class)
 public class BuildNumberPreferenceControllerTest {
-    private Context mContext = spy(ApplicationProvider.getApplicationContext());
+    private final Context mContext = spy(ApplicationProvider.getApplicationContext());
+    private final CountDownLatch mCountDownLatch = new CountDownLatch(1);
+
     private LifecycleOwner mLifecycleOwner;
     private Preference mPreference;
     private BuildNumberPreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
     private MockitoSession mSession;
+    private int mDebounceInterval;
 
     @Mock
     private FragmentController mFragmentController;
@@ -105,6 +111,9 @@ public class BuildNumberPreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
         mPreferenceController.onResume(mLifecycleOwner);
+
+        mDebounceInterval = mContext.getResources()
+                .getInteger(R.integer.config_preference_onclick_debounce_ms) + 100; // Add buffer
     }
 
     @After
@@ -151,9 +160,11 @@ public class BuildNumberPreferenceControllerTest {
     }
 
     @Test
-    public void testHandlePreferenceClicked_devSettingsDisabled_someClicks_showToast() {
+    public void testHandlePreferenceClicked_devSettingsDisabled_someClicks_showToast()
+            throws InterruptedException {
         for (int i = 0; i < getTapsToShowToast(); i++) {
             mPreference.performClick();
+            mCountDownLatch.await(mDebounceInterval, TimeUnit.MILLISECONDS);
         }
 
         int remainingClicks = getTapsToBecomeDeveloper() - getTapsToShowToast();
@@ -162,27 +173,33 @@ public class BuildNumberPreferenceControllerTest {
     }
 
     @Test
-    public void testHandlePreferenceClicked_devSettingsDisabled_allClicks_showDevEnabledToast() {
+    public void testHandlePreferenceClicked_devSettingsDisabled_allClicks_showDevEnabledToast()
+            throws InterruptedException {
         for (int i = 0; i < getTapsToBecomeDeveloper(); i++) {
             mPreference.performClick();
+            mCountDownLatch.await(mDebounceInterval, TimeUnit.MILLISECONDS);
         }
         assertToastShown(mContext.getString(R.string.show_dev_on));
     }
 
     @Test
-    public void testHandlePreferenceClicked_devSettingsDisabled_allClicks_devSettingsEnabled() {
+    public void testHandlePreferenceClicked_devSettingsDisabled_allClicks_devSettingsEnabled()
+            throws InterruptedException {
         for (int i = 0; i < getTapsToBecomeDeveloper(); i++) {
             mPreference.performClick();
+            mCountDownLatch.await(mDebounceInterval, TimeUnit.MILLISECONDS);
         }
         assertThat(DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(mContext,
                 mMockUserManager)).isTrue();
     }
 
     @Test
-    public void testHandlePreferenceClicked_devSettingsDisabled_extraClicks_noAlreadyDevToast() {
+    public void testHandlePreferenceClicked_devSettingsDisabled_extraClicks_noAlreadyDevToast()
+            throws InterruptedException {
         int extraClicks = 100;
         for (int i = 0; i < getTapsToBecomeDeveloper() + extraClicks; i++) {
             mPreference.performClick();
+            mCountDownLatch.await(mDebounceInterval, TimeUnit.MILLISECONDS);
         }
         String alreadyDevString = mContext.getString(R.string.show_dev_already);
         ExtendedMockito.verify(

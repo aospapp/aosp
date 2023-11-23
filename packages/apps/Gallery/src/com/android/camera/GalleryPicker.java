@@ -282,7 +282,8 @@ public class GalleryPicker extends NoSearchActivity {
         intentFilter.addAction(Intent.ACTION_MEDIA_EJECT);
         intentFilter.addDataScheme("file");
 
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
 
         getContentResolver().registerContentObserver(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,

@@ -16,6 +16,9 @@
 
 package com.android.car.settings.accounts;
 
+import static android.app.Activity.RESULT_OK;
+
+import static com.android.car.settings.accounts.AddAccountPreferenceController.NEW_USER_DISCLAIMER_REQUEST;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.admin.DevicePolicyManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -40,6 +44,7 @@ import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
@@ -77,6 +82,8 @@ public class AddAccountPreferenceControllerTest {
     private AccountTypesHelper mMockAccountTypesHelper;
     @Mock
     private UserManager mMockUserManager;
+    @Mock
+    private DevicePolicyManager mMockDpm;
 
     @Before
     public void setUp() {
@@ -93,6 +100,7 @@ public class AddAccountPreferenceControllerTest {
         PreferenceControllerTestUtil.assignPreference(mController, mPreference);
 
         when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
+        when(mContext.getSystemService(DevicePolicyManager.class)).thenReturn(mMockDpm);
         doNothing().when(mContext).startActivity(any());
     }
 
@@ -100,6 +108,15 @@ public class AddAccountPreferenceControllerTest {
     public void cannotModifyUsers_restrictedByDpm_addAccountButtonShouldBeAvailableForViewing() {
         EnterpriseTestUtils
                 .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void newUserDisclaimerUnackowledged_addAccountButtonShouldBeAvailableForViewing() {
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
 
         mController.onCreate(mLifecycleOwner);
 
@@ -149,6 +166,7 @@ public class AddAccountPreferenceControllerTest {
     @UiThreadTest
     public void clickAddAccountButton_shouldOpenChooseAccountFragment() {
         when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(true);
 
         mController.onCreate(mLifecycleOwner);
         mPreference.performClick();
@@ -157,7 +175,7 @@ public class AddAccountPreferenceControllerTest {
     }
 
     @Test
-    public void clickAddAccountButton_shouldNotOpenChooseAccountFragmentWhenOneType() {
+    public void clickAddAccountButton_shouldNotOpenChooseAccountFragmentWhenOneTypeAndUnmanaged() {
         when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
         Set<String> accountSet = new HashSet<>();
         accountSet.add("TEST_ACCOUNT_TYPE_1");
@@ -173,6 +191,22 @@ public class AddAccountPreferenceControllerTest {
         Intent intent = intentArgumentCaptor.getValue();
         assertThat(intent.getComponent().getClassName()).isEqualTo(
                 AddAccountActivity.class.getName());
+    }
+
+    @Test
+    @UiThreadTest
+    public void clickAddAccountButton_shouldOpenChooseAccountFragmentWhenOneTypeAndManaged() {
+        when(mMockDpm.isDeviceManaged()).thenReturn(true);
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(true);
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        Set<String> accountSet = new HashSet<>();
+        accountSet.add("TEST_ACCOUNT_TYPE_1");
+        when(mMockAccountTypesHelper.getAuthorizedAccountTypes()).thenReturn(accountSet);
+
+        mController.onCreate(mLifecycleOwner);
+        mPreference.performClick();
+
+        verify(mFragmentController).launchFragment(any(ChooseAccountFragment.class));
     }
 
     @Test
@@ -194,6 +228,7 @@ public class AddAccountPreferenceControllerTest {
     @UiThreadTest
     public void disabledClick_restrictedByDpm_dialog() {
         when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(true);
         EnterpriseTestUtils
                 .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
         mController.onCreate(mLifecycleOwner);
@@ -203,9 +238,39 @@ public class AddAccountPreferenceControllerTest {
         assertShowingDisabledByAdminDialog();
     }
 
+    @Test
+    @UiThreadTest
+    public void disabledClick_newUserDisclaimerUnacknowledged_launchDisclaimer() {
+        when(mMockDpm.isDeviceManaged()).thenReturn(true);
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(false);
+        mController.onCreate(mLifecycleOwner);
+
+        mPreference.performClick();
+
+        assertShowingNewUserDisclaimerActivity();
+    }
+
+    @Test
+    @UiThreadTest
+    public void processActivityResult_newUserDisclaimer_resultOk_chooseAccountActivity() {
+        when(mMockDpm.isDeviceManaged()).thenReturn(true);
+        when(mMockDpm.isNewUserDisclaimerAcknowledged()).thenReturn(true);
+        mController.onCreate(mLifecycleOwner);
+
+        mController.processActivityResult(NEW_USER_DISCLAIMER_REQUEST, RESULT_OK,
+                /* data= */ null);
+
+        verify(mFragmentController).launchFragment(any(ChooseAccountFragment.class));
+    }
+
     private void assertShowingDisabledByAdminDialog() {
         verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
                 eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
+    }
+
+    private void assertShowingNewUserDisclaimerActivity() {
+        verify(mFragmentController).startActivityForResult(any(Intent.class),
+                eq(NEW_USER_DISCLAIMER_REQUEST), any(ActivityResultCallback.class));
     }
 
     private class TestAddAccountPreferenceController extends AddAccountPreferenceController {

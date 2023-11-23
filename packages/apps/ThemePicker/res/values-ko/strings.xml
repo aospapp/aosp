@@ -84,4 +84,9 @@
     <string name="themed_icon_title" msgid="7312460430471956558">"테마 아이콘"</string>
     <string name="beta_title" msgid="8703819523760746458">"베타"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"앱 그리드 변경"</string>
+    <string name="wallpaper_color_tab" msgid="1447926591721403840">"배경화면 색상"</string>
+    <string name="wallpaper_color_title" msgid="5687965239180986458">"배경화면 색상"</string>
+    <string name="preset_color_tab" msgid="3133391839341329314">"기본 색상"</string>
+    <string name="color_changed" msgid="7029571720331641235">"색상 변경됨"</string>
+    <string name="adaptive_color_title" msgid="1336508599235896205">"동적"</string>
 </resources>

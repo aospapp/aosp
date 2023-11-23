@@ -15,24 +15,30 @@
  */
 package com.android.car.settings.enterprise;
 
-import android.Manifest;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
-import androidx.preference.Preference;
-
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settingslib.applications.ApplicationFeatureProvider;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Controller to show apps that were granted camera permission by the device owner.
  */
 public final class AdminGrantedCameraPermissionPreferenceController
-        extends BaseAdminGrantedPermissionsPreferenceController<Preference> {
+        extends BaseAdminGrantedPermissionsPreferenceController {
 
     public AdminGrantedCameraPermissionPreferenceController(Context context,
             String preferenceKey, FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions,
-                Manifest.permission.CAMERA);
+        this(context, preferenceKey, fragmentController, uxRestrictions, /* provider= */ null);
+    }
+
+    @VisibleForTesting
+    AdminGrantedCameraPermissionPreferenceController(Context context,
+            String preferenceKey, FragmentController fragmentController,
+            CarUxRestrictions uxRestrictions, ApplicationFeatureProvider provider) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, provider,
+                EnterpriseUtils.CAMERA_PERMISSIONS);
     }
 }

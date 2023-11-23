@@ -253,8 +253,8 @@ public class BluetoothStateSwitchPreferenceControllerTest {
 
     @Test
     public void stateChanged_on_userRestricted_setsSwitchDisabled() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
         mPreferenceController.onCreate(mLifecycleOwner);
-        mPreferenceController.setUserManager(mUserManager);
         when(mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)).thenReturn(true);
         mPreferenceController.handleStateChanged(BluetoothAdapter.STATE_ON);
 
@@ -263,8 +263,8 @@ public class BluetoothStateSwitchPreferenceControllerTest {
 
     @Test
     public void stateChanged_off_userRestricted_setsSwitchDisabled() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
         mPreferenceController.onCreate(mLifecycleOwner);
-        mPreferenceController.setUserManager(mUserManager);
         when(mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)).thenReturn(true);
 
         mPreferenceController.handleStateChanged(BluetoothAdapter.STATE_OFF);

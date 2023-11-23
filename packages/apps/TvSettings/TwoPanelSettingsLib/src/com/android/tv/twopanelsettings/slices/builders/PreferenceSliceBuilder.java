@@ -19,8 +19,8 @@ package com.android.tv.twopanelsettings.slices.builders;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.BUTTONSTYLE;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.CHECKMARK;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.RADIO;
-import static com.android.tv.twopanelsettings.slices.SlicesConstants.SWITCH;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.SEEKBAR;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.SWITCH;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -158,6 +158,15 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
     }
 
     /**
+     * Add an embedded preference placeholder where another slice can control the properties via
+     * setEmbeddedPreference.
+     */
+    public PreferenceSliceBuilder addEmbeddedPreference(RowBuilder builder) {
+        mImpl.addEmbeddedPreference(builder);
+        return this;
+    }
+
+    /**
      * Set the focused preference for slice.
      * @param key key of the focused preference.
      */
@@ -195,6 +204,7 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         private boolean mHasEndActionOrToggle;
         private boolean mHasEndImage;
         private boolean mHasDefaultToggle;
+        private boolean mHasEndIcon;
         private boolean mTitleItemLoading;
         private IconCompat mTitleIcon;
         private SliceAction mTitleAction;
@@ -338,10 +348,30 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         }
 
         /**
-         * Sets the icon for the preference builder.
+         * Sets the icon for the preference builder. There can only be one icon,
+         * this will replace any other icon that may have been set.
+         * This means that you should only provide an icon using one of the two functions
+         * {@link #setIcon(IconCompat)} or {@link #setEndIcon(IconCompat)}.
+         *
+         * @param icon the image to display.
          */
         @NonNull
         public RowBuilder setIcon(@NonNull IconCompat icon) {
+            mHasEndIcon = false;
+            return setTitleItem(icon);
+        }
+
+        /**
+         * Sets the icon to the end for the preference builder. There can only be one icon,
+         * this will replace any other icon that may have been set.
+         * This means that you should only provide an icon using one of the two functions
+         * {@link #setIcon(IconCompat)} or {@link #setEndIcon(IconCompat)}.
+         *
+         * @param icon the image to display.
+         */
+        @NonNull
+        public RowBuilder setEndIcon(@NonNull IconCompat icon) {
+            mHasEndIcon = true;
             return setTitleItem(icon);
         }
 
@@ -852,6 +882,13 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
 
         public boolean hasDefaultToggle() {
             return mHasDefaultToggle;
+        }
+
+        /**
+         * Checks if item has an end icon.
+         */
+        public boolean hasEndIcon() {
+            return mHasEndIcon;
         }
 
         public CharSequence getRadioGroup() {

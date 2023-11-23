@@ -130,8 +130,10 @@ public class AdasLocationSwitchPreferenceController extends
 
     @Override
     protected void onStartInternal() {
-        mContext.registerReceiver(mAdasReceiver, INTENT_FILTER_ADAS_GNSS_ENABLED_CHANGED);
-        mContext.registerReceiver(mLocationReceiver, INTENT_FILTER_LOCATION_MODE_CHANGED);
+        mContext.registerReceiver(mAdasReceiver, INTENT_FILTER_ADAS_GNSS_ENABLED_CHANGED,
+                Context.RECEIVER_NOT_EXPORTED);
+        mContext.registerReceiver(mLocationReceiver, INTENT_FILTER_LOCATION_MODE_CHANGED,
+                Context.RECEIVER_NOT_EXPORTED);
     }
 
     @Override

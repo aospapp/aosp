@@ -24,6 +24,7 @@ import static com.android.internal.net.eap.test.message.EapTestMessageDefinition
 import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.REQUEST_UNSUPPORTED_TYPE_PACKET;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import android.net.eap.test.EapInfo;
 import android.os.Looper;
 import android.os.test.TestLooper;
 
@@ -79,16 +81,18 @@ public class EapAuthenticatorTest {
 
     @Test
     public void testProcessEapMessageResponse() {
-        EapCallback eapCallback = new EapCallback() {
-            @Override
-            public void onResponse(byte[] eapMsg) {
-                assertArrayEquals(EAP_SIM_RESPONSE_PACKET, eapMsg);
-                assertFalse("Callback has already been fired", mCallbackFired);
-                mCallbackFired = true;
-            }
-        };
+        EapCallback eapCallback =
+                new EapCallback() {
+                    @Override
+                    public void onResponse(byte[] eapMsg, int flagMask) {
+                        assertArrayEquals(EAP_SIM_RESPONSE_PACKET, eapMsg);
+                        assertFalse("Callback has already been fired", mCallbackFired);
+                        assertEquals(0 /* no flags set */, flagMask);
+                        mCallbackFired = true;
+                    }
+                };
 
-        EapResponse eapResponse = new EapResponse(EAP_SIM_RESPONSE_PACKET);
+        EapResponse eapResponse = new EapResponse(EAP_SIM_RESPONSE_PACKET, null /* flagsToAdd */);
         doReturn(eapResponse).when(mMockEapStateMachine).process(eq(EAP_REQUEST_SIM_START_PACKET));
 
         getEapAuthenticatorWithCallback(eapCallback)
@@ -125,15 +129,16 @@ public class EapAuthenticatorTest {
 
     @Test
     public void testProcessEapMessageSuccess() {
-        EapCallback eapCallback = new EapCallback() {
-            @Override
-            public void onSuccess(byte[] msk, byte[] emsk) {
-                assertArrayEquals(MSK, msk);
-                assertArrayEquals(EMSK, emsk);
-                assertFalse("Callback has already been fired", mCallbackFired);
-                mCallbackFired = true;
-            }
-        };
+        EapCallback eapCallback =
+                new EapCallback() {
+                    @Override
+                    public void onSuccess(byte[] msk, byte[] emsk, EapInfo eapInfo) {
+                        assertArrayEquals(MSK, msk);
+                        assertArrayEquals(EMSK, emsk);
+                        assertFalse("Callback has already been fired", mCallbackFired);
+                        mCallbackFired = true;
+                    }
+                };
         EapSuccess eapSuccess = new EapSuccess(MSK, EMSK);
         doReturn(eapSuccess).when(mMockEapStateMachine).process(eq(EAP_SUCCESS_PACKET));
 
@@ -199,7 +204,7 @@ public class EapAuthenticatorTest {
                 mCallbackFired = true;
             }
         };
-        EapResponse eapResponse = new EapResponse(EAP_SIM_RESPONSE_PACKET);
+        EapResponse eapResponse = new EapResponse(EAP_SIM_RESPONSE_PACKET, null /* flagsToAdd */);
         when(mMockEapStateMachine.process(eq(EAP_REQUEST_SIM_START_PACKET)))
                 .then((invocation) -> {
                     // move time forward to trigger the timeout
@@ -231,7 +236,7 @@ public class EapAuthenticatorTest {
      */
     private abstract static class EapCallback implements IEapCallback {
         @Override
-        public void onSuccess(byte[] msk, byte[] emsk) {
+        public void onSuccess(byte[] msk, byte[] emsk, EapInfo eapInfo) {
             throw new UnsupportedOperationException();
         }
 
@@ -241,7 +246,7 @@ public class EapAuthenticatorTest {
         }
 
         @Override
-        public void onResponse(byte[] eapMsg) {
+        public void onResponse(byte[] eapMsg, int flagMask) {
             throw new UnsupportedOperationException();
         }
 

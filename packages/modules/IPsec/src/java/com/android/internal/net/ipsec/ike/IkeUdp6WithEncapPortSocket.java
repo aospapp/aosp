@@ -67,13 +67,12 @@ public final class IkeUdp6WithEncapPortSocket extends IkeUdp6Socket {
      * instance.
      *
      * @param sockConfig the socket configuration
-     * @param ikeSession the IkeSessionStateMachine that is requesting an
-     *     IkeUdp6WithEncapPortSocket.
+     * @param callback the callback for signalling IkeSocket events
      * @param handler the Handler used to process received packets
      * @return an IkeUdp6WithEncapPortSocket instance
      */
     public static IkeUdp6WithEncapPortSocket getIkeUdpEncapSocket(
-            IkeSocketConfig sockConfig, IkeSessionStateMachine ikeSession, Handler handler)
+            IkeSocketConfig sockConfig, IkeSocket.Callback callback, Handler handler)
             throws ErrnoException, IOException {
         IkeUdp6WithEncapPortSocket ikeSocket = sConfigToSocketMap.get(sockConfig);
         if (ikeSocket == null) {
@@ -85,7 +84,7 @@ public final class IkeUdp6WithEncapPortSocket extends IkeUdp6Socket {
 
             sConfigToSocketMap.put(sockConfig, ikeSocket);
         }
-        ikeSocket.mAliveIkeSessions.add(ikeSession);
+        ikeSocket.mRegisteredCallbacks.add(callback);
         return ikeSocket;
     }
 
@@ -101,7 +100,7 @@ public final class IkeUdp6WithEncapPortSocket extends IkeUdp6Socket {
      */
     @Override
     protected void handlePacket(byte[] recvbuf, int length) {
-        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToIkeSession);
+        sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToCallback);
     }
 
     @Override

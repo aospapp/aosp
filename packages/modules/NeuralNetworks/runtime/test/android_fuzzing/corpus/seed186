@@ -1,56 +1,89 @@
 model {
-  operands {
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 3
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_INPUT
-      channel_quant {
-        scales {
+  main {
+    operands {
+      operand {
+        type: TENSOR_BOOL8
+        dimensions {
+          dimension: 2
+          dimension: 2
         }
-        channel_dim: 0
-      }
-      data {
-        random_seed: 4061119752
-      }
-    }
-    operand {
-      type: TENSOR_FLOAT32
-      dimensions {
-        dimension: 3
-      }
-      scale: 0
-      zero_point: 0
-      lifetime: SUBGRAPH_OUTPUT
-      channel_quant {
-        scales {
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
         }
-        channel_dim: 0
+        data {
+          scalar: 16777472
+        }
       }
-      data {
-        random_seed: 488444400
+      operand {
+        type: TENSOR_INT32
+        dimensions {
+          dimension: 2
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 2621812216
+        }
+      }
+      operand {
+        type: TENSOR_INT32
+        dimensions {
+          dimension: 2
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_INPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 1142735274
+        }
+      }
+      operand {
+        type: TENSOR_INT32
+        dimensions {
+          dimension: 2
+          dimension: 2
+        }
+        lifetime: SUBGRAPH_OUTPUT
+        channel_quant {
+          scales {
+          }
+        }
+        data {
+          random_seed: 956313717
+        }
       }
     }
-  }
-  operations {
-    operation {
-      type: L2_NORMALIZATION
-      inputs {
-        index: 0
-      }
-      outputs {
-        index: 1
+    operations {
+      operation {
+        type: SELECT
+        inputs {
+          index: 0
+          index: 1
+          index: 2
+        }
+        outputs {
+          index: 3
+        }
       }
     }
+    input_indexes {
+      index: 0
+      index: 1
+      index: 2
+    }
+    output_indexes {
+      index: 3
+    }
   }
-  input_indexes {
-    index: 0
+  referenced {
   }
-  output_indexes {
-    index: 1
-  }
-  is_relaxed: false
 }

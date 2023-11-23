@@ -51,6 +51,7 @@ public class AddStartState implements State {
         if ((wifiSecurity == AccessPoint.SECURITY_WEP
                 && TextUtils.isEmpty(configuration.wepKeys[0]))
                 || (!WifiSecurityUtil.isOpen(wifiSecurity)
+                && wifiSecurity != AccessPoint.SECURITY_WEP
                 && TextUtils.isEmpty(configuration.preSharedKey))) {
             mStateMachine.getListener().onComplete(StateMachine.PASSWORD);
         } else {

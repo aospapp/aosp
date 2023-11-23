@@ -52,5 +52,4 @@
 
     <color name="list_divider_color">#1f000000</color>
     <color name="list_item_selected_background_color">?android:colorSecondary</color>
-    <color name="color_surface_header">@color/app_background_color</color>
 </resources>

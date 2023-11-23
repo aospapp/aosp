@@ -40,7 +40,6 @@ import androidx.test.filters.SmallTest;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.task.nonrequiredapps.SystemAppsSnapshot;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -66,21 +65,18 @@ public class ProvisionFullyManagedDeviceTaskTest {
             .setDeviceAdminComponentName(ADMIN)
             .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
             .build();
-    private static final ProvisioningParams TEST_PARAMS_LEAVE_SYSTEM_APPS =
-            new ProvisioningParams.Builder()
-                    .setDeviceAdminComponentName(ADMIN)
-                    .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
-                    .setLeaveAllSystemAppsEnabled(true)
-                    .build();
 
     @Mock private Context mContext;
     @Mock private DevicePolicyManager mDevicePolicyManager;
-    @Mock private SystemAppsSnapshot mSystemAppsSnapshot;
     @Mock private AbstractProvisioningTask.Callback mCallback;
     @Mock private Utils mUtils;
     @Mock private Resources mResources;
 
     @Captor private ArgumentCaptor<FullyManagedDeviceProvisioningParams> mParamsCaptor;
+
+    private static final String TEST_ERROR_MESSAGE = "test error message";
+    private static final ProvisioningException PROVISIONING_EXCEPTION = new ProvisioningException(
+            new Exception(), /* provisioningError= */ 0, TEST_ERROR_MESSAGE);
 
     @Before
     public void setUp() throws Exception {
@@ -103,7 +99,6 @@ public class ProvisionFullyManagedDeviceTaskTest {
 
         verify(mCallback).onSuccess(task);
         verifyNoMoreInteractions(mCallback);
-        verify(mSystemAppsSnapshot).takeNewSnapshot(TEST_USER_ID);
     }
 
     @Test
@@ -114,21 +109,20 @@ public class ProvisionFullyManagedDeviceTaskTest {
 
         task.run(TEST_USER_ID);
 
-        verify(mCallback).onError(task, 0);
+        verify(mCallback).onError(task, 0, /* errorMessage= */ null);
         verifyNoMoreInteractions(mCallback);
-        verifyNoMoreInteractions(mSystemAppsSnapshot);
     }
 
     @Test
-    public void testLeaveSystemAppsEnabled() {
-        ProvisionFullyManagedDeviceTask task = createProvisioningTask(
-                TEST_PARAMS_LEAVE_SYSTEM_APPS);
+    public void testTextError() throws Exception {
+        ProvisionFullyManagedDeviceTask task = createProvisioningTask(TEST_PARAMS);
+        doThrow(PROVISIONING_EXCEPTION)
+                .when(mDevicePolicyManager).provisionFullyManagedDevice(any());
 
         task.run(TEST_USER_ID);
 
-        verify(mCallback).onSuccess(task);
+        verify(mCallback).onError(task, 0, TEST_ERROR_MESSAGE);
         verifyNoMoreInteractions(mCallback);
-        verifyNoMoreInteractions(mSystemAppsSnapshot);
     }
 
     @Test
@@ -139,7 +133,6 @@ public class ProvisionFullyManagedDeviceTaskTest {
 
         verify(mCallback).onSuccess(task);
         verifyNoMoreInteractions(mCallback);
-        verify(mSystemAppsSnapshot).takeNewSnapshot(TEST_USER_ID);
         verify(mDevicePolicyManager).provisionFullyManagedDevice(mParamsCaptor.capture());
         FullyManagedDeviceProvisioningParams capturedParams = mParamsCaptor.getValue();
         assertThat(capturedParams.canDeviceOwnerGrantSensorsPermissions()).isTrue();
@@ -158,7 +151,6 @@ public class ProvisionFullyManagedDeviceTaskTest {
 
         verify(mCallback).onSuccess(task);
         verifyNoMoreInteractions(mCallback);
-        verify(mSystemAppsSnapshot).takeNewSnapshot(TEST_USER_ID);
         verify(mDevicePolicyManager).provisionFullyManagedDevice(mParamsCaptor.capture());
         FullyManagedDeviceProvisioningParams capturedParams = mParamsCaptor.getValue();
         assertThat(capturedParams.canDeviceOwnerGrantSensorsPermissions()).isFalse();
@@ -169,7 +161,6 @@ public class ProvisionFullyManagedDeviceTaskTest {
         return new ProvisionFullyManagedDeviceTask(
                 mUtils,
                 mContext,
-                mSystemAppsSnapshot,
                 params,
                 mCallback,
                 mock(ProvisioningAnalyticsTracker.class));
@@ -178,6 +169,6 @@ public class ProvisionFullyManagedDeviceTaskTest {
     private ProvisioningException createProvisioningException() {
         return new ProvisioningException(
                 new Exception(),
-                DevicePolicyManager.PROVISIONING_RESULT_PRE_CONDITION_FAILED);
+                ProvisioningException.ERROR_PRE_CONDITION_FAILED);
     }
 }

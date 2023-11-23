@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"ہنگامی کال بیک طرز"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ڈیٹا کنکشن غیر فعال ہوگیا"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> تک کوئی ڈیٹا کنکشن نہیں"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">فون <xliff:g id="COUNT_1">%s</xliff:g> منٹ تک ہنگامی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کسی بھی ایپلیکیشنز کا استعمال نہیں کیا جا سکتا ہے۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-      <item quantity="one">فون <xliff:g id="COUNT_0">%s</xliff:g> منٹ تک ہنگامی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کسی بھی ایپس کا استعمال نہیں کیا جا سکتا ہے۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">منتخب کردہ کارروائی ایک ہنگامی کال بیک وضع میں رہتے ہوئے دستیاب نہیں ہے۔ فون <xliff:g id="COUNT_1">%s</xliff:g> منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-      <item quantity="one">منتخب کردہ کارروائی ایک ہنگامی کال بیک وضع میں رہتے ہوئے دستیاب نہیں ہے۔ فون <xliff:g id="COUNT_0">%s</xliff:g> منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{فون ایک منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کوئی بھی ایپ استعمال نہیں ہو سکتی۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟}other{‏فون ‎%s منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔ اس وضع میں رہتے ہوئے ڈیٹا کنکشن کا استعمال کرنے والی کوئی بھی ایپلیکیشن استعمال نہیں ہو سکتی۔ کیا آپ ابھی باہر نکلنا چاہتے ہیں؟}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{منتخب کردہ کارروائی ایمرجنسی کال بیک وضع میں دستیاب نہیں ہے۔ فون ایک منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی نکلنا چاہتے ہیں؟}other{‏منتخب کردہ کارروائی ایمرجنسی کال بیک وضع میں دستیاب نہیں ہے۔ فون ‎%s منٹ تک اس وضع میں رہے گا۔ کیا آپ ابھی نکلنا چاہتے ہیں؟}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"منتخب کردہ کارروائی ایک ہنگامی کال میں رہتے ہوئے دستیاب نہیں ہے۔"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"موجودہ ہنگامی کال بیک طرز"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ہاں"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"کالعدم کریں"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"فون ہنگامی کال بیک وضع میں ہے"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> تک"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">فون <xliff:g id="COUNT_1">%s</xliff:g> منٹ تک ہنگامی کال بیک وضع میں رہے گا۔\n کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-      <item quantity="one">فون <xliff:g id="COUNT_0">%s</xliff:g> منٹ تک ہنگامی کال بیک وضع میں رہے گا۔\n کیا آپ ابھی باہر نکلنا چاہتے ہیں؟</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{فون ایک منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔\nکیا آپ ابھی باہر نکلنا چاہتے ہیں؟}other{‏فون ‎%s منٹ تک ایمرجنسی کال بیک وضع میں رہے گا۔\nکیا آپ ابھی باہر نکلنا چاہتے ہیں؟}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"سروس"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"سیٹ اپ"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"‏&lt;سیٹ نہیں ہے&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ایکسیسبیلٹی"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"‏Wi-Fi کال منجانب"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"‏Wi-Fi کال"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"کھولنے کیلئے دوبارہ تھپتھپائیں"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"پیغام کو ڈیکوڈ کرتے وقت ایک خرابی پیش آ گئی۔"</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"‏ایک SIM کارڈ نے آپ کی سروس فعال کر دی ہے اور آپ کے فون کی رومنگ اہلیتیں اپ ڈیٹ کر دی ہیں۔"</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"بہت زیادہ فعال کالیں ہیں۔ براہ کرم نئی کال کرنے سے پہلے موجودہ کالوں کو ضم کریں یا ختم کریں۔"</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"کال نہیں کی جا سکتی کیونکہ باہر جانے والی دوسری کال پہلے سے ڈائل کی جا رہی ہے۔"</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"ایک جواب نہ ملنے والی اِن کمنگ کال کی وجہ سے کال نہیں کی جا سکتی۔ نئی کال کرنے کے لیے پہلے اِن کمنگ کال کا جواب دیں یا مسترد کریں۔"</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"‏ro.telephony.disable-call سسٹم کی خصوصیت کے ذریعے کال کرنے کو غیر فعال کر دیے جانے کی وجہ سے کال نہیں کی جا سکتی۔"</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"پہلے سے دو کالز کے پیش رفت میں ہونے کی وجہ سے کال نہیں کی جا سکتی۔ نئی کال کرنے کے لیے پہلے ان میں سے ایک کو غیر منسلک کریں یا انہیں کانفرنس میں ضم کریں۔"</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"پہلے سے دو کالز کے پیش رفت میں ہونے کی وجہ سے کال نہیں کی جا سکتی۔ نئی کال کرنے کیلئے پہلے ان میں سے ایک کو غیر منسلک کریں یا انہیں کانفرنس میں ضم کریں۔"</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> استعمال کرنے کے لیے، یقینی بنائيں کہ موبائل ڈیٹا آن ہے۔ آپ موبائل یٹ ورک کی ترتیبات میں اسے تبدیل کر سکتے ہیں۔"</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> استعمال کرنے کے لیے، یقینی بنائيں کہ موبائل ڈیٹا اور ڈیٹا رومنگ آن ہیں۔ آپ موبائل نیٹ ورک کی ترتیبات میں انہیں تبدیل کر سکتے ہیں۔"</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"‏<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> استعمال کرنے کے لیے، یقینی بنائيں کہ موبائل ڈیٹا SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> کے لیے آن ہے۔ آپ موبائل نیٹ ورک کی ترتیبات میں اسے تبدیل کر سکتے ہیں۔"</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"یہ ترتیب تبدیل کرنے کیلئے آپ کو اپنا آلہ ریسٹارٹ کرنا ہوگا۔"</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"دوبارہ شروع کریں"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"منسوخ کریں"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"‏ہٹانے لائق eSIM کو بطور ڈیفالٹ سیٹ کریں"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"موبائل ریڈیو پاور"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"‏SIM ایڈریس بک دیکھیں"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"فکسڈ ڈائلنگ نمبرز دیکھیں"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ریڈیو بینڈ منتخب کریں"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"صوتی نیٹ ورک کی قسم:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ڈیٹا نیٹ ورک کی قسم:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"نیٹ ورک کی قسم کو اوور رائیڈ کریں:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"فون انڈیکس منتخب کریں"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ترجیحی نیٹ ورک کی قسم سیٹ کریں:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"‏میزبان کا نام پنگ کریں‏‎(www.google.com)‎ ‏IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ریفریش کریں"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"‏DNS چیک ٹوگل کریں"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"‏OEM-کیلئے مخصوص معلومات/ترتیبات"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"‏EN-DC دستیاب ہے:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"‏DCNR محدود کردہ:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"‏NR دستیاب ہے:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"‏NR ریاست:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"‏EN-DC دستیاب (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"‏DCNR محدود (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"‏NR دستیاب (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"‏NR کی صورتحال (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"‏NR فریکوئنسی:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ریڈیو بینڈ موڈ سیٹ کریں"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"بینڈ کی فہرست لوڈ ہو رہی ہے…"</string>

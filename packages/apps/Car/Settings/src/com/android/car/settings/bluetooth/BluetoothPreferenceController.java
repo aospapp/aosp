@@ -54,7 +54,7 @@ public abstract class BluetoothPreferenceController<V extends Preference> extend
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mBluetoothManager = BluetoothUtils.getLocalBtManager(context);
-        mUserManager = UserManager.get(context);
+        mUserManager = context.getSystemService(UserManager.class);
     }
 
     @VisibleForTesting

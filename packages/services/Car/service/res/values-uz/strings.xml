@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Avtomobil kamerasidan foydalanish"</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"avtomobilning energiya manbalari haqidagi axborotga kirish"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Avtomobilning energiya axborotlariga kirish"</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"Elektromobil quvvatlash sozlamalarini boshqarish"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"Elektromobilingiz quvvatlash sozlamalarini boshqaring."</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"avtomobil mavjud yonilgʻi bilan bosib oʻtadigan masofani tuzatish"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Avtomobil mavjud yonilgʻi bilan bosib oʻtadigan masofani tuzatish."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"avtomobilning HVAC tizimiga kirish"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Amalga oshirilgan faoliyatlarni asboblar paneliga chiqarish uchun ilovaga ruxsat berish"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Asboblar panelini boshqarish"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Asboblar panelida ilovalarni ishga tushirish"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Boshqaruv panelidagi navigatsiya holati"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Boshqaruv panelidagi navigatsiya holati oʻzgarishlarini kuzatib boring"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Axborotlarni asboblar paneliga chiqarish"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Asboblar panelidan axborotlarni olish"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Funksiyadan foydalanish cheklovini oʻrnatish"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Yoʻlovchilarni aniqlash tizimining aniqlash chizmasini boshlash va toʻxtatishni boshqarishga ruxsat beradi"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Avtomobilda matn kiritish xizmati"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Matn kiritish hodisalari bilan ishlash imkoniyati"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN shinalarida xatolik yuz berdi"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN javob bermayapti. Konnektorni chiqaring va qayta ulang, keyin avtomobilni oʻt oldiring"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Avtomobilda harakatlanayotganda bu funksiyadan foydalanish imkonsiz"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"Ilovani xavfsiz rejimda ishga tushirish uchun <xliff:g id="EXIT_BUTTON">%s</xliff:g> tugmasini bosing."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Orqaga"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Ilovani yopish"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Orqaga"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"diagnostika axborotini ochish"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Avtomobildan diagnostika axborotini olish."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"diagnostika axborotini tozalash"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Avtomobil oʻrindiqlarini boshqarish"</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"avtomobil haqidagi batafsil axborotga kirish"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Avtomobil haqidagi batafsil axborotga kirish."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"avtomobilning imtiyoz maʼlumotlariga kirish"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"Avtomobilning imtiyoz maʼlumotlariga kirish."</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"avtomobilning taʼminotchi ruxsatlari axborotiga kirish"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Avtomobilning taʼminotchi ruxsatlari axborotiga kirish."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"avtomobilning tashqi chiroqlari holati haqidagi axborotni ochish"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Avtomobilni yoqish qoidalarini oʻqish."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"avtomobilni yoqish qoidalarini bosharish"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Avtomobilning yoqish qoidalarini boshqarish."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"oʻchish jarayonini sozlash"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"Oʻchish jarayonini sozlash."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"andozalarni renderlash"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Andozalarni renderlash."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ilovani ishga tushirishni boshqarish"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Ilovani ishga tushirishni boshqarish."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN shinalarida xatolik yuz berdi"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN javob bermayapti. Konnektorni chiqaring va qayta ulang, keyin avtomobilni oʻt oldiring"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Qurilmam"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Mehmon"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Birlamchi muhimlik"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Juda muhim"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Sozlamalarni asliga qaytarish zarur"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Axborot-hordiq tizimidagi barcha maʼlumotlar tozalanadi Tiklanganidan keyin yangi profilni sozlash mumkin."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Yana"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Axborot-hordiq tizimini asliga qaytarish"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Tizim sozlamalarini asliga qaytarish va barcha maʼlumotlarni tozalash talabi qabul qilindi. Tiklashni hozir yoki keyinroq avtomobil yonganda bajarish mumkin. Keyin yangi profil sozlash mumkin."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Asliga qaytarish"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Keyinroq bajarish"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Axborot-hordiq tizimi avtomobil yonganda tiklanadi"</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Asliga qaytarish uchun avtomobilni toʻxtating."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> ilovasi tizim unumdorligiga taʼsir qilmoqda."</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Tizim unumdorligini oshirish uchun ilovani faolsizlantiring. Ilovani Sozlamalar oqali qayta yoqishingiz mumkin."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Foydalanishda davom etish uchun ilovaga ustunlik bering."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Tizim unumdorligini yaxshilash uchun ilovani oʻchirib tashlang."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Ilovani faolsizlantirish"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Ilovaga ustunlik berish"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Ilovani oʻchirib tashlash"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> faolsizlantirildi. Uni sozlamalar orqali qayta yoqishingiz mumkin."</string>
 </resources>

@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"З\'єднання"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Стандартний сервіс друку не може знайти принтери Wi-Fi Direct"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Вимк. Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Стандартному сервісу друку потрібен дозвіл на доступ до геоданих, щоб знаходити пристрої поруч."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Щоб шукати принтери поблизу, стандартному сервісу друку потрібен дозвіл \"Пристрої поблизу\"."</string>
     <string name="fix" msgid="7784394272611365393">"Перевірити дозволи"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Стандартний сервіс друку знаходитиме пристрої поруч, лише якщо ввімкнути служби локації."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Увімкнути геодані"</string>
     <string name="print" msgid="7851318072404916362">"Друк"</string>
 </resources>

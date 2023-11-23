@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  */
 package com.android.car.bugreport;
 
-import static com.android.car.bugreport.MetaBugReport.TYPE_INTERACTIVE;
-import static com.android.car.bugreport.MetaBugReport.TYPE_SILENT;
+import static com.android.car.bugreport.MetaBugReport.TYPE_AUDIO_FIRST;
+import static com.android.car.bugreport.MetaBugReport.TYPE_AUDIO_LATER;
 import static com.android.car.bugreport.Status.STATUS_EXPIRED;
 import static com.android.car.bugreport.Status.STATUS_PENDING_USER_ACTION;
+import static com.android.car.bugreport.Status.STATUS_UPLOADED_BEFORE;
 import static com.android.car.bugreport.Status.STATUS_UPLOAD_FAILED;
 import static com.android.car.bugreport.Status.STATUS_UPLOAD_PENDING;
 import static com.android.car.bugreport.Status.STATUS_UPLOAD_SUCCESS;
@@ -57,6 +58,11 @@ public class BugStorageUtilsTest {
     private static final String BUGREPORT_FILE_NAME = "bugreport@ASD.zip";
     private static final String AUDIO_FILE_NAME = "bugreport@ASD-message.3gp";
     private static final int BUGREPORT_ZIP_FILE_CONTENT = 1;
+
+    /**
+     * Used in createBugreport() method below. If provided this value, the method creates
+     * a bugreport with the BugReportApp's default time-to-live points.
+     */
     private static final int USE_DEFAULT_TTL_POINTS = -9000;
 
     private Context mContext;
@@ -70,7 +76,7 @@ public class BugStorageUtilsTest {
     @Test
     public void test_createBugReport_createsAndReturnsMetaBugReport() throws Exception {
         MetaBugReport bug = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_INTERACTIVE, /* ttl_points= */ 0);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_FIRST, /* ttlPoints= */ 0);
 
         assertThat(BugStorageUtils.findBugReport(mContext, bug.getId()).get()).isEqualTo(bug);
     }
@@ -78,7 +84,7 @@ public class BugStorageUtilsTest {
     @Test
     public void test_expireBugReport_marksBugReportDeletedAndDeletesZip() throws Exception {
         MetaBugReport bug = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_INTERACTIVE, /* ttl_points= */ 0);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_FIRST, /* ttlPoints= */ 0);
         bug = createBugReportFile(bug);
         bug = createAudioFile(bug);
         try (InputStream in = BugStorageUtils.openBugReportFileToRead(mContext, bug)) {
@@ -110,7 +116,7 @@ public class BugStorageUtilsTest {
     @Test
     public void test_completeDeleteBugReport_removesBugReportRecordFromDb() throws Exception {
         MetaBugReport bug = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_INTERACTIVE, /* ttl_points= */ 0);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_FIRST, /* ttlPoints= */ 0);
         bug = createBugReportFile(bug);
         bug = createAudioFile(bug);
         try (InputStream in = BugStorageUtils.openBugReportFileToRead(mContext, bug)) {
@@ -134,50 +140,61 @@ public class BugStorageUtilsTest {
     @Test
     public void test_getUnexpiredBugReportsWithZipFile_withNonZeroTtlPoints() {
         MetaBugReport bugUserPending = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
         createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, /* ttl_points= */ 0);
-        MetaBugReport bugUserPending_ttl_points1 = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, /* ttl_points= */ 1);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, /* ttlPoints= */ 0);
+        MetaBugReport bugUserPendingTtlPoints1 = createBugReport(TIMESTAMP_TODAY,
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, /* ttlPoints= */ 1);
         MetaBugReport bugUploadPending = createBugReport(TIMESTAMP_TODAY,
-                STATUS_UPLOAD_PENDING, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                STATUS_UPLOAD_PENDING, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
         MetaBugReport bugUploadFailed = createBugReport(TIMESTAMP_TODAY,
-                STATUS_UPLOAD_FAILED, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        createBugReport(TIMESTAMP_TODAY, STATUS_WRITE_PENDING, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        createBugReport(TIMESTAMP_TODAY, STATUS_EXPIRED, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                STATUS_UPLOAD_FAILED, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        MetaBugReport bugUploadedBefore =
+                createBugReport(
+                        TIMESTAMP_TODAY,
+                        STATUS_UPLOADED_BEFORE,
+                        TYPE_AUDIO_LATER,
+                        USE_DEFAULT_TTL_POINTS);
         createBugReport(
-                TIMESTAMP_TODAY, STATUS_UPLOAD_SUCCESS, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                TIMESTAMP_TODAY, STATUS_WRITE_PENDING, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        createBugReport(TIMESTAMP_TODAY, STATUS_EXPIRED, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        createBugReport(
+                TIMESTAMP_TODAY, STATUS_UPLOAD_SUCCESS, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
 
         List<MetaBugReport> bugReports = BugStorageUtils.getUnexpiredBugReportsWithZipFile(
-                mContext, /* ttl_pointsReachedZero= */ false);
+                mContext, /* ttlPointsReachedZero= */ false);
 
-        assertThat(bugReports).containsExactly(bugUserPending, bugUserPending_ttl_points1,
-                bugUploadPending, bugUploadFailed);
+        assertThat(bugReports).containsExactly(bugUserPending, bugUserPendingTtlPoints1,
+                bugUploadPending, bugUploadFailed, bugUploadedBefore);
     }
 
     @Test
     public void test_getUnexpiredBugReportsWithZipFile_withZeroTtlPoints() {
         createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        MetaBugReport bugUserPending_ttl_points0 = createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, /* ttl_points= */ 0);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        MetaBugReport bugUserPendingTtlPoints0 = createBugReport(TIMESTAMP_TODAY,
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, /* ttlPoints= */ 0);
         createBugReport(TIMESTAMP_TODAY,
-                STATUS_PENDING_USER_ACTION, TYPE_SILENT, /* ttl_points= */ 1);
-        MetaBugReport bugUploadPending_ttl_points_0 = createBugReport(TIMESTAMP_TODAY,
-                STATUS_UPLOAD_PENDING, TYPE_SILENT, /* ttl_points= */ 0);
+                STATUS_PENDING_USER_ACTION, TYPE_AUDIO_LATER, /* ttlPoints= */ 1);
+        MetaBugReport bugUploadPendingTtlPoints0 = createBugReport(TIMESTAMP_TODAY,
+                STATUS_UPLOAD_PENDING, TYPE_AUDIO_LATER, /* ttlPoints= */ 0);
+        MetaBugReport bugUploadedBeforeTtlPoints0 = createBugReport(TIMESTAMP_TODAY,
+                STATUS_UPLOADED_BEFORE, TYPE_AUDIO_LATER, /* ttlPoints= */ 0);
         createBugReport(
-                TIMESTAMP_TODAY, STATUS_UPLOAD_PENDING, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        createBugReport(TIMESTAMP_TODAY, STATUS_UPLOAD_FAILED, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        createBugReport(TIMESTAMP_TODAY, STATUS_WRITE_PENDING, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
-        createBugReport(TIMESTAMP_TODAY, STATUS_EXPIRED, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                TIMESTAMP_TODAY, STATUS_UPLOAD_PENDING, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
         createBugReport(
-                TIMESTAMP_TODAY, STATUS_UPLOAD_SUCCESS, TYPE_SILENT, USE_DEFAULT_TTL_POINTS);
+                TIMESTAMP_TODAY, STATUS_UPLOAD_FAILED, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        createBugReport(
+                TIMESTAMP_TODAY, STATUS_WRITE_PENDING, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        createBugReport(TIMESTAMP_TODAY, STATUS_EXPIRED, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
+        createBugReport(
+                TIMESTAMP_TODAY, STATUS_UPLOAD_SUCCESS, TYPE_AUDIO_LATER, USE_DEFAULT_TTL_POINTS);
 
         List<MetaBugReport> bugReports = BugStorageUtils.getUnexpiredBugReportsWithZipFile(
-                mContext, /* ttl_pointsReachedZero= */ true);
+                mContext, /* ttlPointsReachedZero= */ true);
 
-        assertThat(bugReports).containsExactly(bugUserPending_ttl_points0,
-                bugUploadPending_ttl_points_0);
+        assertThat(bugReports).containsExactly(bugUserPendingTtlPoints0,
+                bugUploadPendingTtlPoints0, bugUploadedBeforeTtlPoints0);
     }
 
     private MetaBugReport createBugReport(

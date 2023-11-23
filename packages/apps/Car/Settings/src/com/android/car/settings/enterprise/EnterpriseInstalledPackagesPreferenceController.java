@@ -20,25 +20,40 @@ import android.content.Context;
 
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.enterprise.CallbackTranslator.AppsCounterCallbackTranslator;
+import com.android.car.settingslib.applications.ApplicationFeatureProvider;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
 * Controller to show which apps were installed by the device owner.
 */
 public final class EnterpriseInstalledPackagesPreferenceController
-        extends BaseEnterprisePreferenceController<Preference> {
+        extends BaseApplicationsCounterPreferenceController<Preference> {
 
     public EnterpriseInstalledPackagesPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions);
+        this(context, preferenceKey, fragmentController, uxRestrictions, /* provider= */ null);
+    }
+
+    @VisibleForTesting
+    EnterpriseInstalledPackagesPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            ApplicationFeatureProvider provider) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, provider);
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int superStatus = super.getAvailabilityStatus();
-        if (superStatus != AVAILABLE) return superStatus;
+    protected void lazyLoad(AppsCounterCallbackTranslator callbackTranslator) {
+        mApplicationFeatureProvider.calculateNumberOfPolicyInstalledApps(/* async= */ true,
+                callbackTranslator);
+    }
 
-        // TODO(b/206155370): implement / add unit test
-        return DISABLED_FOR_PROFILE;
+    @Override
+    protected void updateState(Preference p) {
+        int count = getResult();
+        p.setSummary(getContext().getResources().getQuantityString(
+                R.plurals.enterprise_privacy_number_packages_lower_bound, count, count));
     }
 }

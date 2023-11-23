@@ -16,10 +16,9 @@
 
 package com.android.car.telemetry.databroker;
 
-import android.car.telemetry.MetricsConfigKey;
+import android.annotation.NonNull;
+import android.car.telemetry.TelemetryProto;
 import android.os.PersistableBundle;
-
-import com.android.car.telemetry.TelemetryProto;
 
 /**
  * A wrapper class containing all the necessary information to invoke the ScriptExecutor API. It
@@ -29,17 +28,27 @@ import com.android.car.telemetry.TelemetryProto;
  * The object can be accessed from any thread. See {@link DataSubscriber} for thread-safety.
  */
 public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
+    private final int mPublisherType;
     private final long mTimestampMillis;
     private final DataSubscriber mSubscriber;
     private final PersistableBundle mData;
     private final boolean mIsLargeData;
 
-    ScriptExecutionTask(DataSubscriber subscriber, PersistableBundle data,
-            long elapsedRealtimeMillis, boolean isLargeData) {
+    ScriptExecutionTask(
+            @NonNull DataSubscriber subscriber,
+            @NonNull PersistableBundle data,
+            long elapsedRealtimeMillis,
+            boolean isLargeData,
+            int publisherType) {
         mTimestampMillis = elapsedRealtimeMillis;
         mSubscriber = subscriber;
         mData = data;
         mIsLargeData = isLargeData;
+        mPublisherType = publisherType;
+    }
+
+    public int getPublisherType() {
+        return mPublisherType;
     }
 
     /** Returns the priority of the task. */
@@ -52,24 +61,29 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
         return mTimestampMillis;
     }
 
+    /** Returns the MetricsConfig associated with this task. */
+    @NonNull
     public TelemetryProto.MetricsConfig getMetricsConfig() {
         return mSubscriber.getMetricsConfig();
     }
 
+    /** Returns the handler function name defined in MetricsConfig script. */
+    @NonNull
     public String getHandlerName() {
         return mSubscriber.getHandlerName();
     }
 
+    /** Returns the data being sent to the subscriber. */
+    @NonNull
     public PersistableBundle getData() {
         return mData;
     }
 
     /**
-     * Indicates whether the task is associated with MetricsConfig specified by its key.
+     * Indicates whether the task is associated with MetricsConfig specified by its name.
      */
-    public boolean isAssociatedWithMetricsConfig(MetricsConfigKey key) {
-        return mSubscriber.getMetricsConfig().getName().equals(key.getName())
-                && mSubscriber.getMetricsConfig().getVersion() == key.getVersion();
+    public boolean isAssociatedWithMetricsConfig(@NonNull String metricsConfigName) {
+        return mSubscriber.getMetricsConfig().getName().equals(metricsConfigName);
     }
 
     /**
@@ -80,7 +94,7 @@ public class ScriptExecutionTask implements Comparable<ScriptExecutionTask> {
     }
 
     @Override
-    public int compareTo(ScriptExecutionTask other) {
+    public int compareTo(@NonNull ScriptExecutionTask other) {
         if (getPriority() < other.getPriority()) {
             return -1;
         } else if (getPriority() > other.getPriority()) {

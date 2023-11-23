@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Parcel;
 import android.service.wallpaper.WallpaperService;
 import android.text.TextUtils;
@@ -35,7 +36,6 @@ import androidx.annotation.Nullable;
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.LiveWallpaperThumbAsset;
-import com.android.wallpaper.compat.BuildCompat;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.LiveWallpaperInfoFactory;
 import com.android.wallpaper.util.ActivityUtils;
@@ -369,7 +369,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
 
     @Override
     public String getActionUrl(Context context) {
-        if (BuildCompat.isAtLeastNMR1()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             try {
                 Uri wallpaperContextUri = mInfo.loadContextUri(context.getPackageManager());
                 if (wallpaperContextUri != null) {

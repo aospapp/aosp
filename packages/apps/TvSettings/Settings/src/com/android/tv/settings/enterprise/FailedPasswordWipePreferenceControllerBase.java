@@ -17,12 +17,18 @@
 package com.android.tv.settings.enterprise;
 
 import android.content.Context;
+import android.icu.text.MessageFormat;
 
 import androidx.preference.Preference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.R;
-import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.library.enterprise.EnterprisePrivacyFeatureProvider;
+import com.android.tv.settings.library.overlay.FlavorUtils;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public abstract class FailedPasswordWipePreferenceControllerBase extends
         AbstractPreferenceController {
@@ -40,9 +46,13 @@ public abstract class FailedPasswordWipePreferenceControllerBase extends
     @Override
     public void updateState(Preference preference) {
         final int failedPasswordsBeforeWipe = getMaximumFailedPasswordsBeforeWipe();
-        preference.setSummary(mContext.getResources().getQuantityString(
-                R.plurals.enterprise_privacy_number_failed_password_wipe,
-                failedPasswordsBeforeWipe, failedPasswordsBeforeWipe));
+        MessageFormat msgFormat = new MessageFormat(
+                mContext.getResources().getString(
+                        R.string.enterprise_privacy_number_failed_password_wipe),
+                Locale.getDefault());
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("count", failedPasswordsBeforeWipe);
+        preference.setSummary(msgFormat.format(arguments));
     }
 
     @Override

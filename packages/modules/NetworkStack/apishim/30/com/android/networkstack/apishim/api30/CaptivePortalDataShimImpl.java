@@ -22,7 +22,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.RemoteException;
 
+import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 import com.android.networkstack.apishim.common.ShimUtils;
@@ -34,6 +36,7 @@ import org.json.JSONObject;
 /**
  * Compatibility implementation of {@link CaptivePortalDataShim}.
  */
+@RequiresApi(Build.VERSION_CODES.R)
 public class CaptivePortalDataShimImpl
         extends com.android.networkstack.apishim.api29.CaptivePortalDataShimImpl {
     @NonNull
@@ -52,6 +55,7 @@ public class CaptivePortalDataShimImpl
      * @throws JSONException The JSON is not a representation of correct captive portal data.
      * @throws UnsupportedApiLevelException CaptivePortalData is not available on this API level.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     @NonNull
     public static CaptivePortalDataShim fromJson(JSONObject obj) throws JSONException,
             UnsupportedApiLevelException {
@@ -77,6 +81,8 @@ public class CaptivePortalDataShimImpl
                 .build());
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.R)
     public static boolean isSupported() {
         return ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q);
     }
@@ -130,7 +136,7 @@ public class CaptivePortalDataShimImpl
     @Override
     public CaptivePortalDataShim withVenueFriendlyName(String friendlyName)
             throws UnsupportedApiLevelException {
-        // Not supported in API level 29
+        // Not supported in API level 30
         throw new UnsupportedApiLevelException("FriendlyName not supported on API 30");
     }
 
@@ -149,7 +155,7 @@ public class CaptivePortalDataShimImpl
     public CaptivePortalDataShim withPasspointInfo(@NonNull String friendlyName,
             @NonNull Uri venueInfoUrl, @NonNull Uri termsAndConditionsUrl)
             throws UnsupportedApiLevelException {
-        // Not supported in API level 29
+        // Not supported in API level 30
         throw new UnsupportedApiLevelException("PasspointInfo not supported on API 30");
     }
 }

@@ -54,7 +54,7 @@ public final class RetransmitterTest {
         }
 
         @Override
-        public void send(IkeMessage msg) {
+        public void send() {
             mSendCallCount++;
         }
 

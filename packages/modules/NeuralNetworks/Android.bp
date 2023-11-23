@@ -15,48 +15,52 @@
  */
 
 package {
-    default_applicable_licenses: ["packages_modules_NeuralNetworks_license"],
+    default_applicable_licenses: [
+        "packages_modules_NeuralNetworks_license",
+    ],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
 // See: http://go/android-license-faq
 license {
     name: "packages_modules_NeuralNetworks_license",
+    package_name: "Android Neural Networks API",
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-Artistic",
         "SPDX-license-identifier-BSD",
-        "SPDX-license-identifier-MPL",
-        "SPDX-license-identifier-MPL-2.0",
     ],
-    // large-scale-change unable to identify any license_text files
+    license_text: [
+        "LICENSE",
+        "LICENSE_BSD",
+    ],
 }
 
 cc_defaults {
     name: "neuralnetworks_float16",
+    // Note: the newlines in the "cflags" sections are intentional to ensure
+    // bpfmt -w -s does not change the order of the compiler flags.
     arch: {
         x86: {
-            cflags: [ "-D_Float16=__fp16",
-                      "-Xclang", "-fnative-half-type",
-                      "-Xclang", "-fallow-half-arguments-and-returns" ],
+            cflags: [
+                "-D_Float16=__fp16",
+
+                "-Xclang",
+                "-fnative-half-type",
+
+                "-Xclang",
+                "-fallow-half-arguments-and-returns",
+            ],
         },
         x86_64: {
-            cflags: [ "-D_Float16=__fp16",
-                      "-Xclang", "-fnative-half-type",
-                      "-Xclang", "-fallow-half-arguments-and-returns" ],
+            cflags: [
+                "-D_Float16=__fp16",
+
+                "-Xclang",
+                "-fnative-half-type",
+
+                "-Xclang",
+                "-fallow-half-arguments-and-returns",
+            ],
         },
     },
 }

@@ -145,6 +145,9 @@ public class MobileNetworkEntryPreferenceController extends
     }
 
     private CharSequence getSummary(List<SubscriptionInfo> subs) {
+        if (!mTelephonyManager.isDataEnabled()) {
+            return getContext().getString(R.string.mobile_network_state_off);
+        }
         int count = subs.size();
         if (subs.isEmpty()) {
             return null;

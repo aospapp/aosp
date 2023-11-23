@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"डिफल्ट कोटिहरू पुनर्स्थापना गर्नुहोस्"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"डिफल्ट कोटिहरू पुनर्स्थापना गरियो"</string>
     <string name="default_categories" msgid="2117679794687799407">"डिफल्ट"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d चयन गरियो</item>
-      <item quantity="one">%d चयन गरियो</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# वटा चयन गरिएका छन्}other{# वटा चयन गरिएका छन्}}"</string>
     <string name="applications" msgid="521776761270770549">"एपहरू"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"डिबग गर्न मिल्ने कुनै पनि एप उपलब्ध छैन"</string>
     <string name="buffer_size" msgid="3944311026715111454">"प्रति CPU बफरको आकार"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto (बिटा) प्रयोग गर्नुहोस्‌"</string>
     <string name="long_traces" msgid="5110949471775966329">"लामो ट्रेसहरू"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"डिभाइसको भण्डारणमा निरन्तर रूपमा सेभ गरियो"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"डिभाइसको भण्डारणमा निरन्तर सेभ भइरहन्छ (त्रुटिसम्बन्धी रिपोर्टमा स्वतः एट्याच गरिने छैन)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"ट्रेसको आकारको अधिकतम लम्बाइ"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"ट्रेसको अवधिको अधिकतम लम्बाइ"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"२०० एम.बि."</string>

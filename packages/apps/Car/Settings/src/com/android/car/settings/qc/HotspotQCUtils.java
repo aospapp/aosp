@@ -17,12 +17,9 @@
 package com.android.car.settings.qc;
 
 import android.content.Context;
-import android.net.ConnectivityManager;
 import android.net.TetheringManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
-
-import com.android.internal.util.ConcurrentUtils;
 
 /**
  * Helper methods for hotspot related quick controls.
@@ -47,23 +44,6 @@ public final class HotspotQCUtils {
         int state = wifiManager.getWifiApState();
         return state == WifiManager.WIFI_AP_STATE_ENABLING
                 || state == WifiManager.WIFI_AP_STATE_DISABLING;
-    }
-
-    /**
-     * Helper method to enable tethering with {@link TetheringManager.StartTetheringCallback}
-     * on success or failure.
-     */
-    public static void enableHotspot(TetheringManager tetheringManager,
-            TetheringManager.StartTetheringCallback callback) {
-        tetheringManager.startTethering(ConnectivityManager.TETHERING_WIFI,
-                ConcurrentUtils.DIRECT_EXECUTOR, callback);
-    }
-
-    /**
-     * Helper method to disable tethering.
-     */
-    public static void disableHotspot(TetheringManager tetheringManager) {
-        tetheringManager.stopTethering(ConnectivityManager.TETHERING_WIFI);
     }
 
     /**

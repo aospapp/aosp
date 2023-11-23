@@ -73,7 +73,7 @@ final class ReferenceWithHistory<V> {
     /**
      * Creates an instance that records, at most, the specified number of values.
      */
-    public ReferenceWithHistory(@IntRange(from = 1) int maxHistorySize) {
+    ReferenceWithHistory(@IntRange(from = 1) int maxHistorySize) {
         this(maxHistorySize, String::valueOf);
     }
 
@@ -83,7 +83,7 @@ final class ReferenceWithHistory<V> {
      * <p>The {@link #dump(PrintWriter)} method will use {@code dumpValueFunction} to format the
      * values held.
      */
-    public ReferenceWithHistory(@IntRange(from = 1) int maxHistorySize,
+    ReferenceWithHistory(@IntRange(from = 1) int maxHistorySize,
             Function<? super V, String> dumpValueFunction) {
         if (maxHistorySize < 1) {
             throw new IllegalArgumentException("maxHistorySize < 1: " + maxHistorySize);

@@ -194,7 +194,9 @@ public class ClusterOsDoubleActivity extends ComponentActivity {
                 + "x" + height);
         return mDisplayManager.createVirtualDisplay(/* projection= */ null, "ClusterOsDouble-VD",
                 width, height, 160, surface,
-                VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY | VIRTUAL_DISPLAY_FLAG_TRUSTED,
+                // Don't use VIRTUAL_DISPLAY_FLAG_TRUSTED, because we don't want the cluster display
+                // to be the focus display which can hinder Rotary service (b/206862329).
+                VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY,
                 /* callback= */ null, /* handler= */ null, "ClusterDisplay");
     }
 

@@ -23,6 +23,36 @@ import android.net.TcpKeepalivePacketDataParcelable;
 
 /** @hide */
 oneway interface IIpClient {
+    /**
+     * Disable IPv4 provisioning.
+     */
+    const int PROV_IPV4_DISABLED = 0x00;
+
+    /**
+     * Enable IPv4 provisioning using static IP addresses.
+     */
+    const int PROV_IPV4_STATIC = 0x01;
+
+    /**
+     * Enable IPv4 provisioning using DHCP.
+     */
+    const int PROV_IPV4_DHCP = 0x02;
+
+    /**
+     * Disable IPv6 provisioning.
+     */
+    const int PROV_IPV6_DISABLED = 0x00;
+
+    /**
+     * Enable IPv6 provisioning via SLAAC.
+     */
+    const int PROV_IPV6_SLAAC = 0x01;
+
+    /**
+     * Enable IPv6 Link-local only.
+     */
+    const int PROV_IPV6_LINKLOCAL = 0x02;
+
     void completedPreDhcpAction();
     void confirmConfiguration();
     void readPacketFilterComplete(in byte[] data);

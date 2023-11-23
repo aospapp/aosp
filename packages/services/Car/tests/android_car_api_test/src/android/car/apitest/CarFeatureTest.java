@@ -29,11 +29,12 @@ import java.util.List;
 
 @SmallTest
 public class CarFeatureTest extends CarApiTestBase  {
+    private static final String BLUETOOTH_SERVICE = "car_bluetooth";
+
     // List in CarFeatureController should be inline with this.
     private static final List<String> MANDATORY_FEATURES = Arrays.asList(
             Car.APP_FOCUS_SERVICE,
             Car.AUDIO_SERVICE,
-            Car.BLUETOOTH_SERVICE,
             Car.CAR_BUGREPORT_SERVICE,
             Car.CAR_DRIVING_STATE_SERVICE,
             Car.CAR_MEDIA_SERVICE,
@@ -47,6 +48,7 @@ public class CarFeatureTest extends CarApiTestBase  {
             Car.PROPERTY_SERVICE,
             Car.TEST_SERVICE,
             // All items below here are deprecated, but still should be supported
+            BLUETOOTH_SERVICE,
             Car.CABIN_SERVICE,
             Car.HVAC_SERVICE,
             Car.SENSOR_SERVICE,

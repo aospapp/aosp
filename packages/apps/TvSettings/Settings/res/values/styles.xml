@@ -58,6 +58,16 @@
         <item name="guidedStepTheme">@style/GuidedStepFragmentThemeTwoPanel</item>
     </style>
 
+    <!-- Settings theme for device name -->
+    <style name="Theme.SettingsDeviceName" parent="@style/Theme.Settings">
+        <item name="guidedStepTheme">@style/GuidedStepFragmentThemeTwoPanel</item>
+    </style>
+
+    <!-- Settings theme for ResetActivity -->
+    <style name="Theme.Reset" parent="@style/GuidedStepFragmentThemeTwoPanel">
+        <item name="android:windowBackground">@color/settings_background</item>
+    </style>
+
     <style name="Theme.Setup" parent="@style/Theme.Settings">
         <item name="wifi_signal_color">@color/setup_list_item</item>
         <item name="wps_color">@color/setup_list_item</item>

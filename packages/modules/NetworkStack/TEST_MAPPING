@@ -10,11 +10,6 @@
       "name": "NetworkStackIntegrationTests"
     }
   ],
-  "postsubmit": [
-    {
-      "name": "NetworkStackHostTests"
-    }
-  ],
   "auto-postsubmit": [
     // Test tag for automotive targets. These are only running in postsubmit so as to harden the
     // automotive targets to avoid introducing additional test flake and build time. The plan for
@@ -29,9 +24,6 @@
       "name": "NetworkStackNextTests"
     },
     {
-      "name": "NetworkStackHostTests"
-    },
-    {
       "name": "NetworkStackIntegrationTests"
     }
   ],
@@ -40,8 +32,7 @@
     // We must specify at least one module here or the tests won't run. Use the same set as CTS
     // so in theory the infra would not need to reinstall/reboot devices to run both.
     {
-      // TODO: add back tethering when it is updatable in this branch
-      "name": "NetworkStackTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex]"
+      "name": "NetworkStackTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex]"
     }
   ],
   "mainline-postsubmit": [

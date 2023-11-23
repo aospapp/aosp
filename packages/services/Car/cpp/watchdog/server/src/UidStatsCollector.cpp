@@ -46,7 +46,8 @@ std::string UidStats::genericPackageName() const {
 }
 
 Result<void> UidStatsCollector::collect() {
-    if (mUidProcStatsCollector->enabled()) {
+    Mutex::Autolock lock(mMutex);
+    if (mUidIoStatsCollector->enabled()) {
         if (const auto& result = mUidIoStatsCollector->collect(); !result.ok()) {
             return Error() << "Failed to collect per-uid I/O stats: " << result.error();
         }

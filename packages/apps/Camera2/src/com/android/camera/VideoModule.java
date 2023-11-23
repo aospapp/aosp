@@ -1508,7 +1508,8 @@ public class VideoModule extends CameraModule
                 if (mIsVideoCaptureIntent) {
                     // if no file save is needed, we can show the post capture UI now
                     showCaptureResult();
-                } else {
+                }
+                if (mVideoFileDescriptor != null) {
                     saveVideo();
                 }
             }

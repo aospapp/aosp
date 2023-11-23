@@ -51,6 +51,8 @@
  * --Copyright--
  */
 
+#define LOG_TAG "resolv"
+
 #include "gethnamaddr.h"
 
 #include <android-base/logging.h>
@@ -72,6 +74,7 @@
 #include <functional>
 #include <vector>
 
+#include "Experiments.h"
 #include "hostent.h"
 #include "netd_resolv/resolv.h"
 #include "res_comp.h"
@@ -82,16 +85,6 @@
 
 using android::net::NetworkDnsEventReported;
 
-// NetBSD uses _DIAGASSERT to null-check arguments and the like,
-// but it's clear from the number of mistakes in their assertions
-// that they don't actually test or ship with this.
-#define _DIAGASSERT(e) /* nothing */
-
-// TODO: unify macro ALIGNBYTES and ALIGN for all possible data type alignment of hostent
-// buffer.
-#define ALIGNBYTES (sizeof(uintptr_t) - 1)
-#define ALIGN(p) (((uintptr_t)(p) + ALIGNBYTES) & ~ALIGNBYTES)
-
 constexpr int MAXADDRS = 35;
 
 typedef union {
@@ -99,16 +92,7 @@ typedef union {
     uint8_t buf[MAXPACKET];
 } querybuf;
 
-typedef union {
-    int32_t al;
-    char ac;
-} align;
-
-static void convert_v4v6_hostent(struct hostent* hp, char** bpp, char* ep,
-                                 const std::function<void(struct hostent* hp)>& mapping_param,
-                                 const std::function<void(char* src, char* dst)>& mapping_addr);
 static void pad_v4v6_hostent(struct hostent* hp, char** bpp, char* ep);
-
 static int dns_gethtbyaddr(const unsigned char* uaddr, int len, int af,
                            const android_net_context* netcontext, getnamaddr* info,
                            NetworkDnsEventReported* event);
@@ -125,8 +109,9 @@ static int dns_gethtbyname(ResState* res, const char* name, int af, getnamaddr* 
         if (eom - (ptr) < (count)) goto no_recovery; \
     } while (0)
 
-static struct hostent* getanswer(const querybuf* answer, int anslen, const char* qname, int qtype,
-                                 struct hostent* hent, char* buf, size_t buflen, int* he) {
+static struct hostent* getanswer(const querybuf* _Nonnull answer, int anslen,
+                                 const char* _Nonnull qname, int qtype, struct hostent* hent,
+                                 char* buf, size_t buflen, int* he) {
     const HEADER* hp;
     const uint8_t* cp;
     int n;
@@ -140,9 +125,6 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
     char* addr_ptrs[MAXADDRS];
     const char* tname;
     std::vector<char*> aliases;
-
-    _DIAGASSERT(answer != NULL);
-    _DIAGASSERT(qname != NULL);
 
     tname = qname;
     hent->h_name = NULL;
@@ -324,7 +306,7 @@ static struct hostent* getanswer(const querybuf* answer, int anslen, const char*
                     bp += nn;
                 }
 
-                bp += sizeof(align) - (size_t)((uintptr_t)bp % sizeof(align));
+                bp = align_ptr<sizeof(int32_t)>(bp);
 
                 if (bp + n >= ep) {
                     LOG(DEBUG) << __func__ << ": size (" << n << ") too big";
@@ -364,7 +346,7 @@ no_recovery:
     *he = NO_RECOVERY;
     return NULL;
 success:
-    bp = (char*) ALIGN(bp);
+    bp = align_ptr(bp);
     aliases.push_back(nullptr);
     qlen = aliases.size() * sizeof(*hent->h_aliases);
     if ((size_t)(ep - bp) < qlen) goto nospc;
@@ -394,6 +376,8 @@ int resolv_gethostbyname(const char* name, int af, hostent* hp, char* buf, size_
 
     getnamaddr info;
     ResState res(netcontext, event);
+
+    setMdnsFlag(name, res.netid, &(res.flags));
 
     size_t size;
     switch (af) {
@@ -474,14 +458,12 @@ fake:
     return 0;
 }
 
-int resolv_gethostbyaddr(const void* addr, socklen_t len, int af, hostent* hp, char* buf,
+int resolv_gethostbyaddr(const void* _Nonnull addr, socklen_t len, int af, hostent* hp, char* buf,
                          size_t buflen, const struct android_net_context* netcontext,
                          hostent** result, NetworkDnsEventReported* event) {
     const uint8_t* uaddr = (const uint8_t*)addr;
     socklen_t size;
     struct getnamaddr info;
-
-    _DIAGASSERT(addr != NULL);
 
     if (af == AF_INET6 && len == NS_IN6ADDRSZ &&
         (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*) addr) ||
@@ -614,40 +596,22 @@ nospc:
     return NULL;
 }
 
-static void convert_v4v6_hostent(struct hostent* hp, char** bpp, char* ep,
-                                 const std::function<void(struct hostent* hp)>& map_param,
-                                 const std::function<void(char* src, char* dst)>& map_addr) {
-    _DIAGASSERT(hp != NULL);
-    _DIAGASSERT(bpp != NULL);
-    _DIAGASSERT(ep != NULL);
-
+/* Reserve space for mapping IPv4 address to IPv6 address in place */
+static void pad_v4v6_hostent(struct hostent* _Nonnull hp, char** _Nonnull bpp, char* _Nonnull ep) {
     if (hp->h_addrtype != AF_INET || hp->h_length != NS_INADDRSZ) return;
-    map_param(hp);
     for (char** ap = hp->h_addr_list; *ap; ap++) {
-        int i = (int)(sizeof(align) - (size_t)((uintptr_t)*bpp % sizeof(align)));
+        char* const bp = align_ptr<sizeof(int32_t)>(*bpp);
 
-        if (ep - *bpp < (i + NS_IN6ADDRSZ)) {
-            /* Out of memory.  Truncate address list here.  XXX */
-            *ap = NULL;
+        if (ep - bp < NS_IN6ADDRSZ) {
+            // Out of space.  Truncate address list here.
+            *ap = nullptr;
             return;
         }
-        *bpp += i;
-        map_addr(*ap, *bpp);
-        *ap = *bpp;
-        *bpp += NS_IN6ADDRSZ;
+        memcpy(bp, *ap, NS_INADDRSZ);
+        memcpy(bp + NS_INADDRSZ, NAT64_PAD, sizeof(NAT64_PAD));
+        *ap = bp;
+        *bpp = bp + NS_IN6ADDRSZ;
     }
-}
-
-/* Reserve space for mapping IPv4 address to IPv6 address in place */
-static void pad_v4v6_hostent(struct hostent* hp, char** bpp, char* ep) {
-    convert_v4v6_hostent(hp, bpp, ep,
-                         [](struct hostent* hp) {
-                             (void) hp; /* unused */
-                         },
-                         [](char* src, char* dst) {
-                             memcpy(dst, src, NS_INADDRSZ);
-                             memcpy(dst + NS_INADDRSZ, NAT64_PAD, sizeof(NAT64_PAD));
-                         });
 }
 
 static int dns_gethtbyname(ResState* res, const char* name, int addr_type, getnamaddr* info) {
@@ -669,7 +633,7 @@ static int dns_gethtbyname(ResState* res, const char* name, int addr_type, getna
     auto buf = std::make_unique<querybuf>();
 
     int he;
-    n = res_nsearch(res, name, C_IN, type, buf->buf, (int)sizeof(buf->buf), &he);
+    n = res_nsearch(res, name, C_IN, type, {buf->buf, (int)sizeof(buf->buf)}, &he);
     if (n < 0) {
         LOG(DEBUG) << __func__ << ": res_nsearch failed (" << n << ")";
         // Return h_errno (he) to catch more detailed errors rather than EAI_NODATA.
@@ -731,7 +695,7 @@ static int dns_gethtbyaddr(const unsigned char* uaddr, int len, int af,
 
     ResState res(netcontext, event);
     int he;
-    n = res_nquery(&res, qbuf, C_IN, T_PTR, buf->buf, (int)sizeof(buf->buf), &he);
+    n = res_nquery(&res, qbuf, C_IN, T_PTR, {buf->buf, (int)sizeof(buf->buf)}, &he);
     if (n < 0) {
         LOG(DEBUG) << __func__ << ": res_nquery failed (" << n << ")";
         // Note that res_nquery() doesn't set the pair NETDB_INTERNAL and errno.
@@ -789,4 +753,14 @@ int herrnoToAiErrno(int he) {
         default:
             return EAI_FAIL;  // TODO: Perhaps convert default to EAI_MAX (unknown error) instead
     }
+}
+
+void setMdnsFlag(std::string_view hostname, unsigned netid, uint32_t* flags) {
+    if (hostname.ends_with(".local") && is_mdns_supported_network(netid) &&
+        android::net::Experiments::getInstance()->getFlag("mdns_resolution", 1))
+        *flags |= RES_F_MDNS;
+}
+
+bool isMdnsResolution(uint32_t flags) {
+    return flags & RES_F_MDNS;
 }

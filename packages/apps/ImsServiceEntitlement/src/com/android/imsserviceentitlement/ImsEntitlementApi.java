@@ -112,8 +112,8 @@ public class ImsEntitlementApi {
         requestBuilder.setTerminalSoftwareVersion("versionZ");
         requestBuilder.setAcceptContentType(ServiceEntitlementRequest.ACCEPT_CONTENT_TYPE_XML);
         if (mNeedsImsProvisioning) {
-            mLastEntitlementConfiguration.getVersion().ifPresent(
-                    version -> requestBuilder.setConfigurationVersion(Integer.parseInt(version)));
+            requestBuilder.setConfigurationVersion(
+                    Integer.parseInt(mLastEntitlementConfiguration.getVersion()));
         }
         ServiceEntitlementRequest request = requestBuilder.build();
 

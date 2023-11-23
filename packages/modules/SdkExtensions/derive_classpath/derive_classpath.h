@@ -18,17 +18,29 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace android {
 namespace derive_classpath {
 
 constexpr std::string_view kGeneratedClasspathExportsFilepath = "/data/system/environ/classpath";
 
-bool GenerateClasspathExports(std::string_view output_path = kGeneratedClasspathExportsFilepath);
+struct Args {
+  std::string_view output_path;
 
-// This must only be used in tests.
-bool GenerateClasspathExports(const std::string& globPatternPrefix,
-                              std::string_view output_path = kGeneratedClasspathExportsFilepath);
+  // Alternative *classpath.pb files if provided.
+  std::string system_bootclasspath_fragment;
+  std::string system_systemserverclasspath_fragment;
+
+  // Test only. glob_pattern_prefix is appended to each glob pattern to allow adding mock configs in
+  // /data/local/tmp for example.
+  std::string glob_pattern_prefix;
+
+  // Scan specified list of directories instead of using default glob patterns
+  std::vector<std::string> scan_dirs;
+};
+
+bool GenerateClasspathExports(const Args& args);
 
 }  // namespace derive_classpath
 }  // namespace android

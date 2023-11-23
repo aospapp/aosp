@@ -103,7 +103,7 @@ const int FIELD_ID_BUCKET_COUNT = 12;
 namespace {
 
 void writeDimensionToProtoHelper(const std::vector<FieldValue>& dims, size_t* index, int depth,
-                                 int prefix, std::set<string> *str_set,
+                                 int prefix, std::set<string>* str_set,
                                  ProtoOutputStream* protoOutput) {
     size_t count = dims.size();
     while (*index < count) {
@@ -116,7 +116,9 @@ void writeDimensionToProtoHelper(const std::vector<FieldValue>& dims, size_t* in
             return;
         }
 
-        if (depth == valueDepth && valuePrefix == prefix) {
+        // If valueDepth == 1, we're writing a repeated field. Use fieldNum at depth 0 instead
+        // of valueDepth.
+        if ((depth == valueDepth || valueDepth == 1) && valuePrefix == prefix) {
             uint64_t token = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED |
                                                  DIMENSIONS_VALUE_TUPLE_VALUE);
             protoOutput->write(FIELD_TYPE_INT32 | DIMENSIONS_VALUE_FIELD, fieldNum);
@@ -139,9 +141,8 @@ void writeDimensionToProtoHelper(const std::vector<FieldValue>& dims, size_t* in
                                            dim.mValue.str_value);
                     } else {
                         str_set->insert(dim.mValue.str_value);
-                        protoOutput->write(
-                                FIELD_TYPE_UINT64 | DIMENSIONS_VALUE_VALUE_STR_HASH,
-                                (long long)Hash64(dim.mValue.str_value));
+                        protoOutput->write(FIELD_TYPE_UINT64 | DIMENSIONS_VALUE_VALUE_STR_HASH,
+                                           (long long)Hash64(dim.mValue.str_value));
                     }
                     break;
                 default:
@@ -151,10 +152,10 @@ void writeDimensionToProtoHelper(const std::vector<FieldValue>& dims, size_t* in
                 protoOutput->end(token);
             }
             (*index)++;
-        } else if (valueDepth > depth && valuePrefix == prefix) {
+        } else if (valueDepth == depth + 2 && valuePrefix == prefix) {
             // Writing the sub tree
-            uint64_t dimensionToken = protoOutput->start(
-                    FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | DIMENSIONS_VALUE_TUPLE_VALUE);
+            uint64_t dimensionToken = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED |
+                                                         DIMENSIONS_VALUE_TUPLE_VALUE);
             protoOutput->write(FIELD_TYPE_INT32 | DIMENSIONS_VALUE_FIELD, fieldNum);
             uint64_t tupleToken =
                     protoOutput->start(FIELD_TYPE_MESSAGE | DIMENSIONS_VALUE_VALUE_TUPLE);
@@ -170,9 +171,8 @@ void writeDimensionToProtoHelper(const std::vector<FieldValue>& dims, size_t* in
 }
 
 void writeDimensionLeafToProtoHelper(const std::vector<FieldValue>& dims,
-                                     const int dimensionLeafField,
-                                     size_t* index, int depth,
-                                     int prefix, std::set<string> *str_set,
+                                     const int dimensionLeafField, size_t* index, int depth,
+                                     int prefix, std::set<string>* str_set,
                                      ProtoOutputStream* protoOutput) {
     size_t count = dims.size();
     while (*index < count) {
@@ -184,7 +184,8 @@ void writeDimensionLeafToProtoHelper(const std::vector<FieldValue>& dims,
             return;
         }
 
-        if (depth == valueDepth && valuePrefix == prefix) {
+        // If valueDepth == 1, we're writing a repeated field.
+        if ((depth == valueDepth || valueDepth == 1) && valuePrefix == prefix) {
             uint64_t token = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED |
                                                 dimensionLeafField);
             switch (dim.mValue.getType()) {
@@ -206,9 +207,8 @@ void writeDimensionLeafToProtoHelper(const std::vector<FieldValue>& dims,
                                            dim.mValue.str_value);
                     } else {
                         str_set->insert(dim.mValue.str_value);
-                        protoOutput->write(
-                                FIELD_TYPE_UINT64 | DIMENSIONS_VALUE_VALUE_STR_HASH,
-                                (long long)Hash64(dim.mValue.str_value));
+                        protoOutput->write(FIELD_TYPE_UINT64 | DIMENSIONS_VALUE_VALUE_STR_HASH,
+                                           (long long)Hash64(dim.mValue.str_value));
                     }
                     break;
                 default:
@@ -218,7 +218,7 @@ void writeDimensionLeafToProtoHelper(const std::vector<FieldValue>& dims,
                 protoOutput->end(token);
             }
             (*index)++;
-        } else if (valueDepth > depth && valuePrefix == prefix) {
+        } else if (valueDepth == depth + 2 && valuePrefix == prefix) {
             writeDimensionLeafToProtoHelper(dims, dimensionLeafField,
                                             index, valueDepth, dim.mField.getPrefix(valueDepth),
                                             str_set, protoOutput);
@@ -243,7 +243,7 @@ void writeDimensionPathToProtoHelper(const std::vector<Matcher>& fieldMatchers,
             return;
         }
 
-        if (depth == valueDepth && valuePrefix == prefix) {
+        if ((depth == valueDepth || valueDepth == 1) && valuePrefix == prefix) {
             uint64_t token = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED |
                                                  DIMENSIONS_VALUE_TUPLE_VALUE);
             protoOutput->write(FIELD_TYPE_INT32 | DIMENSIONS_VALUE_FIELD, fieldNum);
@@ -251,7 +251,7 @@ void writeDimensionPathToProtoHelper(const std::vector<Matcher>& fieldMatchers,
                 protoOutput->end(token);
             }
             (*index)++;
-        } else if (valueDepth > depth && valuePrefix == prefix) {
+        } else if (valueDepth == depth + 2 && valuePrefix == prefix) {
             // Writing the sub tree
             uint64_t dimensionToken = protoOutput->start(
                     FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | DIMENSIONS_VALUE_TUPLE_VALUE);
@@ -312,8 +312,8 @@ void writeDimensionPathToProto(const std::vector<Matcher>& fieldMatchers,
 // Supported Atoms format
 // XYZ_Atom {
 //     repeated SubMsg field_1 = 1;
-//     SubMsg2 field_2 = 2;
-//     int32/float/string/int63 field_3 = 3;
+//     repeated int32/float/string/int64 field_2 = 2;
+//     optional int32/float/string/int64 field_3 = 3;
 // }
 // logd's msg format, doesn't allow us to distinguish between the 2 cases below
 // Case (1):
@@ -344,25 +344,31 @@ void writeFieldValueTreeToStreamHelper(int tagId, const std::vector<FieldValue>&
         const int valueDepth = dim.mField.getDepth();
         const int valuePrefix = dim.mField.getPrefix(depth);
         const int fieldNum = dim.mField.getPosAtDepth(depth);
+        const uint64_t repeatedFieldMask = (valueDepth == 1) ? FIELD_COUNT_REPEATED : 0;
         if (valueDepth > 2) {
             ALOGE("Depth > 2 not supported");
             return;
         }
 
-        if (depth == valueDepth && valuePrefix == prefix) {
+        // If valueDepth == 1, we're writing a repeated field. Use fieldNum at depth 0 instead
+        // of valueDepth.
+        if ((depth == valueDepth || valueDepth == 1) && valuePrefix == prefix) {
             switch (dim.mValue.getType()) {
                 case INT:
-                    protoOutput->write(FIELD_TYPE_INT32 | fieldNum, dim.mValue.int_value);
+                    protoOutput->write(FIELD_TYPE_INT32 | repeatedFieldMask | fieldNum,
+                                       dim.mValue.int_value);
                     break;
                 case LONG:
-                    protoOutput->write(FIELD_TYPE_INT64 | fieldNum,
+                    protoOutput->write(FIELD_TYPE_INT64 | repeatedFieldMask | fieldNum,
                                        (long long)dim.mValue.long_value);
                     break;
                 case FLOAT:
-                    protoOutput->write(FIELD_TYPE_FLOAT | fieldNum, dim.mValue.float_value);
+                    protoOutput->write(FIELD_TYPE_FLOAT | repeatedFieldMask | fieldNum,
+                                       dim.mValue.float_value);
                     break;
                 case STRING: {
-                    protoOutput->write(FIELD_TYPE_STRING | fieldNum, dim.mValue.str_value);
+                    protoOutput->write(FIELD_TYPE_STRING | repeatedFieldMask | fieldNum,
+                                       dim.mValue.str_value);
                     break;
                 }
                 case STORAGE:
@@ -374,15 +380,10 @@ void writeFieldValueTreeToStreamHelper(int tagId, const std::vector<FieldValue>&
                     break;
             }
             (*index)++;
-        } else if (valueDepth > depth && valuePrefix == prefix) {
+        } else if (valueDepth == depth + 2 && valuePrefix == prefix) {
             // Writing the sub tree
             uint64_t msg_token = 0ULL;
-            if (valueDepth == depth + 2) {
-                msg_token =
-                        protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | fieldNum);
-            } else if (valueDepth == depth + 1) {
-                msg_token = protoOutput->start(FIELD_TYPE_MESSAGE | fieldNum);
-            }
+            msg_token = protoOutput->start(FIELD_TYPE_MESSAGE | FIELD_COUNT_REPEATED | fieldNum);
             // Directly jump to the leaf value because the repeated position field is implied
             // by the position of the sub msg in the parent field.
             writeFieldValueTreeToStreamHelper(tagId, dims, index, valueDepth,
@@ -567,7 +568,9 @@ int64_t getSystemUptimeMillis() {
 }
 
 int64_t getWallClockNs() {
-    return time(nullptr) * NS_PER_SEC;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return ts.tv_sec * NS_PER_SEC + ts.tv_nsec;
 }
 
 int64_t getWallClockSec() {
@@ -609,6 +612,29 @@ bool checkPermissionForIds(const char* permission, pid_t pid, uid_t uid) {
     }
 
     return success;
+}
+
+void mapIsolatedUidsToHostUidInLogEvent(const sp<UidMap> uidMap, LogEvent& event) {
+    uint8_t remainingUidCount = event.getNumUidFields();
+    vector<FieldValue>* fieldValues = event.getMutableValues();
+    auto it = fieldValues->begin();
+    while(it != fieldValues->end() && remainingUidCount > 0) {
+        if (isUidField(*it)) {
+            it->mValue.setInt(uidMap->getHostUidOrSelf(it->mValue.int_value));
+            remainingUidCount--;
+        }
+        ++it;
+    }
+}
+
+std::string toHexString(const vector<uint8_t>& bytes) {
+    static const char* kLookup = "0123456789ABCDEF";
+    string hex;
+    for (const uint8_t byte : bytes) {
+        hex.push_back(kLookup[(byte & 0xF0) >> 4]);
+        hex.push_back(kLookup[byte & 0x0F]);
+    }
+    return hex;
 }
 
 }  // namespace statsd

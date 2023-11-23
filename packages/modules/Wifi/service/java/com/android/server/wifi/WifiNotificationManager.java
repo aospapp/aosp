@@ -20,6 +20,7 @@ import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_ALERTS;
 import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_AVAILABLE;
 import static com.android.server.wifi.WifiService.NOTIFICATION_NETWORK_STATUS;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -61,6 +62,8 @@ public class WifiNotificationManager {
     /**
      * Update to the notification manager fot current user and create notification channels.
      */
+    // TODO(b/193460475): Remove when tooling supports APIS moving from SystemApi to public
+    @SuppressLint("NewApi")
     public void createNotificationChannels() {
         if (mNotificationManager != null) {
             // Cancel all active notification from Wi-Fi Stack.

@@ -28,23 +28,23 @@ public class VehicleSeatTest {
     @Test
     public void testMatchWithVehicleHal() {
         assertThat(VehicleAreaSeat.SEAT_ROW_1_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_1_LEFT);
         assertThat(VehicleAreaSeat.SEAT_ROW_1_CENTER)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_CENTER);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_1_CENTER);
         assertThat(VehicleAreaSeat.SEAT_ROW_1_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_1_RIGHT);
         assertThat(VehicleAreaSeat.SEAT_ROW_2_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_2_LEFT);
         assertThat(VehicleAreaSeat.SEAT_ROW_2_CENTER)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_CENTER);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_2_CENTER);
         assertThat(VehicleAreaSeat.SEAT_ROW_2_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_2_RIGHT);
         assertThat(VehicleAreaSeat.SEAT_ROW_3_LEFT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_LEFT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_3_LEFT);
         assertThat(VehicleAreaSeat.SEAT_ROW_3_CENTER)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_CENTER);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_3_CENTER);
         assertThat(VehicleAreaSeat.SEAT_ROW_3_RIGHT)
-                .isEqualTo(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_RIGHT);
+                .isEqualTo(android.hardware.automotive.vehicle.VehicleAreaSeat.ROW_3_RIGHT);
     }
 
     @Test

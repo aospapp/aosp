@@ -56,7 +56,7 @@ public class IkeUdpEncapPortPacketHandler {
         private static final String TAG = IkeUdpEncapPortPacketHandler.class.getSimpleName();
 
         public void handlePacket(
-                byte[] recvbuf, LongSparseArray<IkeSessionStateMachine> spiToIkeSession) {
+                byte[] recvbuf, LongSparseArray<IkeSocket.Callback> spiToCallback) {
             if (recvbuf.length < NON_ESP_MARKER_LEN) {
                 getIkeLog().d(TAG, "Received too short of packet. Ignoring.");
                 return;
@@ -79,7 +79,7 @@ public class IkeUdpEncapPortPacketHandler {
             // IKE SPI.
             byte[] ikePacketBytes = new byte[byteBuffer.remaining()];
             byteBuffer.get(ikePacketBytes);
-            IkeSocket.parseAndDemuxIkePacket(ikePacketBytes, spiToIkeSession, TAG);
+            IkeSocket.parseAndDemuxIkePacket(ikePacketBytes, spiToCallback, TAG);
         }
     }
 

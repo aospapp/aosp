@@ -62,6 +62,7 @@ class RoutingManager {
   tNFA_TECHNOLOGY_MASK updateEeTechRouteSetting();
   void updateDefaultProtocolRoute();
   void updateDefaultRoute();
+  bool isTypeATypeBTechSupportedInEe(tNFA_HANDLE eeHandle);
 
   // See AidRoutingManager.java for corresponding
   // AID_MATCHING_ constants

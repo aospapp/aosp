@@ -10,6 +10,7 @@ android_test {
     srcs: ["src/**/*.java"],
 
     libs: [
+        "android.car-system-stubs",
         "android.test.runner",
         "android.test.base",
         "android.test.mock",
@@ -17,7 +18,6 @@ android_test {
 
     static_libs: [
         "CarRotaryControllerForUnitTesting",
-        "android.car",
         "androidx.test.core",
         "androidx.test.rules",
         "androidx.test.ext.junit",

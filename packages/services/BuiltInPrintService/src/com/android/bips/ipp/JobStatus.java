@@ -113,6 +113,11 @@ public class JobStatus {
         return mCertificate;
     }
 
+    /** Return blocked reasons */
+    public Set<String> getBlockedReasons() {
+        return mBlockedReasons;
+    }
+
     @Override
     public String toString() {
         return "JobStatus{id=" + mId

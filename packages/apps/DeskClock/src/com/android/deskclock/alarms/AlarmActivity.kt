@@ -238,7 +238,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
             val filter = IntentFilter(AlarmService.ALARM_DONE_ACTION)
             filter.addAction(AlarmService.ALARM_SNOOZE_ACTION)
             filter.addAction(AlarmService.ALARM_DISMISS_ACTION)
-            registerReceiver(mReceiver, filter)
+            registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED)
             mReceiverRegistered = true
         }
         bindAlarmService()
@@ -560,7 +560,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
         bounceAnimator.setInterpolator(AnimatorUtils.DECELERATE_ACCELERATE_INTERPOLATOR)
         bounceAnimator.setDuration(ALARM_BOUNCE_DURATION_MILLIS.toLong())
         bounceAnimator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationStart(animator: Animator?) {
+            override fun onAnimationStart(animator: Animator) {
                 mHintView.setText(hintResId)
                 if (mHintView.getVisibility() != View.VISIBLE) {
                     mHintView.setVisibility(View.VISIBLE)
@@ -606,7 +606,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
         revealAnimator.setDuration(ALERT_REVEAL_DURATION_MILLIS.toLong())
         revealAnimator.setInterpolator(REVEAL_INTERPOLATOR)
         revealAnimator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 mAlertView.setVisibility(View.VISIBLE)
                 mAlertTitleView.setText(titleResId)
                 if (infoText != null) {
@@ -621,7 +621,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
         val fadeAnimator: ValueAnimator = ObjectAnimator.ofFloat(revealView, View.ALPHA, 0.0f)
         fadeAnimator.setDuration(ALERT_FADE_DURATION_MILLIS.toLong())
         fadeAnimator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator?) {
+            override fun onAnimationEnd(animation: Animator) {
                 containerView.removeView(revealView)
             }
         })
@@ -629,7 +629,7 @@ class AlarmActivity : BaseActivity(), View.OnClickListener, View.OnTouchListener
         val alertAnimator = AnimatorSet()
         alertAnimator.play(revealAnimator).before(fadeAnimator)
         alertAnimator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animator: Animator?) {
+            override fun onAnimationEnd(animator: Animator) {
                 mAlertView.announceForAccessibility(accessibilityText)
                 mHandler.postDelayed(Runnable { finish() }, ALERT_DISMISS_DELAY_MILLIS.toLong())
             }

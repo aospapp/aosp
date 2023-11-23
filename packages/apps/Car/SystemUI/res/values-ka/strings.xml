@@ -23,33 +23,41 @@
     <string name="fan_speed_off" msgid="3860115181014880798">"გამორთულია"</string>
     <string name="hvac_temperature_off" msgid="8370977023494579242">"გამორთულია"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"ხმის ამოცნობა დამუშავდება დაკავშირებული Bluetooth-მოწყობილობით"</string>
-    <string name="car_guest" msgid="768913000117469596">"სტუმარი"</string>
-    <string name="start_guest_session" msgid="2759367183497948650">"სტუმარი"</string>
     <string name="car_add_user" msgid="6182764665687382136">"პროფილის დამატება"</string>
     <string name="car_new_user" msgid="6766334721724989964">"ახალი პროფილი"</string>
     <string name="user_add_profile_title" msgid="828371911076521952">"დაემატოს ახალი პროფილი?"</string>
     <string name="user_add_user_message_setup" msgid="6136074867764164790">"მას შემდეგ, რაც ახალ პროფილს შექმნით, ამ პიროვნებამ თვითონ უნდა დააყენოს მისი პარამეტრები."</string>
     <string name="user_add_user_message_update" msgid="3310089453006545712">"აპების განახლება შესაძლებელია ნებისმიერი პროფილიდან ყველა სხვა პროფილით გამოსაყენებლად."</string>
     <string name="profile_limit_reached_title" msgid="7891779218496729653">"პროფილების ლიმიტი მიღწეულია"</string>
-    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
-      <item quantity="other">შეგიძლიათ დაამატოთ <xliff:g id="COUNT">%d</xliff:g>-მდე პროფილი.</item>
-      <item quantity="one">შესაძლებელია მხოლოდ ერთი პროფილის შექმნა.</item>
-    </plurals>
+    <string name="profile_limit_reached_message" msgid="1534369584753840606">"{count,plural, =1{შესაძლებელია მხოლოდ ერთი პროფილის შექმნა.}other{შეგიძლიათ დაამატოთ #-მდე პროფილი.}}"</string>
     <string name="car_loading_profile" msgid="458961191993686065">"იტვირთება"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"იტვირთება მომხმარებელი (<xliff:g id="FROM_USER">%1$d</xliff:g>-დან <xliff:g id="TO_USER">%2$d</xliff:g>-მდე)"</string>
-    <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"მიკროფონი გამორთულია."</string>
-    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"მიკროფონის გამოყენება"</string>
-    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"ნებადართული აპებისთვის"</string>
+    <string name="privacy_chip_off_content" msgid="8406415098507955316">"<xliff:g id="SENSOR">%1$s</xliff:g> გამორთულია."</string>
+    <string name="privacy_chip_use_sensor" msgid="7688230720803089653">"<xliff:g id="SENSOR">%1$s</xliff:g>-ის გამოყენება"</string>
+    <string name="privacy_chip_use_sensor_subtext" msgid="5655148288310815742">"ნებადართული აპებისთვის"</string>
     <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"მიკროფონის პარამეტრები"</string>
-    <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> მიკროფონს იყენებს"</string>
+    <string name="privacy_chip_app_using_sensor_suffix" msgid="7921315376271490004">"<xliff:g id="APP">%1$s</xliff:g> იყენებს <xliff:g id="SENSOR">%2$s</xliff:g>-ს"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> მიკროფონს იყენებენ"</string>
-    <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g>-მა ახლახან გამოიყენა მიკროფონი"</string>
-    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g>-მ(ა) და კიდევ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> აპმა გამოიყენა მიკროფონი ბოლო დროს"</string>
+    <string name="privacy_chip_app_recently_used_sensor_suffix" msgid="4632772067170022529">"აპმა <xliff:g id="APP">%1$s</xliff:g> ახლახან გამოიყენა <xliff:g id="SENSOR">%2$s</xliff:g>"</string>
+    <string name="privacy_chip_apps_recently_used_sensor_suffix" msgid="2715537466314464047">"<xliff:g id="APP_0">%1$s</xliff:g>-მა და კიდევ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> აპმა ახლახან გამოიყენა <xliff:g id="SENSOR">%3$s</xliff:g>"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"მიკროფონი ჩართულია"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"მიკროფონი გამორთულია"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"კარგი"</string>
     <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"ჩაირთოს ავტომობილის მიკროფონი?"</string>
     <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"გასაგრძელებლად ჩართეთ გართობის/საინფორმაციო სისტემის მიკროფონი ეს მოქმედება ყველა ნებადართული აპს მიკროფონს ჩაურთავს."</string>
+    <string name="camera_privacy_chip_camera_settings" msgid="96342672670928980">"კამერის პარამეტრები"</string>
+    <string name="camera_privacy_chip_app_using_camera_suffix" msgid="2591363552459967509">"<xliff:g id="APP">%s</xliff:g> კამერას იყენებს"</string>
+    <string name="camera_privacy_chip_apps_using_camera_suffix" msgid="8033118959615498419">"<xliff:g id="APP_LIST">%s</xliff:g> კამერას იყენებს"</string>
+    <string name="camera_privacy_chip_app_recently_used_camera_suffix" msgid="4534950658276502559">"<xliff:g id="APP">%s</xliff:g>-მა ახლახან გამოიყენა კამერა"</string>
+    <string name="camera_privacy_chip_apps_recently_used_camera_suffix" msgid="3094973410349692954">"<xliff:g id="APP_0">%1$s</xliff:g>-მა და კიდევ <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> აპმა ახლახან გამოიყენა კამერა"</string>
+    <string name="camera_privacy_chip_on_toast" msgid="7901274903678512207">"კამერა ჩართულია"</string>
+    <string name="camera_privacy_chip_off_toast" msgid="7135472255099347229">"კამერა გამორთულია"</string>
+    <string name="camera_privacy_chip_dialog_ok" msgid="7285467760928137765">"კარგი"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_title" msgid="4787836783010823885">"ჩაირთოს ავტომობილის კამერა?"</string>
+    <string name="sensor_privacy_start_use_camera_dialog_content" msgid="7749639131326657668">"გასაგრძელებლად ჩართეთ გართობის/საინფორმაციო სისტემის კამერა. ეს მოქმედება ყველა ნებადართულ აპს კამერას ჩაურთავს."</string>
+    <string name="activity_blocked_text" msgid="5353157279548801554">"მანქანის მართვისას ამ ფუნქციას ვერ გამოიყენებთ"</string>
+    <string name="exit_button_close_application" msgid="112227710467017144">"აპის დახურვა"</string>
+    <string name="exit_button_go_back" msgid="7988866855775300902">"უკან"</string>
     <string name="qc_footer_settings" msgid="5471523941092316743">"პარამეტრები"</string>
     <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Bluetooth-ის პარამეტრები"</string>
     <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"ქსელის და ინტერნეტის პარამეტრები"</string>

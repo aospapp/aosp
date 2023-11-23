@@ -68,7 +68,7 @@
                  android:layout_width="@dimen/preference_pane_extra_padding_start"
                  android:layout_height="match_parent" />
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame1"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -77,9 +77,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame2"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -88,9 +88,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame3"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -99,9 +99,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame4"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -110,9 +110,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame5"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -121,9 +121,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame6"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -132,9 +132,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame7"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -143,9 +143,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame8"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -154,9 +154,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame9"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -165,9 +165,9 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
-            <FrameLayout
+            <com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout
                 android:id="@+id/frame10"
                 android:background="@color/tp_preference_panel_background_color"
                 android:layout_width="@dimen/tp_settings_preference_pane_width"
@@ -176,7 +176,7 @@
                 android:paddingEnd="@dimen/preference_pane_padding_end"
                 android:clipChildren="false"
                 android:clipToPadding="false">
-            </FrameLayout>
+            </com.android.tv.twopanelsettings.TwoPanelSettingsFrameLayout>
 
             <!-- extra_padding_rtl, the extra paddingStart of preference pane in RTL -->
             <FrameLayout

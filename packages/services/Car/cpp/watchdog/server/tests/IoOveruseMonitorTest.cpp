@@ -17,7 +17,7 @@
 #include "IoOveruseMonitor.h"
 #include "MockIoOveruseConfigs.h"
 #include "MockPackageInfoResolver.h"
-#include "MockProcDiskStats.h"
+#include "MockProcDiskStatsCollector.h"
 #include "MockResourceOveruseListener.h"
 #include "MockUidStatsCollector.h"
 #include "MockWatchdogServiceHelper.h"
@@ -137,7 +137,7 @@ UserPackageIoUsageStats constructUserPackageIoUsageStats(userid_t userId,
     return stats;
 }
 
-class ScopedChangeCallingUid : public RefBase {
+class ScopedChangeCallingUid final : public RefBase {
 public:
     explicit ScopedChangeCallingUid(uid_t uid) {
         mCallingUid = IPCThreadState::self()->getCallingUid();
@@ -178,13 +178,13 @@ std::string toString(const std::vector<PackageIoOveruseStats>& ioOveruseStats) {
 
 namespace internal {
 
-class IoOveruseMonitorPeer : public RefBase {
+class IoOveruseMonitorPeer final : public RefBase {
 public:
     explicit IoOveruseMonitorPeer(const sp<IoOveruseMonitor>& ioOveruseMonitor) :
           mIoOveruseMonitor(ioOveruseMonitor) {}
 
-    Result<void> init(const sp<IIoOveruseConfigs>& ioOveruseConfigs,
-                      const sp<IPackageInfoResolver>& packageInfoResolver) {
+    Result<void> init(const sp<IoOveruseConfigsInterface>& ioOveruseConfigs,
+                      const sp<PackageInfoResolverInterface>& packageInfoResolver) {
         if (const auto result = mIoOveruseMonitor->init(); !result.ok()) {
             return result;
         }
@@ -842,7 +842,7 @@ TEST_F(IoOveruseMonitorTest, TestOnPeriodicCollectionWithErrorFetchingPrevBootSt
 }
 
 TEST_F(IoOveruseMonitorTest, TestOnPeriodicMonitor) {
-    IIoOveruseConfigs::IoOveruseAlertThresholdSet alertThresholds =
+    IoOveruseConfigsInterface::IoOveruseAlertThresholdSet alertThresholds =
             {toIoOveruseAlertThreshold(
                      /*durationInSeconds=*/10, /*writtenBytesPerSecond=*/15'360),
              toIoOveruseAlertThreshold(
@@ -861,59 +861,61 @@ TEST_F(IoOveruseMonitorTest, TestOnPeriodicMonitor) {
     const auto alertHandler = [&]() { isAlertReceived = true; };
 
     // 1st polling is ignored
-    sp<MockProcDiskStats> mockProcDiskStats = sp<MockProcDiskStats>::make();
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).Times(0);
+    sp<MockProcDiskStatsCollector> mockProcDiskStatsCollector =
+            sp<MockProcDiskStatsCollector>::make();
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats()).Times(0);
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_FALSE(isAlertReceived) << "Triggered spurious alert because first polling is ignored";
 
     // 2nd polling - guarded by the heuristic to handle spurious alerting on partially filled buffer
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).WillOnce([]() -> DiskStats {
-        return DiskStats{.numKibWritten = 70};
-    });
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats())
+            .WillOnce([]() -> DiskStats { return DiskStats{.numKibWritten = 70}; });
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_FALSE(isAlertReceived) << "Triggered spurious alert when not exceeding the threshold";
 
     // 3rd polling exceeds first threshold
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).WillOnce([]() -> DiskStats {
-        return DiskStats{.numKibWritten = 90};
-    });
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats())
+            .WillOnce([]() -> DiskStats { return DiskStats{.numKibWritten = 90}; });
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_TRUE(isAlertReceived) << "Failed to trigger alert when exceeding the threshold";
 
     isAlertReceived = false;
 
     // 4th polling - guarded by the heuristic to handle spurious alerting on partially filled buffer
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).WillOnce([]() -> DiskStats {
-        return DiskStats{.numKibWritten = 10};
-    });
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats())
+            .WillOnce([]() -> DiskStats { return DiskStats{.numKibWritten = 10}; });
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_FALSE(isAlertReceived) << "Triggered spurious alert when not exceeding the threshold";
 
     // 5th polling exceeds second threshold
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).WillOnce([]() -> DiskStats {
-        return DiskStats{.numKibWritten = 80};
-    });
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats())
+            .WillOnce([]() -> DiskStats { return DiskStats{.numKibWritten = 80}; });
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_TRUE(isAlertReceived) << "Failed to trigger alert when exceeding the threshold";
 
     isAlertReceived = false;
 
     // 6th polling exceeds third threshold
-    EXPECT_CALL(*mockProcDiskStats, deltaSystemWideDiskStats()).WillOnce([]() -> DiskStats {
-        return DiskStats{.numKibWritten = 10};
-    });
+    EXPECT_CALL(*mockProcDiskStatsCollector, deltaSystemWideDiskStats())
+            .WillOnce([]() -> DiskStats { return DiskStats{.numKibWritten = 10}; });
 
-    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(), mockProcDiskStats,
+    ASSERT_RESULT_OK(mIoOveruseMonitor->onPeriodicMonitor(nextCollectionTime(),
+                                                          mockProcDiskStatsCollector,
                                                           alertHandler));
     EXPECT_TRUE(isAlertReceived) << "Failed to trigger alert when exceeding the threshold";
 }

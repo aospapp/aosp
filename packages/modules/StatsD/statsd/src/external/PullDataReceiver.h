@@ -32,8 +32,8 @@ class PullDataReceiver : virtual public RefBase{
    * bucket should be invalidated.
    * @param originalPullTimeNs This is when all the pulls have been initiated (elapsed time).
    */
-  virtual void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data, 
-                            bool pullSuccess, int64_t originalPullTimeNs) = 0;
+  virtual void onDataPulled(const std::vector<std::shared_ptr<LogEvent>>& data, bool pullSuccess,
+                            int64_t originalPullTimeNs) = 0;
 };
 
 }  // namespace statsd

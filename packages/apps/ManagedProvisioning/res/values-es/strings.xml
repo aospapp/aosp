@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Esta aplicación administrará tu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Siguiente"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando el perfil de trabajo…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Tu administrador de TI puede supervisar y gestionar los ajustes, acceso corporativo, aplicaciones, permisos y datos asociados con este perfil, además de la actividad de red, la ubicación del dispositivo, el historial de llamadas y el historial de búsqueda de contactos.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Ponte en contacto con tu administrador de TI para obtener más información, además de para conocer las políticas de privacidad de tu organización."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Tu administrador de TI puede monitorizar y gestionar los ajustes, el acceso corporativo, las aplicaciones, los permisos, los datos y la actividad de red asociados con este perfil, además del historial de llamadas y el historial de búsqueda de contactos. Ponte en contacto con tu administrador de TI para obtener más información y conocer las políticas de privacidad de tu organización."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Tu administrador de TI puede supervisar y gestionar los ajustes, acceso corporativo, aplicaciones, permisos y datos asociados con este dispositivo, además de la actividad de red, la ubicación del dispositivo, el historial de llamadas y el historial de búsqueda de contactos.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Ponte en contacto con tu administrador de TI para obtener más información, además de para conocer las políticas de privacidad de tu organización."</string>
@@ -70,7 +68,7 @@
     <string name="default_owned_device_username" msgid="3915120202811807955">"Usuario del dispositivo de trabajo"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Configurando el dispositivo de trabajo…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Este dispositivo no admite el cifrado, a pesar de que es necesario para la configuración. Para obtener ayuda, ponte en contacto con el administrador de TI."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"¿Detener la configuración y recuperar los datos del dispositivo?"</string>
+    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"¿Detener configuración y restablecer dispositivo?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Este proceso recuperará la configuración del dispositivo y volverás a la primera pantalla"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"¿Quieres detener la configuración y borrar los datos del dispositivo?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Cancelar"</string>
@@ -111,11 +109,11 @@
     <string name="if_questions_contact_admin" msgid="3509427015901582047">"Si tienes alguna pregunta, ponte en contacto con tu administrador de TI"</string>
     <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"La configuración no se ha completado. Para obtener ayuda, ponte en contacto con el administrador de TI."</string>
     <string name="for_help_contact_admin" msgid="5922538077702487859">"Para obtener ayuda, ponte en contacto con tu administrador de TI"</string>
-    <string name="organization_admin" msgid="5975914478148511290">"Administrador de TI"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"administrador de TI"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> gestionará y supervisará este dispositivo mediante la siguiente aplicación:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Tu organización"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"tu organización"</string>
-    <string name="view_terms" msgid="7230493092383341605">"Ver condiciones"</string>
+    <string name="view_terms" msgid="7230493092383341605">"Ver términos"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Aceptar y continuar"</string>
     <string name="back" msgid="6455622465896147127">"Atrás"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Configura el dispositivo"</string>
@@ -135,7 +133,7 @@
     <string name="setup_device_progress" msgid="7035335208571175393">"Configura tu dispositivo. Mostrando progreso"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Botón para obtener más información"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"Icono de <xliff:g id="ICON_LABEL">%1$s</xliff:g>"</string>
-    <string name="section_heading" msgid="3924666803774291908">"Título de la sección <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
+    <string name="section_heading" msgid="3924666803774291908">"Encabezado de la sección <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
     <string name="section_content" msgid="8875502515704374394">"Contenido de la sección <xliff:g id="SECTION_HEADING">%1$s</xliff:g>: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
     <string name="expand" msgid="37188292156131304">"Mostrar"</string>
     <string name="collapse" msgid="7817530505064432580">"Ocultar"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> puede instalar la aplicación <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para hacer pagos de este dispositivo."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Este dispositivo se puede restringir"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> puede restringir el acceso a este dispositivo si no pagas."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"No se puede configurar el dispositivo. Ponte en contacto con tu administrador de TI con la referencia \"Suma de comprobación no válida\"."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Vuelve a intentarlo más tarde o pide ayuda a tu administrador de TI"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"No se puede configurar el dispositivo. Ponte en contacto con tu administrador de TI con la referencia \"Componentes que faltan o dañados\"."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Configurando…"</string>
 </resources>

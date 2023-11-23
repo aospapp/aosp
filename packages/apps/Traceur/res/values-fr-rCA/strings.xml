@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Restaurer les catégories par défaut"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Les catégories par défaut ont été restaurées"</string>
     <string name="default_categories" msgid="2117679794687799407">"Par défaut"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="one">%d catégorie sélectionnée</item>
-      <item quantity="other">%d catégories sélectionnées</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{# sélectionnée}one{# sélectionnée}other{# sélectionnées}}"</string>
     <string name="applications" msgid="521776761270770549">"Applications"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Il n\'y a pas d\'application déboguable"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Taille de la mémoire tampon par processeur"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Utiliser Perfetto (version bêta)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Traces longues"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Enregistrement continuel vers l\'espace de stockage de l\'appareil"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Enregistrement continu dans l\'espace de stockage de l\'appareil (sans ajout automatique aux rapports de bogue)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Taille maximale pour la trace longue"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Durée maximale des traces longues"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 Mo"</string>

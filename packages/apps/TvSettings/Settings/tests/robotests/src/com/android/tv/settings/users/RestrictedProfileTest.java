@@ -31,6 +31,8 @@ import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
 
+import com.android.tv.settings.library.users.RestrictedProfileModel;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

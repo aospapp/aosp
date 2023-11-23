@@ -118,6 +118,7 @@ struct DNSHeader {
 
 inline const std::string kDefaultListenAddr = "127.0.0.3";
 inline const std::string kDefaultListenService = "53";
+inline const std::string kDefaultMdnsListenService = "5353";
 inline const ns_rcode kDefaultErrorCode = ns_rcode::ns_r_servfail;
 
 /*

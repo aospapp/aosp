@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_
-#define EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_
+#ifndef CPP_EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_
+#define CPP_EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_
 
-namespace android {
-namespace automotive {
-namespace evs {
-namespace V1_1 {
-namespace implementation {
+#include <stdlib.h>
+
+namespace android::automotive::evs::V1_1::implementation {
 
 #define EVS_FUZZ_BASE_ENUM                                               \
     EVS_FUZZ_NOTIFY,                      /*verify notify*/              \
@@ -42,10 +40,6 @@ const uint64_t endMockHWCameraId = 1028;
 const uint64_t startMockHWDisplayId = 256;
 const uint64_t endMockHWDisplayId = 258;
 
-}  // namespace implementation
-}  // namespace V1_1
-}  // namespace evs
-}  // namespace automotive
-}  // namespace android
+}  // namespace android::automotive::evs::V1_1::implementation
 
-#endif  // EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_
+#endif  // CPP_EVS_MANAGER_1_1_TEST_FUZZER_COMMON_H_

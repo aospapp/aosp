@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Eftirfarandi forrit mun stjórna tækinu:"</string>
     <string name="next" msgid="1004321437324424398">"Áfram"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Setur upp vinnusnið…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessum prófíl, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum netvirkni sem tengist þessum prófíl, auk símtalaferils og leitarferli tengiliða. Hafðu samband við kerfisstjórann til að fá frekari upplýsingar um persónuverndarstefnur fyrirtækisins."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Kerfisstjórinn þinn getur fylgst með og stjórnað stillingum, fyrirtækisaðgangi, forritum, heimildum og gögnum sem tengjast þessu tæki, auk netnotkunar og staðsetningu tækis, símtalaferli og leit að tengiliðum.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Frekari upplýsingar fást hjá kerfisstjóranum, þar á meðal um persónuverndarstefnur fyrirtækisins þíns."</string>
@@ -162,11 +160,11 @@
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Reikningnum þínum er stjórnað"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Kerfisstjórinn notar snjalltækjastjórnun til að framfylgja öryggisreglum"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Undirbýr uppsetningu fyrir vinnu…"</string>
-    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Setjum upp vinnusniðið þitt"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Setjum upp vinnuprófílinn þinn"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Vinnuforrit eru geymd á vinnusniðinu"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Gerðu hlé á vinnuforritum í lok vinnudags"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Gögn á vinnusniðinu þínu eru sýnileg kerfisstjóranum þínum"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Setur upp vinnusniðið…"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Setur upp vinnuprófílinn…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Vinnuforrit eru geymd á vinnusniðinu þínu. Þú getur gert hlé á vinnuforritunum þegar þú hættir að nota þau í lok vinnudags. Kerfisstjórinn þinn getur séð gögn sem eru á vinnusniðinu þínu."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Setjum upp vinnutækið þitt"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Hafðu vinnuforritin innan handar"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> getur sett upp <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-forritið svo að þú getir greitt fyrir þetta tæki."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Hægt er að takmarka þetta tæki"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> getur takmarkað aðgang að þessu tæki ef þú greiðir ekki."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Ekki er hægt að setja tæki upp. Hafðu samband við kerfisstjórann og vísaðu í „Ógild prófsumma“."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Reyndu aftur síðar eða hafðu samband við kerfisstjórann til að fá aðstoð"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Ekki er hægt að setja tæki upp. Hafðu samband við kerfisstjórann og vísaðu í „Íhluti vantar eða íhlutir eru skemmdir“."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Setur upp…"</string>
 </resources>

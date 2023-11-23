@@ -40,6 +40,7 @@ import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static com.android.testutils.Cleanup.testAndCleanup;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -73,6 +74,7 @@ import android.platform.test.annotations.AppModeFull;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.util.ArraySet;
 import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
@@ -83,7 +85,6 @@ import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.ArrayTrackRecord;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 import com.android.testutils.DevSdkIgnoreRunner;
-import com.android.testutils.SkipPresubmit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -92,7 +93,9 @@ import org.junit.runner.RunWith;
 
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -203,7 +206,6 @@ public class ConnectivityDiagnosticsManagerTest {
         cb.assertNoCallback();
     }
 
-    @SkipPresubmit(reason = "Flaky: b/159718782; add to presubmit after fixing")
     @Test
     public void testRegisterCallbackWithCarrierPrivileges() throws Exception {
         assumeTrue(mPackageManager.hasSystemFeature(FEATURE_TELEPHONY));
@@ -221,16 +223,16 @@ public class ConnectivityDiagnosticsManagerTest {
 
         final TestNetworkCallback testNetworkCallback = new TestNetworkCallback();
 
-        try {
+        testAndCleanup(() -> {
             doBroadcastCarrierConfigsAndVerifyOnConnectivityReportAvailable(
                     subId, carrierConfigReceiver, testNetworkCallback);
-        } finally {
+        }, () -> {
             runWithShellPermissionIdentity(
                     () -> mCarrierConfigManager.overrideConfig(subId, null),
                     android.Manifest.permission.MODIFY_PHONE_STATE);
             mConnectivityManager.unregisterNetworkCallback(testNetworkCallback);
             mContext.unregisterReceiver(carrierConfigReceiver);
-        }
+            });
     }
 
     private String getCertHashForThisPackage() throws Exception {
@@ -276,25 +278,30 @@ public class ConnectivityDiagnosticsManagerTest {
 
         assertTrue("Didn't receive broadcast for ACTION_CARRIER_CONFIG_CHANGED for subId=" + subId,
                 carrierConfigReceiver.waitForCarrierConfigChanged());
-        assertTrue("Don't have Carrier Privileges after adding cert for this package",
-                mTelephonyManager.createForSubscriptionId(subId).hasCarrierPrivileges());
 
         // Wait for CarrierPrivilegesTracker to receive the ACTION_CARRIER_CONFIG_CHANGED
         // broadcast. CPT then needs to update the corresponding DataConnection, which then
         // updates ConnectivityService. Unfortunately, this update to the NetworkCapabilities in
         // CS does not trigger NetworkCallback#onCapabilitiesChanged as changing the
         // administratorUids is not a publicly visible change. In lieu of a better signal to
-        // detministically wait for, use Thread#sleep here.
+        // deterministically wait for, use Thread#sleep here.
         // TODO(b/157949581): replace this Thread#sleep with a deterministic signal
         Thread.sleep(DELAY_FOR_ADMIN_UIDS_MILLIS);
+
+        // TODO(b/217559768): Receiving carrier config change and immediately checking carrier
+        //  privileges is racy, as the CP status is updated after receiving the same signal. Move
+        //  the CP check after sleep to temporarily reduce the flakiness. This will soon be fixed
+        //  by switching to CarrierPrivilegesListener.
+        assertTrue("Don't have Carrier Privileges after adding cert for this package",
+                mTelephonyManager.createForSubscriptionId(subId).hasCarrierPrivileges());
 
         final TestConnectivityDiagnosticsCallback connDiagsCallback =
                 createAndRegisterConnectivityDiagnosticsCallback(CELLULAR_NETWORK_REQUEST);
 
         final String interfaceName =
                 mConnectivityManager.getLinkProperties(network).getInterfaceName();
-        connDiagsCallback.expectOnConnectivityReportAvailable(
-                network, interfaceName, TRANSPORT_CELLULAR);
+        connDiagsCallback.maybeVerifyConnectivityReportAvailable(
+                network, interfaceName, TRANSPORT_CELLULAR, NETWORK_VALIDATION_RESULT_VALID);
         connDiagsCallback.assertNoCallback();
     }
 
@@ -425,16 +432,16 @@ public class ConnectivityDiagnosticsManagerTest {
 
         cb.expectOnNetworkConnectivityReported(mTestNetwork, hasConnectivity);
 
-        // if hasConnectivity does not match the network's known connectivity, it will be
-        // revalidated which will trigger another onConnectivityReportAvailable callback.
+        // All calls to #onNetworkConnectivityReported are expected to be accompanied by a call to
+        // #onConnectivityReportAvailable for T+ (for R, ConnectivityReports were only sent when the
+        // Network was re-validated - when reported connectivity != known connectivity). On S,
+        // recent module versions will have the callback, but not the earliest ones.
         if (!hasConnectivity) {
             cb.expectOnConnectivityReportAvailable(mTestNetwork, interfaceName);
         } else if (SdkLevel.isAtLeastS()) {
-            // All calls to #onNetworkConnectivityReported are expected to be accompanied by a call
-            // to #onConnectivityReportAvailable after a mainline update in the S timeframe.
-            // Optionally validate this, but do not fail if it does not exist.
-            cb.maybeVerifyOnConnectivityReportAvailable(mTestNetwork, interfaceName, TRANSPORT_TEST,
-                    false /* requireCallbackFired */);
+            cb.maybeVerifyConnectivityReportAvailable(mTestNetwork, interfaceName, TRANSPORT_TEST,
+                    getPossibleDiagnosticsValidationResults(),
+                    SdkLevel.isAtLeastT() /* requireCallbackFired */);
         }
 
         cb.assertNoCallback();
@@ -487,22 +494,25 @@ public class ConnectivityDiagnosticsManagerTest {
 
         public void expectOnConnectivityReportAvailable(
                 @NonNull Network network, @NonNull String interfaceName) {
-            expectOnConnectivityReportAvailable(
-                    network, interfaceName, TRANSPORT_TEST);
+            // Test Networks both do not require validation and are not tested for validation. This
+            // results in the validation result being reported as SKIPPED for S+ (for R, the
+            // platform marked these Networks as VALID).
+
+            maybeVerifyConnectivityReportAvailable(network, interfaceName, TRANSPORT_TEST,
+                    getPossibleDiagnosticsValidationResults(), true);
         }
 
-        public void expectOnConnectivityReportAvailable(@NonNull Network network,
-                @NonNull String interfaceName, int transportType) {
-            maybeVerifyOnConnectivityReportAvailable(network, interfaceName, transportType,
-                    true /* requireCallbackFired */);
+        public void maybeVerifyConnectivityReportAvailable(@NonNull Network network,
+                @NonNull String interfaceName, int transportType, int expectedValidationResult) {
+            maybeVerifyConnectivityReportAvailable(network, interfaceName, transportType,
+                    new ArraySet<>(Collections.singletonList(expectedValidationResult)), true);
         }
 
-        public void maybeVerifyOnConnectivityReportAvailable(@NonNull Network network,
-                @NonNull String interfaceName, int transportType, boolean requireCallbackFired) {
+        public void maybeVerifyConnectivityReportAvailable(@NonNull Network network,
+                @NonNull String interfaceName, int transportType,
+                Set<Integer> possibleValidationResults, boolean requireCallbackFired) {
             final ConnectivityReport result =
                     (ConnectivityReport) mHistory.poll(CALLBACK_TIMEOUT_MILLIS, x -> true);
-
-            // If callback is not required and there is no report, exit early.
             if (!requireCallbackFired && result == null) {
                 return;
             }
@@ -517,15 +527,8 @@ public class ConnectivityDiagnosticsManagerTest {
             final PersistableBundle extras = result.getAdditionalInfo();
             assertTrue(extras.containsKey(KEY_NETWORK_VALIDATION_RESULT));
             final int actualValidationResult = extras.getInt(KEY_NETWORK_VALIDATION_RESULT);
-
-            // Allow RESULT_VALID for networks that are expected to be skipped. Android S shipped
-            // with validation results being reported as VALID, but the behavior will be updated via
-            // mainline update. Allow both behaviors, and let MTS enforce stricter behavior
-            if (actualValidationResult != NETWORK_VALIDATION_RESULT_SKIPPED
-                    && actualValidationResult != NETWORK_VALIDATION_RESULT_VALID) {
-                fail("Network validation result was incorrect; expected skipped or valid, but "
-                        + "got " + actualValidationResult);
-            }
+            assertTrue("Network validation result is incorrect: " + actualValidationResult,
+                    possibleValidationResults.contains(actualValidationResult));
 
             assertTrue(extras.containsKey(KEY_NETWORK_PROBES_SUCCEEDED_BITMASK));
             final int probesSucceeded = extras.getInt(KEY_NETWORK_VALIDATION_RESULT);
@@ -570,6 +573,19 @@ public class ConnectivityDiagnosticsManagerTest {
             assertNull("Unexpected event in history",
                     mHistory.poll(NO_CALLBACK_INVOKED_TIMEOUT, x -> true));
         }
+    }
+
+    private static Set<Integer> getPossibleDiagnosticsValidationResults() {
+        final Set<Integer> possibleValidationResults = new ArraySet<>();
+        possibleValidationResults.add(NETWORK_VALIDATION_RESULT_SKIPPED);
+
+        // In S, some early module versions will return NETWORK_VALIDATION_RESULT_VALID.
+        // Starting from T, all module versions should only return SKIPPED. For platform < T,
+        // accept both values.
+        if (!SdkLevel.isAtLeastT()) {
+            possibleValidationResults.add(NETWORK_VALIDATION_RESULT_VALID);
+        }
+        return possibleValidationResults;
     }
 
     private class CarrierConfigReceiver extends BroadcastReceiver {

@@ -94,7 +94,9 @@ enum MetricType {
     METRIC_TYPE_DURATION = 3,
     METRIC_TYPE_GAUGE = 4,
     METRIC_TYPE_VALUE = 5,
+    METRIC_TYPE_KLL = 6,
 };
+
 struct Activation {
     Activation(const ActivationType& activationType, const int64_t ttlNs)
         : ttl_ns(ttlNs),
@@ -130,11 +132,18 @@ struct SkippedBucket {
     }
 };
 
-// A MetricProducer is responsible for compute one single metrics, creating stats log report, and
+template <class T>
+optional<bool> getAppUpgradeBucketSplit(const T& metric) {
+    return metric.has_split_bucket_for_app_upgrade()
+                   ? std::make_optional<bool>(metric.split_bucket_for_app_upgrade())
+                   : std::nullopt;
+}
+
+// A MetricProducer is responsible for compute one single metric, creating stats log report, and
 // writing the report to dropbox. MetricProducers should respond to package changes as required in
 // PackageInfoListener, but if none of the metrics are slicing by package name, then the update can
 // be a no-op.
-class MetricProducer : public virtual android::RefBase, public virtual StateListener {
+class MetricProducer : public virtual RefBase, public virtual StateListener {
 public:
     MetricProducer(const int64_t& metricId, const ConfigKey& key, const int64_t timeBaseNs,
                    const int conditionIndex, const vector<ConditionState>& initialConditionCache,
@@ -143,7 +152,8 @@ public:
                    const std::unordered_map<int, std::vector<std::shared_ptr<Activation>>>&
                            eventDeactivationMap,
                    const vector<int>& slicedStateAtoms,
-                   const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap);
+                   const unordered_map<int, unordered_map<int, int64_t>>& stateGroupMap,
+                   const optional<bool> splitBucketForAppUpgrade);
 
     virtual ~MetricProducer(){};
 
@@ -183,9 +193,14 @@ public:
     /**
      * Force a partial bucket split on app upgrade
      */
-    virtual void notifyAppUpgrade(const int64_t& eventTimeNs) {
+    void notifyAppUpgrade(const int64_t& eventTimeNs) {
         std::lock_guard<std::mutex> lock(mMutex);
-        flushLocked(eventTimeNs);
+        const bool splitBucket =
+                mSplitBucketForAppUpgrade ? mSplitBucketForAppUpgrade.value() : false;
+        if (!splitBucket) {
+            return;
+        }
+        notifyAppUpgradeInternalLocked(eventTimeNs);
     };
 
     void notifyAppRemoved(const int64_t& eventTimeNs) {
@@ -384,6 +399,10 @@ protected:
         flushCurrentBucketLocked(eventTimeNs, eventTimeNs);
     };
 
+    virtual void notifyAppUpgradeInternalLocked(const int64_t eventTimeNs) {
+        flushLocked(eventTimeNs);
+    }
+
     /*
      * Individual metrics can implement their own business logic here. All pre-processing is done.
      *
@@ -426,7 +445,7 @@ protected:
 
     bool evaluateActiveStateLocked(int64_t elapsedTimestampNs);
 
-    virtual void onActiveStateChangedLocked(const int64_t& eventTimeNs) {
+    virtual void onActiveStateChangedLocked(const int64_t eventTimeNs) {
         if (!mIsActive) {
             flushLocked(eventTimeNs);
         }
@@ -460,11 +479,11 @@ protected:
     // atom.
     HashableDimensionKey getUnknownStateKey();
 
-    DropEvent buildDropEvent(const int64_t dropTimeNs, const BucketDropReason reason);
+    DropEvent buildDropEvent(const int64_t dropTimeNs, const BucketDropReason reason) const;
 
     // Returns true if the number of drop events in the current bucket has
     // exceeded the maximum number allowed, which is currently capped at 10.
-    bool maxDropEventsReached();
+    bool maxDropEventsReached() const;
 
     const int64_t mMetricId;
 
@@ -494,13 +513,16 @@ protected:
 
     int mConditionTrackerIndex;
 
+    // TODO(b/185770739): use !mMetric2ConditionLinks.empty()
     bool mConditionSliced;
 
     sp<ConditionWizard> mWizard;
 
     bool mContainANYPositionInDimensionsInWhat;
 
-    bool mSliceByPositionALL;
+    // Metrics slicing by primitive repeated field and/or position ALL need to use nested
+    // dimensions.
+    bool mShouldUseNestedDimensions;
 
     vector<Matcher> mDimensionsInWhat;  // The dimensions_in_what defined in statsd_config
 
@@ -534,6 +556,8 @@ protected:
     std::vector<Metric2State> mMetric2StateLinks;
 
     optional<UploadThreshold> mUploadThreshold;
+
+    const optional<bool> mSplitBucketForAppUpgrade;
 
     SkippedBucket mCurrentSkippedBucket;
     // Buckets that were invalidated and had their data dropped.

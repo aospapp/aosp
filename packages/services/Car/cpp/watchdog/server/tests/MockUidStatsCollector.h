@@ -32,6 +32,7 @@ namespace watchdog {
 class MockUidStatsCollector : public UidStatsCollectorInterface {
 public:
     MockUidStatsCollector() { ON_CALL(*this, enabled()).WillByDefault(::testing::Return(true)); }
+    MOCK_METHOD(void, init, (), (override));
     MOCK_METHOD(android::base::Result<void>, collect, (), (override));
     MOCK_METHOD((const std::vector<UidStats>), latestStats, (), (const, override));
     MOCK_METHOD((const std::vector<UidStats>), deltaStats, (), (const, override));

@@ -33,7 +33,7 @@ public:
                                  const std::vector<int> additiveFields);
 
 private:
-    bool PullInternal(vector<std::shared_ptr<LogEvent>>* data) override;
+    PullErrorCode PullInternal(vector<std::shared_ptr<LogEvent>>* data) override;
     const shared_ptr<IPullAtomCallback> mCallback;
 
     FRIEND_TEST(StatsCallbackPullerTest, PullFail);

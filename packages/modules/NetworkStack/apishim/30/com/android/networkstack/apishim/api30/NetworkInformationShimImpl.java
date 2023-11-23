@@ -16,6 +16,8 @@
 
 package com.android.networkstack.apishim.api30;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastR;
+
 import android.net.IpPrefix;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
@@ -25,17 +27,17 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.CaptivePortalDataShim;
 import com.android.networkstack.apishim.common.NetworkInformationShim;
-import com.android.networkstack.apishim.common.ShimUtils;
 
 import java.net.Inet4Address;
 
 /**
  * Compatibility implementation of {@link NetworkInformationShim}.
  */
+@RequiresApi(Build.VERSION_CODES.R)
 public class NetworkInformationShimImpl extends
         com.android.networkstack.apishim.api29.NetworkInformationShimImpl {
     private static final String TAG = "api30.NetworkInformationShimImpl";
@@ -45,19 +47,12 @@ public class NetworkInformationShimImpl extends
     /**
      * Get a new instance of {@link NetworkInformationShim}.
      */
+    @RequiresApi(Build.VERSION_CODES.Q)
     public static NetworkInformationShim newInstance() {
-        if (!useApiAboveQ()) {
+        if (!isAtLeastR()) {
             return com.android.networkstack.apishim.api29.NetworkInformationShimImpl.newInstance();
         }
         return new NetworkInformationShimImpl();
-    }
-
-    /**
-     * Indicates whether the shim can use APIs above the Q SDK.
-     */
-    @VisibleForTesting
-    public static boolean useApiAboveQ() {
-        return ShimUtils.isReleaseOrDevelopmentApiAbove(Build.VERSION_CODES.Q);
     }
 
     @Nullable

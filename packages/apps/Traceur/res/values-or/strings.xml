@@ -10,14 +10,11 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"ଡିଫଲ୍ଟ ବର୍ଗଗୁଡ଼ିକୁ ରିଷ୍ଟୋର୍ କରନ୍ତୁ"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"ଡିଫଲ୍ଟ ବର୍ଗଗୁଡ଼ିକ ରିଷ୍ଟୋର୍ ହୋଇଛି"</string>
     <string name="default_categories" msgid="2117679794687799407">"ଡିଫଲ୍ଟ"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">%d ଚୟନ କରିଛନ୍ତି</item>
-      <item quantity="one">%d ଚୟନ କରିଛନ୍ତି</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{#ଟି ବର୍ଗ ଚୟନ କରାଯାଇଛି}other{#ଟି ବର୍ଗ ଚୟନ କରାଯାଇଛି}}"</string>
     <string name="applications" msgid="521776761270770549">"ଆପ୍ଲିକେଶନ୍‌"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"କୌଣସି ଡିବଗ୍‌ଯୋଗ୍ୟ ଆପ୍‌ ଉପଲବ୍ଧ ନାହିଁ"</string>
     <string name="buffer_size" msgid="3944311026715111454">"ପ୍ରତି CPU ପିଛା ବଫର୍‍ର ଆକାର"</string>
-    <string name="show_quick_settings_tile" msgid="4971147332635291585">"କ୍ଵିକ୍ ସେଟିଙ୍ଗ ଟାଇଲ୍‌ ଦେଖାନ୍ତୁ"</string>
+    <string name="show_quick_settings_tile" msgid="4971147332635291585">"କ୍ଵିକ୍ ସେଟିଂସ ଟାଇଲ ଦେଖାନ୍ତୁ"</string>
     <string name="saving_trace" msgid="1468692734770800541">"ଟ୍ରେସ୍‌କୁ ସେଭ୍ କରନ୍ତୁ"</string>
     <string name="trace_saved" msgid="5869970594780992309">"ଟ୍ରେସ୍ ସେଭ୍ ହୋଇଛି"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"ଆପଣଙ୍କ ଟ୍ରେସ୍‌କୁ ସେୟାର୍ କରିବା ପାଇଁ ଟାପ୍ କରନ୍ତୁ"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto (ବିଟା) ବ୍ୟବହାର କରନ୍ତୁ"</string>
     <string name="long_traces" msgid="5110949471775966329">"ଲମ୍ବା ଟ୍ରେସ୍"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"ଡିଭାଇସ୍ ଷ୍ଟୋରେଜ୍ ପାଇଁ ବାରମ୍ବାର ସେଭ୍ କରନ୍ତୁ"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"ଡିଭାଇସ୍ ଷ୍ଟୋରେଜରେ କ୍ରମାଗତ ଭାବେ ସେଭ୍ କରାଯାଏ (ବଗ୍ ରିପୋର୍ଟରେ ସ୍ୱଚାଳିତ ଭାବେ ଆଟାଚ୍ ହେବ ନାହିଁ)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"ସର୍ବାଧିକ ଲମ୍ବା ଟ୍ରେସ୍ ଆକାର"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"ସର୍ବାଧିକ ଲମ୍ବା ଟ୍ରେସ୍ ଅବଧି"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

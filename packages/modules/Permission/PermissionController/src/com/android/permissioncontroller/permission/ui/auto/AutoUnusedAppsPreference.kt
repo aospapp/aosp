@@ -48,4 +48,8 @@ class AutoUnusedAppsPreference(
     override fun setRemoveClickRunnable(runnable: Runnable) {
         setOnSecondaryActionClickListener(runnable)
     }
+
+    override fun setRemoveComponentEnabled(enabled: Boolean) {
+        setSecondaryActionEnabled(enabled)
+    }
 }

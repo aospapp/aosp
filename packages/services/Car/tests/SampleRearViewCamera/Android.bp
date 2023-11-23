@@ -21,5 +21,8 @@ android_app {
     name: "SampleRearViewCamera",
     // Only compile source java files in this apk.
     srcs: ["src/**/*.java"],
-    sdk_version: "current",
+    // Needs the platform api to call Context.registerReceiverForAllUsers().
+    platform_apis: true,
+    // Needs for the INTERNAL_SYSTEM_WINDOW and INTERACT_ACROSS_USERS_FULL permissions (signature).
+    certificate: "platform",
 }

@@ -16,18 +16,75 @@
 
 package com.android.tv.settings.vendor;
 
+import android.hardware.display.DisplayManager;
 import android.os.Bundle;
+import android.view.Display;
 
 import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.util.ResolutionSelectionUtils;
+
+import java.util.Objects;
 
 /** A vendor sample of display preview settings. */
 @Keep
-public class DisplayPreviewFragment extends SettingsPreferenceFragment {
+public class DisplayPreviewFragment extends SettingsPreferenceFragment implements
+        DisplayManager.DisplayListener {
+    private DisplayManager mDisplayManager;
+    private Display.Mode mCurrentMode = null;
+    private static final String KEY_RESOLUTION_TITLE = "resolution_selection";
+
     @Override
     public void onCreatePreferences(Bundle bundle, String s) {
         setPreferencesFromResource(R.xml.preview_display_vendor, null);
+        mDisplayManager = getDisplayManager();
+        Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
+        if (display.getSystemPreferredDisplayMode() != null) {
+            mDisplayManager.registerDisplayListener(this, null);
+            mCurrentMode = mDisplayManager.getGlobalUserPreferredDisplayMode();
+            updateResolutionTitleDescription(ResolutionSelectionUtils.modeToString(
+                    mCurrentMode, getContext()));
+        } else {
+            removeResolutionPreference();
+        }
+    }
+
+    @VisibleForTesting
+    DisplayManager getDisplayManager() {
+        return getContext().getSystemService(DisplayManager.class);
+    }
+
+    @Override
+    public void onDisplayAdded(int displayId) {}
+
+    @Override
+    public void onDisplayRemoved(int displayId) {}
+
+    @Override
+    public void onDisplayChanged(int displayId) {
+        Display.Mode newMode = mDisplayManager.getGlobalUserPreferredDisplayMode();
+        if (!Objects.equals(mCurrentMode, newMode)) {
+            updateResolutionTitleDescription(
+                    ResolutionSelectionUtils.modeToString(newMode, getContext()));
+            mCurrentMode = newMode;
+        }
+    }
+
+    private void updateResolutionTitleDescription(String summary) {
+        Preference titlePreference = findPreference(KEY_RESOLUTION_TITLE);
+        if (titlePreference != null) {
+            titlePreference.setSummary(summary);
+        }
+    }
+
+    private void removeResolutionPreference() {
+        Preference resolutionPreference = findPreference(KEY_RESOLUTION_TITLE);
+        if (resolutionPreference != null) {
+            getPreferenceScreen().removePreference(resolutionPreference);
+        }
     }
 }

@@ -24,7 +24,6 @@ package {
 
 apex {
     name: "com.android.resolv",
-    updatable: true,
     manifest: "manifest.json",
     multilib: {
         first: {
@@ -41,14 +40,13 @@ apex {
     // Whether it actually will be compressed is controlled on per-device basis.
     compressible: true,
 
-    // IMPORTANT: For the APEX to be installed on Android 10,
-    // min_sdk_version should be 29. This enables the build system to make
+    // IMPORTANT:  q-launched-apex-module enables the build system to make
     // sure the package compatible to Android 10 in two ways:
     // - build the APEX package compatible to Android 10
     //   so that the package can be installed.
     // - build artifacts (lib/javalib/bin) against Android 10 SDK
     //   so that the artifacts can run.
-    min_sdk_version: "29",
+    defaults: ["q-launched-apex-module"],
 }
 
 apex_key {

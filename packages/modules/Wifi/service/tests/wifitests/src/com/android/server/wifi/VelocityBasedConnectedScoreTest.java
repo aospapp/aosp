@@ -91,6 +91,7 @@ public class VelocityBasedConnectedScoreTest extends WifiBaseTest {
         mClock = new FakeClock();
         mVelocityBasedConnectedScore = new VelocityBasedConnectedScore(
             new ScoringParams(mContext), mClock);
+        mVelocityBasedConnectedScore.onRoleChanged(ActiveModeManager.ROLE_CLIENT_PRIMARY);
     }
 
     /**

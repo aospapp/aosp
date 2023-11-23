@@ -18,7 +18,6 @@ package android.car;
 
 import android.car.CarOccupantZoneManager;
 import android.car.ICarOccupantZoneCallback;
-import android.view.DisplayInfo;
 
 /** @hide */
 interface ICarOccupantZone {

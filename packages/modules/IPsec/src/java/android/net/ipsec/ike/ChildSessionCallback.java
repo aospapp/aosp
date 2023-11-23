@@ -22,8 +22,9 @@ import android.annotation.SystemApi;
 import android.net.IpSecManager;
 import android.net.IpSecManager.IpSecTunnelInterface;
 import android.net.IpSecTransform;
-import android.net.annotations.PolicyDirection;
 import android.net.ipsec.ike.exceptions.IkeException;
+
+import com.android.internal.net.annotations.PolicyDirection;
 
 /**
  * Callback interface for receiving state changes of a Child Session.

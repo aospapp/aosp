@@ -35,8 +35,9 @@ struct DnsTlsServer : public IPrivateDnsServer {
     // Default constructor.
     DnsTlsServer() {}
 
-    // Allow sockaddr_storage to be promoted to DnsTlsServer automatically.
-    DnsTlsServer(const sockaddr_storage& ss) : ss(ss) {}
+    explicit DnsTlsServer(const netdutils::IPAddress& ip)
+        : DnsTlsServer(netdutils::IPSockAddr(ip, 853)) {}
+    explicit DnsTlsServer(const netdutils::IPSockAddr& addr) : ss(addr) {}
 
     // The server location, including IP and port.
     // TODO: make it const.

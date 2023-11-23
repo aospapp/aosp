@@ -67,8 +67,8 @@ public final class ProfileDetailsActionButtonsPreferenceController
             arguments -> {
                 UserInfo profileToMakeAdmin =
                         (UserInfo) arguments.get(ProfilesDialogProvider.KEY_PROFILE_TO_MAKE_ADMIN);
-                android.car.userlib.UserHelper.grantAdminPermissions(getContext(),
-                        profileToMakeAdmin);
+                com.android.car.internal.user.UserHelper.grantAdminPermissions(getContext(),
+                        profileToMakeAdmin.getUserHandle());
                 getFragmentController().goBack();
             };
 
@@ -132,10 +132,9 @@ public final class ProfileDetailsActionButtonsPreferenceController
         boolean isDemoProfile = mUserManager.isDemoUser();
         // When DISALLOW_ADD_USER is set by device or profile owner, the button should still be
         // visible but disabled
-        boolean shouldShowAddProfile = mUserManager.isAdminUser()
+        boolean shouldShowAddProfile = !(mUserManager.isAdminUser() && areThereOtherProfiles())
                 && mProfileHelper.isCurrentProcessUser(getUserInfo())
-                && !hasUserRestrictionByUm(getContext(), DISALLOW_ADD_USER)
-                && !areThereOtherProfiles();
+                && !hasUserRestrictionByUm(getContext(), DISALLOW_ADD_USER);
         boolean shouldEnableAddProfile = shouldShowAddProfile
                 && !hasUserRestrictionByDpm(getContext(), DISALLOW_ADD_USER);
         boolean shouldShowProfilesButton = isDemoProfile || shouldShowAddProfile

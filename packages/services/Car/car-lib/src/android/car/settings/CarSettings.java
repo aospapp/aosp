@@ -17,6 +17,7 @@
 package android.car.settings;
 
 import android.annotation.SystemApi;
+import android.car.annotation.AddedInOrBefore;
 
 /**
  * System-level, car-related settings.
@@ -52,6 +53,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String DEFAULT_USER_RESTRICTIONS_SET =
                 "android.car.DEFAULT_USER_RESTRICTIONS_SET";
 
@@ -61,6 +63,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String DISABLE_INSTRUMENTATION_SERVICE =
                 "android.car.DISABLE_INSTRUMENTATION_SERVICE";
 
@@ -70,6 +73,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String ENABLE_USER_SWITCH_DEVELOPER_MESSAGE =
                 "android.car.ENABLE_USER_SWITCH_DEVELOPER_MESSAGE";
 
@@ -78,6 +82,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String LAST_ACTIVE_USER_ID =
                         "android.car.LAST_ACTIVE_USER_ID";
 
@@ -86,6 +91,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String LAST_ACTIVE_PERSISTENT_USER_ID =
                         "android.car.LAST_ACTIVE_PERSISTENT_USER_ID";
 
@@ -96,6 +102,7 @@ public class CarSettings {
          *
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String SYSTEM_BAR_VISIBILITY_OVERRIDE =
                 "android.car.SYSTEM_BAR_VISIBILITY_OVERRIDE";
     }
@@ -105,6 +112,7 @@ public class CarSettings {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int[] DEFAULT_GARAGE_MODE_WAKE_UP_TIME = {0, 0};
 
     /**
@@ -112,6 +120,7 @@ public class CarSettings {
      *
      * @hide
      */
+    @AddedInOrBefore(majorVersion = 33)
     public static final int DEFAULT_GARAGE_MODE_MAINTENANCE_WINDOW = 10 * 60 * 1000; // 10 mins
 
     /**
@@ -141,6 +150,7 @@ public class CarSettings {
          * @hide
          */
         @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL =
                 "android.car.KEY_AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL";
 
@@ -155,62 +165,36 @@ public class CarSettings {
          * @hide
          */
         @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_AUDIO_PERSIST_VOLUME_GROUP_MUTE_STATES =
                 "android.car.KEY_AUDIO_PERSIST_VOLUME_GROUP_MUTE_STATES";
 
         /**
-         * Key for a list of devices to automatically connect on Bluetooth A2DP Sink profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
+         * Key for a list of devices to automatically connect on Bluetooth.
+         * Written to and read by {@link com.android.car.BluetoothDeviceManager}
          * @hide
          */
-        public static final String KEY_BLUETOOTH_A2DP_SINK_DEVICES =
-                "android.car.KEY_BLUETOOTH_A2DP_SINK_DEVICES";
-
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth PAN profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_PAN_DEVICES =
-                "android.car.KEY_BLUETOOTH_PAN_DEVICES";
-
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth HFP Client profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_HFP_CLIENT_DEVICES =
-                "android.car.KEY_BLUETOOTH_HFP_CLIENT_DEVICES";
-
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth MAP Client profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_MAP_CLIENT_DEVICES =
-                "android.car.KEY_BLUETOOTH_MAP_CLIENT_DEVICES";
-
-        /**
-         * Key for a list of devices to automatically connect on Bluetooth PBAP Client profile
-         * Written to and read by {@link com.android.car.BluetoothDeviceConnectionPolicy}
-         * @hide
-         */
-        public static final String KEY_BLUETOOTH_PBAP_CLIENT_DEVICES =
-                "android.car.KEY_BLUETOOTH_PBAP_CLIENT_DEVICES";
+        @AddedInOrBefore(majorVersion = 33)
+        public static final String KEY_BLUETOOTH_DEVICES =
+                "android.car.KEY_BLUETOOTH_DEVICES";
 
         /**
          * Key for storing temporarily-disconnected devices and profiles.
-         * Read and written by {@link com.android.car.BluetoothDeviceConnectionPolicy}.
+         * Read and written by {@link com.android.car.BluetoothProfileInhibitManager}.
          * @hide
          */
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_BLUETOOTH_PROFILES_INHIBITED =
                 "android.car.BLUETOOTH_PROFILES_INHIBITED";
 
         /**
          * Key to enable / disable rotary key event filtering. When enabled, a USB keyboard can be
          * used as a stand-in for a rotary controller.
+         * The value is boolean (1 or 0).
          * @hide
          */
+        @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_ROTARY_KEY_EVENT_FILTER =
                 "android.car.ROTARY_KEY_EVENT_FILTER";
 
@@ -221,6 +205,7 @@ public class CarSettings {
          * @hide
          */
         @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_ENABLE_INITIAL_NOTICE_SCREEN_TO_USER =
                 "android.car.ENABLE_INITIAL_NOTICE_SCREEN_TO_USER";
 
@@ -231,7 +216,27 @@ public class CarSettings {
          * @hide
          */
         @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
         public static final String KEY_SETUP_WIZARD_IN_PROGRESS =
                 "android.car.SETUP_WIZARD_IN_PROGRESS";
+
+        /**
+         * Key for a {@code ;} separated list of packages disabled on resource overuse.
+         *
+         * <p>The value is written by {@link com.android.car.watchdog.CarWatchdogService}.
+         *
+         * <p>The value is read by user interfaces (such as launcher) that show applications
+         * disabled on resource overuse. When a user selects any application from this list,
+         * the user interface should either enable the application immediately or provide user
+         * affordance to enable the application when the driving conditions are safe.
+         *
+         * <p>When an application (which is on this list) is enabled, CarService will immediately
+         * remove the application's package name form the list.
+         * @hide
+         */
+        @SystemApi
+        @AddedInOrBefore(majorVersion = 33)
+        public static final String KEY_PACKAGES_DISABLED_ON_RESOURCE_OVERUSE =
+                "android.car.KEY_PACKAGES_DISABLED_ON_RESOURCE_OVERUSE";
     }
 }

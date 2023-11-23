@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"還原預設類別"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"已還原預設類別"</string>
     <string name="default_categories" msgid="2117679794687799407">"預設"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">已選取 %d 個</item>
-      <item quantity="one">已選取 %d 個</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{已選取 # 個}other{已選取 # 個}}"</string>
     <string name="applications" msgid="521776761270770549">"應用程式"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"沒有可偵錯的應用程式"</string>
     <string name="buffer_size" msgid="3944311026715111454">"每個 CPU 的緩衝區大小"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"使用 Perfetto (Beta 版本)"</string>
     <string name="long_traces" msgid="5110949471775966329">"長追蹤記錄"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"已持續儲存至裝置儲存空間"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"資料會繼續儲存至裝置儲存空間 (但不會自動附加到錯誤報告)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"長追蹤記錄大小上限"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"長追蹤記錄最大時長"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 MB"</string>

@@ -37,6 +37,7 @@
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"မိုဘိုင်းကွန်ရက်သုံးပြီး ဒေတာကို ဝင်သုံးခွင့်ပေးပါ"</string>
     <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"မိုဘိုင်းကွန်ရက်"</string>
     <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"မိုဘိုင်းဒေတာ သုံးမည်"</string>
+    <string name="mobile_network_state_off" msgid="471795861420831748">"ပိတ်"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"မိုဘိုင်းဒေတာ ပိတ်လိုသလား။"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"ရွေးချယ်မှု လိုအပ်သည်"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"မိုဘိုင်းဒေတာအတွက် <xliff:g id="CARRIER">%1$s</xliff:g> သုံးမလား။"</string>
@@ -140,12 +141,15 @@
     <string name="wifi_settings_scanning_required_enabled" msgid="5457372118991438313">"Wi‑Fi ရှာဖွေမှု ဖွင့်ထားသည်"</string>
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"မိုဘိုင်းဒေတာစနစ်သို့ အလိုအလျောက် ပြောင်းပါ"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Wi-Fi တွင် အင်တာနက် ချိတ်ဆက်မှု မရှိသည့်အခါ မိုဘိုင်းဒေတာကို အသုံးပြုပါ။ ဒေတာသုံးစွဲခများ ကျသင့်နိုင်ပါသည်။"</string>
+    <string name="wifi_network_state_switch_subtitle" msgid="7462322882046013762">"Wi-Fi ကွန်ရက်များကို ရှာဖွေချိတ်ဆက်ရန်"</string>
     <string name="learn_more" msgid="8214605928933358604">"ပိုမိုလေ့လာရန်"</string>
     <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"ဟော့စပေါ့အမည်"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"<xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> ဖွင့်နေသည်..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"အခြားစက်ပစ္စည်းများက <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g> နှင့် ချိတ်ဆက်နိုင်သည်"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"ဟော့စပေါ့စကားဝှက်"</string>
     <string name="wifi_hotspot_security_title" msgid="2299925790743587725">"လုံခြုံရေး"</string>
+    <string name="wifi_hotspot_wpa3_sae" msgid="4752416911592950174">"WPA3-Personal"</string>
+    <string name="wifi_security_psk_sae" msgid="8738371461215752280">"WPA2/WPA3-Personal"</string>
     <string name="wifi_hotspot_wpa2_personal" msgid="7135181212837798318">"WPA2-ကိုယ်ရေး"</string>
     <string name="wifi_hotspot_security_none" msgid="2514844105085054386">"မရှိ"</string>
     <string name="wifi_hotspot_ap_band_title" msgid="7685279281668988593">"AP လှိုင်းခွင်"</string>
@@ -297,7 +301,7 @@
     <string name="all_applications" msgid="7798210477486822168">"အက်ပ်အားလုံး ပြရန်"</string>
     <string name="default_applications" msgid="1558183275638697087">"မူရင်း အက်ပ်များ"</string>
     <string name="app_permissions" msgid="32799922508313948">"အက်ပ်ခွင့်ပြုချက်များ"</string>
-    <string name="app_permissions_summary" msgid="5402214755935368418">"အက်ပ်၏ သင့်ဒေတာအသုံးပြုခွင့်ကို ထိန်းချုပ်မည်"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"အက်ပ်၏ သင့်ဒေတာအသုံးပြုခွင့်ကို ထိန်းချုပ်ရန်"</string>
     <string name="applications_settings" msgid="794261395191035632">"အက်ပ်အချက်အလက်များ"</string>
     <string name="force_stop" msgid="2153183697014720520">"ချက်ချင်း ရပ်ရန်"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"မဖြစ်မနေ ရပ်ခိုင်းမလား။"</string>
@@ -373,7 +377,7 @@
     <string name="apps_recently_opened" msgid="5320377037971195984">"လတ်တလော ဖွင့်ထားသည်များ"</string>
     <string name="apps_view_all_apps_title" msgid="2322120325505230530">"အက်ပ် %1$d ခုလုံး ကြည့်ရန်"</string>
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"ခွင့်ပြုချက် မန်နေဂျာ"</string>
-    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"အက်ပ်၏ သင့်ဒေတာအသုံးပြုခွင့်ကို ထိန်းချုပ်မည်"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"အက်ပ်၏ သင့်ဒေတာအသုံးပြုခွင့်ကို ထိန်းချုပ်ရန်"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistant နှင့် အခြားအရာများအတွက်"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"စနစ်နှင့် အခြားဆက်တင်များသို့"</string>
     <string name="special_access" msgid="5730278220917123811">"အထူးအက်ပ်များ သုံးခွင့်ရှိသည်"</string>
@@ -458,7 +462,7 @@
     <string name="wallpaper_attributions_values" msgid="4292446851583307603">"ဂြိုဟ်တုဓာတ်ပုံ ဝန်ဆောင်မှုပေးသူများ−\n©2014 CNES / Astrium၊ DigitalGlobe၊ Bluesky"</string>
     <string name="model_info" msgid="4966408071657934452">"မော်ဒယ်"</string>
     <string name="status_serial_number" msgid="9158889113131907656">"အမှတ်စဉ်"</string>
-    <string name="hardware_revision" msgid="5713759927934872874">"ကွန်ပျူတာဆိုင်ရာစက်ပစ္စည်း ဗားရှင်း"</string>
+    <string name="hardware_revision" msgid="5713759927934872874">"ဟာ့ဒ်ဝဲ ဗားရှင်း"</string>
     <string name="regulatory_info_text" msgid="8890339124198005428"></string>
     <string name="settings_license_activity_title" msgid="8499293744313077709">"ပြင်ပကုမ္ပဏီလိုင်စင်များ"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"လိုင်စင်များကို ဖွင့်ရာတွင် ပြသနာရှိနေသည်။"</string>
@@ -466,7 +470,7 @@
     <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{သင် ဆော့ဖ်ဝဲအင်ဂျင်နီယာဖြစ်ရန် ယခုအခါ အဆင့် # ဆင့်သာလိုပါသည်။}other{သင် ဆော့ဖ်ဝဲအင်ဂျင်နီယာဖြစ်ရန် ယခုအခါ အဆင့် # ဆင့်သာလိုပါသည်။}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"သင်သည် ယခု ဆော့ဖ်ဝဲအင်ဂျင်နီယာ တစ်ဦး ဖြစ်နေပါပြီ။"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"မလိုပါ၊ သင်က ဆော့ဖ်ဝဲအင်ဂျင်နီယာ ဖြစ်ပြီးသားပါ။"</string>
-    <string name="developer_options_settings" msgid="1530739225109118480">"တီထွင်သူများရွေးစရာ"</string>
+    <string name="developer_options_settings" msgid="1530739225109118480">"ဆော့ဝဲရေးသူ ရွေးစရာများ"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"ပြင်ဆင်သတ်မှတ်ရန် ရွေးစရာများ"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"ကွန်ရက်၊ အက်ပ်များ (သို့) စက်ပစ္စည်း ပြင်ဆင်သတ်မှတ်ခြင်း"</string>
     <string name="reset_network_title" msgid="1284233059990797263">"ကွန်ရက် ပြင်ဆင်သတ်မှတ်ရန်"</string>
@@ -489,7 +493,7 @@
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"အက်ပ်သတ်မှတ်ချက်များ ပြင်ဆင်သတ်မှတ်ပြီးပါပြီ"</string>
     <string name="factory_reset_title" msgid="4019066569214122052">"ဒေတာအားလုံးဖျက်ခြင်း (စက်ရုံထုတ်ဆက်တင် သတ်မှတ်ရန်)"</string>
     <string name="factory_reset_summary" msgid="854815182943504327">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ်မှ ဒေတာနှင့် ပရိုဖိုင်အားလုံးကို ဖျက်မည်"</string>
-    <string name="factory_reset_desc" msgid="1688333312943433244">"၎င်းသည် သင့်ယာဉ်၏ သတင်းနှင့်ဖျော်ဖြေရေး စနစ်မှ အောက်ပါတို့အပါအဝင် ဒေတာအားလုံးကို ဖျက်လိုက်ပါမည်-\n\n"<li>"သင်၏ Google Account"</li>\n<li>"စနစ်နှင့် အက်ပ်ဒေတာများ၊ ဆက်တင်များ"</li>\n<li>"ဒေါင်းလုဒ်လုပ်ထားသော အက်ပ်များ"</li></string>
+    <string name="factory_reset_desc" msgid="2774024747279286354">"၎င်းသည် သင့်ယာဉ်၏ သတင်းနှင့်ဖျော်ဖြေရေး စနစ်မှ ဒေတာအားလုံးအပြင် အောက်ပါတို့ကိုလည်း ဖျက်ပါမည်-\n\n"<li>"သင်၏အကောင့်နှင့် ပရိုဖိုင်များ"</li>\n<li>"စနစ်ဒေတာ၊ အက်ပ်ဒေတာနှင့် ဆက်တင်များ"</li>\n<li>"ဒေါင်းလုဒ်လုပ်ထားသော အက်ပ်များ"</li></string>
     <string name="factory_reset_accounts" msgid="5523956654938834209">"သင်သည် လက်ရှိတွင် အောက်ပါအကောင့်များသို့ လက်မှတ်ထိုးဝင်ထားသည် -"</string>
     <string name="factory_reset_other_users_present" msgid="3852324375352090570">"အခြားပရိုဖိုင်များကို ဤကားအတွက် စနစ်ထည့်သွင်းထားသည်။"</string>
     <string name="factory_reset_button_text" msgid="2626666247051368256">"ဒေတာအားလုံး ဖျက်ရန်"</string>
@@ -546,8 +550,6 @@
     <string name="choose_new_admin_title" msgid="1915428454917699587">"စီမံခန့်ခွဲသူအသစ် ရွေးခြင်း"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"အနည်းဆုံး စီမံခန့်ခွဲသူတစ်ဦး လိုအပ်ပါသည်။ လူစား ဦးစွာရွေးချယ်ပြီးမှ ဤတစ်ဦးကိုဖျက်ပါ။"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"စီမံခန့်ခွဲသူ ရွေးရန်"</string>
-    <string name="user_guest" msgid="3465399481257448601">"ဧည့်သည်"</string>
-    <string name="start_guest_session" msgid="4438752398760283201">"ဧည့်သည်"</string>
     <string name="user_switch" msgid="6544839750534690781">"ပြောင်းရန်"</string>
     <string name="current_user_name" msgid="3813671533249316823">"သင် (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"အမည်"</string>
@@ -583,9 +585,9 @@
     <string name="account_list_title" msgid="7631588514613843065">"<xliff:g id="CURRENT_USER_NAME">%1$s</xliff:g> အတွက် အကောင့်များ"</string>
     <string name="account_auto_sync_title" msgid="3238816995364191432">"ဒေတာ အော်တိုစင့်ခ်လုပ်ရန်"</string>
     <string name="account_auto_sync_summary" msgid="6963837893148304128">"ဒေတာများကို အလိုအလျောက်ပြန်လည်စတင်ရန် အက်ပ်များကိုခွင့်ပြုပါ"</string>
-    <string name="data_usage_auto_sync_on_dialog_title" msgid="6027487764261344033">"ဒေတာ အော်တိုစင့်ခ်ကို ဖွင့်မလား။"</string>
-    <string name="data_usage_auto_sync_on_dialog" msgid="2770233931307606956">"ဝဘ်ပေါ်တွင် သင်၏ အကောင့်အတွက်လုပ်သည့် အပြောင်းအလဲအားလုံးကို သင့်စက်ပစ္စည်းသို့ အလိုအလျောက် ကူးပေးမည်။ \n\nအချို့အကောင့်များသည် သင့်ဖုန်းအတွင်းပြုလုပ်ထားသည့် အပြောင်းအလဲများကို ဝဘ်ဆီသို့ အလိုအလျောက် ကူးပေးနိုင်ပါသည်။ Google အကောင့်၏ အလုပ်လုပ်ပုံ ဖြစ်ပါသည်။"</string>
-    <string name="data_usage_auto_sync_off_dialog_title" msgid="1235955038330202536">"ဒေတာ အော်တိုစင့်ခ်ကို ပိတ်မလား။"</string>
+    <string name="data_usage_auto_sync_on_dialog_title" msgid="8068513213445588532">"အလိုအလျောက်ဒေတာစင့်ခ်လုပ်ခွင့် ပေးမလား။"</string>
+    <string name="data_usage_auto_sync_on_dialog" msgid="8683935973719807821">"ဝဘ်ပေါ်၌ သင်၏အကောင့်များတွင် ပြုလုပ်သော အပြောင်းအလဲမှန်သမျှကို သင့်ယာဉ်သို့ အလိုအလျောက်မိတ္တူကူးပါမည်။\n\nအချို့အကောင့်များသည် ယာဉ်ပေါ်၌ သင်ပြုလုပ်သော အပြောင်းအလဲမှန်သမျှကိုလည်း ဝဘ်ပေါ်သို့ အလိုအလျောက်မိတ္တူကူးနိုင်သည်။"</string>
+    <string name="data_usage_auto_sync_off_dialog_title" msgid="6683011954002351091">"အလိုအလျောက်ဒေတာစင့်ခ်လုပ်ခွင့် ပိတ်မလား။"</string>
     <string name="data_usage_auto_sync_off_dialog" msgid="5040873073016183315">"၎င်းသည် ဒေတာများကို ကာကွယ်ထားမည်ဖြစ်သော်လည်း မကြာသေးခင်က အချက်အလက်များကို စုဆောင်းရန် အကောင့်တစ်ခုစီကို ကိုယ်တိုင်စင့်ခ်လုပ်ရပါမည်။ အပ်ဒိတ်ပြုလုပ်နေစဉ် အကြောင်းကြားချက်များ လက်ခံ၍မရပါ။"</string>
     <string name="account_details_title" msgid="7529571432258448573">"အကောင့်အချက်အလက်"</string>
     <string name="add_account_title" msgid="5988746086885210040">"အကောင့်ထည့်ရန်"</string>
@@ -611,6 +613,8 @@
     <string name="privacy_settings_title" msgid="3150145262029229572">"ကန့်သတ်ဆက်တင်"</string>
     <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ဒေတာ"</string>
     <string name="privacy_location_summary" msgid="7019817848470566242">"အက်ပ်၏ သင့်တည်နေရာသုံးခွင့်ကို ထိန်းချုပ်မည်"</string>
+    <string name="mute_camera_title" msgid="215494079895460172">"ကင်မရာ"</string>
+    <string name="mute_camera_summary" msgid="1237452064757403042">"အက်ပ်၏ ကင်မရာများအသုံးပြုခွင့်ကို ထိန်းချုပ်နိုင်သည်"</string>
     <string name="mute_mic_title" msgid="2813215197799569553">"မိုက်ခရိုဖုန်း"</string>
     <string name="mute_mic_summary" msgid="5426953935775303904">"အက်ပ်၏ မိုက်ခရိုဖုန်း အသုံးပြုခွင့်ကို ထိန်းချုပ်မည်"</string>
     <string name="vehicle_data_title" msgid="935933215161763721">"သတင်းနှင့်ဖျော်ဖြေရေးစနစ် ဒေတာ"</string>
@@ -672,10 +676,6 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"မလုပ်တော့"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"အတည်ပြုရန်"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"အနည်းဆုံး အက္ခရာ ၄ လုံး ရှိရမည်"</string>
-    <string name="lockpassword_password_too_short" msgid="6681218025001328405">"အနည်းဆုံး အက္ခရာ <xliff:g id="COUNT">%d</xliff:g> လုံး ရှိရမည်"</string>
-    <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"ပင်နံပါတ်သည် အနည်းဆုံးဂဏန်း <xliff:g id="COUNT">%d</xliff:g> လုံးရှိရမည်"</string>
-    <string name="lockpassword_password_too_long" msgid="7530214940279491291">"အက္ခရာ <xliff:g id="NUMBER">%d</xliff:g> လုံးထက် နည်းရပါမည်"</string>
-    <string name="lockpassword_pin_too_long" msgid="62957683396974404">"ဂဏန်း <xliff:g id="NUMBER">%d</xliff:g> လုံးထက် နည်းရပါမည်"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ဂဏန်း ၀−၉ အထိသာ ပါဝင်ရပါမည်။"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"စက်ပစ္စည်း၏ စီမံခန့်ခွဲသူသည် မကြာသေးမီက အသုံးပြုခဲ့သည့် ပင်နံပါတ်ကို သုံးခွင့်မပြုပါ"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"အသုံးပြုလေ့ရှိသော ပင်နံပါတ်များကို သင်၏ IT စီမံခန့်ခွဲသူက ပိတ်ထားသည်။ အခြား ပင်နံပါတ်တစ်ခုဖြင့် စမ်းကြည့်ပါ။"</string>
@@ -684,7 +684,21 @@
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"စက်ပစ္စည်းစီမံခန့်ခွဲသူသည် မကြာသေးမီက အသုံးပြုခဲ့သည့် စကားဝှက်ကို သုံးခွင့်မပြုပါ"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"စကားဝှက်ကို သိမ်းရာတွင် အမှားရှိနေသည်"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"အသုံးပြုလေ့ရှိသော စကားဝှက်များကို သင်၏ IT စီမံခန့်ခွဲသူက ပိတ်ထားသည်။ အခြား စကားဝှက်တစ်ခုဖြင့် စမ်းကြည့်ပါ။"</string>
-    <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"အစဉ်လိုက်ဖြစ်နေသော ဂဏန်း အငယ်မှအကြီး၊ အကြီးမှအငယ် သို့မဟုတ် ထပ်နေသည့် နံပါတ်စဉ်များကို ခွင့်မပြုပါ။"</string>
+    <string name="lockpassword_password_requires_alpha" msgid="713641878535268163">"အနည်းဆုံး စာလုံးတစ်လုံး ပါရမည်"</string>
+    <string name="lockpassword_password_requires_digit" msgid="8120467503175627546">"အနည်းဆုံး ဂဏန်းတစ်လုံး ပါရမည်"</string>
+    <string name="lockpassword_password_requires_symbol" msgid="6294855131052831204">"အနည်းဆုံး သင်္ကေတတစ်ခု ပါရမည်"</string>
+    <string name="lockpassword_password_requires_letters" msgid="324864645474528299">"{count,plural, =1{အနည်းဆုံး စာလုံး # လုံး ပါရမည်}other{အနည်းဆုံး စာလုံး # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_lowercase" msgid="5373735547134824114">"{count,plural, =1{အနည်းဆုံး စာလုံးအသေး # လုံး ပါရမည်}other{အနည်းဆုံး စာလုံးအသေး # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_uppercase" msgid="2002482631049525313">"{count,plural, =1{အနည်းဆုံး စာလုံးအကြီး # လုံး ပါရမည်}other{အနည်းဆုံး စာလုံးအကြီး # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_numeric" msgid="5694949801691947801">"{count,plural, =1{အနည်းဆုံး ဂဏန်း # လုံး ပါရမည်}other{အနည်းဆုံး ဂဏန်း # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_symbols" msgid="1789501049908004075">"{count,plural, =1{အနည်းဆုံး အထူးသင်္ကေတ # ခု ပါရမည်}other{အနည်းဆုံး အထူးသင်္ကေတ # ခု ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_nonletter" msgid="3089186186422638926">"{count,plural, =1{စာလုံးမဟုတ်သည့် အက္ခရာ အနည်းဆုံး # လုံး ပါရမည်}other{စာလုံးမဟုတ်သည့် အက္ခရာ အနည်းဆုံး # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_requires_nonnumerical" msgid="1677123573552379526">"{count,plural, =1{ဂဏန်းမဟုတ်သည့် အက္ခရာ အနည်းဆုံး # လုံး ပါရမည်}other{ဂဏန်းမဟုတ်သည့် အက္ခရာ အနည်းဆုံး # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_too_short" msgid="3898753131694105832">"{count,plural, =1{အနည်းဆုံး အက္ခရာ # လုံး ပါရမည်}other{အနည်းဆုံး အက္ခရာ # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_pin_too_short" msgid="3671037384464545169">"{count,plural, =1{အနည်းဆုံး ဂဏန်း # လုံး ပါရမည်}other{အနည်းဆုံး ဂဏန်း # လုံး ပါရမည်}}"</string>
+    <string name="lockpassword_password_too_long" msgid="1709616257350671045">"{count,plural, =1{အက္ခရာ # လုံးထက် နည်းရမည်}other{အက္ခရာ # လုံးထက် နည်းရမည်}}"</string>
+    <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{ဂဏန်း # လုံးထက် နည်းရမည်}other{ဂဏန်း # လုံးထက် နည်းရမည်}}"</string>
+    <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"ငယ်စဉ်ကြီးလိုက်၊ ကြီးစဉ်ငယ်လိုက် သို့မဟုတ် ထပ်နေသည့် နံပါတ်စဉ်များကို ခွင့်မပြုပါ"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"မျက်နှာပြင်လော့ခ်ချခြင်း ရွေးချယ်စရာများ"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> - လွန်ခဲ့သော <xliff:g id="NUM_DAYS">%3$s</xliff:g> ရက်"</string>
     <string name="credentials_reset" msgid="873900550885788639">"အထောက်အထားများကို ရှင်းလင်းခြင်း"</string>
@@ -699,6 +713,7 @@
     <string name="remove_button" msgid="6664656962868194178">"ဖယ်ရှားရန်"</string>
     <string name="cancel" msgid="750286395700355455">"မလုပ်တော့"</string>
     <string name="allow" msgid="7519431342750394402">"ခွင့်ပြုရန်"</string>
+    <string name="do_not_allow" msgid="3157082400084747525">"ခွင့်မပြုရန်"</string>
     <string name="deny" msgid="340512788979930804">"ငြင်းပယ်ရန်"</string>
     <string name="backspace_key" msgid="1545590866688979099">"ပြန်ဖျက် ခလုတ်"</string>
     <string name="enter_key" msgid="2121394305541579468">"အတည်ပြု ခလုတ်"</string>
@@ -737,7 +752,6 @@
     <string name="add_device_admin" msgid="7674707256074840333">"ဤသတင်းနှင့်ဖျော်ဖြေရေး စနစ် အက်ပ်ကို ဖွင့်ရန်"</string>
     <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"ပိတ်သိမ်းပြီး ဖယ်ရှားရန်"</string>
     <string name="remove_device_admin" msgid="3595343390502030723">"ဤသတင်းနှင့်ဖျော်ဖြေရေး စနစ် အက်ပ်ကို ပိတ်ရန်"</string>
-    <string name="admin_support_more_info" msgid="380785608579390750">"နောက်ထပ် အသေးစိတ်များ"</string>
     <string name="admin_profile_owner_message" msgid="8361351256802954556">"အဖွဲ့အစည်းမန်နေဂျာသည် ဆက်တင်များ၊ ခွင့်ပြုချက်များ၊ ပူးပေါင်းသုံးစွဲခွင့်များ၊ ကွန်ရက်လုပ်ဆောင်ချက်နှင့် ယာဉ်၏ တည်နေရာ အချက်အလက်များအပါအဝင် ဤပရိုဖိုင်နှင့် ဆက်စပ်နေသည့် အက်ပ်နှင့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။"</string>
     <string name="admin_profile_owner_user_message" msgid="366072696508275753">"အဖွဲ့အစည်းမန်နေဂျာသည် ဆက်တင်များ၊ ခွင့်ပြုချက်များ၊ ပူးပေါင်းသုံးစွဲခွင့်များ၊ ကွန်ရက်လုပ်ဆောင်ချက်နှင့် စက်ပစ္စည်း၏ တည်နေရာ အချက်အလက်များအပါအဝင် ဤပရိုဖိုင်နှင့် ဆက်စပ်နေသည့် အက်ပ်နှင့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။"</string>
     <string name="admin_device_owner_message" msgid="896530502350904835">"အဖွဲ့အစည်းမန်နေဂျာသည် ဆက်တင်များ၊ ခွင့်ပြုချက်များ၊ ပူးပေါင်းသုံးစွဲခွင့်များ၊ ကွန်ရက်လုပ်ဆောင်ချက်နှင့် ယာဉ်၏ တည်နေရာ အချက်အလက်များအပါအဝင် ဤသတင်းနှင့်ဖျော်ဖြေရေး စနစ်နှင့် ဆက်စပ်နေသည့် အက်ပ်နှင့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။"</string>
@@ -758,12 +772,67 @@
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g> ယာဉ်မူဝါဒ"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"အဖွဲ့အစည်းမန်နေဂျာက စီမံသော ဆက်တင်များ"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> အကြောင်း ပိုမိုလေ့လာရန်"</string>
+    <string name="enterprise_privacy_settings" msgid="6496900796150572727">"စီမံခန့်ခွဲထားသောယာဉ် အချက်အလက်"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5850991363779957797">"ယာဉ်စုစီမံခန့်ခွဲသူက စီမံခန့်ခွဲထားသော ဆက်တင်များ"</string>
+    <string name="enterprise_privacy_header" msgid="4652489109303330306">"ဤစီမံခန့်ခွဲထားသောယာဉ်ရှိ ဒေတာကို သုံးခွင့်ပေးရန် ယာဉ်စုစီမံခန့်ခွဲသူက ဆက်တင်များကို ပြောင်းခြင်း၊ သတင်းနှင့်ဖျော်ဖြေရေး စနစ်တွင် ဆော့ဖ်ဝဲကို ထည့်သွင်းခြင်းတို့ ပြုလုပ်နိုင်သည်။\n\nအသေးစိတ် ပိုမိုသိရှိရန် သင်၏ယာဉ်စုစီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="enterprise_privacy_exposure_category" msgid="4870494030035008520">"သင့်ယာဉ်စုများ၏စီမံခန့်ခွဲသူ မြင်နိုင်သော အချက်အလက်များ"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="8837106430193547177">"သင့်ယာဉ်စုများ၏စီမံခန့်ခွဲသူက ပြုလုပ်ထားသည့် အပြောင်းအလဲများ"</string>
+    <string name="enterprise_privacy_exposure_desc" msgid="7962571201715956427">" "<li>"သင်စီမံခန့်ခွဲသည့်ယာဉ်အကောင့်နှင့် ချိတ်ဆက်ထားသည့် ဒေတာ"</li>\n" "<li>"သင်စီမံခန့်ခွဲသည့်ယာဉ်ရှိ အက်ပ်စာရင်း"</li>\n" "<li>"အက်ပ်အသီးသီးတွင် သုံးစွဲသည့်အချိန်နှင့် ဒေတာပမာဏ"</li></string>
+    <string name="enterprise_privacy_device_access_category" msgid="5820180227429886857">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ကို သုံးခွင့်"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="1069862734971848156">"သင့်ယာဉ်ရှိ အက်ပ်စာရင်း"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="2684195229249659340">"ခန့်မှန်း အက်ပ်အရေအတွက် ဖြစ်သည်။ ၎င်းတွင် Play Store ပြင်ပမှ ထည့်သွင်းထားသည့် အက်ပ်များ မပါဝင်ပါ။"</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="1628398874478431488">
+      <item quantity="other">အနည်းဆုံး အက်ပ် <xliff:g id="COUNT_1">%d</xliff:g> ခု</item>
+      <item quantity="one">အနည်းဆုံး အက်ပ် <xliff:g id="COUNT_0">%d</xliff:g> ခု</item>
+    </plurals>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1765193032869129370">
+      <item quantity="other">အက်ပ် <xliff:g id="COUNT_1">%d</xliff:g> ခု</item>
+      <item quantity="one">အက်ပ် <xliff:g id="COUNT_0">%d</xliff:g> ခု</item>
+    </plurals>
+    <string name="enterprise_privacy_network_logs" msgid="5093305105565608542">"နောက်ဆုံးရ ကွန်ရက်ဒေတာ စီးဆင်းမှုမှတ်တမ်း"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="9197432120122370521">"လတ်တလော ချွတ်ယွင်းမှု အစီရင်ခံချက်"</string>
+    <string name="enterprise_privacy_security_logs" msgid="7375479062062113231">"နောက်ဆုံးရ လုံခြုံရေးမှတ်တမ်း"</string>
+    <string name="enterprise_privacy_none" msgid="2566653655908700748">"မရှိ"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7798942534994638670">"ထည့်သွင်းထားသည့် အက်ပ်များ"</string>
+    <string name="enterprise_privacy_location_access" msgid="3132799413005627076">"တည်နေရာ ခွင့်ပြုချက်များ"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="4094467062253345379">"မိုက်ခရိုဖုန်း ခွင့်ပြုချက်များ"</string>
+    <string name="enterprise_privacy_camera_access" msgid="8895281017339143744">"ကင်မရာ ခွင့်ပြုချက်များ"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="3386806357685549519">"မူရင်းအက်ပ်များ"</string>
+    <string name="enterprise_privacy_input_method" msgid="5062395693747004531">"မူရင်း လက်ကွက်"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="2027313786295077607">"<xliff:g id="APP_LABEL">%s</xliff:g> ဟု သတ်မှတ်ထားသည်"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="1366593928008294049">"ကမ္ဘာသုံး HTTP ပရောက်စီကို သတ်မှတ်ထားပါသည်"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="5677098981429650665">"သင့်ကိုယ်ပိုင်ပရိုဖိုင်ရှိ ယုံကြည်ရသော အထောက်အထားများ"</string>
+    <string name="enterprise_privacy_device_access_desc" msgid="3442555102576036038">" "<li>"စီမံခန့်ခွဲသူက သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ကို လော့ခ်ချခြင်း၊ စကားဝှက်ကို ပြင်ဆင်သတ်မှတ်ခြင်းတို့ ပြုလုပ်နိုင်သည်"</li>\n" "<li>"စီမံခန့်ခွဲသူက သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ရှိ ဒေတာများကို ဖျက်ပစ်နိုင်သည်"</li></string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="4768743631260876559">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ရှိ ဒေတာအားလုံးကို မဖျက်မီ စကားဝှက်ထည့်ခြင်း မအောင်မြင်သည့်အကြိမ်များ"</string>
+    <string name="enterprise_privacy_failed_password_wipe_current_user" msgid="786246192213446835">"ပရိုဖိုင်ဒေတာကို မဖျက်မီ စကားဝှက်ထည့်ခြင်း မအောင်မြင်သည့်အကြိမ်များ"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="445847844239023816">
+      <item quantity="other">ကြိုးပမ်းမှု <xliff:g id="COUNT_1">%d</xliff:g> ခု</item>
+      <item quantity="one">ကြိုးပမ်းမှု <xliff:g id="COUNT_0">%d</xliff:g> ခု</item>
+    </plurals>
+    <plurals name="default_camera_app_title" formatted="false" msgid="2650102837354606942">
+      <item quantity="other">ကင်မရာအက်ပ်များ</item>
+      <item quantity="one">ကင်မရာအက်ပ်</item>
+    </plurals>
+    <plurals name="default_email_app_title" formatted="false" msgid="7786093487229942743">
+      <item quantity="other">အီးမေးလ်ကလိုင်းယင့်အက်ပ်များ</item>
+      <item quantity="one">အီးမေးလ်ကလိုင်းယင့်အက်ပ်</item>
+    </plurals>
+    <plurals name="default_phone_app_title" formatted="false" msgid="72790081146542182">
+      <item quantity="other">ဖုန်းအက်ပ်များ</item>
+      <item quantity="one">ဖုန်းအက်ပ်</item>
+    </plurals>
     <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"ချွတ်ယွင်းမှု အစီရင်ခံစာကို မျှဝေမလား။"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"ဤယာဉ်၏ အဖွဲ့အစည်းမန်နေဂျာသည် ၎င်းစက်ကို ပြဿနာ ရှာဖွေဖြေရှင်းရာတွင် ကူညီရန် ချွတ်ယွင်းမှု အစီရင်ခံစာကို တောင်းဆိုထားသည်။ အက်ပ်များနှင့် ဒေတာများကို မျှဝေနိုင်ပါသည်။"</string>
     <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"ဤယာဉ်၏ အဖွဲ့အစည်းမန်နေဂျာသည် ၎င်းစက်ကို ပြဿနာ ရှာဖွေဖြေရှင်းရာတွင် ကူညီရန် ချွတ်ယွင်းမှု အစီရင်ခံစာကို တောင်းဆိုထားသည်။ အက်ပ်များနှင့် ဒေတာများကို မျှဝေနိုင်၍ သင့်စက်သည် ယာယီ နှေးကွေးသွားနိုင်ပါသည်။"</string>
     <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"ဤချွတ်ယွင်းမှု အစီရင်ခံစာကို ၎င်းယာဉ်၏ အဖွဲ့အစည်းမန်နေဂျာက မျှဝေနေပါသည်။ နောက်ထပ် အသေးစိတ်သိလိုပါက ၎င်းတို့ထံ ဆက်သွယ်ပါ။"</string>
     <string name="share_remote_bugreport_action" msgid="5364819432179581532">"မျှဝေရန်"</string>
     <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"ငြင်းပယ်ရန်"</string>
+    <string name="factory_reset_parked_title" msgid="4004694559766549441">"သတင်းနှင့်ဖျော်ဖြေရေး စနစ် ပြင်ဆင်သတ်မှတ်ခြင်း"</string>
+    <string name="factory_reset_parked_text" msgid="1446768795193651311">"စက်ရုံထုတ်အတိုင်း ပြင်ဆင်သတ်မှတ်ရန်နှင့် ဒေတာအားလုံးဖျက်ရန် တောင်းဆိုချက်ကို သင်၏စနစ်က ရရှိထားသည်။ ယခု ပြင်ဆင်သတ်မှတ်နိုင်သည် (သို့) နောက်တစ်ကြိမ် ကားစက်နှိုးသောအခါ ပြင်ဆင်သတ်မှတ်ပါမည်။ ထို့နောက် ပရိုဖိုင်အသစ် ထည့်သွင်းနိုင်သည်။"</string>
+    <string name="factory_reset_now_button" msgid="4461863686086129437">"ယခု ပြင်ဆင်သတ်မှတ်ရန်"</string>
+    <string name="factory_reset_later_button" msgid="2653125445148367016">"နောက်မှ ပြင်ဆင်သတ်မှတ်ရန်"</string>
+    <string name="factory_reset_later_text" msgid="6371031843489938419">"နောက်တစ်ကြိမ် ကားစက်နှိုးသောအခါ သတင်းနှင့်ဖျော်ဖြေရေး စနစ်ကို ပြင်ဆင်သတ်မှတ်ပါမည်။"</string>
+    <string name="factory_reset_driving_text" msgid="6833832382688900191">"ပြင်ဆင်သတ်မှတ်မှု စတင်ရန် ကားကို ရပ်နားထားရမည်။"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"ဤဆက်တင်ကို ယခု ပြောင်း၍မရပါ"</string>
     <string name="accessibility_settings_title" msgid="2615042088419230347">"အများသုံးစွဲနိုင်မှု"</string>
     <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"စာတန်းများ"</string>
@@ -785,4 +854,21 @@
     <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"အဖြူပေါ်အမည်း"</string>
     <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"အမည်းပေါ်အဝါ"</string>
     <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"အပြာပေါ်အဝါ"</string>
+    <string name="accessibility_settings_screen_reader_title" msgid="5113265553157624836">"ဖန်သားပြင်ဖတ် အက်ပ်"</string>
+    <string name="screen_reader_settings_off" msgid="6081562047935689764">"ပိတ်"</string>
+    <string name="screen_reader_settings_on" msgid="2168217218643349459">"ဖန်သားပြင်ပေါ်ရှိစာများကို ဖတ်သည်"</string>
+    <string name="enable_screen_reader_toggle_title" msgid="7641307781194619254">"<xliff:g id="ACCESSIBILITY_APP_NAME">%1$s</xliff:g> သုံးခြင်း"</string>
+    <string name="screen_reader_options_title" msgid="1073640098442831819">"ရွေးစရာများ"</string>
+    <string name="screen_reader_description_title" msgid="8766666406552388012">"ဆက်တင်များ"</string>
+    <string name="camera_settings_title" msgid="2837785830355288903">"ကင်မရာ"</string>
+    <string name="camera_toggle_title" msgid="1990732328673068456">"ကင်မရာသုံးခြင်း"</string>
+    <string name="camera_toggle_summary" msgid="5751159996822627567">"အက်ပ်အားလုံးကို ကင်မရာသုံးခွင့်ပေးနိုင်သည်"</string>
+    <string name="camera_manage_permissions" msgid="9005596413781984368">"ကင်မရာ ခွင့်ပြုချက်များကို စီမံခြင်း"</string>
+    <string name="camera_recently_accessed" msgid="8084100710444691977">"လတ်တလော သုံးထားသည်များ"</string>
+    <string name="camera_no_recent_access" msgid="965105023454777859">"လတ်တလောအက်ပ်များ မရှိပါ"</string>
+    <string name="camera_app_permission_summary_camera_off" msgid="1437200903113016549">"အက်ပ် 0 ခုတွင် သုံးခွင့်ရှိသည်"</string>
+    <string name="camera_app_permission_summary_camera_on" msgid="7260565911222013361">"{count,plural, =1{အက်ပ် {total_count} ခုအနက် # ခုတွင် သုံးခွင့်ရှိသည်}other{အက်ပ် {total_count} ခုအနက် # ခုတွင် သုံးခွင့်ရှိသည်}}"</string>
+    <string name="camera_settings_recent_requests_title" msgid="2433698239374365206">"လတ်တလော သုံးထားသည်များ"</string>
+    <string name="camera_settings_recent_requests_view_all_title" msgid="8590811106414244795">"အားလုံးကြည့်ခြင်း"</string>
+    <string name="camera_settings_loading_app_permission_stats" msgid="1402676190705491418">"ဖွင့်နေသည်…"</string>
 </resources>

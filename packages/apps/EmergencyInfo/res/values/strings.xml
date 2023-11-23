@@ -206,7 +206,7 @@
     <!-- Message shown when no emergency information has been provided by the user [CHAR LIMIT=NONE] -->
     <string name="no_info_provided">No information about the phone\'s owner</string>
     <!-- Extra message to indicate to the user that they can add emergency information [CHAR LIMIT=NONE] -->
-    <string name="tap_pencil">If this is your phone, tap the pencil icon to add information that will be displayed here in case of emergency</string>
+    <string name="tap_pencil">With your phone unlocked, tap the pencil icon to add information that will be displayed here in case of emergency</string>
     <!-- Label for action item on the menu of the editing screen [CHAR LIMIT=15] -->
     <string name="clear_all">Clear all</string>
     <!-- Label for button of dialog shown to clear all information and contacts [CHAR LIMIT=15] -->

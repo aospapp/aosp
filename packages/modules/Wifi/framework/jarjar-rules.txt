@@ -72,8 +72,6 @@ rule android.net.util.InterfaceParams* com.android.wifi.x.@0
 rule android.net.util.SharedLog* com.android.wifi.x.@0
 rule android.net.util.NetUtils* com.android.wifi.x.@0
 
-rule androidx.annotation.** com.android.wifi.x.@0
-
 # We don't jar-jar the entire package because, we still use some classes (like
 # AsyncChannel in com.android.internal.util) from these packages which are not
 # inside our jar (currently in framework.jar, but will be in wifisdk.jar in the future).
@@ -110,7 +108,6 @@ rule org.ksoap2.** com.android.wifi.x.@0
 rule fi.iki.elonen.** com.android.wifi.x.@0
 
 ## used by both framework-wifi and service-wifi ##
-rule android.os.HandlerExecutor* com.android.wifi.x.@0
 rule android.telephony.Annotation* com.android.wifi.x.@0
 rule com.android.internal.util.AsyncChannel* com.android.wifi.x.@0
 rule com.android.internal.util.AsyncService* com.android.wifi.x.@0

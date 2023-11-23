@@ -191,13 +191,14 @@ public class InstrumentClusterFragment extends Fragment {
      */
     @NonNull
     private String getRawResourceAsString(@IdRes int resId) throws IOException {
-        InputStream inputStream = getResources().openRawResource(resId);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        StringBuilder builder = new StringBuilder();
-        for (String line; (line = reader.readLine()) != null; ) {
-            builder.append(line).append("\n");
+        try (InputStream inputStream = getResources().openRawResource(resId)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            StringBuilder builder = new StringBuilder();
+            for (String line; (line = reader.readLine()) != null; ) {
+                builder.append(line).append("\n");
+            }
+            return builder.toString();
         }
-        return builder.toString();
     }
 
     @Nullable

@@ -29,6 +29,7 @@ java_defaults {
         "kotlin-reflect",
         "mockito-target-extended-minus-junit4",
         "net-tests-utils",
+        //"net-utils-framework-common",
         "testables",
     ],
     libs: [
@@ -47,7 +48,7 @@ java_defaults {
         "libnetworkstackutilsjni",
     ],
     jni_uses_sdk_apis: true,
-    jarjar_rules: ":NetworkStackJarJarRules",
+    exclude_kotlinc_generated_files: false,
 }
 
 // Tests for NetworkStackNext.
@@ -57,13 +58,14 @@ android_test {
     min_sdk_version: "29",
     srcs: [], // TODO: tests that only apply to the current, non-stable API can be added here
     test_suites: ["general-tests"],
-    test_mainline_modules: [
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    defaults: [
+        "NetworkStackTestsDefaults",
+        "ConnectivityNextEnableDefaults",
+        "connectivity-mainline-presubmit-java-defaults",
     ],
-    defaults: ["NetworkStackTestsDefaults"],
     static_libs: ["NetworkStackApiCurrentLib"],
     compile_multilib: "both", // Workaround for b/147785146 for mainline-presubmit
+    jarjar_rules: ":NetworkStackJarJarRules",
 }
 
 // Library containing the unit tests. This is used by the coverage test target to pull in the
@@ -86,13 +88,13 @@ android_test {
     min_sdk_version: "29",
     target_sdk_version: "30",
     test_suites: ["general-tests", "mts"],
-    test_mainline_modules: [
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
-        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    defaults: [
+        "NetworkStackTestsDefaults",
+        "connectivity-mainline-presubmit-java-defaults",
     ],
-    defaults: ["NetworkStackTestsDefaults"],
     static_libs: ["NetworkStackApiStableLib"],
     compile_multilib: "both",
+    jarjar_rules: ":NetworkStackJarJarRules",
 }
 
 // Additional dependencies of libnetworkstackutilsjni that are not provided by the system when

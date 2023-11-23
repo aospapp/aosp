@@ -20,4 +20,15 @@
         <item name="android:background">@drawable/image_background</item>
         <item name="android:clipToOutline">true</item>
     </style>
+    <style name="BrowseGridTitleStyle" parent="TextAppearance.Body2"/>
+        <style name="BrowseGridSubtitleStyle" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/secondary_text_color</item>
+    </style>
+    <style name="BrowseListTitleStyle" parent="TextAppearance.Body1"/>
+    <style name="BrowseListSubtitleStyle" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/secondary_text_color</item>
+    </style>
+    <style name="BrowseListItemRightArrowStyle">
+        <item name="android:src">@null</item>
+    </style>
 </resources>

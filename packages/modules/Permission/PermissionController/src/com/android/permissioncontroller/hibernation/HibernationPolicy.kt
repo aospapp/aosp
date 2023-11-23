@@ -19,6 +19,7 @@ package com.android.permissioncontroller.hibernation
 import android.Manifest
 import android.Manifest.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE
 import android.app.AppOpsManager
@@ -32,6 +33,7 @@ import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
 import android.app.job.JobService
+import android.app.role.RoleManager
 import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager.INTERVAL_DAILY
 import android.app.usage.UsageStatsManager.INTERVAL_MONTHLY
@@ -49,6 +51,7 @@ import android.os.UserManager
 import android.printservice.PrintService
 import android.provider.DeviceConfig
 import android.provider.DeviceConfig.NAMESPACE_APP_HIBERNATION
+import android.provider.Settings
 import android.service.autofill.AutofillService
 import android.service.dreams.DreamService
 import android.service.notification.NotificationListenerService
@@ -66,6 +69,8 @@ import com.android.permissioncontroller.Constants
 import com.android.permissioncontroller.DumpableLog
 import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.R
+import com.android.permissioncontroller.hibernation.v31.HibernationController
+import com.android.permissioncontroller.hibernation.v31.InstallerPackagesLiveData
 import com.android.permissioncontroller.permission.data.AllPackageInfosLiveData
 import com.android.permissioncontroller.permission.data.AppOpLiveData
 import com.android.permissioncontroller.permission.data.BroadcastReceiverLiveData
@@ -80,6 +85,7 @@ import com.android.permissioncontroller.permission.data.get
 import com.android.permissioncontroller.permission.data.getUnusedPackages
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPackageInfo
 import com.android.permissioncontroller.permission.service.revokeAppPermissions
+import com.android.permissioncontroller.permission.utils.StringUtils
 import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.forEachInParallel
 import kotlinx.coroutines.Dispatchers.Main
@@ -95,15 +101,12 @@ const val DEBUG_OVERRIDE_THRESHOLDS = false
 // TODO eugenesusla: temporarily enabled for extra logs during dogfooding
 const val DEBUG_HIBERNATION_POLICY = true || DEBUG_OVERRIDE_THRESHOLDS
 
-private const val AUTO_REVOKE_ENABLED = true
-
 private var SKIP_NEXT_RUN = false
 
 private val DEFAULT_UNUSED_THRESHOLD_MS = TimeUnit.DAYS.toMillis(90)
 
 fun getUnusedThresholdMs() = when {
     DEBUG_OVERRIDE_THRESHOLDS -> TimeUnit.SECONDS.toMillis(1)
-    !isHibernationEnabled() && !AUTO_REVOKE_ENABLED -> Long.MAX_VALUE
     else -> DeviceConfig.getLong(DeviceConfig.NAMESPACE_PERMISSIONS,
             Utils.PROPERTY_HIBERNATION_UNUSED_THRESHOLD_MILLIS,
             DEFAULT_UNUSED_THRESHOLD_MS)
@@ -134,12 +137,6 @@ fun hibernationTargetsPreSApps(): Boolean {
         false /* defaultValue */)
 }
 
-fun isHibernationJobEnabled(): Boolean {
-    return getCheckFrequencyMs() > 0 &&
-            getUnusedThresholdMs() > 0 &&
-            getUnusedThresholdMs() != Long.MAX_VALUE
-}
-
 /**
  * Receiver of the onBoot event.
  */
@@ -152,10 +149,12 @@ class HibernationOnBootReceiver : BroadcastReceiver() {
                     "and threshold ${getUnusedThresholdMs()}ms")
         }
 
-        val userManager = context.getSystemService(UserManager::class.java)!!
+        // Write first boot time if first boot
+        context.firstBootTime
+
         // If this user is a profile, then its hibernation/auto-revoke will be handled by the
         // primary user
-        if (userManager.isProfile) {
+        if (isProfile(context)) {
             if (DEBUG_HIBERNATION_POLICY) {
                 DumpableLog.i(LOG_TAG, "user ${Process.myUserHandle().identifier} is a profile." +
                         " Not running hibernation job.")
@@ -182,6 +181,14 @@ class HibernationOnBootReceiver : BroadcastReceiver() {
                     "Could not schedule ${HibernationJobService::class.java.simpleName}: $status")
             }
         }
+    }
+
+    // UserManager#isProfile was already a systemAPI, linter started complaining after it
+    // was exposed as a public API thinking it was a newly exposed API.
+    @SuppressLint("NewApi")
+    private fun isProfile(context: Context): Boolean {
+        val userManager = context.getSystemService(UserManager::class.java)!!
+        return userManager.isProfile
     }
 
     /**
@@ -220,16 +227,9 @@ class HibernationOnBootReceiver : BroadcastReceiver() {
 private suspend fun getAppsToHibernate(
     context: Context
 ): Map<UserHandle, List<LightPackageInfo>> {
-    if (!isHibernationJobEnabled()) {
-        return emptyMap()
-    }
-
     val now = System.currentTimeMillis()
     val firstBootTime = context.firstBootTime
 
-    // TODO ntmyren: remove once b/154796729 is fixed
-    Log.i(LOG_TAG, "getting UserPackageInfoLiveData for all users " +
-            "in " + HibernationJobService::class.java.simpleName)
     val allPackagesByUser = AllPackageInfosLiveData.getInitializedValue(forceUpdate = true)
     val allPackagesByUserByUid = allPackagesByUser.mapValues { (_, pkgs) ->
         pkgs.groupBy { pkg -> pkg.uid }
@@ -392,6 +392,20 @@ suspend fun isPackageHibernationExemptBySystem(
         }
         return true
     }
+
+    val context = PermissionControllerApplication.get()
+    if (context.getSystemService(DevicePolicyManager::class.java)!!.isDeviceManaged) {
+        // TODO(b/237065504): Use proper system API to check if the device is financed in U.
+        val isFinancedDevice = Settings.Global.getInt(
+                context.contentResolver, "device_owner_type", 0) == 1
+        if (!isFinancedDevice) {
+            if (DEBUG_HIBERNATION_POLICY) {
+                DumpableLog.i(LOG_TAG, "Exempted ${pkg.packageName} - device is managed")
+            }
+            return true
+        }
+    }
+
     val carrierPrivilegedStatus = CarrierPrivilegedStatusLiveData[pkg.packageName]
             .getInitializedValue()
     if (carrierPrivilegedStatus != CARRIER_PRIVILEGE_STATUS_HAS_ACCESS &&
@@ -419,16 +433,45 @@ suspend fun isPackageHibernationExemptBySystem(
     }
 
     if (SdkLevel.isAtLeastS()) {
+        val hasInstallOrUpdatePermissions =
+                context.checkPermission(
+                        Manifest.permission.INSTALL_PACKAGES, -1 /* pid */, pkg.uid) ==
+                                PERMISSION_GRANTED ||
+                context.checkPermission(
+                        Manifest.permission.INSTALL_PACKAGE_UPDATES, -1 /* pid */, pkg.uid) ==
+                                PERMISSION_GRANTED
         val hasUpdatePackagesWithoutUserActionPermission =
-            PermissionControllerApplication.get().packageManager.checkPermission(
-                UPDATE_PACKAGES_WITHOUT_USER_ACTION, pkg.packageName) == PERMISSION_GRANTED
-        val installPackagesAppOpMode = AppOpLiveData[pkg.packageName,
-            AppOpsManager.OPSTR_REQUEST_INSTALL_PACKAGES, pkg.uid]
-            .getInitializedValue()
-        if (hasUpdatePackagesWithoutUserActionPermission &&
-            installPackagesAppOpMode == AppOpsManager.MODE_ALLOWED) {
+                context.checkPermission(
+                        UPDATE_PACKAGES_WITHOUT_USER_ACTION, -1 /* pid */, pkg.uid) ==
+                                PERMISSION_GRANTED
+        val isInstallerOfRecord =
+                InstallerPackagesLiveData[user].getInitializedValue().contains(pkg.packageName) &&
+                        hasUpdatePackagesWithoutUserActionPermission
+        // Grant if app w/ privileged install/update permissions or app is an installer app that
+        // updates packages without user action.
+        if (hasInstallOrUpdatePermissions || isInstallerOfRecord) {
             if (DEBUG_HIBERNATION_POLICY) {
-                DumpableLog.i(LOG_TAG, "Exempted ${pkg.packageName} - 3p app store")
+                DumpableLog.i(LOG_TAG, "Exempted ${pkg.packageName} - installer app")
+            }
+            return true
+        }
+
+        val roleHolders = context.getSystemService(android.app.role.RoleManager::class.java)!!
+                .getRoleHolders(RoleManager.ROLE_SYSTEM_WELLBEING)
+        if (roleHolders.contains(pkg.packageName)) {
+            if (DEBUG_HIBERNATION_POLICY) {
+                DumpableLog.i(LOG_TAG, "Exempted ${pkg.packageName} - wellbeing app")
+            }
+            return true
+        }
+    }
+
+    if (SdkLevel.isAtLeastT()) {
+        val roleHolders = context.getSystemService(android.app.role.RoleManager::class.java)!!
+            .getRoleHolders(RoleManager.ROLE_DEVICE_POLICY_MANAGEMENT)
+        if (roleHolders.contains(pkg.packageName)) {
+            if (DEBUG_HIBERNATION_POLICY) {
+                DumpableLog.i(LOG_TAG, "Exempted ${pkg.packageName} - device policy manager app")
             }
             return true
         }
@@ -574,14 +617,15 @@ class HibernationJobService : JobService() {
         var notifTitle: String
         var notifContent: String
         if (isHibernationEnabled()) {
-            notifTitle = getResources().getQuantityString(
-                R.plurals.unused_apps_notification_title, numUnused, numUnused)
+            notifTitle = StringUtils.getIcuPluralsString(this,
+                R.string.unused_apps_notification_title, numUnused)
             notifContent = getString(R.string.unused_apps_notification_content)
         } else {
             notifTitle = getString(R.string.auto_revoke_permission_notification_title)
             notifContent = getString(R.string.auto_revoke_permission_notification_content)
         }
 
+        // Notification won't appear on TV, because notifications are considered distruptive on TV
         val b = Notification.Builder(this, Constants.PERMISSION_REMINDER_CHANNEL_ID)
             .setContentTitle(notifTitle)
             .setContentText(notifContent)
@@ -590,7 +634,6 @@ class HibernationJobService : JobService() {
             .setColor(getColor(android.R.color.system_notification_accent_color))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .extend(Notification.TvExtender())
         Utils.getSettingsLabelForNotifications(applicationContext.packageManager)?.let {
             settingsLabel ->
             val extras = Bundle()
@@ -615,7 +658,7 @@ class HibernationJobService : JobService() {
  * Packages using exempt services for the current user (package-name -> list<service-interfaces>
  * implemented by the package)
  */
-class ExemptServicesLiveData(val user: UserHandle)
+class ExemptServicesLiveData(private val user: UserHandle)
     : SmartUpdateMediatorLiveData<Map<String, List<String>>>() {
     private val serviceLiveDatas: List<SmartUpdateMediatorLiveData<Set<String>>> = listOf(
             ServiceLiveData[InputMethod.SERVICE_INTERFACE,
@@ -696,9 +739,9 @@ class ExemptServicesLiveData(val user: UserHandle)
 object HibernationEnabledLiveData
     : MutableLiveData<Boolean>() {
     init {
-        value = SdkLevel.isAtLeastS() &&
+        postValue(SdkLevel.isAtLeastS() &&
             DeviceConfig.getBoolean(NAMESPACE_APP_HIBERNATION,
-            Utils.PROPERTY_APP_HIBERNATION_ENABLED, true /* defaultValue */)
+            Utils.PROPERTY_APP_HIBERNATION_ENABLED, true /* defaultValue */))
         DeviceConfig.addOnPropertiesChangedListener(
             NAMESPACE_APP_HIBERNATION,
             PermissionControllerApplication.get().mainExecutor,

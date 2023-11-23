@@ -15,24 +15,7 @@
  */
 package com.android.car.vehiclehal.test;
 
-import android.hardware.automotive.vehicle.V2_0.VehicleArea;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
-import android.os.RemoteException;
-
 interface VhalEventGenerator {
-
-     /**
-      * The following property controls VHAL to start/stop linear fake data generation process.
-      * It must match kGenerateFakeDataControllingProperty that is defined in default VHAL
-      * implementation:
-      *
-      *    hardware/interfaces/automotive/vehicle/2.0/default/impl/vhal_v2_0/DefaultConfig.h
-      */
-    int GENERATE_FAKE_DATA_CONTROLLING_PROPERTY = 0x0666
-            | VehiclePropertyGroup.VENDOR
-            | VehicleArea.GLOBAL
-            | VehiclePropertyType.MIXED;
 
     // Command bits sent via GENERATE_FAKE_DATA_CONTROLLING_PROPERTY to control fake data generation
     int CMD_START_LINEAR = 0; // Start linear fake data generation
@@ -44,15 +27,15 @@ interface VhalEventGenerator {
      * Asynchronous call to tell VHAL to start fake event generation. VHAL will start generating
      * data after this call
      *
-     * @throws RemoteException
+     * @throws Exception
      */
-    void start() throws RemoteException;
+    void start() throws Exception;
 
     /**
      * Synchronous call to tell VHAL to stop fake event generation. VHAL should always stopped
      * generating data after this call.
      *
-     * @throws RemoteException
+     * @throws Exception
      */
-    void stop() throws RemoteException;
+    void stop() throws Exception;
 }

@@ -257,6 +257,13 @@ public class WifiEnterpriseConfig implements Parcelable {
     private boolean mIsAppInstalledDeviceKeyAndCert = false;
     private boolean mIsAppInstalledCaCert = false;
     private String mKeyChainAlias;
+    private boolean mIsTrustOnFirstUseEnabled = false;
+    private boolean mUserApproveNoCaCert = false;
+
+    // Not included in parceling, hashing, or equality because it is an internal, temporary value
+    // which is valid only during an actual connection to a Passpoint network with an RCOI-based
+    // subscription.
+    private long mSelectedRcoi = 0;
 
     private static final String TAG = "WifiEnterpriseConfig";
 
@@ -303,6 +310,9 @@ public class WifiEnterpriseConfig implements Parcelable {
         mIsAppInstalledDeviceKeyAndCert = source.mIsAppInstalledDeviceKeyAndCert;
         mIsAppInstalledCaCert = source.mIsAppInstalledCaCert;
         mOcsp = source.mOcsp;
+        mIsTrustOnFirstUseEnabled = source.mIsTrustOnFirstUseEnabled;
+        mUserApproveNoCaCert = source.mUserApproveNoCaCert;
+        mSelectedRcoi = source.mSelectedRcoi;
     }
 
     /**
@@ -350,6 +360,8 @@ public class WifiEnterpriseConfig implements Parcelable {
         dest.writeBoolean(mIsAppInstalledDeviceKeyAndCert);
         dest.writeBoolean(mIsAppInstalledCaCert);
         dest.writeInt(mOcsp);
+        dest.writeBoolean(mIsTrustOnFirstUseEnabled);
+        dest.writeBoolean(mUserApproveNoCaCert);
     }
 
     public static final @android.annotation.NonNull Creator<WifiEnterpriseConfig> CREATOR =
@@ -373,6 +385,8 @@ public class WifiEnterpriseConfig implements Parcelable {
                     enterpriseConfig.mIsAppInstalledDeviceKeyAndCert = in.readBoolean();
                     enterpriseConfig.mIsAppInstalledCaCert = in.readBoolean();
                     enterpriseConfig.mOcsp = in.readInt();
+                    enterpriseConfig.mIsTrustOnFirstUseEnabled = in.readBoolean();
+                    enterpriseConfig.mUserApproveNoCaCert = in.readBoolean();
                     return enterpriseConfig;
                 }
 
@@ -738,6 +752,16 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
+     * Indicates whether or not this enterprise config has a CA certificate configured.
+     */
+    public boolean hasCaCertificate() {
+        if (getCaCertificateAliases() != null) return true;
+        if (getCaCertificates() != null) return true;
+        if (!TextUtils.isEmpty(getCaPath())) return true;
+        return false;
+    }
+
+    /**
      * Get CA certificate alias
      * @return alias to the CA certificate
      * @hide
@@ -798,6 +822,29 @@ public class WifiEnterpriseConfig implements Parcelable {
             } else {
                 mCaCerts = null;
                 throw new IllegalArgumentException("Not a CA certificate");
+            }
+        } else {
+            mCaCerts = null;
+        }
+    }
+
+    /**
+     * Specify a X.509 certificate that identifies the server.
+     *
+     * This hidden API allows setting self-signed certificate for Trust on First Use.
+     *
+     * @param cert X.509 CA certificate
+     * @throws IllegalArgumentException if Trust on First Use is not enabled.
+     * @hide
+     */
+    public void setCaCertificateForTrustOnFirstUse(@Nullable X509Certificate cert) {
+        if (cert != null) {
+            if (isTrustOnFirstUseEnabled()) {
+                mIsAppInstalledCaCert = true;
+                mCaCerts = new X509Certificate[] {cert};
+            } else {
+                mCaCerts = null;
+                throw new IllegalArgumentException("Trust on First Use is not enabled.");
             }
         } else {
             mCaCerts = null;
@@ -1204,6 +1251,24 @@ public class WifiEnterpriseConfig implements Parcelable {
     }
 
     /**
+     * Set selected RCOI for Passpoint: Indicates which RCOI was selected on a particular network
+     * @param selectedRcoi the selected RCOI on a particular network
+     * @hide
+     */
+    public void setSelectedRcoi(long selectedRcoi) {
+        mSelectedRcoi = selectedRcoi;
+    }
+
+    /**
+     * Get the selected RCOI matched for a Passpoint connection
+     * @return the selected RCOI
+     * @hide
+     */
+    public long getSelectedRcoi() {
+        return mSelectedRcoi;
+    }
+
+    /**
      * Set plmn (Public Land Mobile Network) of the provider of Passpoint credential
      * @param plmn the plmn value derived from mcc (mobile country code) & mnc (mobile network code)
      */
@@ -1341,6 +1406,9 @@ public class WifiEnterpriseConfig implements Parcelable {
             sb.append("phase2_method: ").append(Phase2.strings[mPhase2Method]).append("\n");
         }
         sb.append(" ocsp: ").append(mOcsp).append("\n");
+        sb.append(" trust_on_first_use: ").append(mIsTrustOnFirstUseEnabled).append("\n");
+        sb.append(" user_approve_no_ca_cert: ").append(mUserApproveNoCaCert).append("\n");
+        sb.append(" selected_rcoi: ").append(mSelectedRcoi).append("\n");
         return sb.toString();
     }
 
@@ -1481,11 +1549,12 @@ public class WifiEnterpriseConfig implements Parcelable {
 
     /**
      * Determines whether an Enterprise configuration's EAP method requires a Root CA certification
-     * to validate the authentication server i.e. PEAP, TLS, or TTLS.
+     * to validate the authentication server i.e. PEAP, TLS, UNAUTH_TLS, or TTLS.
      * @return True if configuration requires a CA certification, false otherwise.
      */
     public boolean isEapMethodServerCertUsed() {
-        return mEapMethod == Eap.PEAP || mEapMethod == Eap.TLS || mEapMethod == Eap.TTLS;
+        return mEapMethod == Eap.PEAP || mEapMethod == Eap.TLS || mEapMethod == Eap.TTLS
+                || mEapMethod == Eap.UNAUTH_TLS;
     }
     /**
      * Determines whether an Enterprise configuration enables server certificate validation.
@@ -1615,4 +1684,56 @@ public class WifiEnterpriseConfig implements Parcelable {
         final String decoratedId = getFieldValue(DECORATED_IDENTITY_PREFIX_KEY);
         return decoratedId.isEmpty() ? null : decoratedId;
     }
+
+    /**
+     * Enable Trust On First Use.
+     *
+     * Trust On First Use (TOFU) simplifies manual or partial configurations
+     * of TLS-based EAP networks. TOFU operates by installing the Root CA cert
+     * which is received from the server during an initial connection to a new network.
+     * Such installation is gated by user approval.
+     * Use only when it is not possible to configure the Root CA cert for the server.
+     * <br>
+     * Note: If a Root CA cert is already configured, this option is ignored,
+     * e.g. if {@link #setCaCertificate(X509Certificate)}, or
+     * {@link #setCaCertificates(X509Certificate[])} is called.
+     *
+     * @param enable true to enable; false otherwise (the default if the method is not called).
+     */
+    public void enableTrustOnFirstUse(boolean enable) {
+        mIsTrustOnFirstUseEnabled = enable;
+    }
+
+    /**
+     * Indicates whether or not Trust On First Use (TOFU) is enabled.
+     *
+     * @return Trust On First Use is enabled or not.
+     */
+    public boolean isTrustOnFirstUseEnabled() {
+        return mIsTrustOnFirstUseEnabled;
+    }
+
+    /**
+     * For devices with no TOFU support, indicate that the user approved that a
+     * legacy TLS-based EAP configuration from a previous release can be used
+     * without a Root CA certificate.
+     *
+     * @hide
+     */
+    public void setUserApproveNoCaCert(boolean approved) {
+        mUserApproveNoCaCert = approved;
+    }
+
+    /**
+     * For devices with no TOFU support, indicates if the user approved that a
+     * legacy TLS-based EAP configuration from a previous release can be used
+     * without a Root CA certificate.
+     *
+     * @return indicate whether a user approves this no CA cert config.
+     * @hide
+     */
+    public boolean isUserApproveNoCaCert() {
+        return mUserApproveNoCaCert;
+    }
+
 }

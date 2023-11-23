@@ -16,10 +16,12 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import android.annotation.NonNull;
 import android.util.SparseArray;
 
 import com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured;
 import com.android.car.telemetry.AtomsProto.Atom;
+import com.android.internal.util.Preconditions;
 
 /**
  * Atom data converter for atoms of type {@link AppStartMemoryStateCaptured}.
@@ -27,7 +29,7 @@ import com.android.car.telemetry.AtomsProto.Atom;
 public class AppStartMemoryStateCapturedConverter
         extends AbstractAtomConverter<AppStartMemoryStateCaptured> {
     private static final SparseArray<
-            AtomFieldAccessor<AppStartMemoryStateCaptured>> sAtomFieldAccessorMap =
+            AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> sAtomFieldAccessorMap =
             new SparseArray<>();
     static {
         sAtomFieldAccessorMap.append(1, new AtomFieldAccessor<>(
@@ -77,16 +79,22 @@ public class AppStartMemoryStateCapturedConverter
     }
 
     @Override
-    SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured>> getAtomFieldAccessorMap() {
+    @NonNull
+    SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> getAtomFieldAccessorMap() {
         return sAtomFieldAccessorMap;
     }
 
     @Override
-    AppStartMemoryStateCaptured getAtomData(Atom atom) {
+    @NonNull
+    AppStartMemoryStateCaptured getAtomData(@NonNull Atom atom) {
+        Preconditions.checkArgument(
+                atom.hasAppStartMemoryStateCaptured(),
+                "Atom doesn't contain AppStartMemoryStateCaptured");
         return atom.getAppStartMemoryStateCaptured();
     }
 
     @Override
+    @NonNull
     String getAtomDataClassName() {
         return AppStartMemoryStateCaptured.class.getSimpleName();
     }

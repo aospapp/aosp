@@ -134,6 +134,10 @@ public class EuiccUiDispatcherActivity extends Activity {
     @Nullable
     protected Intent getEuiccUiIntent() {
         String action = getIntent().getAction();
+        if (action == null) {
+            Log.w(TAG, "No action is specified in the intent");
+            return null;
+        }
 
         Intent intent = new Intent();
         intent.putExtras(getIntent());

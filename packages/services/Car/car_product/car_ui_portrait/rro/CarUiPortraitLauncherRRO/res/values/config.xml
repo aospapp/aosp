@@ -20,28 +20,4 @@
     <string-array name="config_homeCardModuleClasses" translatable="false">
         <item>com.android.car.carlauncher.homescreen.audio.AudioCard</item>
     </string-array>
-
-    <string-array name="config_foregroundDAComponents" translatable="false">
-        <item>com.android.car.carlauncher/.AppGridActivity</item>
-        <item>com.android.car.notification/.CarNotificationCenterActivity</item>
-    </string-array>
-
-    <string-array name="config_ignoreOpeningForegroundDA" translatable="false">
-        <item>com.android.car.carlauncher/.CarLauncher</item>
-        <item>com.android.car.carlauncher/.ControlBarActivity</item>
-        <item>com.android.car.settings/.FallbackHome</item>
-        <item>com.google.android.gms/.auth.uiflows.common.UnpackingRedirectActivity</item>
-        <item>com.google.android.gms/.auth.auto.SignInMethodActivity</item>
-        <item>com.google.android.gms/.auth.uiflows.minutemaid.MinuteMaidActivity</item>
-        <item>android.car.cluster/android.car.cluster.FakeFreeNavigationActivity</item>
-        <item>android.car.cluster/android.car.cluster.MainClusterActivity</item>
-        <item>android.car.usb.handler/android.car.usb.handler.UsbHostManagementActivity</item>
-    </string-array>
-
-    <!-- TODO(b/202413464): Move GAS components to the separate RRO. -->
-    <!-- The ComponentName of Assistant VoicePlate Activity, the Activity will be placed in
-        VoicePlate TDA -->
-    <string name="config_assistantVoicePlateActivity" translatable="false">
-        com.google.android.carassistant/com.google.android.libraries.assistant.auto.tng.assistant.ui.activity.AutoAssistantActivity
-    </string>
 </resources>

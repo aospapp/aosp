@@ -76,25 +76,24 @@ public final class MergeTzS2Ranges {
                 description = "The input directory containing the TzS2Ranges files",
                 required = true,
                 converter = FileConverter.class)
-        File inputDir;
+        public File inputDir;
 
         @Parameter(names = "--num-threads",
                 description = "The number of threads to use",
                 required = true)
-        int numThreads;
+        public int numThreads;
 
         @Parameter(names = "--working-dir",
                 description = "A working dir(for storage of intermediate files)",
                 required = true,
                 converter = FileConverter.class)
-        File workingDir;
+        public File workingDir;
 
         @Parameter(names = "--output-file",
                 description = "The output file to store the combined TzS2Ranges file",
                 required = true,
                 converter = FileConverter.class)
-        File outputFile;
-
+        public File outputFile;
     }
 
     /**

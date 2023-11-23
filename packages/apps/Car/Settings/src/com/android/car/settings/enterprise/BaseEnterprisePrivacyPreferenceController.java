@@ -15,12 +15,18 @@
  */
 package com.android.car.settings.enterprise;
 
+import android.annotation.Nullable;
+import android.app.AppGlobals;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settingslib.applications.ApplicationFeatureProvider;
+import com.android.car.settingslib.applications.ApplicationFeatureProviderImpl;
+import com.android.car.settingslib.enterprise.EnterprisePrivacyFeatureProvider;
+import com.android.car.settingslib.enterprise.EnterprisePrivacyFeatureProviderImpl;
 
 /**
  * Base class for controllers in the Enterprise Privacy / Managed Device Info screen.
@@ -29,21 +35,30 @@ abstract class BaseEnterprisePrivacyPreferenceController<P extends Preference>
         extends BaseEnterprisePreferenceController<P> {
 
     protected final EnterprisePrivacyFeatureProvider mEnterprisePrivacyFeatureProvider;
+    protected final ApplicationFeatureProvider mApplicationFeatureProvider;
 
     protected BaseEnterprisePrivacyPreferenceController(Context context,
             String preferenceKey, FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions);
-
-        mEnterprisePrivacyFeatureProvider =
-                new EnterprisePrivacyFeatureProviderImpl(context, mDpm, mPm);
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                /* enterprisePrivacyFeatureProvider= */ null,
+                /* applicationFeatureProvider= */ null);
     }
 
+    // Only used by subclasses on tests.
     protected BaseEnterprisePrivacyPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions,
-            EnterprisePrivacyFeatureProvider provider) {
+            @Nullable EnterprisePrivacyFeatureProvider enterprisePrivacyFeatureProvider,
+            @Nullable ApplicationFeatureProvider applicationFeatureProvider) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
 
-        mEnterprisePrivacyFeatureProvider = provider;
+        // providers are only non-null on unit tests
+        mEnterprisePrivacyFeatureProvider = enterprisePrivacyFeatureProvider != null
+                ? enterprisePrivacyFeatureProvider
+                : new EnterprisePrivacyFeatureProviderImpl(context, mDpm, mPm);
+        mApplicationFeatureProvider = applicationFeatureProvider != null
+                ? applicationFeatureProvider
+                : new ApplicationFeatureProviderImpl(context, mPm, AppGlobals.getPackageManager(),
+                        mDpm);
     }
 }

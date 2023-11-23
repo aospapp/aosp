@@ -16,24 +16,24 @@
 
 package com.android.car.hal;
 
+import static com.android.car.CarServiceUtils.toIntArray;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.Car;
 import android.car.VehicleHvacFanDirection;
 import android.car.VehiclePropertyIds;
-import android.hardware.automotive.vehicle.V2_0.VehicleGear;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehicleUnit;
-import android.hardware.automotive.vehicle.V2_0.VehicleVendorPermission;
+import android.hardware.automotive.vehicle.VehicleGear;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehicleUnit;
+import android.hardware.automotive.vehicle.VehicleVendorPermission;
 import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.internal.PropertyPermissionMapping;
-import com.android.car.vehiclehal.VehiclePropValueBuilder;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -65,32 +65,34 @@ public class PropertyHalServiceIdsTest {
             VehiclePropertyIds.HVAC_FAN_SPEED, VehiclePropertyIds.DOOR_LOCK};
     private static final List<Integer> CONFIG_ARRAY = new ArrayList<>();
     private static final List<Integer> CONFIG_ARRAY_INVALID = new ArrayList<>();
+    private static final HalPropValueBuilder PROP_VALUE_BUILDER =
+            new HalPropValueBuilder(/*isAidl=*/true);
     //payload test
-    private static final VehiclePropValue GEAR_WITH_VALID_VALUE =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-            .addIntValue(VehicleGear.GEAR_DRIVE)
-            .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
-    private static final VehiclePropValue GEAR_WITH_EXTRA_VALUE =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                    .addIntValue(VehicleGear.GEAR_DRIVE)
-                    .addIntValue(VehicleGear.GEAR_1)
-                    .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
-    private static final VehiclePropValue GEAR_WITH_INVALID_VALUE =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                    .addIntValue(VehicleUnit.KILOPASCAL)
-                    .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
-    private static final VehiclePropValue GEAR_WITH_INVALID_TYPE_VALUE =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.GEAR_SELECTION)
-                    .addFloatValue(1.0f)
-                    .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
-    private static final VehiclePropValue HVAC_FAN_DIRECTIONS_VALID =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_FAN_DIRECTION)
-                    .addIntValue(VehicleHvacFanDirection.FACE | VehicleHvacFanDirection.FLOOR)
-                    .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
-    private static final VehiclePropValue HVAC_FAN_DIRECTIONS_INVALID =
-            VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_FAN_DIRECTION)
-                    .addIntValue(VehicleHvacFanDirection.FACE | 0x100)
-                    .setTimestamp(SystemClock.elapsedRealtimeNanos()).build();
+    private static final HalPropValue GEAR_WITH_VALID_VALUE =
+            PROP_VALUE_BUILDER.build(VehicleProperty.GEAR_SELECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    VehicleGear.GEAR_DRIVE);
+    private static final HalPropValue GEAR_WITH_EXTRA_VALUE =
+            PROP_VALUE_BUILDER.build(VehicleProperty.GEAR_SELECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    new int[]{VehicleGear.GEAR_DRIVE, VehicleGear.GEAR_1});
+    private static final HalPropValue GEAR_WITH_INVALID_VALUE =
+            PROP_VALUE_BUILDER.build(VehicleProperty.GEAR_SELECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    VehicleUnit.KILOPASCAL);
+    private static final HalPropValue GEAR_WITH_INVALID_TYPE_VALUE =
+            PROP_VALUE_BUILDER.build(VehicleProperty.GEAR_SELECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    1.0f);
+    private static final HalPropValue HVAC_FAN_DIRECTIONS_VALID =
+            PROP_VALUE_BUILDER.build(VehicleProperty.HVAC_FAN_DIRECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    VehicleHvacFanDirection.FACE | VehicleHvacFanDirection.FLOOR);
+    private static final HalPropValue HVAC_FAN_DIRECTIONS_INVALID =
+            PROP_VALUE_BUILDER.build(VehicleProperty.HVAC_FAN_DIRECTION, /*areaId=*/0,
+                    /*timestamp=*/SystemClock.elapsedRealtimeNanos(), /*status=*/0,
+                    VehicleHvacFanDirection.FACE | 0x100);
+
     @Before
     public void setUp() {
         mPropertyHalServiceIds = new PropertyHalServiceIds();
@@ -139,7 +141,7 @@ public class PropertyHalServiceIdsTest {
     @Test
     public void checkPermissionForVendorProperty() {
         // test insert a valid config
-        mPropertyHalServiceIds.customizeVendorPermission(CONFIG_ARRAY);
+        mPropertyHalServiceIds.customizeVendorPermission(toIntArray(CONFIG_ARRAY));
         assertThat(mPropertyHalServiceIds.getReadPermission(VENDOR_PROPERTY_1))
                 .isEqualTo(Car.PERMISSION_VENDOR_EXTENSION);
         assertThat(mPropertyHalServiceIds.getWritePermission(VENDOR_PROPERTY_1)).isNull();
@@ -168,7 +170,7 @@ public class PropertyHalServiceIdsTest {
 
         // test insert invalid config
         try {
-            mPropertyHalServiceIds.customizeVendorPermission(CONFIG_ARRAY_INVALID);
+            mPropertyHalServiceIds.customizeVendorPermission(toIntArray(CONFIG_ARRAY_INVALID));
             Assert.fail("Insert system properties with vendor permissions");
         } catch (IllegalArgumentException e) {
             Log.v(TAG, e.getMessage());
@@ -191,7 +193,7 @@ public class PropertyHalServiceIdsTest {
     }
 
     /**
-     * Test {@link PropertyHalServiceIds#checkPayload(VehiclePropValue)}
+     * Test {@link PropertyHalServiceIds#checkPayload(HalPropValue)}
      */
     @Test
     public void testPayload() {

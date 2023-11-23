@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Ta aplikacja będzie zarządzać urządzeniem:"</string>
     <string name="next" msgid="1004321437324424398">"Dalej"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Konfiguruję profil służbowy…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Administrator IT może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z tym profilem, w tym lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów.<xliff:g id="LINE_BREAK">
-
-</xliff:g>Skontaktuj się z administratorem IT, aby dowiedzieć się więcej oraz poznać politykę prywatności obowiązującą w Twojej organizacji."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Administrator IT może sprawdzać ustawienia, firmowe opcje dostępu, aplikacje, uprawnienia, dane i powiązaną z tym profilem aktywność w sieci, historię połączeń oraz historię wyszukiwania kontaktów. Może też nimi zarządzać. Aby dowiedzieć się więcej oraz poznać politykę prywatności obowiązującą w Twojej organizacji, skontaktuj się z administratorem IT."</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Administrator IT może monitorować ustawienia, firmowe uprawnienia dostępu, aplikacje, uprawnienia i dane powiązane z tym urządzeniem, w tym lokalizację urządzenia, historię połączeń i historię wyszukiwania kontaktów.<xliff:g id="LINE_BREAK">
 
 </xliff:g>Skontaktuj się z administratorem IT, aby dowiedzieć się więcej oraz poznać politykę prywatności obowiązującą w Twojej organizacji."</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Organizacja <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> może zainstalować aplikację <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, która umożliwia dokonywanie płatności za korzystanie z tego urządzenia."</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"To urządzenie może podlegać ograniczeniom"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Organizacja <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> może wprowadzić ograniczenia na tym urządzeniu, jeśli nie będziesz dokonywać płatności."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Nie można skonfigurować urządzenia. Skontaktuj się z administratorem, podając typ błędu „Nieprawidłowa suma kontrolna”."</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Spróbuj ponownie później lub poproś o pomoc administratora IT"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Nie można skonfigurować urządzenia. Skontaktuj się z administratorem, podając typ błędu „Brak komponentów lub komponenty uszkodzone”."</string>
+    <string name="setting_up" msgid="1478847967385506664">"Konfiguruję…"</string>
 </resources>

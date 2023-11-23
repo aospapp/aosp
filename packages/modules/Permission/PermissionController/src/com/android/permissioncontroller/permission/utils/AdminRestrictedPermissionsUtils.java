@@ -48,6 +48,10 @@ public final class AdminRestrictedPermissionsUtils {
             ADMIN_RESTRICTED_SENSORS_PERMISSIONS.add(Manifest.permission.BACKGROUND_CAMERA);
             ADMIN_RESTRICTED_SENSORS_PERMISSIONS.add(Manifest.permission.RECORD_BACKGROUND_AUDIO);
         }
+        // New T permissions - do not add unless running on T and above.
+        if (SdkLevel.isAtLeastT()) {
+            ADMIN_RESTRICTED_SENSORS_PERMISSIONS.add(Manifest.permission.BODY_SENSORS_BACKGROUND);
+        }
     }
 
     /**

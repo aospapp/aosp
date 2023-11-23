@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define DEBUG false  // STOPSHIP if true
+#define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
 #include "StateManager.h"
@@ -90,6 +90,7 @@ bool StateManager::getStateValue(const int32_t atomId, const HashableDimensionKe
     if (it != mStateTrackers.end()) {
         return it->second->getStateValue(key, output);
     }
+    ALOGE("StateManager cannot get state value, no StateTracker for atom %d", atomId);
     return false;
 }
 

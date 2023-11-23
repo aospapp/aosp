@@ -17,6 +17,11 @@
           package="com.android.networkstack.tethering.tests.integration">
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The test need CHANGE_NETWORK_STATE permission to use requestNetwork API to setup test
+         network. Since R shell application don't have such permission, grant permission to the test
+         here. TODO: Remove CHANGE_NETWORK_STATE permission here and use adopt shell perssion to
+         obtain CHANGE_NETWORK_STATE for testing once R device is no longer supported. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />

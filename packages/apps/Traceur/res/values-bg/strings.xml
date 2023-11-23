@@ -10,10 +10,7 @@
     <string name="restore_default_categories" msgid="5090536794637169521">"Възстановяване на стандартните категории"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Стандартните категории са възстановени"</string>
     <string name="default_categories" msgid="2117679794687799407">"Стандартни"</string>
-    <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
-      <item quantity="other">Избрахте %d</item>
-      <item quantity="one">Избрахте %d</item>
-    </plurals>
+    <string name="num_categories_selected" msgid="5772630335027553995">"{count,plural, =1{Избрахте #}other{Избрахте #}}"</string>
     <string name="applications" msgid="521776761270770549">"Приложения"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Няма налични приложения с възможност за отстраняване на грешки"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Размер на буферната памет според процесора"</string>
@@ -42,6 +39,7 @@
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Използване на Perfetto (бета)"</string>
     <string name="long_traces" msgid="5110949471775966329">"Продължителни трасирания"</string>
     <string name="long_traces_summary" msgid="419034282946761469">"Запазвано непрекъснато в хранилището на устройството"</string>
+    <string name="long_traces_summary_betterbug" msgid="445546400875135624">"Запазва се непрекъснато в хранилището на устройството (няма да се добавя автоматично към сигналите за програмни грешки)"</string>
     <string name="max_long_trace_size" msgid="1943788179787181241">"Максимален размер за продължително трасиране"</string>
     <string name="max_long_trace_duration" msgid="8009837944364246785">"Максимално времетраене на продължителните трасирания"</string>
     <string name="two_hundred_mb" msgid="4950018549725084512">"200 МБ"</string>

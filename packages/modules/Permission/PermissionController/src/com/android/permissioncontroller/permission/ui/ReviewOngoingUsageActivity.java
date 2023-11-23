@@ -25,8 +25,8 @@ import android.view.MenuItem;
 import androidx.annotation.NonNull;
 
 import com.android.permissioncontroller.DeviceUtils;
-import com.android.permissioncontroller.permission.ui.handheld.ReviewOngoingUsageWrapperFragment;
-import com.android.permissioncontroller.permission.ui.handheld.dashboard.UtilsKt;
+import com.android.permissioncontroller.permission.ui.handheld.v31.DashboardUtilsKt;
+import com.android.permissioncontroller.permission.ui.handheld.v31.ReviewOngoingUsageWrapperFragment;
 
 /**
  * A dialog listing the currently uses of camera, microphone, and location.
@@ -40,7 +40,8 @@ public final class ReviewOngoingUsageActivity extends SettingsActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (!UtilsKt.shouldShowCameraMicIndicators() && !UtilsKt.shouldShowLocationIndicators()) {
+        if (!DashboardUtilsKt.shouldShowCameraMicIndicators()
+                && !DashboardUtilsKt.shouldShowLocationIndicators()) {
             finishAfterTransition();
             return;
         }

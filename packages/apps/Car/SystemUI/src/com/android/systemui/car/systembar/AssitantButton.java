@@ -66,6 +66,10 @@ public class AssitantButton extends CarSystemBarButton {
                     }
 
                     @Override
+                    public void onVoiceSessionWindowVisibilityChanged(boolean visible)
+                            throws RemoteException { }
+
+                    @Override
                     public void onSetUiHints(Bundle hints) {
                     }
                 }

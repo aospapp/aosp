@@ -637,18 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Режим экстренных обратных вызовов"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Передача данных отключена"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Подключения для передачи данных не будет до <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="one">Режим экстренных обратных вызовов будет действовать ещё <xliff:g id="COUNT_1">%s</xliff:g> минуту. При этом будут недоступны приложения с поддержкой передачи данных. Выйти?</item>
-      <item quantity="few">Режим экстренных обратных вызовов будет действовать ещё <xliff:g id="COUNT_1">%s</xliff:g> минуты. При этом будут недоступны приложения с поддержкой передачи данных. Выйти?</item>
-      <item quantity="many">Режим экстренных обратных вызовов будет действовать ещё <xliff:g id="COUNT_1">%s</xliff:g> минут. При этом будут недоступны приложения с поддержкой передачи данных. Выйти?</item>
-      <item quantity="other">Режим экстренных обратных вызовов будет действовать ещё <xliff:g id="COUNT_1">%s</xliff:g> минуты. При этом будут недоступны приложения с поддержкой передачи данных. Выйти?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="one">Эта операция недоступна в режиме экстренных обратных вызовов. Телефон останется в этом режиме ещё на <xliff:g id="COUNT_1">%s</xliff:g> минуту. Выйти?</item>
-      <item quantity="few">Эта операция недоступна в режиме экстренных обратных вызовов. Телефон останется в этом режиме ещё <xliff:g id="COUNT_1">%s</xliff:g> минуты. Выйти?</item>
-      <item quantity="many">Эта операция недоступна в режиме экстренных обратных вызовов. Телефон останется в этом режиме ещё на <xliff:g id="COUNT_1">%s</xliff:g> минут. Выйти?</item>
-      <item quantity="other">Эта операция недоступна в режиме экстренных обратных вызовов. Телефон останется в этом режиме ещё на <xliff:g id="COUNT_1">%s</xliff:g> минуты. Выйти?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm (7661603870224398025) -->
+    <!-- format error in translation for alert_dialog_not_avaialble_in_ecm (8717711120099503279) -->
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Выбранное действие невозможно при экстренном вызове."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Выход из режима экстренных обратных вызовов"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Да"</string>
@@ -656,12 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Закрыть"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Телефон находится в режиме экстренных обратных вызовов"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"До <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="one">Телефон будет оставаться в режиме экстренных обратных вызовов <xliff:g id="COUNT_1">%s</xliff:g> минуту.\nВыйти сейчас?</item>
-      <item quantity="few">Телефон будет оставаться в режиме экстренных обратных вызовов <xliff:g id="COUNT_1">%s</xliff:g> минуты.\nВыйти сейчас?</item>
-      <item quantity="many">Телефон будет оставаться в режиме экстренных обратных вызовов <xliff:g id="COUNT_1">%s</xliff:g> минут.\nВыйти сейчас?</item>
-      <item quantity="other">Телефон будет оставаться в режиме экстренных обратных вызовов <xliff:g id="COUNT_1">%s</xliff:g> минуты.\nВыйти сейчас?</item>
-    </plurals>
+    <!-- format error in translation for alert_dialog_exit_ecm_without_data_restriction_hint (7549850847524907932) -->
     <string name="voicemail_provider" msgid="4158806657253745294">"Служба"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Настройка"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Не задано&gt;"</string>
@@ -685,11 +670,10 @@
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"Закрыть"</string>
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"Экстренные вызовы"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Только экстренные вызовы"</string>
-    <string name="sim_description_default" msgid="7474671114363724971">"SIM-карта, слот: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="sim_description_default" msgid="7474671114363724971">"SIM-карта <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Специальные возможности"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Вызов по Wi-Fi от"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi-звонок"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Чтобы открыть, нажмите ещё раз"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"При расшифровке сообщения произошла ошибка."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"В вашем телефоне уже настроен роуминг и активирована SIM-карта."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Слишком много активных вызовов. Чтобы выполнить новый вызов, завершите или объедините существующие."</string>
@@ -833,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Невозможно позвонить, поскольку ещё не завершен другой исходящий вызов."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Невозможно позвонить, поскольку вы не ответили на входящий вызов. Примите или отклоните текущий звонок."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Невозможно позвонить, поскольку вызовы запрещены системным свойством ro.telephony.disable-call."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Невозможно позвонить, поскольку ещё не завершены два текущих вызова. Чтобы начать звонок, сбросьте один из вызовов или объедините их в конференцию."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Невозможно позвонить, поскольку ещё не завершены два текущих вызова. Сбросьте один из вызовов или объедините их в конференцию."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"Для работы этого сервиса (<xliff:g id="SUPP_SERVICE">%s</xliff:g>) необходимо подключение к мобильному Интернету. Этот параметр можно изменить в настройках мобильной сети."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"Для работы этого сервиса (<xliff:g id="SUPP_SERVICE">%s</xliff:g>) необходимо подключение к мобильному Интернету и интернет-роумингу. Эти параметры можно изменить в настройках мобильной сети."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"Для работы этого сервиса (<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>) необходимо подключение к мобильному Интернету через SIM-карту <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Этот параметр можно изменить в настройках мобильной сети."</string>
@@ -851,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Чтобы изменить эту настройку, перезапустите устройство."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Перезапустить"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Отмена"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Установить съемную eSIM-карту в качестве используемой по умолчанию"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Мощность радиосигнала"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Посмотреть адресную книгу на SIM-карте"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Список разрешенных номеров"</string>
@@ -905,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Выбрать радиостанцию"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Тип сети для голосовой связи:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Тип сети для передачи данных:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Переопределение типа сети:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Выберите телефонный код"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Настроить предпочтительный тип сети:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Имя хоста запроса ping для www.google.com, IPv4:"</string>
@@ -916,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Обновить"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Включить/отключить проверку DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Информация/настройки OEM"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC доступно:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ограничено:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR доступно:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"Состояние NR:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC доступно (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR с ограничениями (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR доступно (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"Статус NR (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Частота NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Настроить режим сети"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Загрузка списка частот…"</string>

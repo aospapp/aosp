@@ -28,9 +28,7 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ନିମ୍ନ ଆପ୍‍ ଆପଣଙ୍କ ଡିଭାଇସକୁ ପରିଚାଳନା କରିବ:"</string>
     <string name="next" msgid="1004321437324424398">"ପରବର୍ତ୍ତୀ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"ୱର୍କ ପ୍ରୋଫାଇଲ୍‍ ସେଟଅପ୍‌ କରାଯାଉଛି…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ଆପଣଙ୍କର ନେଟ୍‌ୱର୍କ କାର୍ଯ୍ୟକଳାପ ତଥା ଆପଣଙ୍କ ଡିଭାଇସର ଲୋକେସନ୍‍, କଲ୍‍ ଇତିବୃତ୍ତି, ଏବଂ ସର୍ଚ୍ଚ ଇତିବୃତ୍ତି ଯୋଗାଯୋଗ ସମେତ ସେଟିଂ, କର୍ପୋରେଟ୍‌ ଆକ୍ସେସ୍‌, ଆପ୍ସ, ଅନୁମତି, ଏବଂ ଏହି ପ୍ରୋଫାଇଲରେ ସମ୍ପୃକ୍ତ ଥିବା ଡାଟା ଆପଣଙ୍କର IT ବ୍ୟବସ୍ଥାପକ ନୀରିକ୍ଷଣ ତଥା ପରିଚାଳନା କରିପାରିବେ।<xliff:g id="LINE_BREAK">
-
-</xliff:g>ଆପଣଙ୍କର ସଂସ୍ଥାର ଗୋପନୀୟତା ନୀତି ସମେତ, ଅଧିକ ସୂଚନା ପାଇଁ, ନିଜ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"ସେଟିଂସ, କର୍ପୋରେଟ ଆକ୍ସେସ, ଆପ୍ସ, ଅନୁମତି, ଡାଟା ଓ ଏହି ପ୍ରୋଫାଇଲ ସହ ସମ୍ବନ୍ଧିତ ନେଟୱାର୍କ କାର୍ଯ୍ୟକଳାପ ସମେତ ଆପଣଙ୍କ କଲ ଇତିହାସ ଓ ଯୋଗାଯୋଗ ସନ୍ଧାନ ଇତିହାସକୁ ଆପଣଙ୍କ IT ଆଡମିନ ମନିଟର ଏବଂ ପରିଚାଳନା କରିପାରିବେ। ଆପଣଙ୍କ ସଂସ୍ଥାର ଗୋପନୀୟତା ନୀତିଗୁଡ଼ିକ ବିଷୟରେ ଅଧିକ ସୂଚନା ପାଇଁ ଏବଂ ଅଧିକ ଜାଣିବାକୁ ଆପଣଙ୍କର IT ଆଡମିନଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
     <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ଆପଣଙ୍କ ନେଟୱର୍କ କାର୍ଯ୍ୟକଳାପ ତଥା ଆପଣଙ୍କ ଡିଭାଇସ୍‌ର ଲୋକେସନ୍‍, କଲ୍‍ ଇତିବୃତ୍ତି, ଏବଂ ସର୍ଚ୍ଚ ଇତିବୃତ୍ତି ଯୋଗାଯୋଗ ସମେତ ସେଟିଂ, କର୍ପୋରେଟ୍‌ ଆକ୍ସେସ୍‌, ଆପ୍ସ, ଅନୁମତି, ଏବଂ ଏହି ଡିଭାଇସ୍ ସହ ସମ୍ପୃକ୍ତ ଥିବା ଡାଟା ଆପଣଙ୍କର IT ବ୍ୟବସ୍ଥାପକ ନୀରିକ୍ଷଣ ତଥା ପରିଚାଳନା କରିପାରିବେ।<xliff:g id="LINE_BREAK">
 
 </xliff:g>ଆପଣଙ୍କର ସଂସ୍ଥାର ଗୋପନୀୟତା ନୀତି ସମେତ, ଅଧିକ ସୂଚନା ପାଇଁ, ନିଜ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।"</string>
@@ -161,10 +159,10 @@
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ଏହି ଫୋନ୍‌କୁ ପରିଚଳନା ଏବଂ ମନିଟର୍ କରିବାକୁ ନିମ୍ନୋକ୍ତ ଆପ୍‌ର ବ୍ୟବହାର ହେବ"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"ଆପଣଙ୍କ ଆକାଉଣ୍ଟଟି ପରିଚାଳିତ ହେଉଛି"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"ସୁରକ୍ଷା ନୀତିଗୁଡ଼ିକୁ ଲାଗୁ କରିବାକୁ ଆପଣଙ୍କ IT ଆଡମିନ୍ ମୋବାଇଲ ଡିଭାଇସ୍ ପରିଚାଳନା ବ୍ୟବହାର କରନ୍ତି"</string>
-    <string name="downloading_administrator_header" msgid="8660294318893902915">"ୱର୍କ ସେଟ୍‌ଅପ୍ ପାଇଁ ପ୍ରସ୍ତୁତ ହେଉଛି…"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"ୱାର୍କ ସେଟଅପ ପାଇଁ ପ୍ରସ୍ତୁତ ହେଉଛି…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ଚାଲନ୍ତୁ ଆପଣଙ୍କର ୱାର୍କ ପ୍ରୋଫାଇଲ୍ ସେଟ୍ ଅପ୍ କରିବା"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ୱାର୍କ୍ ଆପଗୁଡ଼ିକ ଆପଣଙ୍କର ୱାର୍କ୍ ପ୍ରୋଫାଇଲ୍‌ରେ ରଖାଯାଇଛି"</string>
-    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ଆପଣଙ୍କର ପୁରା ଦିନର କାମ ଶେଷ ହୋଇଗଲା ପରେ ୱର୍କ ଆପ୍ସକୁ ବିରତି କରନ୍ତୁ"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"ଆପଣଙ୍କ ପୂରା ଦିନର କାମ ଶେଷ ହୋଇଗଲା ପରେ work ଆପ୍ସକୁ ବିରତ କରନ୍ତୁ"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ଥିବା ଡାଟା ଆପଣଙ୍କ IT ଆଡମିନଙ୍କୁ ଦେଖାଯାଉଛି"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"ଆପଣଙ୍କର ୱର୍କ ପ୍ରୋଫାଇଲ୍‍ ସେଟ୍‌ ଅପ୍‍ କରାଯାଉଛି…"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"ୱାର୍କ୍ ଆପଗୁଡ଼ିକ ଆପଣଙ୍କ ୱାର୍କ ପ୍ରୋଫାଇଲରେ ରଖାଯାଇଛି। ଆପଣ ଆପଣଙ୍କ ପୂରା ଦିନର କାମ ସମାପ୍ତ କରିସାରିବା ପରେ ଆପଣଙ୍କର ୱାର୍କ୍ ଆପଗୁଡ଼ିକୁ ବିରତ କରିପାରିବେ। ଆପଣଙ୍କ ୱାର୍କ୍ ପ୍ରୋଫାଇଲରେ ଥିବା ଡାଟା ଆପଣଙ୍କ IT ଆଡମିନଙ୍କୁ ଦେଖାଯାଉଛି।"</string>
@@ -194,4 +192,8 @@
     <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ଆପକୁ ଇନଷ୍ଟଲ୍ କରିପାରିବ ଯାହା ଫଳରେ ଆପଣ ଏହି ଡିଭାଇସ୍ ପାଇଁ ପେମେଣ୍ଟ କରିପାରିବେ।"</string>
     <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ଏହି ଡିଭାଇସକୁ ପ୍ରତିବନ୍ଧିତ କରାଯାଇପାରେ"</string>
     <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"ଯଦି ଆପଣ ପେମେଣ୍ଟ କରୁନାହାଁନ୍ତି, ତେବେ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ଏହି ଡିଭାଇସକୁ ଆକ୍ସେସ୍ ପ୍ରତିବନ୍ଧିତ କରିପାରିବ।"</string>
+    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"ଡିଭାଇସକୁ ସେଟ ଅପ କରାଯାଇପାରିବ ନାହିଁ। ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ ଏବଂ \"ଅବୈଧ ଚେକସମ\"ର ରେଫରେନ୍ସ ଦିଅନ୍ତୁ।"</string>
+    <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ କିମ୍ବା ସହାୟତା ପାଇଁ ଆପଣଙ୍କ IT ଆଡମିନଙ୍କୁ କୁହନ୍ତୁ"</string>
+    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"ଡିଭାଇସକୁ ସେଟ ଅପ କରାଯାଇପାରିବ ନାହିଁ। ଆପଣଙ୍କ IT ଆଡମିନଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ ଏବଂ \"ଅନୁପଲବ୍ଧ କିମ୍ବା କରପ୍ଟ ହୋଇଯାଇଥିବା କମ୍ପୋନେଣ୍ଟଗୁଡ଼ିକ\"ର ରେଫରେନ୍ସ ଦିଅନ୍ତୁ।"</string>
+    <string name="setting_up" msgid="1478847967385506664">"ସେଟ ଅପ କରାଯାଉଛି…"</string>
 </resources>

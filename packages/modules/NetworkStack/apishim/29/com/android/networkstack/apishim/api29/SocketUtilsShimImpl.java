@@ -17,8 +17,10 @@
 package com.android.networkstack.apishim.api29;
 
 import android.net.util.SocketUtils;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.SocketUtilsShim;
 
@@ -27,6 +29,7 @@ import java.net.SocketAddress;
 /**
  * Implementation of SocketUtilsShim for API 29.
  */
+@RequiresApi(Build.VERSION_CODES.Q)
 public class SocketUtilsShimImpl implements SocketUtilsShim {
     protected SocketUtilsShimImpl() {}
 

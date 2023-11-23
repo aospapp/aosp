@@ -58,12 +58,12 @@ class LimitedSupportDevice final : public IDevice {
 
     GeneralResult<std::vector<bool>> getSupportedOperations(const Model& model) const override;
 
-    GeneralResult<SharedPreparedModel> prepareModel(const Model& model,
-                                                    ExecutionPreference preference,
-                                                    Priority priority, OptionalTimePoint deadline,
-                                                    const std::vector<SharedHandle>& modelCache,
-                                                    const std::vector<SharedHandle>& dataCache,
-                                                    const CacheToken& token) const override;
+    GeneralResult<SharedPreparedModel> prepareModel(
+            const Model& model, ExecutionPreference preference, Priority priority,
+            OptionalTimePoint deadline, const std::vector<SharedHandle>& modelCache,
+            const std::vector<SharedHandle>& dataCache, const CacheToken& token,
+            const std::vector<TokenValuePair>& hints,
+            const std::vector<ExtensionNameAndPrefix>& extensionNameToPrefix) const override;
 
     GeneralResult<SharedPreparedModel> prepareModelFromCache(
             OptionalTimePoint deadline, const std::vector<SharedHandle>& modelCache,
@@ -79,6 +79,14 @@ class LimitedSupportDevice final : public IDevice {
     const Capabilities kCapabilities;
     const SupportedOperationsFunction kSupportedOperationsFunction;
 };
+
+// Get a set of SharedDevices that have different performance characteristics and supported
+// operations. Currently returns four different variants:
+// * nnapi-sample_float_fast
+// * nnapi-sample_float_slow
+// * nnapi-sample_minimal
+// * nnapi-sample_quant
+std::vector<SharedDevice> getExampleLimitedDevices();
 
 }  // namespace android::nn::sample
 

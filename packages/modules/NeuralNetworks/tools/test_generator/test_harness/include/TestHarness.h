@@ -20,8 +20,8 @@
 // Both CTS and VTS will consume this test structure and convert into their own model and
 // request format.
 
-#ifndef ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H
-#define ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H
+#ifndef ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H
+#define ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H
 
 #include <algorithm>
 #include <cstdlib>
@@ -44,8 +44,8 @@ namespace test_helper {
 class bool8 {
    public:
     bool8() : mValue() {}
-    /* implicit */ bool8(bool value) : mValue(value) {}
-    inline operator bool() const { return mValue != 0; }
+    /* implicit */ bool8(bool value) : mValue(value) {}   // NOLINT(google-explicit-constructor)
+    inline operator bool() const { return mValue != 0; }  // NOLINT(google-explicit-constructor)
 
    private:
     uint8_t mValue;
@@ -194,9 +194,17 @@ enum class TestOperationType {
     HARD_SWISH = 99,
     FILL = 100,
     RANK = 101,
+    BATCH_MATMUL = 102,
+    PACK = 103,
+    MIRROR_PAD = 104,
+    REVERSE = 105,
+#ifdef NN_EXPERIMENTAL_FEATURE
+    DENSIFY = 20000,
+#endif  // NN_EXPERIMENTAL_FEATURE
 };
 
-enum class TestHalVersion { UNKNOWN, V1_0, V1_1, V1_2, V1_3 };
+// TODO(b/209797313): Deduplicate this enum class.
+enum class TestHalVersion { UNKNOWN, V1_0, V1_1, V1_2, V1_3, AIDL_V1, AIDL_V2, AIDL_V3 };
 
 // Manages the data buffer for a test operand.
 class TestBuffer {
@@ -205,9 +213,11 @@ class TestBuffer {
     // type byte size. In NNAPI, 4-byte boundary should be sufficient for all current data types.
     static constexpr size_t kAlignment = 4;
 
+    TestBuffer() = default;
+
     // Create the buffer of a given size and initialize from data.
     // If data is nullptr, the allocated memory stays uninitialized.
-    TestBuffer(size_t size = 0, const void* data = nullptr) : mSize(size) {
+    explicit TestBuffer(size_t size, const void* data = nullptr) : mSize(size) {
         if (size > 0) {
             // The size for aligned_alloc must be an integral multiple of alignment.
             mBuffer.reset(aligned_alloc(kAlignment, alignedSize()), free);
@@ -277,7 +287,9 @@ struct TestOperand {
     bool isIgnored = false;
 
     // For CONSTANT_COPY/REFERENCE and SUBGRAPH_INPUT, this is the data set in model and request.
-    // For SUBGRAPH_OUTPUT, this is the expected results.
+    // For SUBGRAPH_OUTPUT,
+    // - If isIgnored == false, this is the expected results.
+    // - If isIgnored == true, this is populated but ignored
     // For TEMPORARY_VARIABLE and NO_VALUE, this is nullptr.
     TestBuffer data;
 };
@@ -314,14 +326,29 @@ struct TestModel {
     // The minimum supported HAL version.
     TestHalVersion minSupportedVersion = TestHalVersion::UNKNOWN;
 
-    void forEachSubgraph(std::function<void(const TestSubgraph&)> handler) const {
+    // Returns an int AIDL version number. HIDL versions are treated as AIDL version 0.
+    int32_t getAidlVersionInt() const {
+        switch (minSupportedVersion) {
+            case TestHalVersion::AIDL_V1:
+                return 1;
+            case TestHalVersion::AIDL_V2:
+                return 2;
+            case TestHalVersion::AIDL_V3:
+                return 3;
+            default:
+                // HIDL versions are treated as AIDL version 0 so that all AIDL services are newer.
+                return 0;
+        }
+    }
+
+    void forEachSubgraph(const std::function<void(const TestSubgraph&)>& handler) const {
         handler(main);
         for (const TestSubgraph& subgraph : referenced) {
             handler(subgraph);
         }
     }
 
-    void forEachSubgraph(std::function<void(TestSubgraph&)> handler) {
+    void forEachSubgraph(const std::function<void(TestSubgraph&)>& handler) {
         handler(main);
         for (TestSubgraph& subgraph : referenced) {
             handler(subgraph);
@@ -437,20 +464,20 @@ class TestModelManager {
 
     // Returns a vector of selected TestModels for which the given "filter" returns true.
     using TestParam = std::pair<std::string, const TestModel*>;
-    std::vector<TestParam> getTestModels(std::function<bool(const TestModel&)> filter) {
+    std::vector<TestParam> getTestModels(const std::function<bool(const TestModel&)>& filter) {
         std::vector<TestParam> testModels;
         testModels.reserve(mTestModels.size());
         std::copy_if(mTestModels.begin(), mTestModels.end(), std::back_inserter(testModels),
-                     [filter](const auto& nameTestPair) { return filter(*nameTestPair.second); });
+                     [&filter](const auto& nameTestPair) { return filter(*nameTestPair.second); });
         return testModels;
     }
 
     // Returns a vector of selected TestModels for which the given "filter" returns true.
-    std::vector<TestParam> getTestModels(std::function<bool(const std::string&)> filter) {
+    std::vector<TestParam> getTestModels(const std::function<bool(const std::string&)>& filter) {
         std::vector<TestParam> testModels;
         testModels.reserve(mTestModels.size());
         std::copy_if(mTestModels.begin(), mTestModels.end(), std::back_inserter(testModels),
-                     [filter](const auto& nameTestPair) { return filter(nameTestPair.first); });
+                     [&filter](const auto& nameTestPair) { return filter(nameTestPair.first); });
         return testModels;
     }
 
@@ -549,4 +576,4 @@ void setExpectedOutputsFromFloat32Results(const std::vector<TestBuffer>& results
 
 }  // namespace test_helper
 
-#endif  // ANDROID_FRAMEWORKS_ML_NN_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H
+#endif  // ANDROID_PACKAGES_MODULES_NEURALNETWORKS_TOOLS_TEST_GENERATOR_TEST_HARNESS_TEST_HARNESS_H

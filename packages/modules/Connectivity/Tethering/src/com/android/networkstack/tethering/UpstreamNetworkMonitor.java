@@ -36,7 +36,6 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
-import android.net.util.PrefixUtils;
 import android.net.util.SharedLog;
 import android.os.Handler;
 import android.util.Log;
@@ -49,7 +48,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.StateMachine;
 import com.android.networkstack.apishim.ConnectivityManagerShimImpl;
 import com.android.networkstack.apishim.common.ConnectivityManagerShim;
-import com.android.networkstack.apishim.common.UnsupportedApiLevelException;
+import com.android.networkstack.tethering.util.PrefixUtils;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -136,6 +135,7 @@ public class UpstreamNetworkMonitor {
     private Network mDefaultInternetNetwork;
     // The current upstream network used for tethering.
     private Network mTetheringUpstreamNetwork;
+    private boolean mPreferTestNetworks;
 
     public UpstreamNetworkMonitor(Context ctx, StateMachine tgt, SharedLog log, int what) {
         mContext = ctx;
@@ -162,12 +162,7 @@ public class UpstreamNetworkMonitor {
         }
         ConnectivityManagerShim mCmShim = ConnectivityManagerShimImpl.newInstance(mContext);
         mDefaultNetworkCallback = new UpstreamNetworkCallback(CALLBACK_DEFAULT_INTERNET);
-        try {
-            mCmShim.registerSystemDefaultNetworkCallback(mDefaultNetworkCallback, mHandler);
-        } catch (UnsupportedApiLevelException e) {
-            Log.wtf(TAG, "registerSystemDefaultNetworkCallback is not supported");
-            return;
-        }
+        mCmShim.registerSystemDefaultNetworkCallback(mDefaultNetworkCallback, mHandler);
         if (mEntitlementMgr == null) {
             mEntitlementMgr = entitle;
         }
@@ -331,6 +326,11 @@ public class UpstreamNetworkMonitor {
         final UpstreamNetworkState dfltState = (mDefaultInternetNetwork != null)
                 ? mNetworkMap.get(mDefaultInternetNetwork)
                 : null;
+        if (mPreferTestNetworks) {
+            final UpstreamNetworkState testState = findFirstTestNetwork(mNetworkMap.values());
+            if (testState != null) return testState;
+        }
+
         if (isNetworkUsableAndNotCellular(dfltState)) return dfltState;
 
         if (!isCellularUpstreamPermitted()) return null;
@@ -533,8 +533,9 @@ public class UpstreamNetworkMonitor {
 
         @Override
         public void onLinkPropertiesChanged(Network network, LinkProperties newLp) {
+            handleLinkProp(network, newLp);
+
             if (mCallbackType == CALLBACK_DEFAULT_INTERNET) {
-                updateLinkProperties(network, newLp);
                 // When the default network callback calls onLinkPropertiesChanged, it means that
                 // all the network information for the default network is known (because
                 // onLinkPropertiesChanged is called after onAvailable and onCapabilitiesChanged).
@@ -543,7 +544,6 @@ public class UpstreamNetworkMonitor {
                 return;
             }
 
-            handleLinkProp(network, newLp);
             // Any non-LISTEN_ALL callback will necessarily concern a network that will
             // also match the LISTEN_ALL callback by construction of the LISTEN_ALL callback.
             // So it's not useful to do this work for non-LISTEN_ALL callbacks.
@@ -662,6 +662,20 @@ public class UpstreamNetworkMonitor {
         return null;
     }
 
+    static boolean isTestNetwork(UpstreamNetworkState ns) {
+        return ((ns != null) && (ns.networkCapabilities != null)
+                && ns.networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_TEST));
+    }
+
+    private UpstreamNetworkState findFirstTestNetwork(
+            Iterable<UpstreamNetworkState> netStates) {
+        for (UpstreamNetworkState ns : netStates) {
+            if (isTestNetwork(ns)) return ns;
+        }
+
+        return null;
+    }
+
     /**
      * Given a legacy type (TYPE_WIFI, ...) returns the corresponding NetworkCapabilities instance.
      * This function is used for deprecated legacy type and be disabled by default.
@@ -686,5 +700,10 @@ public class UpstreamNetworkMonitor {
             builder.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         }
         return builder.build();
+    }
+
+    /** Set test network as preferred upstream. */
+    public void setPreferTestNetworks(boolean prefer) {
+        mPreferTestNetworks = prefer;
     }
 }

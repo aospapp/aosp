@@ -143,6 +143,16 @@ public class BrowserRoleBehavior implements RoleBehavior {
     }
 
     @Override
+    public void revoke(@NonNull Role role, @NonNull String packageName, @NonNull Context context) {
+        if (SdkLevel.isAtLeastT()) {
+            if (PackageUtils.isSystemPackage(packageName, context)) {
+                Permissions.revoke(packageName, SYSTEM_BROWSER_PERMISSIONS, false, true, false,
+                        context);
+            }
+        }
+    }
+
+    @Override
     public boolean isVisibleAsUser(@NonNull Role role, @NonNull UserHandle user,
             @NonNull Context context) {
         return context.getResources().getBoolean(R.bool.config_showBrowserRole);

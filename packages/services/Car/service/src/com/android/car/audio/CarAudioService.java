@@ -15,16 +15,21 @@
  */
 package com.android.car.audio;
 
+import static android.car.builtin.media.AudioManagerHelper.UNDEFINED_STREAM_TYPE;
+import static android.car.builtin.media.AudioManagerHelper.isMasterMute;
 import static android.car.media.CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING;
 import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING;
 import static android.car.media.CarAudioManager.CarAudioFeature;
 import static android.car.media.CarAudioManager.INVALID_VOLUME_GROUP_ID;
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
+import static android.media.AudioManager.FLAG_FROM_KEY;
 import static android.media.AudioManager.FLAG_PLAY_SOUND;
+import static android.media.AudioManager.FLAG_SHOW_UI;
 
 import static com.android.car.audio.CarVolume.VERSION_TWO;
 import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_DUCKING;
 import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_FOCUS;
+import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_GAIN_CALLBACK;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
@@ -33,40 +38,31 @@ import android.annotation.UserIdInt;
 import android.car.Car;
 import android.car.CarOccupantZoneManager;
 import android.car.CarOccupantZoneManager.OccupantZoneConfigChangeListener;
+import android.car.builtin.media.AudioManagerHelper;
+import android.car.builtin.media.AudioManagerHelper.AudioPatchInfo;
+import android.car.builtin.media.AudioManagerHelper.VolumeAndMuteReceiver;
+import android.car.builtin.os.UserManagerHelper;
+import android.car.builtin.util.Slogf;
 import android.car.media.CarAudioManager;
 import android.car.media.CarAudioPatchHandle;
 import android.car.media.ICarAudio;
 import android.car.media.ICarVolumeCallback;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
-import android.media.AudioAttributes.AttributeSystemUsage;
-import android.media.AudioAttributes.AttributeUsage;
 import android.media.AudioDeviceAttributes;
 import android.media.AudioDeviceInfo;
-import android.media.AudioDevicePort;
 import android.media.AudioFocusInfo;
-import android.media.AudioFormat;
-import android.media.AudioGain;
-import android.media.AudioGainConfig;
 import android.media.AudioManager;
-import android.media.AudioPatch;
 import android.media.AudioPlaybackConfiguration;
-import android.media.AudioPortConfig;
 import android.media.audiopolicy.AudioPolicy;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.telephony.Annotation.CallState;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import android.util.IndentingPrintWriter;
-import android.util.Log;
-import android.util.Slog;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
@@ -81,9 +77,11 @@ import com.android.car.audio.hal.AudioControlWrapper;
 import com.android.car.audio.hal.AudioControlWrapperV1;
 import com.android.car.audio.hal.HalAudioFocus;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.annotation.AttributeUsage;
+import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
-import com.android.server.utils.Slogf;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -106,12 +104,14 @@ import java.util.stream.Collectors;
  */
 public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
 
-    // Enable to allowed for delayed audio focus in car audio service.
-    private static final boolean ENABLE_DELAYED_AUDIO_FOCUS = true;
+    static final String TAG = CarLog.TAG_AUDIO;
 
     static final @AttributeUsage int DEFAULT_AUDIO_USAGE = AudioAttributes.USAGE_MEDIA;
     static final @AudioContext int DEFAULT_AUDIO_CONTEXT = CarAudioContext.getContextForUsage(
             CarAudioService.DEFAULT_AUDIO_USAGE);
+
+    private static final String PROPERTY_RO_ENABLE_AUDIO_PATCH =
+            "ro.android.car.audio.enableaudiopatch";
 
     // CarAudioService reads configuration from the following paths respectively.
     // If the first one is found, all others are ignored.
@@ -121,7 +121,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
             "/system/etc/car_audio_configuration.xml"
     };
 
-    private static final @AttributeSystemUsage int[] SYSTEM_USAGES = new int[] {
+    private static final int[] SYSTEM_USAGES = new int[] {
             AudioAttributes.USAGE_CALL_ASSISTANT,
             AudioAttributes.USAGE_EMERGENCY,
             AudioAttributes.USAGE_SAFETY,
@@ -155,25 +155,26 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
      * Simulates {@link ICarVolumeCallback} when it's running in legacy mode.
      * This receiver assumes the intent is sent to {@link CarAudioManager#PRIMARY_AUDIO_ZONE}.
      */
-    private final BroadcastReceiver mLegacyVolumeChangedReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final int zoneId = CarAudioManager.PRIMARY_AUDIO_ZONE;
-            switch (intent.getAction()) {
-                case AudioManager.VOLUME_CHANGED_ACTION:
-                    int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
-                    int groupId = getVolumeGroupIdForStreamType(streamType);
-                    if (groupId == -1) {
-                        Slog.w(CarLog.TAG_AUDIO, "Unknown stream type: " + streamType);
-                    } else {
-                        callbackGroupVolumeChange(zoneId, groupId, 0);
+    private final VolumeAndMuteReceiver mLegacyVolumeChangedHelper =
+            new AudioManagerHelper.VolumeAndMuteReceiver() {
+                @Override
+                public void onVolumeChanged(int streamType) {
+                    if (streamType == UNDEFINED_STREAM_TYPE) {
+                        Slogf.w(TAG, "Invalid stream type: %d", streamType);
                     }
-                    break;
-                case AudioManager.MASTER_MUTE_CHANGED_ACTION:
-                    callbackMasterMuteChange(zoneId, 0);
-                    break;
-            }
-        }
+                    int groupId = getVolumeGroupIdForStreamType(streamType);
+                    if (groupId == INVALID_VOLUME_GROUP_ID) {
+                        Slogf.w(TAG, "Unknown stream type: %d", streamType);
+                    } else {
+                        callbackGroupVolumeChange(PRIMARY_AUDIO_ZONE, groupId,
+                                FLAG_FROM_KEY | FLAG_SHOW_UI);
+                    }
+                }
+
+                @Override
+                public void onMuteChanged() {
+                    callbackMasterMuteChange(PRIMARY_AUDIO_ZONE, FLAG_FROM_KEY | FLAG_SHOW_UI);
+                }
     };
 
     private AudioPolicy mAudioPolicy;
@@ -196,7 +197,14 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     private CarAudioPowerListener mCarAudioPowerListener;
 
     public CarAudioService(Context context) {
-        mContext = context;
+        this(context, getAudioConfigurationPath());
+    }
+
+    @VisibleForTesting
+    CarAudioService(Context context, @Nullable String audioConfigurationPath) {
+        mContext = Objects.requireNonNull(context,
+                "Context to create car audio service can not be null");
+        mCarAudioConfigurationPath = audioConfigurationPath;
         mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
 
@@ -208,7 +216,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
 
         mUidToZoneMap = new HashMap<>();
         mCarVolumeCallbackHandler = new CarVolumeCallbackHandler();
-        mCarAudioSettings = new CarAudioSettings(mContext.getContentResolver());
+        mCarAudioSettings = new CarAudioSettings(mContext);
         mAudioZoneIdToUserIdMapping = new SparseIntArray();
         mAudioVolumeAdjustmentContextsVersion =
                 mContext.getResources().getInteger(R.integer.audioVolumeAdjustmentContextsVersion);
@@ -239,10 +247,11 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
             if (mUseDynamicRouting) {
                 setupDynamicRoutingLocked();
                 setupHalAudioFocusListenerLocked();
+                setupHalAudioGainCallbackLocked();
                 setupAudioConfigurationCallbackLocked();
                 setupPowerPolicyListener();
             } else {
-                Slog.i(CarLog.TAG_AUDIO, "Audio dynamic routing not enabled, run in legacy mode");
+                Slogf.i(TAG, "Audio dynamic routing not enabled, run in legacy mode");
                 setupLegacyVolumeChangedListener();
             }
 
@@ -279,7 +288,9 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
                     mFocusHandler = null;
                 }
             } else {
-                mContext.unregisterReceiver(mLegacyVolumeChangedReceiver);
+                AudioManagerHelper.unregisterVolumeAndMuteReceiver(mContext,
+                        mLegacyVolumeChangedHelper);
+
             }
 
             mCarVolumeCallbackHandler.release();
@@ -302,91 +313,94 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     @Override
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
-        writer.println("*CarAudioService*");
-        writer.increaseIndent();
+        synchronized (mImplLock) {
+            writer.println("*CarAudioService*");
+            writer.increaseIndent();
 
-        writer.println("Configurations:");
-        writer.increaseIndent();
-        writer.printf("Run in legacy mode? %b\n", !mUseDynamicRouting);
-        writer.printf("Persist master mute state? %b\n", mPersistMasterMuteState);
-        writer.printf("Use hal ducking signals %b\n", mUseHalDuckingSignals);
-        writer.printf("Volume context priority list version: %d\n",
-                mAudioVolumeAdjustmentContextsVersion);
-        writer.printf("Volume key event timeout ms: %d\n", mKeyEventTimeoutMs);
-        if (mCarAudioConfigurationPath != null) {
-            writer.printf("Car audio configuration path: %s\n", mCarAudioConfigurationPath);
-        }
-        writer.decreaseIndent();
-        writer.println();
+            writer.println("Configurations:");
+            writer.increaseIndent();
+            writer.printf("Run in legacy mode? %b\n", !mUseDynamicRouting);
+            writer.printf("Audio Patch APIs enabled? %b\n", areAudioPatchAPIsEnabled());
+            writer.printf("Persist master mute state? %b\n", mPersistMasterMuteState);
+            writer.printf("Use hal ducking signals %b\n", mUseHalDuckingSignals);
+            writer.printf("Volume context priority list version: %d\n",
+                    mAudioVolumeAdjustmentContextsVersion);
+            writer.printf("Volume key event timeout ms: %d\n", mKeyEventTimeoutMs);
+            if (mCarAudioConfigurationPath != null) {
+                writer.printf("Car audio configuration path: %s\n", mCarAudioConfigurationPath);
+            }
+            writer.decreaseIndent();
+            writer.println();
 
-        writer.println("Current State:");
-        writer.increaseIndent();
-        writer.printf("Master muted? %b\n", mAudioManager.isMasterMute());
-        if (mCarAudioPowerListener != null) {
-            writer.printf("Audio enabled? %b\n", mCarAudioPowerListener.isAudioEnabled());
-        }
-        writer.decreaseIndent();
-        writer.println();
+            writer.println("Current State:");
+            writer.increaseIndent();
+            writer.printf("Master muted? %b\n", isMasterMute(mAudioManager));
+            if (mCarAudioPowerListener != null) {
+                writer.printf("Audio enabled? %b\n", mCarAudioPowerListener.isAudioEnabled());
+            }
+            writer.decreaseIndent();
+            writer.println();
 
-        if (mUseDynamicRouting) {
-            writer.printf("Volume Group Mute Enabled? %b\n", mUseCarVolumeGroupMuting);
-            synchronized (mImplLock) {
-                for (int i = 0; i < mCarAudioZones.size(); i++) {
-                    CarAudioZone zone = mCarAudioZones.valueAt(i);
-                    zone.dump(writer);
+            if (mUseDynamicRouting) {
+                writer.printf("Volume Group Mute Enabled? %b\n", mUseCarVolumeGroupMuting);
+                synchronized (mImplLock) {
+                    for (int i = 0; i < mCarAudioZones.size(); i++) {
+                        CarAudioZone zone = mCarAudioZones.valueAt(i);
+                        zone.dump(writer);
+                    }
                 }
-            }
-            writer.println();
-            writer.println("UserId to Zone Mapping:");
-            writer.increaseIndent();
-            for (int index = 0; index < mAudioZoneIdToUserIdMapping.size(); index++) {
-                int audioZoneId = mAudioZoneIdToUserIdMapping.keyAt(index);
-                writer.printf("UserId %d mapped to zone %d\n",
-                        mAudioZoneIdToUserIdMapping.get(audioZoneId),
-                        audioZoneId);
-            }
-            writer.decreaseIndent();
-            writer.println();
-            writer.println("Audio Zone to Occupant Zone Mapping:");
-            writer.increaseIndent();
-            for (int index = 0; index < mAudioZoneIdToOccupantZoneIdMapping.size(); index++) {
-                int audioZoneId = mAudioZoneIdToOccupantZoneIdMapping.keyAt(index);
-                writer.printf("AudioZoneId %d mapped to OccupantZoneId %d\n", audioZoneId,
-                        mAudioZoneIdToOccupantZoneIdMapping.get(audioZoneId));
-            }
-            writer.decreaseIndent();
-            writer.println();
-            writer.println("UID to Zone Mapping:");
-            writer.increaseIndent();
-            for (int callingId : mUidToZoneMap.keySet()) {
-                writer.printf("UID %d mapped to zone %d\n",
-                        callingId,
-                        mUidToZoneMap.get(callingId));
-            }
-            writer.decreaseIndent();
-
-            writer.println();
-            mFocusHandler.dump(writer);
-
-            writer.println();
-            getAudioControlWrapperLocked().dump(writer);
-
-            if (mHalAudioFocus != null) {
                 writer.println();
-                mHalAudioFocus.dump(writer);
-            } else {
-                writer.println("No HalAudioFocus instance\n");
-            }
-            if (mCarDucking != null) {
+                writer.println("UserId to Zone Mapping:");
+                writer.increaseIndent();
+                for (int index = 0; index < mAudioZoneIdToUserIdMapping.size(); index++) {
+                    int audioZoneId = mAudioZoneIdToUserIdMapping.keyAt(index);
+                    writer.printf("UserId %d mapped to zone %d\n",
+                            mAudioZoneIdToUserIdMapping.get(audioZoneId),
+                            audioZoneId);
+                }
+                writer.decreaseIndent();
                 writer.println();
-                mCarDucking.dump(writer);
-            }
-            if (mCarVolumeGroupMuting != null) {
-                mCarVolumeGroupMuting.dump(writer);
-            }
+                writer.println("Audio Zone to Occupant Zone Mapping:");
+                writer.increaseIndent();
+                for (int index = 0; index < mAudioZoneIdToOccupantZoneIdMapping.size(); index++) {
+                    int audioZoneId = mAudioZoneIdToOccupantZoneIdMapping.keyAt(index);
+                    writer.printf("AudioZoneId %d mapped to OccupantZoneId %d\n", audioZoneId,
+                            mAudioZoneIdToOccupantZoneIdMapping.get(audioZoneId));
+                }
+                writer.decreaseIndent();
+                writer.println();
+                writer.println("UID to Zone Mapping:");
+                writer.increaseIndent();
+                for (int callingId : mUidToZoneMap.keySet()) {
+                    writer.printf("UID %d mapped to zone %d\n",
+                            callingId,
+                            mUidToZoneMap.get(callingId));
+                }
+                writer.decreaseIndent();
 
+                writer.println();
+                mFocusHandler.dump(writer);
+
+                writer.println();
+                getAudioControlWrapperLocked().dump(writer);
+
+                if (mHalAudioFocus != null) {
+                    writer.println();
+                    mHalAudioFocus.dump(writer);
+                } else {
+                    writer.println("No HalAudioFocus instance\n");
+                }
+                if (mCarDucking != null) {
+                    writer.println();
+                    mCarDucking.dump(writer);
+                }
+                if (mCarVolumeGroupMuting != null) {
+                    mCarVolumeGroupMuting.dump(writer);
+                }
+
+            }
+            writer.decreaseIndent();
         }
-        writer.decreaseIndent();
     }
 
     @Override
@@ -433,7 +447,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     }
 
     void setMasterMute(boolean mute, int flags) {
-        mAudioManager.setMasterMute(mute, flags);
+        AudioManagerHelper.setMasterMute(mAudioManager, mute, flags);
 
         // Master Mute only applies to primary zone
         callbackMasterMuteChange(PRIMARY_AUDIO_ZONE, flags);
@@ -444,7 +458,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
 
         // Persists master mute state if applicable
         if (mPersistMasterMuteState) {
-            mCarAudioSettings.storeMasterMute(mAudioManager.isMasterMute());
+            mCarAudioSettings.storeMasterMute(isMasterMute(mAudioManager));
         }
     }
 
@@ -511,20 +525,21 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     }
 
     private void setupLegacyVolumeChangedListener() {
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
-        intentFilter.addAction(AudioManager.MASTER_MUTE_CHANGED_ACTION);
-        mContext.registerReceiver(mLegacyVolumeChangedReceiver, intentFilter);
+        AudioManagerHelper.registerVolumeAndMuteReceiver(mContext, mLegacyVolumeChangedHelper);
     }
 
     private List<CarAudioDeviceInfo> generateCarAudioDeviceInfos() {
         AudioDeviceInfo[] deviceInfos = mAudioManager.getDevices(
                 AudioManager.GET_DEVICES_OUTPUTS);
 
-        return Arrays.stream(deviceInfos)
-                .filter(info -> info.getType() == AudioDeviceInfo.TYPE_BUS)
-                .map(CarAudioDeviceInfo::new)
-                .collect(Collectors.toList());
+        List<CarAudioDeviceInfo> infos = new ArrayList<>();
+
+        for (int index = 0; index < deviceInfos.length; index++) {
+            if (deviceInfos[index].getType() == AudioDeviceInfo.TYPE_BUS) {
+                infos.add(new CarAudioDeviceInfo(mAudioManager, deviceInfos[index]));
+            }
+        }
+        return infos;
     }
 
     private AudioDeviceInfo[] getAllInputDevices() {
@@ -566,7 +581,6 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         List<CarAudioDeviceInfo> carAudioDeviceInfos = generateCarAudioDeviceInfos();
         AudioDeviceInfo[] inputDevices = getAllInputDevices();
 
-        mCarAudioConfigurationPath = getAudioConfigurationPath();
         if (mCarAudioConfigurationPath != null) {
             mCarAudioZones = loadCarAudioConfigurationLocked(carAudioDeviceInfos, inputDevices);
         } else {
@@ -589,7 +603,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
             CarAudioZone zone = mCarAudioZones.valueAt(i);
             // Ensure HAL gets our initial value
             zone.synchronizeCurrentGainIndex();
-            Slog.v(CarLog.TAG_AUDIO, "Processed audio zone: " + zone);
+            Slogf.v(TAG, "Processed audio zone: %s", zone);
         }
 
         CarAudioDynamicRouting.setupAudioDynamicRouting(builder, mCarAudioZones);
@@ -618,7 +632,6 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
                 mContext.getPackageManager(),
                 mCarAudioZones,
                 mCarAudioSettings,
-                ENABLE_DELAYED_AUDIO_FOCUS,
                 mCarDucking);
         builder.setAudioPolicyFocusListener(mFocusHandler);
         builder.setIsAudioFocusPolicy(true);
@@ -636,6 +649,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         setupOccupantZoneInfo();
     }
 
+    @GuardedBy("mImplLock")
     private void setupAudioConfigurationCallbackLocked() {
         mCarAudioPlaybackCallback =
                 new CarAudioPlaybackCallback(getCarAudioZone(PRIMARY_AUDIO_ZONE),
@@ -658,10 +672,11 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         occupantZoneManager.registerOccupantZoneConfigChangeListener(listener);
     }
 
+    @GuardedBy("mImplLock")
     private void setupHalAudioFocusListenerLocked() {
         AudioControlWrapper audioControlWrapper = getAudioControlWrapperLocked();
         if (!audioControlWrapper.supportsFeature(AUDIOCONTROL_FEATURE_AUDIO_FOCUS)) {
-            Slog.d(CarLog.TAG_AUDIO, "HalAudioFocus is not supported on this device");
+            Slogf.d(TAG, "HalAudioFocus is not supported on this device");
             return;
         }
 
@@ -669,12 +684,25 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         mHalAudioFocus.registerFocusListener();
     }
 
+    @GuardedBy("mImplLock")
+    private void setupHalAudioGainCallbackLocked() {
+        AudioControlWrapper audioControlWrapper = getAudioControlWrapperLocked();
+        if (!audioControlWrapper.supportsFeature(AUDIOCONTROL_FEATURE_AUDIO_GAIN_CALLBACK)) {
+            Slogf.d(CarLog.TAG_AUDIO, "HalAudioGainCallback is not supported on this device");
+            return;
+        }
+        mAudioControlWrapper.registerAudioGainCallback((reasons, gains) -> {
+            // TODO(b/224886068): Add missing audio gain management
+            Slogf.d(CarLog.TAG_AUDIO, "onAudioGainChanged reasons" + reasons + ", gains=" + gains);
+        });
+    }
+
     /**
      * Read from {@link #AUDIO_CONFIGURATION_PATHS} respectively.
      * @return File path of the first hit in {@link #AUDIO_CONFIGURATION_PATHS}
      */
     @Nullable
-    private String getAudioConfigurationPath() {
+    private static String getAudioConfigurationPath() {
         for (String path : AUDIO_CONFIGURATION_PATHS) {
             File configuration = new File(path);
             if (configuration.exists()) {
@@ -711,7 +739,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
 
             AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_INPUTS);
             if (devices.length == 0) {
-                Slog.w(CarLog.TAG_AUDIO, "getExternalSources, no input devices found.");
+                Slogf.w(TAG, "getExternalSources, no input devices found");
             }
 
             // Collect the list of non-microphone input ports
@@ -732,8 +760,8 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
                     case AudioDeviceInfo.TYPE_BUS:
                         String address = info.getAddress();
                         if (TextUtils.isEmpty(address)) {
-                            Slog.w(CarLog.TAG_AUDIO,
-                                    "Discarded device with empty address, type=" + info.getType());
+                            Slogf.w(TAG, "Discarded device with empty address, type=%d",
+                                    info.getType());
                         } else {
                             sourceAddresses.add(address);
                         }
@@ -747,20 +775,34 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     @Override
     public CarAudioPatchHandle createAudioPatch(String sourceAddress,
             @AttributeUsage int usage, int gainInMillibels) {
+        enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
+        enforceCanUseAudioPatchAPI();
         synchronized (mImplLock) {
-            enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
             return createAudioPatchLocked(sourceAddress, usage, gainInMillibels);
         }
     }
 
     @Override
     public void releaseAudioPatch(CarAudioPatchHandle carPatch) {
+        enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
+        enforceCanUseAudioPatchAPI();
         synchronized (mImplLock) {
-            enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
             releaseAudioPatchLocked(carPatch);
         }
     }
 
+    private void enforceCanUseAudioPatchAPI() {
+        if (!areAudioPatchAPIsEnabled()) {
+            throw new IllegalStateException("Audio Patch APIs not enabled, see "
+                    + PROPERTY_RO_ENABLE_AUDIO_PATCH);
+        }
+    }
+
+    private boolean areAudioPatchAPIsEnabled() {
+        return SystemProperties.getBoolean(PROPERTY_RO_ENABLE_AUDIO_PATCH, /* default= */ false);
+    }
+
+    @GuardedBy("mImplLock")
     private CarAudioPatchHandle createAudioPatchLocked(String sourceAddress,
             @AttributeUsage int usage, int gainInMillibels) {
         // Find the named source port
@@ -776,77 +818,36 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         Objects.requireNonNull(sourcePortInfo,
                 "Specified source is not available: " + sourceAddress);
 
-        // Find the output port associated with the given carUsage
-        AudioDevicePort sinkPort = Objects.requireNonNull(getAudioPort(usage),
-                "Sink not available for usage: " + AudioAttributes.usageToString(usage));
 
-        // {@link android.media.AudioPort#activeConfig()} is valid for mixer port only,
-        // since audio framework has no clue what's active on the device ports.
-        // Therefore we construct an empty / default configuration here, which the audio HAL
-        // implementation should ignore.
-        AudioPortConfig sinkConfig = sinkPort.buildConfig(0,
-                AudioFormat.CHANNEL_OUT_DEFAULT, AudioFormat.ENCODING_DEFAULT, null);
-        Slog.d(CarLog.TAG_AUDIO, "createAudioPatch sinkConfig: " + sinkConfig);
+        AudioPatchInfo audioPatchInfo = AudioManagerHelper.createAudioPatch(sourcePortInfo,
+                getOutputDeviceForUsageLocked(PRIMARY_AUDIO_ZONE, usage), gainInMillibels);
 
-        // Configure the source port to match the output port except for a gain adjustment
-        final CarAudioDeviceInfo helper = new CarAudioDeviceInfo(sourcePortInfo);
-        AudioGain audioGain = Objects.requireNonNull(helper.getAudioGain(),
-                "Gain controller not available for source port");
-
-        // size of gain values is 1 in MODE_JOINT
-        AudioGainConfig audioGainConfig = audioGain.buildConfig(AudioGain.MODE_JOINT,
-                audioGain.channelMask(), new int[] { gainInMillibels }, 0);
-        // Construct an empty / default configuration excepts gain config here and it's up to the
-        // audio HAL how to interpret this configuration, which the audio HAL
-        // implementation should ignore.
-        AudioPortConfig sourceConfig = sourcePortInfo.getPort().buildConfig(0,
-                AudioFormat.CHANNEL_IN_DEFAULT, AudioFormat.ENCODING_DEFAULT, audioGainConfig);
-
-        // Create an audioPatch to connect the two ports
-        AudioPatch[] patch = new AudioPatch[] { null };
-        int result = AudioManager.createAudioPatch(patch,
-                new AudioPortConfig[] { sourceConfig },
-                new AudioPortConfig[] { sinkConfig });
-        if (result != AudioManager.SUCCESS) {
-            throw new RuntimeException("createAudioPatch failed with code " + result);
-        }
-
-        Objects.requireNonNull(patch[0],
-                "createAudioPatch didn't provide expected single handle");
-        Slog.d(CarLog.TAG_AUDIO, "Audio patch created: " + patch[0]);
+        Slogf.d(TAG, "Audio patch created: %s", audioPatchInfo);
 
         // Ensure the initial volume on output device port
-        int groupId = getVolumeGroupIdForUsage(CarAudioManager.PRIMARY_AUDIO_ZONE, usage);
-        setGroupVolume(CarAudioManager.PRIMARY_AUDIO_ZONE, groupId,
-                getGroupVolume(CarAudioManager.PRIMARY_AUDIO_ZONE, groupId), 0);
+        int groupId = getVolumeGroupIdForUsageLocked(PRIMARY_AUDIO_ZONE, usage);
+        setGroupVolume(PRIMARY_AUDIO_ZONE, groupId,
+                getGroupVolume(PRIMARY_AUDIO_ZONE, groupId), 0);
 
-        return new CarAudioPatchHandle(patch[0]);
+        return new CarAudioPatchHandle(audioPatchInfo.getHandleId(),
+                audioPatchInfo.getSourceAddress(), audioPatchInfo.getSinkAddress());
     }
 
+    @GuardedBy("mImplLock")
     private void releaseAudioPatchLocked(CarAudioPatchHandle carPatch) {
         Objects.requireNonNull(carPatch);
-        // NOTE:  AudioPolicyService::removeNotificationClient will take care of this automatically
-        //        if the client that created a patch quits.
-        ArrayList<AudioPatch> patches = new ArrayList<>();
-        int result = mAudioManager.listAudioPatches(patches);
-        if (result != AudioManager.SUCCESS) {
-            throw new RuntimeException("listAudioPatches failed with code " + result);
-        }
 
-        // Look for a patch that matches the provided user side handle
-        for (AudioPatch patch : patches) {
-            if (carPatch.represents(patch)) {
-                // Found it!
-                result = AudioManager.releaseAudioPatch(patch);
-                if (result != AudioManager.SUCCESS) {
-                    throw new RuntimeException("releaseAudioPatch failed with code " + result);
-                }
-                return;
-            }
+        if (AudioManagerHelper.releaseAudioPatch(mAudioManager, getAudioPatchInfo(carPatch))) {
+            Slogf.d(TAG, "releaseAudioPatch %s successfully", carPatch);
         }
-
         // If we didn't find a match, then something went awry, but it's probably not fatal...
-        Slog.e(CarLog.TAG_AUDIO, "releaseAudioPatch found no match for " + carPatch);
+        Slogf.e(TAG, "releaseAudioPatch found no match for %s", carPatch);
+    }
+
+    private static AudioPatchInfo getAudioPatchInfo(CarAudioPatchHandle carPatch) {
+        return new AudioPatchInfo(carPatch.getSourceAddress(),
+                carPatch.getSinkAddress(),
+                carPatch.getHandleId());
     }
 
     @Override
@@ -862,22 +863,26 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
 
     @Override
     public int getVolumeGroupIdForUsage(int zoneId, @AttributeUsage int usage) {
+        enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
         synchronized (mImplLock) {
-            enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
+            return getVolumeGroupIdForUsageLocked(zoneId, usage);
+        }
+    }
 
-            if (!mUseDynamicRouting) {
-                for (int i = 0; i < CarAudioDynamicRouting.STREAM_TYPE_USAGES.length; i++) {
-                    if (usage == CarAudioDynamicRouting.STREAM_TYPE_USAGES[i]) {
-                        return i;
-                    }
+    @GuardedBy("mImplLock")
+    private int getVolumeGroupIdForUsageLocked(int zoneId, @AttributeUsage int usage) {
+        if (!mUseDynamicRouting) {
+            for (int i = 0; i < CarAudioDynamicRouting.STREAM_TYPE_USAGES.length; i++) {
+                if (usage == CarAudioDynamicRouting.STREAM_TYPE_USAGES[i]) {
+                    return i;
                 }
-
-                return INVALID_VOLUME_GROUP_ID;
             }
 
-            @AudioContext int audioContext = CarAudioContext.getContextForUsage(usage);
-            return getVolumeGroupIdForAudioContextLocked(zoneId, audioContext);
+            return INVALID_VOLUME_GROUP_ID;
         }
+
+        @AudioContext int audioContext = CarAudioContext.getContextForUsage(usage);
+        return getVolumeGroupIdForAudioContextLocked(zoneId, audioContext);
     }
 
     @GuardedBy("mImplLock")
@@ -930,7 +935,12 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
                 getActiveHalUsagesForZone(zoneId));
     }
 
-    private @CallState int getCallStateForZone(int zoneId) {
+    /**
+     *
+     * returns the current call state ({@code CALL_STATE_OFFHOOK}, {@code CALL_STATE_RINGING},
+     * {@code CALL_STATE_IDLE}) from the telephony manager.
+     */
+    private int getCallStateForZone(int zoneId) {
         synchronized (mImplLock) {
             // Only driver can use telephony stack
             if (getUserIdForZoneLocked(zoneId) == mOccupantZoneService.getDriverUserId()) {
@@ -989,22 +999,22 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
             if (mUidToZoneMap.containsKey(uid)) {
                 return mUidToZoneMap.get(uid);
             }
-            int userId = UserHandle.getUserId(uid);
+            int userId = UserHandle.getUserHandleForUid(uid).getIdentifier();
             return getZoneIdForUserIdLocked(userId);
         }
     }
 
+    @GuardedBy("mImplLock")
     private int getZoneIdForUserIdLocked(@UserIdInt int userId) {
         int audioZoneId = mOccupantZoneService.getAudioZoneIdForOccupant(
                 mOccupantZoneService.getOccupantZoneIdForUserId(userId));
         if (audioZoneId != CarAudioManager.INVALID_AUDIO_ZONE) {
             return audioZoneId;
         }
-        Slog.w(CarLog.TAG_AUDIO,
-                "getZoneIdForUid userId " + userId
-                        + " does not have a zone. Defaulting to PRIMARY_AUDIO_ZONE:"
-                        + CarAudioManager.PRIMARY_AUDIO_ZONE);
-        return CarAudioManager.PRIMARY_AUDIO_ZONE;
+        Slogf.w(TAG,
+                "getZoneIdForUid userId %d does not have a zone. Defaulting to %s: %d",
+                userId, "PRIMARY_AUDIO_ZONE", PRIMARY_AUDIO_ZONE);
+        return PRIMARY_AUDIO_ZONE;
     }
 
     /**
@@ -1024,9 +1034,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         requireDynamicRouting();
         synchronized (mImplLock) {
             checkAudioZoneIdLocked(zoneId);
-            Slog.i(CarLog.TAG_AUDIO, "setZoneIdForUid Calling uid "
-                    + uid + " mapped to : "
-                    + zoneId);
+            Slogf.i(TAG, "setZoneIdForUid Calling uid %d mapped to : %d", uid, zoneId);
 
             // If occupant mapping exist uid routing can not be used
             requiredOccupantZoneMappingDisabledLocked();
@@ -1077,6 +1085,16 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         }
     }
 
+    @GuardedBy("mImplLock")
+    private AudioDeviceInfo getOutputDeviceForUsageLocked(int zoneId, int usage) {
+        enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
+        requireDynamicRouting();
+        int contextForUsage = CarAudioContext.getContextForUsage(usage);
+        Preconditions.checkArgument(contextForUsage != CarAudioContext.INVALID,
+                "Invalid audio attribute usage %d", usage);
+        return getCarAudioZoneLocked(zoneId).getAudioDeviceForContext(contextForUsage);
+    }
+
     @Override
     public String getOutputDeviceAddressForUsage(int zoneId, @AttributeUsage int usage) {
         enforcePermission(Car.PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
@@ -1092,15 +1110,14 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
      * @param afiList focus info list to regain
      * @param zoneId zone id where the focus holder belong
      */
+    @GuardedBy("mImplLock")
     void regainAudioFocusLocked(ArrayList<AudioFocusInfo> afiList, int zoneId) {
         for (AudioFocusInfo info : afiList) {
             if (mFocusHandler.reevaluateAndRegainAudioFocus(info)
                     != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                Slog.i(CarLog.TAG_AUDIO,
-                        " Focus could not be granted for entry "
-                                + info.getClientId()
-                                + " uid " + info.getClientUid()
-                                + " in zone " + zoneId);
+                Slogf.i(TAG,
+                        " Focus could not be granted for entry %s uid %d in zone %d",
+                        info.getClientId(), info.getClientUid(), zoneId);
             }
         }
     }
@@ -1136,8 +1153,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
      */
     @GuardedBy("mImplLock")
     private boolean setZoneIdForUidNoCheckLocked(int zoneId, int uid) {
-        Slog.d(CarLog.TAG_AUDIO, "setZoneIdForUidNoCheck Calling uid "
-                + uid + " mapped to " + zoneId);
+        Slogf.d(TAG, "setZoneIdForUidNoCheck Calling uid %d mapped to %d", uid, zoneId);
         //Request to add uid device affinity
         List<AudioDeviceInfo> deviceInfos = getCarAudioZoneLocked(zoneId).getAudioDeviceInfos();
         if (mAudioPolicy.setUidDeviceAffinity(uid, deviceInfos)) {
@@ -1146,8 +1162,8 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
             mUidToZoneMap.put(uid, zoneId);
             return true;
         }
-        Slog.w(CarLog.TAG_AUDIO, "setZoneIdForUidNoCheck Failed set device affinity for uid "
-                + uid + " in zone " + zoneId);
+        Slogf.w(TAG, "setZoneIdForUidNoCheck Failed set device affinity for uid %d in zone %d",
+                uid, zoneId);
         return false;
     }
 
@@ -1156,20 +1172,19 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
      * @param uid unique id to remove
      * @return true if the uid was successfully removed or mapping was not assigned
      */
+    @GuardedBy("mImplLock")
     private boolean checkAndRemoveUidLocked(int uid) {
         Integer zoneId = mUidToZoneMap.get(uid);
         if (zoneId != null) {
-            Slog.i(CarLog.TAG_AUDIO, "checkAndRemoveUid removing Calling uid "
-                    + uid + " from zone " + zoneId);
+            Slogf.i(TAG, "checkAndRemoveUid removing Calling uid %d from zone %d", uid, zoneId);
             if (mAudioPolicy.removeUidDeviceAffinity(uid)) {
                 // TODO use the uid device affinity in audio policy when available
                 mUidToZoneMap.remove(uid);
                 return true;
             }
             //failed to remove device affinity from zone devices
-            Slog.w(CarLog.TAG_AUDIO,
-                    "checkAndRemoveUid Failed remove device affinity for uid "
-                            + uid + " in zone " +  zoneId);
+            Slogf.w(TAG, "checkAndRemoveUid Failed remove device affinity for uid %d in zone %d",
+                    uid, zoneId);
             return false;
         }
         return true;
@@ -1232,9 +1247,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
     }
 
     void setAudioEnabled(boolean isAudioEnabled) {
-        if (Slogf.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-            Slogf.d(CarLog.TAG_AUDIO, "Setting isAudioEnabled to %b", isAudioEnabled);
-        }
+        Slogf.d(TAG, "Setting isAudioEnabled to %b", isAudioEnabled);
 
         mFocusHandler.setRestrictFocus(/* isFocusRestricted= */ !isAudioEnabled);
         if (mUseCarVolumeGroupMuting) {
@@ -1259,25 +1272,12 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
                 "Car Volume Group Muting is required");
     }
 
+    @GuardedBy("mImplLock")
     private void requiredOccupantZoneMappingDisabledLocked() {
         if (isOccupantZoneMappingAvailableLocked()) {
             throw new IllegalStateException(
                     "UID based routing is not supported while using occupant zone mapping");
         }
-    }
-
-    /**
-     * @return {@link AudioDevicePort} that handles the given car audio usage.
-     * Multiple usages may share one {@link AudioDevicePort}
-     */
-    private @Nullable AudioDevicePort getAudioPort(@AttributeUsage int usage) {
-        int zoneId = CarAudioManager.PRIMARY_AUDIO_ZONE;
-        final int groupId = getVolumeGroupIdForUsage(zoneId, usage);
-        final CarVolumeGroup group = Objects.requireNonNull(
-                getCarVolumeGroupLocked(zoneId, groupId),
-                "Can not find CarVolumeGroup by usage: "
-                        + AudioAttributes.usageToString(usage));
-        return group.getAudioDevicePortForContext(CarAudioContext.getContextForUsage(usage));
     }
 
     @AudioContext int getSuggestedAudioContextForPrimaryZone() {
@@ -1339,6 +1339,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         mCarVolumeGroupMuting.carMuteChanged();
     }
 
+    @GuardedBy("mImplLock")
     private void assignMissingZonesToDriverLocked(@UserIdInt int driverUserId,
             Set<Integer> assignedZones) {
         for (int i = 0; i < mCarAudioZones.size(); i++) {
@@ -1350,6 +1351,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         }
     }
 
+    @GuardedBy("mImplLock")
     private void adjustZonesToUserIdLocked(@UserIdInt int userId) {
         for (int i = 0; i < mCarAudioZones.size(); i++) {
             CarAudioZone zone = mCarAudioZones.valueAt(i);
@@ -1357,27 +1359,21 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         }
     }
 
+    @GuardedBy("mImplLock")
     private void assignUserIdToAudioZoneLocked(CarAudioZone zone, @UserIdInt int userId) {
         if (userId == getUserIdForZoneLocked(zone.getId())) {
-            if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                Slog.d(CarLog.TAG_AUDIO,
-                        "assignUserIdToAudioZone userId(" + userId
-                                + ") already assigned to audioZoneId("
-                                + zone.getId() + ")");
-            }
+            Slogf.d(TAG, "assignUserIdToAudioZone userId(%d) already assigned to audioZoneId(%d)",
+                    userId, zone.getId());
             return;
         }
-        if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-            Slog.d(CarLog.TAG_AUDIO,
-                    "assignUserIdToAudioZone assigning userId("
-                            + userId + ") to audioZoneId("
-                            + zone.getId() + ")");
-        }
+        Slogf.d(TAG, "assignUserIdToAudioZone assigning userId(%d) to audioZoneId(%d)",
+                userId, zone.getId());
         zone.updateVolumeGroupsSettingsForUser(userId);
         mFocusHandler.updateUserForZoneId(zone.getId(), userId);
         setUserIdForAudioZoneLocked(userId, zone.getId());
     }
 
+    @GuardedBy("mImplLock")
     private boolean isOccupantZoneMappingAvailableLocked() {
         return mAudioZoneIdToOccupantZoneIdMapping.size() > 0;
     }
@@ -1390,23 +1386,18 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         int prevUserId = getUserIdForZoneLocked(audioZoneId);
 
         if (userId == prevUserId) {
-            if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                Slog.d(CarLog.TAG_AUDIO, "updateUserForOccupantZone userId(" + userId
-                        + ") already assigned to audioZoneId(" + audioZoneId + ")");
-            }
+            Slogf.d(TAG, "updateUserForOccupantZone userId(%d) already assigned to audioZoneId(%d)",
+                    userId, audioZoneId);
             return;
         }
-        if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-            Slog.d(CarLog.TAG_AUDIO,
-                    "updateUserForOccupantZone assigning userId("
-                            + userId + ") to audioZoneId(" + audioZoneId + ")");
-        }
+        Slogf.d(TAG, "updateUserForOccupantZone assigning userId(%d) to audioZoneId(%d)",
+                userId, audioZoneId);
         // If the user has changed, be sure to remove from current routing
-        // This would be true even if the new user is UserHandle.USER_NULL,
+        // This would be true even if the new user is UserManagerHelper.USER_NULL,
         // as that indicates the user has logged out.
         removeUserIdDeviceAffinitiesLocked(prevUserId);
 
-        if (userId == UserHandle.USER_NULL) {
+        if (userId == UserManagerHelper.USER_NULL) {
             // Reset zone back to driver user id
             resetZoneToDefaultUser(audioZone, driverUserId);
             setUserIdForAudioZoneLocked(userId, audioZoneId);
@@ -1433,6 +1424,7 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         return CarOccupantZoneManager.OccupantZoneInfo.INVALID_ZONE_ID;
     }
 
+    @GuardedBy("mImplLock")
     private void setUserIdDeviceAffinitiesLocked(CarAudioZone zone, @UserIdInt int userId,
             int audioZoneId) {
         if (!mAudioPolicy.setUserIdDeviceAffinity(userId, zone.getAudioDeviceInfos())) {
@@ -1452,32 +1444,33 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         mFocusHandler.updateUserForZoneId(audioZoneId, driverUserId);
     }
 
+    @GuardedBy("mImplLock")
     private void removeUserIdDeviceAffinitiesLocked(@UserIdInt int userId) {
-        if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-            Slog.d(CarLog.TAG_AUDIO,
-                    "removeUserIdDeviceAffinities(" + userId + ") Succeeded");
-        }
-        if (userId == UserHandle.USER_NULL) {
+        Slogf.d(TAG, "removeUserIdDeviceAffinities(%d) Succeeded", userId);
+        if (userId == UserManagerHelper.USER_NULL) {
             return;
         }
         if (!mAudioPolicy.removeUserIdDeviceAffinity(userId)) {
-            Slog.e(CarLog.TAG_AUDIO, "removeUserIdDeviceAffinities(" + userId + ") Failed");
+            Slogf.e(TAG, "removeUserIdDeviceAffinities(%d) Failed", userId);
             return;
         }
     }
 
+    @GuardedBy("mImplLock")
     private @UserIdInt int getUserIdForZoneLocked(int audioZoneId) {
-        return mAudioZoneIdToUserIdMapping.get(audioZoneId, UserHandle.USER_NULL);
+        return mAudioZoneIdToUserIdMapping.get(audioZoneId, UserManagerHelper.USER_NULL);
     }
 
+    @GuardedBy("mImplLock")
     private void setUserIdForAudioZoneLocked(@UserIdInt int userId, int audioZoneId) {
         mAudioZoneIdToUserIdMapping.put(audioZoneId, userId);
     }
 
+    @GuardedBy("mImplLock")
     private AudioControlWrapper getAudioControlWrapperLocked() {
         if (mAudioControlWrapper == null) {
             mAudioControlWrapper = AudioControlFactory.newAudioControl();
-            mAudioControlWrapper.linkToDeath(this::resetHalAudioFocus);
+            mAudioControlWrapper.linkToDeath(this::audioControlDied);
         }
         return mAudioControlWrapper;
     }
@@ -1486,6 +1479,13 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         if (mHalAudioFocus != null) {
             mHalAudioFocus.reset();
             mHalAudioFocus.registerFocusListener();
+        }
+    }
+
+    private void audioControlDied() {
+        resetHalAudioFocus();
+        synchronized (mImplLock) {
+            setupHalAudioGainCallbackLocked();
         }
     }
 
@@ -1530,13 +1530,15 @@ public class CarAudioService extends ICarAudio.Stub implements CarServiceBase {
         }
     }
 
+    @VisibleForTesting
+    void requestAudioFocusForTest(AudioFocusInfo audioFocusInfo, int audioFocusResult) {
+        mFocusHandler.onAudioFocusRequest(audioFocusInfo, audioFocusResult);
+    }
+
     private class CarAudioOccupantConfigChangeListener implements OccupantZoneConfigChangeListener {
         @Override
         public void onOccupantZoneConfigChanged(int flags) {
-            if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                Slog.d(CarLog.TAG_AUDIO,
-                        "onOccupantZoneConfigChanged(" + flags + ")");
-            }
+            Slogf.d(TAG, "onOccupantZoneConfigChanged(%d)", flags);
             if (((flags & CarOccupantZoneManager.ZONE_CONFIG_CHANGE_FLAG_USER)
                     == CarOccupantZoneManager.ZONE_CONFIG_CHANGE_FLAG_USER)
                     || ((flags & CarOccupantZoneManager.ZONE_CONFIG_CHANGE_FLAG_DISPLAY)

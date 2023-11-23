@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"مسدود کردن تماس‌ها از تلفن‌های عمومی"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"ناشناس"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"مسدود کردن تماس‌های تماس‌گیرندگان ناشناس"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"دردسترس نیست"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"وقتی شماره دردسترس نباشد، تماس‌ها مسدود می‌شود"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"مسدود کردن تماس"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"مسدود کردن تماس غیرفعال شد"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"تماس اضطراری برقرار شد"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"مسدود کردن تماس غیرفعال شده است تا پاسخ‌دهندگان اضطراری بتوانند با شما تماس بگیرند."</string>
     <string name="developer_title" msgid="9146088855661672353">"‏منوی برنامه‌نویس Telecom"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"درحین برقراری تماسی اضطراری، نمی‌توان به تماس‌ها پاسخ داد."</string>
+    <string name="cancel" msgid="6733466216239934756">"لغو"</string>
 </resources>

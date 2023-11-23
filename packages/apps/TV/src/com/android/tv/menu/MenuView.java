@@ -25,6 +25,8 @@ import android.view.View;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
 import com.android.tv.menu.Menu.MenuShowReason;
 import java.util.ArrayList;
@@ -192,7 +194,12 @@ public class MenuView extends FrameLayout implements IMenuView {
     protected boolean onRequestFocusInDescendants(int direction, Rect previouslyFocusedRect) {
         int selectedPosition = mLayoutManager.getSelectedPosition();
         // When the menu shows up, the selected row should have focus.
+        AccessibilityManager mAccessibilityManager =
+                getContext().getSystemService(AccessibilityManager.class);
         if (selectedPosition >= 0 && selectedPosition < mMenuRowViews.size()) {
+            if(mAccessibilityManager.isEnabled())
+                mMenuRowViews.get(selectedPosition)
+                        .sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
             return mMenuRowViews.get(selectedPosition).requestFocus();
         }
         return super.onRequestFocusInDescendants(direction, previouslyFocusedRect);

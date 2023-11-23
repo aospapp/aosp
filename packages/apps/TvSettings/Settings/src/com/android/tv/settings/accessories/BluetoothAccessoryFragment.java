@@ -155,6 +155,7 @@ public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
     public void onStart() {
         super.onStart();
         if (mDevice != null &&
+                mDevice.isConnected() &&
                 (mDevice.getType() == BluetoothDevice.DEVICE_TYPE_LE ||
                         mDevice.getType() == BluetoothDevice.DEVICE_TYPE_DUAL)) {
             // Only LE devices support GATT

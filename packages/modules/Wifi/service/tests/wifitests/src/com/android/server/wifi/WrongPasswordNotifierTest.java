@@ -26,6 +26,9 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiContext;
+import android.net.wifi.WifiSsid;
 import android.os.UserHandle;
 import android.provider.Settings;
 
@@ -47,7 +50,7 @@ import org.mockito.MockitoSession;
  */
 @SmallTest
 public class WrongPasswordNotifierTest extends WifiBaseTest {
-    private static final String TEST_SSID = "Test SSID";
+    private static final WifiSsid TEST_SSID = WifiSsid.fromUtf8Text("Test SSID");
     private static final String TEST_SETTINGS_PACKAGE = "android";
 
     @Mock WifiContext mContext;
@@ -101,14 +104,17 @@ public class WrongPasswordNotifierTest extends WifiBaseTest {
     public void onWrongPasswordError() throws Exception {
         when(mFrameworkFacade.makeNotificationBuilder(any(),
                 eq(WifiService.NOTIFICATION_NETWORK_ALERTS))).thenReturn(mNotificationBuilder);
-        mWrongPassNotifier.onWrongPasswordError(TEST_SSID);
+        WifiConfiguration config = new WifiConfiguration();
+        config.SSID = TEST_SSID.toString();
+        mWrongPassNotifier.onWrongPasswordError(config);
         verify(mWifiNotificationManager).notify(eq(WrongPasswordNotifier.NOTIFICATION_ID), any());
         ArgumentCaptor<Intent> intent = ArgumentCaptor.forClass(Intent.class);
         verify(mFrameworkFacade).getActivity(
                 any(Context.class), anyInt(), intent.capture(), anyInt());
         assertEquals(Settings.ACTION_WIFI_SETTINGS, intent.getValue().getAction());
         assertEquals(TEST_SETTINGS_PACKAGE, intent.getValue().getPackage());
-        assertEquals(TEST_SSID, intent.getValue().getStringExtra("wifi_start_connect_ssid"));
+        assertEquals(TEST_SSID.getUtf8Text(),
+                intent.getValue().getStringExtra("wifi_start_connect_ssid"));
     }
 
     /**

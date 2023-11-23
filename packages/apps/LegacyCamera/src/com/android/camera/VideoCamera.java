@@ -864,7 +864,8 @@ public class VideoCamera extends ActivityBase
         intentFilter.addAction(Intent.ACTION_MEDIA_SCANNER_FINISHED);
         intentFilter.addDataScheme("file");
         mReceiver = new MyBroadcastReceiver();
-        registerReceiver(mReceiver, intentFilter);
+        registerReceiver(mReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         mStorageSpace = Storage.getAvailableSpace();
 
         mHandler.postDelayed(new Runnable() {

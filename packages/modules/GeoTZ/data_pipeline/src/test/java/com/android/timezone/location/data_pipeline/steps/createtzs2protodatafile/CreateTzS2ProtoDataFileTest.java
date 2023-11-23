@@ -17,6 +17,7 @@
 package com.android.timezone.location.data_pipeline.steps.createtzs2protodatafile;
 
 import static com.android.timezone.location.data_pipeline.steps.TestSupport.copyTestResource;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

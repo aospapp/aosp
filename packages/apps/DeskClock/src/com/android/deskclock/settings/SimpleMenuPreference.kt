@@ -36,7 +36,7 @@ class SimpleMenuPreference(
     attrs: AttributeSet?,
     defStyleAttr: Int,
     defStyleRes: Int
-) : DropDownPreference(context, attrs, defStyleAttr, defStyleRes) {
+) : DropDownPreference(context!!, attrs, defStyleAttr, defStyleRes) {
     private lateinit var mAdapter: SimpleMenuAdapter
 
     constructor(context: Context?) : this(context, null) {
@@ -55,9 +55,9 @@ class SimpleMenuPreference(
         return mAdapter
     }
 
-    override fun setSummary(summary: CharSequence) {
+    override fun setSummary(summary: CharSequence?) {
         val entries: Array<CharSequence> = getEntries()
-        val index = Utils.indexOf(entries, summary)
+        val index = Utils.indexOf(entries, summary!!)
         require(index != -1) { "Illegal Summary" }
         val lastSelectedOriginalPosition = mAdapter.lastSelectedOriginalPosition
         mAdapter.setSelectedPosition(index)

@@ -26,11 +26,13 @@ cc_defaults {
         "-Wunused-parameter",
     ],
     shared_libs: [
-        "android.frameworks.automotive.powerpolicy-V1-cpp",
-        "android.frameworks.automotive.powerpolicy.internal-cpp",
+        "android.frameworks.automotive.powerpolicy-V1-ndk",
+        "android.frameworks.automotive.powerpolicy.internal-V1-cpp",
+        "android.frameworks.automotive.powerpolicy.internal-V1-ndk",
         "android.hardware.automotive.vehicle@2.0",
         "libbase",
         "libbinder",
+        "libbinder_ndk",
         "libhidlbase",
         "liblog",
         "libtinyxml2",
@@ -38,7 +40,9 @@ cc_defaults {
     ],
     static_libs: [
         "libsysfsmonitor",
+        "libvhalclient",
     ],
+    defaults: [ "vhalclient_defaults" ],
 }
 
 cc_library {

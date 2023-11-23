@@ -18,6 +18,7 @@ package com.android.car.power;
 
 import static android.car.Car.PERMISSION_CAR_POWER;
 import static android.car.Car.PERMISSION_CONTROL_CAR_POWER_POLICY;
+import static android.car.Car.PERMISSION_CONTROL_SHUTDOWN_PROCESS;
 import static android.car.Car.PERMISSION_READ_CAR_POWER_POLICY;
 import static android.car.Car.POWER_SERVICE;
 
@@ -85,7 +86,7 @@ public final class CarPowerManagerPermissionTest {
     @Test
     public void testSetListener() throws Exception {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarPowerManager.setListener(null));
+                () -> mCarPowerManager.setListener(mContext.getMainExecutor(), (state) -> {}));
 
         assertThat(e.getMessage()).contains(PERMISSION_CAR_POWER);
     }
@@ -93,9 +94,10 @@ public final class CarPowerManagerPermissionTest {
     @Test
     public void testSetListenerWithCompletion() throws Exception {
         Exception e = expectThrows(SecurityException.class,
-                () -> mCarPowerManager.setListenerWithCompletion(null));
+                () -> mCarPowerManager.setListenerWithCompletion(mContext.getMainExecutor(),
+                        (state, future) -> {}));
 
-        assertThat(e.getMessage()).contains(PERMISSION_CAR_POWER);
+        assertThat(e.getMessage()).contains(PERMISSION_CONTROL_SHUTDOWN_PROCESS);
     }
 
     @Test

@@ -93,12 +93,15 @@ public class DiscoverySessionCallback {
     }
 
     /**
-     * Called when a discovery (publish or subscribe) operation results in a
-     * service discovery.
+     * Called when a subscribe operation results in a service discovery.
      * <p>
      * Note that this method and
      * {@link #onServiceDiscoveredWithinRange(PeerHandle, byte[], List, int)} may be called
      * multiple times per service discovery.
+     * <p>
+     * Note: This method is superseded by {@link #onServiceDiscovered(ServiceDiscoveryInfo)} which
+     * returns more information. Note that both legacy and new callback will be triggered on
+     * discovery.
      *
      * @param peerHandle An opaque handle to the peer matching our discovery operation.
      * @param serviceSpecificInfo The service specific information (arbitrary
@@ -117,7 +120,21 @@ public class DiscoverySessionCallback {
     }
 
     /**
-     * Called when a discovery (publish or subscribe) operation results in a
+     * Called when a subscribe operation results in a service discovery.
+     * <p>
+     * Note: This method supersedes {@link #onServiceDiscovered(PeerHandle, byte[], List)} and
+     * provides additional information - including cipher suite type and security context of the
+     * peer. Both the legacy and the new callback will be triggered on discovery.
+     *
+     * @param info A {@link ServiceDiscoveryInfo} structure containing information on the discovery
+     *             session and the discovered peer.
+     */
+    public void onServiceDiscovered(@NonNull ServiceDiscoveryInfo info) {
+        /* empty */
+    }
+
+    /**
+     * Called when a subscribe operation results in a
      * service discovery. Called when a Subscribe service was configured with a range requirement
      * {@link SubscribeConfig.Builder#setMinDistanceMm(int)} and/or
      * {@link SubscribeConfig.Builder#setMaxDistanceMm(int)} and the Publish service was configured
@@ -129,6 +146,10 @@ public class DiscoverySessionCallback {
      * <p>
      * Note that this method and {@link #onServiceDiscovered(PeerHandle, byte[], List)} may be
      * called multiple times per service discovery.
+     * <p>
+     * Note: This method is superseded by
+     * {@link #onServiceDiscoveredWithinRange(ServiceDiscoveryInfo, int)} which returns more
+     * information. Note that both legacy and new callback will be triggered on discovery.
      *
      * @param peerHandle An opaque handle to the peer matching our discovery operation.
      * @param serviceSpecificInfo The service specific information (arbitrary
@@ -145,6 +166,31 @@ public class DiscoverySessionCallback {
      */
     public void onServiceDiscoveredWithinRange(PeerHandle peerHandle,
         byte[] serviceSpecificInfo, List<byte[]> matchFilter, int distanceMm) {
+        /* empty */
+    }
+
+    /**
+     * Called when a subscribe operation results in a
+     * service discovery. Called when a Subscribe service was configured with a range requirement
+     * {@link SubscribeConfig.Builder#setMinDistanceMm(int)} and/or
+     * {@link SubscribeConfig.Builder#setMaxDistanceMm(int)} and the Publish service was configured
+     * with {@link PublishConfig.Builder#setRangingEnabled(boolean)}.
+     * <p>
+     * If either Publisher or Subscriber does not enable Ranging, or if Ranging is temporarily
+     * disabled by the underlying device, service discovery proceeds without ranging and the
+     * {@link #onServiceDiscovered(PeerHandle, byte[], List)} is called.
+     * <p>
+     * Note: This method supersedes
+     * {@link #onServiceDiscoveredWithinRange(PeerHandle, byte[], List, int)} and provides
+     * additional information - including cipher suite type and security context of the peer. Both
+     * the legacy and the new callback will be triggered on discovery.
+     *
+     * @param info A {@link ServiceDiscoveryInfo} which indicate service config of the descovery
+     *             sessions.
+     * @param distanceMm The measured distance to the Publisher in mm. Note: the measured distance
+ *                   may be negative for very close devices.
+     */
+    public void onServiceDiscoveredWithinRange(@NonNull ServiceDiscoveryInfo info, int distanceMm) {
         /* empty */
     }
 

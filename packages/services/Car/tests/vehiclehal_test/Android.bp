@@ -18,29 +18,31 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "VehicleHALTest",
+// TODO(b/194410486): Improve this test and turn it back on after we migrate
+// VHAL interface.
+// android_test {
+//     name: "VehicleHALTest",
 
-    srcs: ["src/**/*.java"],
+//     srcs: ["src/**/*.java"],
 
-    platform_apis: true,
+//     platform_apis: true,
 
-    certificate: "platform",
+//     certificate: "platform",
 
-    optimize: {
-        enabled: false,
-    },
+//     optimize: {
+//         enabled: false,
+//     },
 
-    static_libs: [
-        "vehicle-hal-support-lib",
-        "androidx.test.rules",
-        "android.hidl.base-V1.0-java",
-        "android.hardware.automotive.vehicle-V2.0-java",
-    ],
+//     static_libs: [
+//         "vehicle-hal-support-lib",
+//         "androidx.test.rules",
+//         "android.hidl.base-V1.0-java",
+//         "android.hardware.automotive.vehicle-V2.0-java",
+//     ],
 
-    libs: [
-        "android.car",
-        "android.test.runner",
-        "android.test.base",
-    ],
-}
+//     libs: [
+//         "android.car",
+//         "android.test.runner",
+//         "android.test.base",
+//     ],
+// }

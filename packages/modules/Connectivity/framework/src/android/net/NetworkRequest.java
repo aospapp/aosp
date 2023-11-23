@@ -423,6 +423,7 @@ public class NetworkRequest implements Parcelable {
          *
          * @deprecated Use {@link #setNetworkSpecifier(NetworkSpecifier)} instead.
          */
+        @SuppressLint("NewApi") // TODO: b/193460475 remove once fixed
         @Deprecated
         public Builder setNetworkSpecifier(String networkSpecifier) {
             try {
@@ -439,6 +440,15 @@ public class NetworkRequest implements Parcelable {
                 } else if (mNetworkCapabilities.hasTransport(TRANSPORT_TEST)) {
                     return setNetworkSpecifier(new TestNetworkSpecifier(networkSpecifier));
                 } else {
+                    // TODO: b/193460475 remove comment once fixed
+                    // @SuppressLint("NewApi") is due to EthernetNetworkSpecifier being changed
+                    // from @SystemApi to public. EthernetNetworkSpecifier was introduced in Android
+                    // 12 as @SystemApi(client = MODULE_LIBRARIES) and made public in Android 13.
+                    // b/193460475 means in the above situation the tools will think
+                    // EthernetNetworkSpecifier didn't exist in Android 12, causing the NewApi lint
+                    // to fail. In this case, this is actually safe because this code was
+                    // modularized in Android 12, so it can't run on SDKs before Android 12 and is
+                    // therefore guaranteed to always have this class available to it.
                     return setNetworkSpecifier(new EthernetNetworkSpecifier(networkSpecifier));
                 }
             }
@@ -722,6 +732,33 @@ public class NetworkRequest implements Parcelable {
         // No need to make a defensive copy here as NC#getCapabilities() already returns
         // a new array.
         return networkCapabilities.getCapabilities();
+    }
+
+    /**
+     * Get the enteprise identifiers.
+     *
+     * Get all the enterprise identifiers set on this {@code NetworkCapability}
+     * @return array of all the enterprise identifiers.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public @NonNull @NetworkCapabilities.EnterpriseId int[] getEnterpriseIds() {
+        // No need to make a defensive copy here as NC#getCapabilities() already returns
+        // a new array.
+        return networkCapabilities.getEnterpriseIds();
+    }
+
+    /**
+     * Tests for the presence of an enterprise identifier on this instance.
+     *
+     * @param enterpriseId the enterprise capability identifier to be tested for.
+     * @return {@code true} if set on this instance.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public boolean hasEnterpriseId(
+            @NetworkCapabilities.EnterpriseId int enterpriseId) {
+        return networkCapabilities.hasEnterpriseId(enterpriseId);
     }
 
     /**

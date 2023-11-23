@@ -141,6 +141,49 @@ void AStatsEvent_writeAttributionChain(AStatsEvent* event, const uint32_t* uids,
                                        const char* const* tags, uint8_t numNodes);
 
 /**
+ * Write a int32 array field to this StatsEvent.
+ *
+ * Max size of array is 127. If exceeded, array is not written and ERROR_LIST_TOO_LONG is appended
+ * to StatsEvent.
+ **/
+void AStatsEvent_writeInt32Array(AStatsEvent* event, const int32_t* elements, size_t numElements);
+
+/**
+ * Write a int64 array field to this StatsEvent.
+ *
+ * Max size of array is 127. If exceeded, array is not written and ERROR_LIST_TOO_LONG is appended
+ * to StatsEvent.
+ **/
+void AStatsEvent_writeInt64Array(AStatsEvent* event, const int64_t* elements, size_t numElements);
+
+/**
+ * Write a float array field to this StatsEvent.
+ *
+ * Max size of array is 127. If exceeded, array is not written and ERROR_LIST_TOO_LONG is appended
+ * to StatsEvent.
+ **/
+void AStatsEvent_writeFloatArray(AStatsEvent* event, const float* elements, size_t numElements);
+
+/**
+ * Write a bool array field to this StatsEvent.
+ *
+ * Max size of array is 127. If exceeded, array is not written and ERROR_LIST_TOO_LONG is appended
+ * to StatsEvent.
+ **/
+void AStatsEvent_writeBoolArray(AStatsEvent* event, const bool* elements, size_t numElements);
+
+/**
+ * Write a string array field to this StatsEvent.
+ *
+ * String array encoding is UTF8.
+ *
+ * Strings must be null terminated. Max size of array is 127. If exceeded, array is not written and
+ * ERROR_LIST_TOO_LONG is appended to StatsEvent.
+ **/
+void AStatsEvent_writeStringArray(AStatsEvent* event, const char* const* elements,
+                                  size_t numElements);
+
+/**
  * Write a bool annotation for the previous field written.
  **/
 void AStatsEvent_addBoolAnnotation(AStatsEvent* event, uint8_t annotationId, bool value);

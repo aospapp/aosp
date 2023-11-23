@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Ühendused"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Printimise vaiketeenusel ei õnnestu Wi-Fi Directi printereid leida"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Keela Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Printimise vaiketeenus vajab läheduses olevate seadmete leidmiseks asukohale juurdepääsu luba."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Läheduses asuvate printerite leidmiseks vajab printimise vaiketeenus läheduses asuvate seadmete nägemise luba."</string>
     <string name="fix" msgid="7784394272611365393">"Loa ülevaatamine"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Printimise vaiketeenus nõuab, et läheduses olevate seadmete leidmiseks oleks asukohateenused lubatud."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Luba asukoht"</string>
     <string name="print" msgid="7851318072404916362">"Prindi"</string>
 </resources>

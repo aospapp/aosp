@@ -22,7 +22,6 @@ import android.os.Bundle;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.CarSetupWizardLayoutHelper;
-import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
@@ -69,8 +68,8 @@ public class CarResetAndReturnDeviceActivity extends ResetAndReturnDeviceActivit
      * {@code CarSetupWizardLayout}
      */
     @Override
-    protected void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
-            CustomizationParams params) {
+    protected void initializeLayoutParams(
+            int layoutResourceId, @Nullable Integer headerResourceId) {
         CarSetupWizardLayoutHelper layoutHelper = new CarSetupWizardLayoutHelper(this);
         layoutHelper.setBaseLayout(
                 /* mainLayoutResId= */ CarSetupWizardLayoutHelper.MAIN_LAYOUT_RES_ID,

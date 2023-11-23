@@ -20,6 +20,7 @@
 #include <aidl/android/os/BnStatsd.h>
 #include <aidl/android/os/IPendingIntentRef.h>
 #include <aidl/android/os/IPullAtomCallback.h>
+#include <aidl/android/util/PropertyParcel.h>
 #include <gtest/gtest_prod.h>
 #include <utils/Looper.h>
 
@@ -43,6 +44,7 @@ using Status = ::ndk::ScopedAStatus;
 using aidl::android::os::BnStatsd;
 using aidl::android::os::IPendingIntentRef;
 using aidl::android::os::IPullAtomCallback;
+using aidl::android::util::PropertyParcel;
 using ::ndk::ScopedAIBinder_DeathRecipient;
 using ::ndk::ScopedFileDescriptor;
 using std::shared_ptr;
@@ -72,7 +74,8 @@ public:
 
     virtual Status informAllUidData(const ScopedFileDescriptor& fd);
     virtual Status informOnePackage(const string& app, int32_t uid, int64_t version,
-                                    const string& versionString, const string& installer);
+                                    const string& versionString, const string& installer,
+                                    const vector<uint8_t>& certificateHash);
     virtual Status informOnePackageRemoved(const string& app, int32_t uid);
     virtual Status informDeviceShutdown();
 
@@ -196,6 +199,11 @@ public:
      * Binder call to get registered experiment IDs.
      */
     virtual Status getRegisteredExperimentIds(std::vector<int64_t>* expIdsOut);
+
+    /**
+     * Binder call to update properties in statsd_java namespace.
+     */
+    virtual Status updateProperties(const std::vector<PropertyParcel>& properties);
 
 private:
     /**
@@ -398,12 +406,14 @@ private:
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricSplitOnUpgrade);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricSplitOnRemoval);
     FRIEND_TEST(PartialBucketE2eTest, TestCountMetricWithoutSplit);
+    FRIEND_TEST(PartialBucketE2eTest, TestCountMetricNoSplitOnUpgradeWhenDisabled);
     FRIEND_TEST(PartialBucketE2eTest, TestValueMetricOnBootWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestValueMetricWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestValueMetricWithMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricOnBootWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricWithoutMinPartialBucket);
     FRIEND_TEST(PartialBucketE2eTest, TestGaugeMetricWithMinPartialBucket);
+    FRIEND_TEST(PartialBucketE2eTest, TestCountMetricNoSplitByDefault);
 
     FRIEND_TEST(ConfigUpdateE2eTest, TestAnomalyDurationMetric);
 

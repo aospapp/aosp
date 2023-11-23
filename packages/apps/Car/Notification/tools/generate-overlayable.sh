@@ -24,7 +24,7 @@ fi
 
 PROJECT_TOP=$ANDROID_BUILD_TOP/packages/apps/Car/Notification
 
-python $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
+python $ANDROID_BUILD_TOP/packages/apps/Car/systemlibs/tools/rro/generate-overlayable.py \
     -n CarNotification \
     -r $PROJECT_TOP/res \
     -e $PROJECT_TOP/res-overlayable/values/overlayable.xml \

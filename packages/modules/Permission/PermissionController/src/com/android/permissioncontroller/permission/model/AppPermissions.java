@@ -27,6 +27,7 @@ import com.android.permissioncontroller.permission.utils.Utils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * An app that requests permissions.
@@ -188,16 +189,30 @@ public final class AppPermissions {
      *                                     the app if needed.
      */
     public void persistChanges(boolean mayKillBecauseOfAppOpsChange) {
+        persistChanges(mayKillBecauseOfAppOpsChange, null);
+    }
+
+    /**
+     * If the changes to the permission groups were delayed, persist them now.
+     *
+     * @param mayKillBecauseOfAppOpsChange If the app may be killed if app ops change. If this is
+     *                                     set to {@code false} the caller has to make sure to kill
+     *                                     the app if needed.
+     * @param filterPermissions If provided, only persist state for the given permissions
+     */
+    public void persistChanges(boolean mayKillBecauseOfAppOpsChange,
+            Set<String> filterPermissions) {
         if (mDelayChanges) {
             int numGroups = mGroups.size();
 
             for (int i = 0; i < numGroups; i++) {
                 AppPermissionGroup group = mGroups.get(i);
-                group.persistChanges(mayKillBecauseOfAppOpsChange);
+                group.persistChanges(mayKillBecauseOfAppOpsChange, null, filterPermissions);
 
                 AppPermissionGroup backgroundGroup = group.getBackgroundPermissions();
                 if (backgroundGroup != null) {
-                    backgroundGroup.persistChanges(mayKillBecauseOfAppOpsChange);
+                    backgroundGroup.persistChanges(mayKillBecauseOfAppOpsChange, null,
+                            filterPermissions);
                 }
             }
         }

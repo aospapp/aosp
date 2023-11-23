@@ -81,11 +81,19 @@ public abstract class AbstractProvisioningTask {
     }
 
     /**
-     * Calls {@link Callback#onError(AbstractProvisioningTask, int)} on the callback given in the
-     * constructor.
+     * Calls {@link Callback#onError(AbstractProvisioningTask, int, String)} on the callback given
+     * in the constructor.
      */
     protected final void error(int resultCode) {
-        mCallback.onError(this, resultCode);
+        mCallback.onError(this, resultCode, /* errorMessageRes= */ null);
+    }
+
+    /**
+     * Calls {@link Callback#onError(AbstractProvisioningTask, int, String)} on the callback given
+     * in the constructor.
+     */
+    protected final void error(int resultCode, String errorMessage) {
+        mCallback.onError(this, resultCode, errorMessage);
     }
 
     protected void startTaskTimer() {
@@ -112,7 +120,7 @@ public abstract class AbstractProvisioningTask {
      *
      * <p>Every execution of run should result in exactly one of
      * {@link Callback#onSuccess(AbstractProvisioningTask)} and
-     * {@link Callback#onError(AbstractProvisioningTask, int)} to be called.</p>
+     * {@link Callback#onError(AbstractProvisioningTask, int, String)} to be called.</p>
      */
     public interface Callback {
 
@@ -125,10 +133,11 @@ public abstract class AbstractProvisioningTask {
 
         /**
          * Callback indicating that the task has encountered an error.
-         *
          * @param task the task that finished executing.
          * @param errorCode a error code indicating the type of error that happened.
+         * @param errorMessage a user-visible message; if {@code null}, a generic message will
+         *                          be shown instead
          */
-        void onError(AbstractProvisioningTask task, int errorCode);
+        void onError(AbstractProvisioningTask task, int errorCode, String errorMessage);
     }
 }

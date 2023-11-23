@@ -618,7 +618,7 @@ public class Permissions {
         return (flags & PackageManager.FLAG_PERMISSION_GRANTED_BY_DEFAULT) != 0;
     }
 
-    private static boolean isPermissionGrantedByRole(@NonNull String packageName,
+    static boolean isPermissionGrantedByRole(@NonNull String packageName,
             @NonNull String permission, @NonNull Context context) {
         int flags = getPermissionFlags(packageName, permission, context);
         return (flags & PackageManager.FLAG_PERMISSION_GRANTED_BY_ROLE) != 0;
@@ -635,6 +635,13 @@ public class Permissions {
         PackageManager packageManager = context.getPackageManager();
         UserHandle user = Process.myUserHandle();
         packageManager.updatePermissionFlags(permission, packageName, mask, flags, user);
+    }
+
+    static void setPermissionGrantedByRole(@NonNull String packageName,
+            @NonNull String permission, boolean grantedByRole, @NonNull Context context) {
+        setPermissionFlags(packageName, permission,
+                grantedByRole ? PackageManager.FLAG_PERMISSION_GRANTED_BY_ROLE : 0,
+                PackageManager.FLAG_PERMISSION_GRANTED_BY_ROLE, context);
     }
 
     /**
@@ -782,7 +789,7 @@ public class Permissions {
     }
 
     @Nullable
-    private static Integer getAppOpMode(@NonNull String packageName, @NonNull String appOp,
+    static Integer getAppOpMode(@NonNull String packageName, @NonNull String appOp,
             @NonNull Context context) {
         ApplicationInfo applicationInfo = PackageUtils.getApplicationInfo(packageName, context);
         if (applicationInfo == null) {

@@ -16,13 +16,17 @@
 
 package com.android.systemui.car.userswitcher;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import android.content.Context;
+import android.app.ActivityManager;
+import android.content.pm.UserInfo;
 import android.os.UserManager;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
@@ -31,6 +35,7 @@ import android.testing.TestableResources;
 import android.view.IWindowManager;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
@@ -56,32 +61,43 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
     private UserSwitchTransitionViewController mCarUserSwitchingDialogController;
     private TestableResources mTestableResources;
     private FakeExecutor mExecutor;
+    private FakeSystemClock mClock;
+    private ViewGroup mViewGroup;
+    @Mock
+    private ActivityManager mMockActivityManager;
     @Mock
     private OverlayViewGlobalStateController mOverlayViewGlobalStateController;
     @Mock
     private IWindowManager mWindowManagerService;
+    @Mock
+    private UserManager mMockUserManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         mTestableResources = mContext.getOrCreateTestableResources();
-        mExecutor = new FakeExecutor(new FakeSystemClock());
+        mClock = new FakeSystemClock();
+        mExecutor = new FakeExecutor(mClock);
         mCarUserSwitchingDialogController = new UserSwitchTransitionViewController(
                 mContext,
                 mTestableResources.getResources(),
                 mExecutor,
-                (UserManager) mContext.getSystemService(Context.USER_SERVICE),
+                mMockActivityManager,
+                mMockUserManager,
                 mWindowManagerService,
                 mOverlayViewGlobalStateController
         );
 
-        mCarUserSwitchingDialogController.inflate((ViewGroup) LayoutInflater.from(mContext).inflate(
-                R.layout.sysui_overlay_window, /* root= */ null));
+        mockGetUserInfo(TEST_USER_1);
+        mockGetUserInfo(TEST_USER_2);
+        mViewGroup = (ViewGroup) LayoutInflater.from(mContext).inflate(
+                R.layout.sysui_overlay_window, /* root= */ null);
+        mCarUserSwitchingDialogController.inflate(mViewGroup);
     }
 
     @Test
     public void onHandleShow_newUserSelected_showsDialog() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
 
@@ -90,11 +106,35 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
     }
 
     @Test
-    public void onHandleShow_alreadyShowing_ignoresRequest() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+    public void onHandleShow_showsDefaultLoadingMessage() {
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_2);
+
+        TextView textView = mViewGroup.findViewById(R.id.user_loading);
+        assertThat(textView.getText().toString()).isEqualTo(
+                mTestableResources.getResources().getString(R.string.car_loading_profile));
+    }
+
+    @Test
+    public void onHandleShow_showsUserSwitchingMessage() {
+        String message = "Hello world!";
+        when(mMockActivityManager.getSwitchingFromUserMessage()).thenReturn(message);
+
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
+        mExecutor.advanceClockToLast();
+        mExecutor.runAllReady();
+
+        TextView textView = mViewGroup.findViewById(R.id.user_loading);
+        assertThat(textView.getText().toString()).isEqualTo(message);
+    }
+
+    @Test
+    public void onHandleShow_alreadyShowing_ignoresRequest() {
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
+        mExecutor.advanceClockToLast();
+        mExecutor.runAllReady();
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_2);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
 
@@ -105,13 +145,13 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
 
     @Test
     public void onHandleShow_sameUserSelected_ignoresRequest() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
         mCarUserSwitchingDialogController.handleHide();
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
 
@@ -122,7 +162,7 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
 
     @Test
     public void onHide_currentlyShowing_hidesDialog() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
         mCarUserSwitchingDialogController.handleHide();
@@ -135,7 +175,7 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
 
     @Test
     public void onHide_notShowing_ignoresRequest() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
         mCarUserSwitchingDialogController.handleHide();
@@ -152,20 +192,20 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
 
     @Test
     public void onWindowShownTimeoutPassed_viewNotHidden_hidesUserSwitchTransitionView() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
         reset(mOverlayViewGlobalStateController);
 
-        getContext().getMainThreadHandler().postDelayed(() -> {
-            verify(mOverlayViewGlobalStateController).hideView(
-                    eq(mCarUserSwitchingDialogController), any());
-        }, mCarUserSwitchingDialogController.getWindowShownTimeoutMs() + 10);
+        mClock.advanceTime(mCarUserSwitchingDialogController.getWindowShownTimeoutMs() + 10);
+
+        verify(mOverlayViewGlobalStateController).hideView(
+                eq(mCarUserSwitchingDialogController), any());
     }
 
     @Test
     public void onWindowShownTimeoutPassed_viewHidden_doesNotHideUserSwitchTransitionViewAgain() {
-        mCarUserSwitchingDialogController.handleShow(/* currentUserId= */ TEST_USER_1);
+        mCarUserSwitchingDialogController.handleShow(/* newUserId= */ TEST_USER_1);
         mExecutor.advanceClockToLast();
         mExecutor.runAllReady();
         mCarUserSwitchingDialogController.handleHide();
@@ -173,9 +213,14 @@ public class UserSwitchTransitionViewControllerTest extends SysuiTestCase {
         mExecutor.runAllReady();
         reset(mOverlayViewGlobalStateController);
 
-        getContext().getMainThreadHandler().postDelayed(() -> {
-            verify(mOverlayViewGlobalStateController, never()).hideView(
-                    eq(mCarUserSwitchingDialogController), any());
-        }, mCarUserSwitchingDialogController.getWindowShownTimeoutMs() + 10);
+        mClock.advanceTime(mCarUserSwitchingDialogController.getWindowShownTimeoutMs() + 10);
+
+        verify(mOverlayViewGlobalStateController, never()).hideView(
+                eq(mCarUserSwitchingDialogController), any());
+    }
+
+    private void mockGetUserInfo(int userId) {
+        when(mMockUserManager.getUserInfo(userId))
+                .thenReturn(new UserInfo(userId, "USER_" + userId, /* flags= */ 0));
     }
 }

@@ -49,7 +49,7 @@
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"बंद करें"</string>
     <string name="invalid_certificate_message" msgid="3508065546083182733">"इस फ़ाइल का इस्तेमाल <xliff:g id="CERTIFICATE_USAGE">%1$s</xliff:g> के तौर पर नहीं किया जा सकता"</string>
     <string name="certificate" msgid="8790577925509962529">"प्रमाणपत्र"</string>
-    <string name="ca_certificate" msgid="7397198551290322945">"CA प्रमाणपत्र"</string>
+    <string name="ca_certificate" msgid="7397198551290322945">"CA सर्टिफ़िकेट"</string>
     <string name="user_certificate" msgid="514888069820553128">"वीपीएन और ऐप्लिकेशन उपयोगकर्ता प्रमाणपत्र"</string>
     <string name="wifi_certificate" msgid="5356595832360140989">"वाई-फ़ाई प्रमाणपत्र"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA प्रमाणपत्र इंस्टॉल किया गया"</string>
@@ -72,7 +72,7 @@
     <string name="wifi_install_label" msgid="1449629407724323233">"इंस्टॉल करें"</string>
     <string name="wifi_installing_label" msgid="8387393993627129025">"इंस्टॉल हो रहा है"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"रद्द करें"</string>
-    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ख़ारिज करें"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"खारिज करें"</string>
     <string name="wifi_no_config" msgid="1835743123288916755">"कोई नहीं"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"नाम: %1$s\nFQDN: %2$s\nरोमिंग कंसोर्टियम: %3$s\nक्षेत्र: %4$s\nप्रमाणीकरण विधि: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"उपयोगकर्ता नाम: %s\n"</string>

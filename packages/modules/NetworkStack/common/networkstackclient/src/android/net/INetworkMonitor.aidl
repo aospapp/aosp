@@ -18,6 +18,7 @@ package android.net;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.PrivateDnsConfigParcel;
+import android.net.networkstack.aidl.NetworkMonitorParameters;
 
 /** @hide */
 oneway interface INetworkMonitor {
@@ -44,10 +45,16 @@ oneway interface INetworkMonitor {
     // are set, then it's equal to NETWORK_TEST_RESULT_INVALID. If NETWORK_VALIDATION_RESULT_VALID
     // is set, then the network validates and equal to NETWORK_TEST_RESULT_VALID. If
     // NETWORK_VALIDATION_RESULT_PARTIAL is set, then the network has partial connectivity which
-    // is equal to NETWORK_TEST_RESULT_PARTIAL_CONNECTIVITY. NETWORK_VALIDATION_PROBE_* is set
-    // when the specific probe result of the network is resolved.
+    // is equal to NETWORK_TEST_RESULT_PARTIAL_CONNECTIVITY. Networks receiving validation that both
+    // do not require validation and are not validated will have NETWORK_VALIDATION_RESULT_SKIPPED
+    // set. NETWORK_VALIDATION_PROBE_* is set when the specific probe result of the network is
+    // resolved.
     const int NETWORK_VALIDATION_RESULT_VALID = 0x01;
     const int NETWORK_VALIDATION_RESULT_PARTIAL = 0x02;
+    const int NETWORK_VALIDATION_RESULT_SKIPPED = 0x04;
+
+    // NETWORK_VALIDATION_RESULT_* and NETWORK_VALIDATION_PROBE_* are independent values sent in
+    // different ints.
     const int NETWORK_VALIDATION_PROBE_DNS = 0x04;
     const int NETWORK_VALIDATION_PROBE_HTTP = 0x08;
     const int NETWORK_VALIDATION_PROBE_HTTPS = 0x10;
@@ -61,8 +68,16 @@ oneway interface INetworkMonitor {
     void forceReevaluation(int uid);
     void notifyPrivateDnsChanged(in PrivateDnsConfigParcel config);
     void notifyDnsResponse(int returnCode);
+    /**
+     * Notify NetworkMonitor that this network connected.
+     * @Deprecated use notifyNetworkConnectedParcel.
+     */
     void notifyNetworkConnected(in LinkProperties lp, in NetworkCapabilities nc);
     void notifyNetworkDisconnected();
     void notifyLinkPropertiesChanged(in LinkProperties lp);
     void notifyNetworkCapabilitiesChanged(in NetworkCapabilities nc);
+    /**
+     * Notify NetworkMonitor that this network connected, version 2
+     */
+    void notifyNetworkConnectedParcel(in NetworkMonitorParameters params);
 }

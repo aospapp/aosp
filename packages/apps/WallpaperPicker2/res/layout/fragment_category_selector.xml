@@ -13,10 +13,13 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/content_parent"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:fitsSystemWindows="true">
 
     <include
         android:id="@+id/header_bar"
@@ -27,10 +30,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingTop="@dimen/category_grid_padding_top"
         android:paddingHorizontal="@dimen/category_grid_edge_space"
+        android:paddingTop="@dimen/category_grid_padding_top"
         android:scrollbarSize="@dimen/grid_padding"
         android:scrollbarStyle="outsideOverlay"
         android:scrollbarThumbVertical="?android:attr/textColorSecondary"
-        android:scrollbars="vertical" />
-</LinearLayout>
+        android:scrollbars="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+

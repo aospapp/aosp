@@ -50,7 +50,7 @@
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Znajdź drukarki obsługujące Wi-Fi Direct"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"Drukowanie Wi-Fi Direct"</string>
-    <string name="wifi_direct_printers" msgid="541168032444693191">"Drukarki obsługujące Wi-Fi Direct"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"Drukarki Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Wyszukuję…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Być może konieczne będzie zatwierdzenie tego połączenia na panelu przednim drukarki"</string>
     <string name="connecting_to" msgid="2665161014972086194">"Łączę z: <xliff:g id="PRINTER">%1$s</xliff:g>"</string>
@@ -73,9 +73,7 @@
     <string name="connections" msgid="8895413761760117180">"Połączenia"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Domyślna usługa drukowania nie może znaleźć drukarek Wi-Fi Direct."</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Wyłącz Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Domyślna usługa drukowania wymaga dostępu do lokalizacji, by znaleźć urządzenia w pobliżu."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Domyślna usługa drukowania wymaga uprawnień dotyczących urządzeń w pobliżu do wyszukiwania drukarek w pobliżu."</string>
     <string name="fix" msgid="7784394272611365393">"Sprawdź uprawnienia"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Domyślna usługa drukowania wymaga włączenia usług lokalizacyjnych, by znaleźć urządzenia w pobliżu."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Włącz lokalizację"</string>
     <string name="print" msgid="7851318072404916362">"Drukuj"</string>
 </resources>

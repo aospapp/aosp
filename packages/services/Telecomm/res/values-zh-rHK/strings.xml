@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"封鎖公共電話來電"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"不明"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"封鎖不明來電者的來電"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"無法顯示"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"封鎖無法顯示號碼的來電"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"來電封鎖"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"已停用來電封鎖功能"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"已撥緊急電話"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"已停用來電封鎖功能，以便救援人員與您聯絡。"</string>
     <string name="developer_title" msgid="9146088855661672353">"電信開發商選單"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"使用緊急電話期間無法接聽電話。"</string>
+    <string name="cancel" msgid="6733466216239934756">"取消"</string>
 </resources>

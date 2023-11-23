@@ -18,6 +18,8 @@ package com.android.car;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.car.util.SetMultimap;
+
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 

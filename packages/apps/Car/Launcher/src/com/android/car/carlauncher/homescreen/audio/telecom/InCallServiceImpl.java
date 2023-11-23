@@ -21,6 +21,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.Process;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
 import android.telecom.InCallService;
 import android.util.Log;
 
@@ -58,6 +59,14 @@ public class InCallServiceImpl extends InCallService {
         if (DEBUG) Log.d(TAG, "onCallRemoved: " + call);
         for (InCallListener listener : mInCallListeners) {
             listener.onCallRemoved(call);
+        }
+    }
+
+    @Override
+    public void onCallAudioStateChanged(CallAudioState audioState) {
+        if (DEBUG) Log.d(TAG, "onCallAudioStateChanged: " + audioState);
+        for (InCallListener listener : mInCallListeners) {
+            listener.onCallAudioStateChanged(audioState);
         }
     }
 
@@ -117,5 +126,10 @@ public class InCallServiceImpl extends InCallService {
          * indicating that the call has ended.
          */
         void onCallRemoved(Call call);
+
+        /**
+         * Called when {@link CallAudioState} changes.
+         */
+        void onCallAudioStateChanged(CallAudioState audioState);
     }
 }

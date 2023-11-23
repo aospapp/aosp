@@ -16,6 +16,7 @@
 #pragma once
 
 #include <assert.h>
+
 #include <optional>
 
 #include "compactor_stack.h"

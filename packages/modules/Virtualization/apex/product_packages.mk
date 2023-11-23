@@ -19,15 +19,17 @@
 # To include the APEX in your build, insert this in your device.mk:
 #   $(call inherit-product, packages/modules/Virtualization/apex/product_packages.mk)
 
-PRODUCT_PACKAGES += com.android.virt
-PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
-    system/apex/com.android.virt.apex \
-    system/bin/crosvm \
-    system/lib64/%.dylib.so \
-    system/lib64/libfdt.so \
-    system/lib64/libgfxstream_backend.so \
-    system/lib64/libcuttlefish_allocd_utils.so \
-    system/lib64/libcuttlefish_fs.so \
-    system/lib64/libcuttlefish_utils.so
+PRODUCT_PACKAGES += \
+    com.android.compos \
+    com.android.virt \
 
-$(call inherit-product, external/crosvm/seccomp/crosvm_seccomp_policy_product_packages.mk)
+# TODO(b/207336449): Figure out how to get these off /system
+PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST := \
+    system/framework/oat/%@service-compos.jar@classes.odex \
+    system/framework/oat/%@service-compos.jar@classes.vdex \
+
+PRODUCT_APEX_SYSTEM_SERVER_JARS := com.android.compos:service-compos
+
+PRODUCT_SYSTEM_EXT_PROPERTIES := ro.config.isolated_compilation_enabled=true
+
+PRODUCT_SYSTEM_FSVERITY_GENERATE_METADATA := true

@@ -15,6 +15,8 @@
  */
 package com.android.permissioncontroller.permission.ui.television;
 
+import static android.Manifest.permission_group.NOTIFICATIONS;
+
 import static com.android.permissioncontroller.permission.ui.television.DebugConfig.DEBUG;
 import static com.android.permissioncontroller.permission.ui.television.DebugConfig.TAG;
 
@@ -35,6 +37,7 @@ import com.android.permissioncontroller.permission.ui.model.ManagePermissionsVie
 import com.android.permissioncontroller.permission.ui.model.PermissionGroupPreferenceUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -107,8 +110,10 @@ public final class ManagePermissionsFragment extends SettingsWithHeader {
             otherPermissionsPreference.setOrder(Preference.DEFAULT_ORDER);
         }
 
+        ArrayList<PermGroupPackagesUiInfo> filteredGroups = new ArrayList<>(permissionGroups);
+        filteredGroups.removeIf(info -> info.getName().equals(NOTIFICATIONS));
         PermissionGroupPreferenceUtils.updateGroupOfPermissionPreferences(context, screen,
-                permissionGroups);
+                filteredGroups);
 
         screen.addPreference(otherPermissionsPreference);
     }

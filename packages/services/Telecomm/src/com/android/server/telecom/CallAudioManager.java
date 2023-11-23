@@ -107,6 +107,10 @@ public class CallAudioManager extends CallsManagerListenerBase {
             // No audio management for calls in a conference, or external calls.
             return;
         }
+        if (oldState == newState) {
+            // State did not change, so no need to do anything.
+            return;
+        }
         Log.d(LOG_TAG, "Call state changed for TC@%s: %s -> %s", call.getId(),
                 CallState.toString(oldState), CallState.toString(newState));
 
@@ -464,8 +468,13 @@ public class CallAudioManager extends CallsManagerListenerBase {
     @VisibleForTesting
     public boolean startRinging() {
         synchronized (mCallsManager.getLock()) {
-            return mRinger.startRinging(mForegroundCall,
+            Call localForegroundCall = mForegroundCall;
+            boolean result = mRinger.startRinging(localForegroundCall,
                     mCallAudioRouteStateMachine.isHfpDeviceAvailable());
+            if (result) {
+                localForegroundCall.setStartRingTime();
+            }
+            return result;
         }
     }
 
@@ -537,14 +546,14 @@ public class CallAudioManager extends CallsManagerListenerBase {
         pw.println("Foreground call:");
         pw.println(mForegroundCall);
 
-        pw.println("CallAudioModeStateMachine pending messages:");
+        pw.println("CallAudioModeStateMachine:");
         pw.increaseIndent();
-        mCallAudioModeStateMachine.dumpPendingMessages(pw);
+        mCallAudioModeStateMachine.dump(pw);
         pw.decreaseIndent();
 
-        pw.println("CallAudioRouteStateMachine pending messages:");
+        pw.println("CallAudioRouteStateMachine:");
         pw.increaseIndent();
-        mCallAudioRouteStateMachine.dumpPendingMessages(pw);
+        mCallAudioRouteStateMachine.dump(pw);
         pw.decreaseIndent();
 
         pw.println("BluetoothDeviceManager:");
@@ -557,6 +566,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
 
     @VisibleForTesting
     public void setIsTonePlaying(boolean isTonePlaying) {
+        Log.i(this, "setIsTonePlaying; isTonePlaying=%b", isTonePlaying);
         mIsTonePlaying = isTonePlaying;
         mCallAudioModeStateMachine.sendMessageWithArgs(
                 isTonePlaying ? CallAudioModeStateMachine.TONE_STARTED_PLAYING
@@ -728,8 +738,29 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 .setHasAudioProcessingCalls(mAudioProcessingCalls.size() > 0)
                 .setIsTonePlaying(mIsTonePlaying)
                 .setForegroundCallIsVoip(
-                        mForegroundCall != null && mForegroundCall.getIsVoipAudioMode())
+                        mForegroundCall != null && isCallVoip(mForegroundCall))
                 .setSession(Log.createSubsession()).build();
+    }
+
+    /**
+     * Determines if a {@link Call} is a VOIP call for audio purposes.
+     * For top level calls, we get this from {@link Call#getIsVoipAudioMode()}.  A {@link Call}
+     * representing a {@link android.telecom.Conference}, however, has no means of specifying that
+     * it is a VOIP conference, so we will get that attribute from one of the children.
+     * @param call The call.
+     * @return {@code true} if the call is a VOIP call, {@code false} if is a SIM call.
+     */
+    @VisibleForTesting
+    public boolean isCallVoip(Call call) {
+        if (call.isConference() && call.getChildCalls() != null
+                && call.getChildCalls().size() > 0 ) {
+            // If this is a conference with children, we can get the VOIP audio mode attribute from
+            // one of the children.  The Conference doesn't have a VOIP audio mode property, so we
+            // need to infer from the first child.
+            Call firstChild = call.getChildCalls().get(0);
+            return firstChild.getIsVoipAudioMode();
+        }
+        return call.getIsVoipAudioMode();
     }
 
     private HashSet<Call> getBinForCall(Call call) {

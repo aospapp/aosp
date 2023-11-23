@@ -18,8 +18,8 @@
 #define CPP_WATCHDOG_SERVER_SRC_WATCHDOGPERFSERVICE_H_
 
 #include "LooperWrapper.h"
-#include "ProcDiskStats.h"
-#include "ProcStat.h"
+#include "ProcDiskStatsCollector.h"
+#include "ProcStatCollector.h"
 #include "UidStatsCollector.h"
 
 #include <android-base/chrono_utils.h>
@@ -67,10 +67,10 @@ enum SystemState {
  * DataProcessor defines methods that must be implemented in order to process the data collected
  * by |WatchdogPerfService|.
  */
-class IDataProcessorInterface : public android::RefBase {
+class DataProcessorInterface : public android::RefBase {
 public:
-    IDataProcessorInterface() {}
-    virtual ~IDataProcessorInterface() {}
+    DataProcessorInterface() {}
+    virtual ~DataProcessorInterface() {}
     // Returns the name of the data processor.
     virtual std::string name() const = 0;
     // Callback to initialize the data processor.
@@ -80,12 +80,12 @@ public:
     // Callback to process the data collected during boot-time.
     virtual android::base::Result<void> onBoottimeCollection(
             time_t time, const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) = 0;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) = 0;
     // Callback to process the data collected periodically post boot complete.
     virtual android::base::Result<void> onPeriodicCollection(
             time_t time, SystemState systemState,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) = 0;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) = 0;
     /**
      * Callback to process the data collected on custom collection and filter the results only to
      * the specified |filterPackages|.
@@ -94,13 +94,13 @@ public:
             time_t time, SystemState systemState,
             const std::unordered_set<std::string>& filterPackages,
             const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
-            const android::wp<ProcStat>& procStat) = 0;
+            const android::wp<ProcStatCollectorInterface>& procStatCollector) = 0;
     /**
      * Callback to periodically monitor the collected data and trigger the given |alertHandler|
      * on detecting resource overuse.
      */
     virtual android::base::Result<void> onPeriodicMonitor(
-            time_t time, const android::wp<IProcDiskStatsInterface>& procDiskStats,
+            time_t time, const android::wp<ProcDiskStatsCollectorInterface>& procDiskStatsCollector,
             const std::function<void()>& alertHandler) = 0;
     // Callback to dump the boot-time collected and periodically collected data.
     virtual android::base::Result<void> onDump(int fd) const = 0;
@@ -149,7 +149,7 @@ class WatchdogPerfServiceInterface : public MessageHandler {
 public:
     // Register a data processor to process the data collected by |WatchdogPerfService|.
     virtual android::base::Result<void> registerDataProcessor(
-            android::sp<IDataProcessorInterface> processor) = 0;
+            android::sp<DataProcessorInterface> processor) = 0;
     /**
      * Starts the boot-time collection in the looper handler on a new thread and returns
      * immediately. Must be called only once. Otherwise, returns an error.
@@ -186,14 +186,12 @@ public:
           mPeriodicMonitor({}),
           mCurrCollectionEvent(EventType::INIT),
           mUidStatsCollector(android::sp<UidStatsCollector>::make()),
-          mProcStat(android::sp<ProcStat>::make()),
-          mProcDiskStats(android::sp<ProcDiskStats>::make()),
+          mProcStatCollector(android::sp<ProcStatCollector>::make()),
+          mProcDiskStatsCollector(android::sp<ProcDiskStatsCollector>::make()),
           mDataProcessors({}) {}
 
-    ~WatchdogPerfService() { terminate(); }
-
     android::base::Result<void> registerDataProcessor(
-            android::sp<IDataProcessorInterface> processor) override;
+            android::sp<DataProcessorInterface> processor) override;
 
     android::base::Result<void> start() override;
 
@@ -304,13 +302,13 @@ private:
     android::sp<UidStatsCollectorInterface> mUidStatsCollector GUARDED_BY(mMutex);
 
     // Collector/parser for `/proc/stat`.
-    android::sp<ProcStat> mProcStat GUARDED_BY(mMutex);
+    android::sp<ProcStatCollectorInterface> mProcStatCollector GUARDED_BY(mMutex);
 
     // Collector/parser for `/proc/diskstats` file.
-    android::sp<IProcDiskStatsInterface> mProcDiskStats GUARDED_BY(mMutex);
+    android::sp<ProcDiskStatsCollectorInterface> mProcDiskStatsCollector GUARDED_BY(mMutex);
 
     // Data processors for the collected performance data.
-    std::vector<android::sp<IDataProcessorInterface>> mDataProcessors GUARDED_BY(mMutex);
+    std::vector<android::sp<DataProcessorInterface>> mDataProcessors GUARDED_BY(mMutex);
 
     // For unit tests.
     friend class internal::WatchdogPerfServicePeer;

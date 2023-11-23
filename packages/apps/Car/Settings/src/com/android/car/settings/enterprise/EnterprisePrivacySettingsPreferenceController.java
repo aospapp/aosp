@@ -38,6 +38,23 @@ public final class EnterprisePrivacySettingsPreferenceController
     }
 
     @Override
+    protected int getAvailabilityStatus() {
+        int superStatus = super.getAvailabilityStatus();
+        if (superStatus != AVAILABLE) {
+            mLogger.d("getAvailabilityStatus(): returning " + superStatus);
+            return superStatus;
+        }
+
+        if (!EnterpriseUtils.hasDeviceOwner(getContext())) {
+            mLogger.d("getAvailabilityStatus(): no device owner, returning "
+                    + UNSUPPORTED_ON_DEVICE);
+            return UNSUPPORTED_ON_DEVICE;
+        }
+
+        return AVAILABLE;
+    }
+
+    @Override
     protected void updateState(Preference preference) {
         // NOTE: phone displays different messages when the device owner org name is known, but on
         // automotive we're always showing the generic name

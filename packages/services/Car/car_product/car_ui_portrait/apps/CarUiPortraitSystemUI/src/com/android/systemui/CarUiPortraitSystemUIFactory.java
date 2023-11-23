@@ -17,8 +17,15 @@
 package com.android.systemui;
 
 import android.content.Context;
+import android.os.UserHandle;
 
 import com.android.systemui.dagger.GlobalRootComponent;
+import com.android.systemui.dagger.SysUIComponent;
+import com.android.systemui.dagger.WMComponent;
+import com.android.systemui.wmshell.CarUiPortraitWMComponent;
+
+import java.util.Optional;
+
 
 /**
  * Class factory to provide AAECarSystemUI specific SystemUI components.
@@ -27,5 +34,15 @@ public class CarUiPortraitSystemUIFactory extends CarSystemUIFactory {
     @Override
     protected GlobalRootComponent buildGlobalRootComponent(Context context) {
         return DaggerCarUiPortraitGlobalRootComponent.builder().context(context).build();
+    }
+
+    @Override
+    protected SysUIComponent.Builder prepareSysUIComponentBuilder(
+            SysUIComponent.Builder sysUIBuilder, WMComponent wm) {
+        CarUiPortraitWMComponent carWm = (CarUiPortraitWMComponent) wm;
+        boolean isSystemUser = UserHandle.myUserId() == UserHandle.USER_SYSTEM;
+        return ((CarUiPortraitSysUIComponent.Builder) sysUIBuilder).setRootTaskDisplayAreaOrganizer(
+                isSystemUser ? Optional.of(carWm.getRootTaskDisplayAreaOrganizer())
+                        : Optional.empty());
     }
 }

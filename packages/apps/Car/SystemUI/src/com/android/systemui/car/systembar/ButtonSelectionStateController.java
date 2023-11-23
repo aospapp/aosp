@@ -19,6 +19,7 @@ package com.android.systemui.car.systembar;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
+import static android.window.DisplayAreaOrganizer.FEATURE_DEFAULT_TASK_CONTAINER;
 
 import android.app.ActivityTaskManager;
 import android.app.ActivityTaskManager.RootTaskInfo;
@@ -29,7 +30,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.RemoteException;
 import android.util.Log;
-import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -115,7 +115,7 @@ public class ButtonSelectionStateController {
             // Find the first stack info with a topActivity in the primary display.
             // TODO: We assume that CarFacetButton will launch an app only in the primary display.
             // We need to extend the functionality to handle the multiple display properly.
-            if (taskInfo.topActivity != null && taskInfo.displayId == validDisplay) {
+            if (taskInfo.topActivity != null && taskInfo.displayAreaFeatureId == validDisplay) {
                 validTaskInfo = taskInfo;
                 break;
             }
@@ -153,7 +153,7 @@ public class ButtonSelectionStateController {
      * @param taskInfoList
      */
     protected void taskChanged(List<RootTaskInfo> taskInfoList) {
-        taskChanged(taskInfoList, Display.DEFAULT_DISPLAY);
+        taskChanged(taskInfoList, FEATURE_DEFAULT_TASK_CONTAINER);
     }
 
     /**

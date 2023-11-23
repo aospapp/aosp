@@ -16,6 +16,8 @@
 
 package com.android.systemui.car.systembar;
 
+import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+
 import android.annotation.IntDef;
 import android.content.res.Resources;
 import android.graphics.PixelFormat;
@@ -315,15 +317,15 @@ public class SystemBarConfigs {
         if (mBottomNavBarEnabled) {
             boolean actual = mResources.getBoolean(R.bool.config_hideBottomSystemBarForKeyboard);
             boolean expected = mResources.getBoolean(
-                    com.android.internal.R.bool.config_automotiveHideNavBarForKeyboard);
+                    com.android.internal.R.bool.config_hideNavBarForKeyboard);
 
             if (actual != expected) {
                 throw new RuntimeException("config_hideBottomSystemBarForKeyboard must not be "
                         + "overlaid directly and should always refer to"
-                        + "config_automotiveHideNavBarForKeyboard. However, their values "
+                        + "config_hideNavBarForKeyboard. However, their values "
                         + "currently do not sync. Set config_hideBottomSystemBarForKeyguard to "
-                        + "@*android:bool/config_automotiveHideNavBarForKeyboard. To change its "
-                        + "value, overlay config_automotiveHideNavBarForKeyboard in "
+                        + "@*android:bool/config_hideNavBarForKeyboard. To change its "
+                        + "value, overlay config_hideNavBarForKeyboard in "
                         + "framework/base/core/res/res.");
             }
         }
@@ -461,6 +463,7 @@ public class SystemBarConfigs {
             lp.setFitInsetsTypes(0);
             lp.windowAnimations = 0;
             lp.gravity = BAR_GRAVITY_MAP.get(mSide);
+            lp.layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
             return lp;
         }
 

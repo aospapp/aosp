@@ -36,7 +36,15 @@ sh_test_host {
         "extensions_db.textpb",
         "testdata/**/*",
     ],
-    data_bins: ["gen_sdk"],
+    data_bins: [
+        "gen_sdk",
+        "toybox",
+    ],
+    // libcrypto and libz are required by toybox.
+    data_libs: [
+        "libcrypto",
+        "libz",
+    ],
     test_suites: ["general-tests"],
 }
 

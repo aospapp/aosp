@@ -44,6 +44,13 @@ public class EapTestAttributeDefinitions {
     public static final byte[] IDENTITY = hexStringToByteArray(IDENTITY_STRING);
     public static final byte[] AT_IDENTITY =
             hexStringToByteArray("0E060011" + IDENTITY_STRING + "000000");
+    // Next reauth identity = "4OLUpQCqFyhm1/UgD56anTzYTqJDckibqjU6PlS4sZaiuLc="
+    public static final String REAUTH_IDENTITY_HEX_STRING =
+            "344F4C55705143714679686D312F5567443536616E547A59"
+                    + "54714A44636B6962716A5536506C5334735A6169754C633D";
+    public static final byte[] REAUTH_IDENTITY = hexStringToByteArray(REAUTH_IDENTITY_HEX_STRING);
+    public static final byte[] AT_NEXT_REAUTH_IDENTITY =
+            hexStringToByteArray("850D0030" + REAUTH_IDENTITY_HEX_STRING);
     public static final String RAND_1 = "00112233445566778899AABBCCDDEEFF";
     public static final byte[] RAND_1_BYTES = hexStringToByteArray(RAND_1);
     public static final String RAND_2 = "FFEEDDCCBBAA99887766554433221100";
@@ -76,7 +83,9 @@ public class EapTestAttributeDefinitions {
     public static final byte[] AT_BIDDING_SUPPORTS_AKA_PRIME = hexStringToByteArray("88018000");
     public static final byte[] AT_BIDDING_DOES_NOT_SUPPORT_AKA_PRIME =
             hexStringToByteArray("88010000");
-
+    public static final String IV = "DB4786A0ABC44CBB85669F34C72FD604";
+    public static final byte[] IV_BYTES = hexStringToByteArray(IV);
+    public static final byte[] AT_IV = hexStringToByteArray("81050000" + IV);
     // Network Name = "android.net"
     public static final String NETWORK_NAME_HEX = "616E64726F69642E6E6574";
     public static final byte[] NETWORK_NAME_BYTES = hexStringToByteArray(NETWORK_NAME_HEX);
@@ -117,4 +126,5 @@ public class EapTestAttributeDefinitions {
     public static final byte[] AT_AUTS_INVALID_LENGTH = hexStringToByteArray("03010000");
     public static final byte[] AT_KDF_INVALID_LENGTH = hexStringToByteArray("18020001");
     public static final byte[] AT_BIDDING_INVALID_LENGTH = hexStringToByteArray("88020000");
+    public static final byte[] AT_IV_INVALID_LENGTH = hexStringToByteArray("81060000");
 }

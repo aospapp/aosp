@@ -404,6 +404,85 @@ public abstract class NetworkAgent {
      */
     public static final int EVENT_LINGER_DURATION_CHANGED = BASE + 24;
 
+    /**
+     * Sent by the NetworkAgent to ConnectivityService to set add a DSCP policy.
+     *
+     * @hide
+     */
+    public static final int EVENT_ADD_DSCP_POLICY = BASE + 25;
+
+    /**
+     * Sent by the NetworkAgent to ConnectivityService to set remove a DSCP policy.
+     *
+     * @hide
+     */
+    public static final int EVENT_REMOVE_DSCP_POLICY = BASE + 26;
+
+    /**
+     * Sent by the NetworkAgent to ConnectivityService to remove all DSCP policies.
+     *
+     * @hide
+     */
+    public static final int EVENT_REMOVE_ALL_DSCP_POLICIES = BASE + 27;
+
+    /**
+     * Sent by ConnectivityService to {@link NetworkAgent} to inform the agent of an updated
+     * status for a DSCP policy.
+     *
+     * @hide
+     */
+    public static final int CMD_DSCP_POLICY_STATUS = BASE + 28;
+
+    /**
+     * DSCP policy was successfully added.
+     */
+    public static final int DSCP_POLICY_STATUS_SUCCESS = 0;
+
+    /**
+     * DSCP policy was rejected for any reason besides invalid classifier or insufficient resources.
+     */
+    public static final int DSCP_POLICY_STATUS_REQUEST_DECLINED = 1;
+
+    /**
+     * Requested DSCP policy contained a classifier which is not supported.
+     */
+    public static final int DSCP_POLICY_STATUS_REQUESTED_CLASSIFIER_NOT_SUPPORTED = 2;
+
+    /**
+     * Requested DSCP policy was not added due to insufficient processing resources.
+     */
+    // TODO: should this error case be supported?
+    public static final int DSCP_POLICY_STATUS_INSUFFICIENT_PROCESSING_RESOURCES = 3;
+
+    /**
+     * DSCP policy was deleted.
+     */
+    public static final int DSCP_POLICY_STATUS_DELETED = 4;
+
+    /**
+     * DSCP policy was not found during deletion.
+     */
+    public static final int DSCP_POLICY_STATUS_POLICY_NOT_FOUND = 5;
+
+    /** @hide */
+    @IntDef(prefix = "DSCP_POLICY_STATUS_", value = {
+        DSCP_POLICY_STATUS_SUCCESS,
+        DSCP_POLICY_STATUS_REQUEST_DECLINED,
+        DSCP_POLICY_STATUS_REQUESTED_CLASSIFIER_NOT_SUPPORTED,
+        DSCP_POLICY_STATUS_INSUFFICIENT_PROCESSING_RESOURCES,
+        DSCP_POLICY_STATUS_DELETED
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface DscpPolicyStatus {}
+
+    /**
+     * Sent by the NetworkAgent to ConnectivityService to notify that this network is expected to be
+     * replaced within the specified time by a similar network.
+     * arg1 = timeout in milliseconds
+     * @hide
+     */
+    public static final int EVENT_UNREGISTER_AFTER_REPLACEMENT = BASE + 29;
+
     private static NetworkInfo getLegacyNetworkInfo(final NetworkAgentConfig config) {
         final NetworkInfo ni = new NetworkInfo(config.legacyType, config.legacySubType,
                 config.legacyTypeName, config.legacySubTypeName);
@@ -611,6 +690,12 @@ public abstract class NetworkAgent {
                     onNetworkDestroyed();
                     break;
                 }
+                case CMD_DSCP_POLICY_STATUS: {
+                    onDscpPolicyStatusUpdated(
+                            msg.arg1 /* Policy ID */,
+                            msg.arg2 /* DSCP Policy Status */);
+                    break;
+                }
             }
         }
     }
@@ -761,6 +846,13 @@ public abstract class NetworkAgent {
         public void onNetworkDestroyed() {
             mHandler.sendMessage(mHandler.obtainMessage(CMD_NETWORK_DESTROYED));
         }
+
+        @Override
+        public void onDscpPolicyStatusUpdated(final int policyId,
+                @DscpPolicyStatus final int status) {
+            mHandler.sendMessage(mHandler.obtainMessage(
+                    CMD_DSCP_POLICY_STATUS, policyId, status));
+        }
     }
 
     /**
@@ -900,6 +992,45 @@ public abstract class NetworkAgent {
     }
 
     /**
+     * Indicates that this agent will likely soon be replaced by another agent for a very similar
+     * network (e.g., same Wi-Fi SSID).
+     *
+     * If the network is not currently satisfying any {@link NetworkRequest}s, it will be torn down.
+     * If it is satisfying requests, then the native network corresponding to the agent will be
+     * destroyed immediately, but the agent will remain registered and will continue to satisfy
+     * requests until {@link #unregister} is called, the network is replaced by an equivalent or
+     * better network, or the specified timeout expires. During this time:
+     *
+     * <ul>
+     * <li>The agent may not send any further updates, for example by calling methods
+     *    such as {@link #sendNetworkCapabilities}, {@link #sendLinkProperties},
+     *    {@link #sendNetworkScore(NetworkScore)} and so on. Any such updates will be ignored.
+     * <li>The network will remain connected and continue to satisfy any requests that it would
+     *    otherwise satisfy (including, possibly, the default request).
+     * <li>The validation state of the network will not change, and calls to
+     *    {@link ConnectivityManager#reportNetworkConnectivity(Network, boolean)} will be ignored.
+     * </ul>
+     *
+     * Once this method is called, it is not possible to restore the agent to a functioning state.
+     * If a replacement network becomes available, then a new agent must be registered. When that
+     * replacement network is fully capable of replacing this network (including, possibly, being
+     * validated), this agent will no longer be needed and will be torn down. Otherwise, this agent
+     * can be disconnected by calling {@link #unregister}. If {@link #unregister} is not called,
+     * this agent will automatically be unregistered when the specified timeout expires. Any
+     * teardown delay previously set using{@link #setTeardownDelayMillis} is ignored.
+     *
+     * <p>This method has no effect if {@link #markConnected} has not yet been called.
+     * <p>This method may only be called once.
+     *
+     * @param timeoutMillis the timeout after which this network will be unregistered even if
+     *                      {@link #unregister} was not called.
+     */
+    public void unregisterAfterReplacement(
+            @IntRange(from = 0, to = MAX_TEARDOWN_DELAY_MS) int timeoutMillis) {
+        queueOrSendMessage(reg -> reg.sendUnregisterAfterReplacement(timeoutMillis));
+    }
+
+    /**
      * Change the legacy subtype of this network agent.
      *
      * This is only for backward compatibility and should not be used by non-legacy network agents,
@@ -945,11 +1076,12 @@ public abstract class NetworkAgent {
      */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     public final void sendNetworkInfo(NetworkInfo networkInfo) {
-        queueOrSendNetworkInfo(new NetworkInfo(networkInfo));
+        queueOrSendNetworkInfo(networkInfo);
     }
 
     private void queueOrSendNetworkInfo(NetworkInfo networkInfo) {
-        queueOrSendMessage(reg -> reg.sendNetworkInfo(networkInfo));
+        final NetworkInfo ni = new NetworkInfo(networkInfo);
+        queueOrSendMessage(reg -> reg.sendNetworkInfo(ni));
     }
 
     /**
@@ -1102,6 +1234,11 @@ public abstract class NetworkAgent {
      * Called when ConnectivityService has successfully destroy this NetworkAgent's native network.
      */
     public void onNetworkDestroyed() {}
+
+    /**
+     * Called when when the DSCP Policy status has changed.
+     */
+    public void onDscpPolicyStatusUpdated(int policyId, @DscpPolicyStatus int status) {}
 
     /**
      * Requests that the network hardware send the specified packet at the specified interval.
@@ -1315,6 +1452,30 @@ public abstract class NetworkAgent {
                     + MIN_LINGER_TIMER_MS + "," + Integer.MAX_VALUE + "]ms");
         }
         queueOrSendMessage(ra -> ra.sendLingerDuration((int) durationMs));
+    }
+
+    /**
+     * Add a DSCP Policy.
+     * @param policy the DSCP policy to be added.
+     */
+    public void sendAddDscpPolicy(@NonNull final DscpPolicy policy) {
+        Objects.requireNonNull(policy);
+        queueOrSendMessage(ra -> ra.sendAddDscpPolicy(policy));
+    }
+
+    /**
+     * Remove the specified DSCP policy.
+     * @param policyId the ID corresponding to a specific DSCP Policy.
+     */
+    public void sendRemoveDscpPolicy(final int policyId) {
+        queueOrSendMessage(ra -> ra.sendRemoveDscpPolicy(policyId));
+    }
+
+    /**
+     * Remove all the DSCP policies on this network.
+     */
+    public void sendRemoveAllDscpPolicies() {
+        queueOrSendMessage(ra -> ra.sendRemoveAllDscpPolicies());
     }
 
     /** @hide */

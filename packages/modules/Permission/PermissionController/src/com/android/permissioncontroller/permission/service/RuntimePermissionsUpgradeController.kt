@@ -26,6 +26,7 @@ import android.content.pm.PermissionInfo
 import android.os.Process.myUserHandle
 import android.permission.PermissionManager
 import android.util.Log
+import com.android.modules.utils.build.SdkLevel
 import com.android.permissioncontroller.PermissionControllerStatsLog
 import com.android.permissioncontroller.PermissionControllerStatsLog.RUNTIME_PERMISSIONS_UPGRADE_RESULT
 import com.android.permissioncontroller.permission.data.LightAppPermGroupLiveData
@@ -224,9 +225,15 @@ internal object RuntimePermissionsUpgradeController {
                                 }
                             }
 
+                            val accessMediaLocationPermGroup =
+                                if (SdkLevel.isAtLeastT())
+                                    permission_group.READ_MEDIA_VISUAL
+                                else
+                                    permission_group.STORAGE
+
                             if (hasAccessMedia && hasGrantedExternalStorage) {
                                 permGroupProviders!!.add(LightAppPermGroupLiveData[pkgName,
-                                        permission_group.STORAGE, myUserHandle()])
+                                        accessMediaLocationPermGroup, myUserHandle()])
                             }
                         }
                     }

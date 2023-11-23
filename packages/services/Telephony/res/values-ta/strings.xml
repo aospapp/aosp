@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"அவசரகால திரும்ப அழைக்கும் பயன்முறை"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"டேட்டா இணைப்பு முடக்கப்பட்டது"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> வரை டேட்டா இணைப்பு இருக்காது"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> நிமிடங்களுக்கு மொபைல் அவசரகால திரும்ப அழைக்கும் பயன்முறையில் இருக்கும். இந்தப் பயன்முறையில், டேட்டா இணைப்பைப் பயன்படுத்தாத பயன்பாடுகளைப் பயன்படுத்தலாம். இப்போது வெளியேற விரும்புகிறீர்களா?</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%s</xliff:g> நிமிடத்திற்கு மொபைல் அவசரகால திரும்ப அழைக்கும் பயன்முறையில் இருக்கும். இந்தப் பயன்முறையில், டேட்டா இணைப்பைப் பயன்படுத்தாத பயன்பாடுகளைப் பயன்படுத்தலாம். இப்போது வெளியேற விரும்புகிறீர்களா?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">அவசரகால திரும்ப அழைக்கும் பயன்முறை செயலில் இருக்கும்போது, தேர்ந்தெடுத்த செயல் கிடைக்காது. <xliff:g id="COUNT_1">%s</xliff:g> நிமிடங்களுக்கு மொபைல் இந்தப் பயன்முறையில் இருக்கும். இப்போது வெளியேற விரும்புகிறீர்களா?</item>
-      <item quantity="one">அவசரகால திரும்ப அழைக்கும் பயன்முறை செயலில் இருக்கும்போது, தேர்ந்தெடுத்த செயல் கிடைக்காது. <xliff:g id="COUNT_0">%s</xliff:g> நிமிடத்திற்கு மொபைல் இந்தப் பயன்முறையில் இருக்கும். இப்போது வெளியேற விரும்புகிறீர்களா?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{அவசரகால அழைப்பு பெறும் பயன்முறையில் ஒரு நிமிடத்திற்கு மொபைல் இருக்கும். இந்தப் பயன்முறையில் இருக்கும்போது டேட்டா இணைப்பைப் பயன்படுத்தும் ஆப்ஸ் எதையும் பயன்படுத்த முடியாது. இப்போதே வெளியேற விரும்புகிறீர்களா?}other{அவசரகால அழைப்பு பெறும் பயன்முறையில் %s நிமிடங்களுக்கு மொபைல் இருக்கும். இந்தப் பயன்முறையில் இருக்கும்போது டேட்டா இணைப்பைப் பயன்படுத்தும் ஆப்ஸ் எதையும் பயன்படுத்த முடியாது. இப்போதே வெளியேற விரும்புகிறீர்களா?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{தேர்ந்தெடுத்த செயல்பாட்டை அவசரகால அழைப்பு பெறும் பயன்முறையில் இருக்கும்போது பயன்படுத்த முடியாது. ஒரு நிமிடத்திற்கு இந்தப் பயன்முறையில் மொபைல் இருக்கும். இப்போதே வெளியேற விரும்புகிறீர்களா?}other{தேர்ந்தெடுத்த செயல்பாட்டை அவசரகால அழைப்பு பெறும் பயன்முறையில் இருக்கும்போது பயன்படுத்த முடியாது. %s நிமிடங்களுக்கு இந்தப் பயன்முறையில் மொபைல் இருக்கும். இப்போதே வெளியேற விரும்புகிறீர்களா?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"அவசரகால அழைப்பு செயலில் இருக்கும்போது தேர்ந்தெடுத்த செயல் கிடைக்காது."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"அவசரகால திரும்ப அழைக்கும் பயன்முறையிலிருந்து வெளியேறுகிறது"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"ஆம்"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"விலக்கு"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"மொபைல் இப்போது அவசரகால திரும்ப அழைக்கும் பயன்முறையில் உள்ளது"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> வரை"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">மொபைல் இன்னும் <xliff:g id="COUNT_1">%s</xliff:g> நிமிடங்களுக்கு அவசரகால திரும்ப அழைக்கும் பயன்முறையில் இருக்கும்.\nஇப்போதே அதை விட்டு வெளியேறவா?</item>
-      <item quantity="one">மொபைல் இன்னும் <xliff:g id="COUNT_0">%s</xliff:g> நிமிடத்திற்கு அவசரகால திரும்ப அழைக்கும் பயன்முறையில் இருக்கும்.\nஇப்போதே அதை விட்டு வெளியேறவா?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{அவசரகால அழைப்பு பெறும் பயன்முறையில் ஒரு நிமிடத்திற்கு மொபைல் இருக்கும்.\nஇப்போதே வெளியேற விரும்புகிறீர்களா?}other{அவசரகால அழைப்பு பெறும் பயன்முறையில் %s நிமிடங்களுக்கு மொபைல் இருக்கும்.\nஇப்போதே வெளியேற விரும்புகிறீர்களா?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"சேவை"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"அமைவு"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;அமைக்கப்படவில்லை&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"அணுகல் தன்மை"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"வைஃபை அழைப்பு:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"வைஃபை அழைப்பு"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"திறக்க, மீண்டும் தட்டவும்"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"செய்தியைக் குறிவிலக்கும்போது பிழை ஏற்பட்டது."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ஏற்கனவே சிம் கார்டைப் பயன்படுத்தி சேவை இயக்கப்பட்டது மற்றும் மொபைலின் ரோமிங் செயல்திறன்கள் புதுப்பிக்கப்பட்டன."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"மிகவும் அதிக அளவிலான அழைப்புகள் செயலில் உள்ளன. புதிய அழைப்பை மேற்கொள்ளும் முன், ஏற்கனவேயுள்ள அழைப்புகளைத் துண்டிக்கவும் அல்லது ஒன்றாகப் பிணைக்கவும்."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ஏற்கனவே ஒரு அழைப்பு டயல் ஆகிக்கொண்டிருப்பதால், இந்த அழைப்பைச் செய்ய முடியாது."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"உள்வரும் அழைப்பிற்கு இன்னும் பதிலளிக்காததால், இந்த அழைப்பைச் செய்ய முடியாது. புதிதாக ஒரு அழைப்பைச் செய்வதற்கு முன்னர், உள்வரும் அழைப்பிற்குப் பதிலளிக்கவும் அல்லது நிராகரிக்கவும்."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call எனும் சிஸ்டம் பிராப்பர்ட்டியைப் பயன்படுத்தி அழைப்பதற்கான வசதி முடக்கப்பட்டுள்ளதால், இந்த அழைப்பைச் செய்ய முடியாது."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"இரண்டு அழைப்புகள் ஏற்கனவே செயலில் இருப்பதால், இந்த அழைப்பைச் செய்ய முடியாது. புதிதாக ஒரு அழைப்பைச் செய்வதற்கு முன்னர், ஏதாவது ஒரு அழைப்பைத் துண்டிக்கவும் அல்லது அவற்றை இணைத்து குழு அழைப்பாக மாற்றவும்."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"இரண்டு அழைப்புகள் செயலில் இருப்பதால் தற்போது அழைப்பைச் செய்ய முடியாது. அழைப்பைச் செய்ய வேண்டுமெனில், செயலில் உள்ள அழைப்புகளில் ஏதேனும் ஒன்றைத் துண்டிக்கவும் அல்லது அழைப்பதற்கு முன் அவற்றை இணைத்து குழு அழைப்பாக மாற்றவும்."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ஐப் பயன்படுத்த, மொபைல் டேட்டா இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இதை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ஐப் பயன்படுத்த, மொபைல் டேட்டாவும் டேட்டா ரோமிங்கும் இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இவற்றை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>ஐப் பயன்படுத்த, <xliff:g id="SIM_NUMBER">%2$d</xliff:g> சிம்மிற்கான மொபைல் டேட்டா இயக்கத்தில் இருப்பதை உறுதிப்படுத்திக் கொள்ளவும். இதை மொபைல் நெட்வொர்க் அமைப்புகளில் மாற்றலாம்."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"இந்த அமைப்பை மாற்ற சாதனத்தை மீண்டும் தொடங்க வேண்டும்."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"மீண்டும் தொடங்கு"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ரத்துசெய்"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"அகற்றக்கூடிய eSIMமை இயல்பாக அமை"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"மொபைல் ரேடியோ பவர்"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"சிம் முகவரிப் புத்தகத்தைக் காட்டு"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"நிலையான அழைப்பு எண்களைக் காட்டு"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ரேடியோ பேண்டைத் தேர்ந்தெடுக்கவும்"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"குரல் நெட்வொர்க் வகை:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"டேட்டா நெட்வொர்க்கின் வகை:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"மீறிச் செயல்படும் நெட்வொர்க் வகை:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ஃபோன் அட்டவணையைத் தேர்ந்தெடுக்கவும்"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"விரும்பப்படும் நெட்வொர்க் வகையை அமைக்கவும்:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ஹோஸ்ட்பெயர்(www.google.com) IPv4ஐப் பிங் செய்:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"புதுப்பி"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS சரிபார்ப்பை நிலைமாற்று"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM சார்ந்த தகவல்/அமைப்புகள்"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC உள்ளது:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR கட்டுப்படுத்தப்பட்டது:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR உள்ளது:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR நிலை:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC உள்ளது (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR கட்டுப்படுத்தப்பட்டது (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR உள்ளது (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR நிலை (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR அலைவரிசை:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ரேடியோ பேண்டு பயன்முறையை அமை"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"பேண்டு பட்டியலை ஏற்றுகிறது…"</string>

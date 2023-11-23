@@ -43,5 +43,5 @@ cc_test {
         "libadb_pairing_auth_static",
     ],
 
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests", "mts-adbd"],
 }

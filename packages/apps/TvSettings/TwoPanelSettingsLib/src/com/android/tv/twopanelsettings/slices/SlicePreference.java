@@ -62,7 +62,7 @@ public class SlicePreference extends Preference implements HasSliceAction, HasSl
         }
     }
 
-    private void init(@Nullable AttributeSet attrs) {
+    protected void init(@Nullable AttributeSet attrs) {
         if (attrs != null) {
             initStyleAttributes(attrs);
         }

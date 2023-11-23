@@ -19,8 +19,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// FrameworksNetDeflakeTest depends on FrameworksNetTests so it should be disabled
+// if FrameworksNetTests is disabled.
+enable_frameworks_net_deflake_test = true
+// Placeholder
+// This is a placeholder comment to minimize merge conflicts, as enable_frameworks_net_deflake_test
+// may have different values depending on the branch
+// Placeholder
+
 java_test_host {
     name: "FrameworksNetDeflakeTest",
+    enabled: enable_frameworks_net_deflake_test,
     srcs: ["src/**/*.kt"],
     libs: [
         "junit",
@@ -32,4 +41,14 @@ java_test_host {
     ],
     data: [":FrameworksNetTests"],
     test_suites: ["device-tests"],
+    // It will get build error if just set enabled to true. It fails with "windows_common"
+    // depends on some disabled modules that are used by this test and it looks like set
+    // enable_frameworks_net_deflake_test to true also enables "windows" variant. Thus,
+    // disable this on target windows.
+    // TODO: Remove this when b/201754360 is fixed.
+    target: {
+        windows: {
+            enabled: false,
+        },
+    },
 }

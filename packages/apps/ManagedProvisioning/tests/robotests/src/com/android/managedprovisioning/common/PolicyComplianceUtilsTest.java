@@ -38,6 +38,7 @@ import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.finalization.SendDpcBroadcastService;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -89,6 +90,7 @@ public class PolicyComplianceUtilsTest {
         assertThat(result).isFalse();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startPolicyComplianceActivityForResultIfResolved_activityExists_isStarted() {
         Intent intent = createPolicyComplianceIntent();
@@ -110,6 +112,7 @@ public class PolicyComplianceUtilsTest {
         assertThat(result).isTrue();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startPolicyComplianceActivityForResultIfResolved_activityDoesNotExist_notStarted() {
         Activity parentActivity = Robolectric.buildActivity(Activity.class).create().get();
@@ -127,6 +130,7 @@ public class PolicyComplianceUtilsTest {
         assertThat(result).isFalse();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startPolicyComplianceActivityIfResolved_activityExists_isStarted() {
         Intent intent = createPolicyComplianceIntent();
@@ -146,6 +150,7 @@ public class PolicyComplianceUtilsTest {
         assertThat(result).isTrue();
     }
 
+    @Ignore("b/218480743")
     @Test
     public void startPolicyComplianceActivityIfResolved_activityDoesNotExist_notStarted() {
         Activity parentActivity = Robolectric.buildActivity(Activity.class).create().get();

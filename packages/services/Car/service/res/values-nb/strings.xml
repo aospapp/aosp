@@ -22,6 +22,8 @@
     <string name="car_permission_desc_camera" msgid="917024932164501426">"Tilgang til bilens kamera(er)."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"få tilgang til bilens energiinformasjon"</string>
     <string name="car_permission_desc_energy" msgid="3392963810053235407">"Tilgang til informasjon om bilens energibruk."</string>
+    <string name="car_permission_label_control_car_energy" msgid="2788215385574313796">"kontrollere ladeinnstillingene til det elektriske kjøretøyet"</string>
+    <string name="car_permission_desc_control_car_energy" msgid="8765015897869031807">"kontrollere ladeinnstillingene til det elektriske kjøretøyet ditt"</string>
     <string name="car_permission_label_adjust_range_remaining" msgid="839033553999920138">"juster bilens gjenværende rekkevidde"</string>
     <string name="car_permission_desc_adjust_range_remaining" msgid="2369321650437370673">"Juster verdien for bilens gjenværende rekkevidde."</string>
     <string name="car_permission_label_hvac" msgid="1499454192558727843">"få tilgang til bilens klimaanlegg"</string>
@@ -58,6 +60,8 @@
     <string name="car_permission_desc_car_display_in_cluster" msgid="2668300546822672927">"Tillatelsestildeling for at apper skal kunne erklære at aktiviteter skal vises på instrumentpanelet"</string>
     <string name="car_permission_car_cluster_control" msgid="1382247204230165674">"Styring av instrumentpanelet"</string>
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Åpning av apper på instrumentpanelet"</string>
+    <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Navigasjonstilstand for instrumentgruppen"</string>
+    <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"lytte etter endringer i navigasjonstilstanden for instrumentgruppen"</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Gjengivelse på instrumentpanelet"</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Mottak av data fra instrumentpanelet"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Konfigurering av begrensninger tilknyttet brukeropplevelsen"</string>
@@ -72,13 +76,6 @@
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Lar deg kontrollere start og stopp av registreringsdiagrammet for Occupant Awareness System"</string>
     <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Bilens inndatatjeneste"</string>
     <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Behandling av inndatahendelser"</string>
-    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-bus mislyktes"</string>
-    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-bus svarer ikke. Koble bilens hovedenhet ut og inn igjen, og start bilen på nytt"</string>
-    <string name="activity_blocked_text" msgid="8088902789540147995">"Du kan ikke bruke denne funksjonen når du kjører"</string>
-    <string name="exit_button_message" msgid="8554690915924055685">"For å starte på nytt med sikre appfunksjoner, velg <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
-    <string name="exit_button" msgid="5829638404777671253">"Tilbake"</string>
-    <string name="exit_button_close_application" msgid="8824289547809332460">"Lukk appen"</string>
-    <string name="exit_button_go_back" msgid="3469083862100560326">"Tilbake"</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"lese diagnostikkdata"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Les diagnostikkdata fra bilen."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"slette diagnostikkdata"</string>
@@ -123,6 +120,8 @@
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Kontrollér bilsetene."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"få tilgang til grunnleggende informasjon om bilen"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Tilgang til grunnleggende informasjon om bilen."</string>
+    <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"få tilgang til bilens konfidensielle informasjon"</string>
+    <string name="car_permission_desc_privileged_car_info" msgid="2245117655328125350">"få tilgang til bilens konfidensielle informasjon"</string>
     <string name="car_permission_label_vendor_permission_info" msgid="4471260460536888654">"få tilgang til bilens informasjon om leverandørtillatelser"</string>
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Få tilgang til bilens informasjon om leverandørtillatelser."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"lese tilstanden til bilens utvendige lys"</string>
@@ -167,29 +166,14 @@
     <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"Les bilens regler for av/på."</string>
     <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"kontrollér bilens regler for av/på"</string>
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Kontrollér bilens regler for av/på."</string>
+    <string name="car_permission_label_adjust_shutdown_process" msgid="184826150481255557">"justere nedstengingsprosessen"</string>
+    <string name="car_permission_desc_adjust_shutdown_process" msgid="5059212045073049971">"justere nedstengingsprosessen"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"gjengi maler"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Gjengi maler."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"kontrollér åpning av apper"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Kontrollér åpning av apper."</string>
+    <string name="car_can_bus_failure" msgid="2334035748788283914">"CAN-bus mislyktes"</string>
+    <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-bus svarer ikke. Koble bilens hovedenhet ut og inn igjen, og start bilen på nytt"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Enheten min"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Gjest"</string>
-    <string name="importance_default" msgid="8587741629268312938">"Standard viktighet"</string>
-    <string name="importance_high" msgid="3141530792377745041">"Høy viktighet"</string>
-    <string name="factory_reset_notification_title" msgid="2530056626309489398">"Tilbakestilling til fabrikkstandard er nødvendig"</string>
-    <string name="factory_reset_notification_text" msgid="6517642677900094724">"Alle data i infotainment-systemet slettes. Du kan konfigurere en ny profil etter tilbakestillingen."</string>
-    <string name="factory_reset_notification_button" msgid="5450535366202106371">"Mer"</string>
-    <string name="factory_reset_parked_title" msgid="258340498079453871">"Tilbakestill infotainment-systemet"</string>
-    <string name="factory_reset_parked_text" msgid="910347526834275166">"Systemet har mottatt en forespørsel om å tilbakestille systemet til fabrikkstandard samt slette alle data. Du kan tilbakestille det nå, eller så tilbakestilles det neste gang bilen starter. Deretter kan du konfigurere en ny profil."</string>
-    <string name="factory_reset_now_button" msgid="1245040835119663310">"Tilbakestill nå"</string>
-    <string name="factory_reset_later_button" msgid="2401829720674483843">"Tilbakestill senere"</string>
-    <string name="factory_reset_later_text" msgid="5896142140528784784">"Infotainment-systemet tilbakestilles neste gang bilen starter."</string>
-    <string name="factory_reset_driving_text" msgid="6702298505761254553">"Bilen må være parkert før tilbakestillingen kan starte."</string>
-    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> påvirker systemytelsen"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Deaktiver appen for å forbedre systemytelsen. Du kan aktivere appen igjen i innstillingene."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioriter appen for å fortsette å bruke den."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Avinstaller appen for å forbedre systemytelsen."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Deaktiver appen"</string>
-    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Prioriter appen"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Avinstaller appen"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> er deaktivert. Du kan aktivere den igjen i innstillingene."</string>
 </resources>

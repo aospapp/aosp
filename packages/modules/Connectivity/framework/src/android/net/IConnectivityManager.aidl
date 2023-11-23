@@ -36,6 +36,7 @@ import android.net.NetworkScore;
 import android.net.NetworkState;
 import android.net.NetworkStateSnapshot;
 import android.net.OemNetworkPreferences;
+import android.net.ProfileNetworkPreference;
 import android.net.ProxyInfo;
 import android.net.UidRange;
 import android.net.QosSocketInfo;
@@ -75,9 +76,14 @@ interface IConnectivityManager
     LinkProperties getActiveLinkProperties();
     LinkProperties getLinkPropertiesForType(int networkType);
     LinkProperties getLinkProperties(in Network network);
+    LinkProperties getRedactedLinkPropertiesForPackage(in LinkProperties lp, int uid,
+            String packageName, String callingAttributionTag);
 
     NetworkCapabilities getNetworkCapabilities(in Network network, String callingPackageName,
             String callingAttributionTag);
+
+    NetworkCapabilities getRedactedNetworkCapabilitiesForPackage(in NetworkCapabilities nc, int uid,
+            String callingPackageName, String callingAttributionTag);
 
     @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     NetworkState[] getAllNetworkState();
@@ -218,7 +224,8 @@ interface IConnectivityManager
     void setOemNetworkPreference(in OemNetworkPreferences preference,
             in IOnCompleteListener listener);
 
-    void setProfileNetworkPreference(in UserHandle profile, int preference,
+    void setProfileNetworkPreferences(in UserHandle profile,
+            in List<ProfileNetworkPreference>  preferences,
             in IOnCompleteListener listener);
 
     int getRestrictBackgroundStatusByCaller();
@@ -228,4 +235,14 @@ interface IConnectivityManager
     void unofferNetwork(in INetworkOfferCallback callback);
 
     void setTestAllowBadWifiUntil(long timeMs);
+
+    void updateMeteredNetworkAllowList(int uid, boolean add);
+
+    void updateMeteredNetworkDenyList(int uid, boolean add);
+
+    void setUidFirewallRule(int chain, int uid, int rule);
+
+    void setFirewallChainEnabled(int chain, boolean enable);
+
+    void replaceFirewallChain(int chain, in int[] uids);
 }

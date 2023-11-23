@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2015 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="activity_blocked_text" msgid="5991043857905412794">"රිය පදවන අතරතුර ඔබට මෙම විශේෂාංගය භාවිත කළ නොහැකිය"</string>
+    <string name="exit_button_message" msgid="5375678491245394542">"ආරක්‍ෂිත යෙදුම් විශේෂාංග සමඟ පටන් ගැනීමට, <xliff:g id="EXIT_BUTTON">%s</xliff:g> තෝරන්න."</string>
+    <string name="exit_button" msgid="3491899413031549265">"ආපසු"</string>
+    <string name="exit_button_close_application" msgid="5153716684207539041">"යෙදුම වසන්න"</string>
+    <string name="exit_button_go_back" msgid="6921595432375141935">"ආපසු"</string>
+    <string name="importance_default" msgid="8017186728206153704">"පෙරනිමි වැදගත්කම"</string>
+    <string name="importance_high" msgid="3393374688015554727">"ඉහළ වැදගත්කමකින් යුතු"</string>
+    <string name="android_system_label" msgid="9209428539477894959">"Android පද්ධතිය"</string>
+    <string name="factory_reset_notification_title" msgid="6177770995437355965">"කර්මාන්තශාලා යළි සැකසීම අවශ්‍යයි"</string>
+    <string name="factory_reset_notification_text" msgid="6051393302193696102">"තොරතුරු විනෝදාස්වාද පද්ධතියේ සියලු දත්ත මකනු ඇත. යළි සැකසීමෙන් පසුව, ඔබට නව පැතිකඩක් පිහිටුවිය හැකිය."</string>
+    <string name="factory_reset_notification_button" msgid="6926734587145351076">"තව"</string>
+    <string name="factory_reset_warning" msgid="8463356329619149262">"ඔබගේ උපාංගය මකා දැමෙනු ඇත"</string>
+    <string name="factory_reset_message" msgid="1972536809866779972">"පරිපාලක යෙදුම භාවිතා කළ නොහැකිය. ඔබගේ උපාංගය දැන් මකා දමනු ඇත.\n\nඔබට ප්‍රශ්න තිබේ නම්, ඔබගේ සංවිධානයේ පරිපාලකට අමතන්න."</string>
+    <string name="resource_overuse_notification_title" msgid="1622015333965744463">"ඔබගේ පද්ධති කාර්යසාධනයට <xliff:g id="ID_1">^1</xliff:g> බලපාමින් තිබේ"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"පද්ධති කාර්යසාධනය වැඩි දියුණු කිරීමට යෙදුම අබල කරන්න. ඔබට සැකසීම් තුළ යෙදුම නැවත වරක් සබල කළ හැකිය."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"යෙදුම දිගටම භාවිත කිරීමට යෙදුම ප්‍රමුඛ කරන්න."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"පද්ධති කාර්යසාධනය වැඩි දියුණු කිරීමට යෙදුම අස්ථාපනය කරන්න."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"යෙදුම අබල කරන්න"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"යෙදුම ප්‍රමුඛ කරන්න"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"යෙදුම අස්ථාපනය කරන්න"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> අබල කර ඇත. ඔබට සැකසීම් තුළ එය නැවත සබල කළ හැකිය."</string>
+</resources>

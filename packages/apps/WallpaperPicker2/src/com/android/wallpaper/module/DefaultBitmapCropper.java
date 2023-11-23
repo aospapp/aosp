@@ -17,16 +17,21 @@ package com.android.wallpaper.module;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import android.os.AsyncTask;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.Asset.BitmapReceiver;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * Default implementation of BitmapCropper, which actually crops and scales bitmaps.
  */
 public class DefaultBitmapCropper implements BitmapCropper {
+    private static final ExecutorService sExecutorService = Executors.newSingleThreadExecutor();
     private static final String TAG = "DefaultBitmapCropper";
     private static final boolean FILTER_SCALED_BITMAP = true;
 
@@ -35,72 +40,40 @@ public class DefaultBitmapCropper implements BitmapCropper {
             boolean isRtl, Callback callback) {
         // Crop rect in pixels of source image.
         Rect scaledCropRect = new Rect(
-                Math.round((float) cropRect.left / scale),
-                Math.round((float) cropRect.top / scale),
-                Math.round((float) cropRect.right / scale),
-                Math.round((float) cropRect.bottom / scale));
+                (int) Math.floor((float) cropRect.left / scale),
+                (int) Math.floor((float) cropRect.top / scale),
+                (int) Math.floor((float) cropRect.right / scale),
+                (int) Math.floor((float) cropRect.bottom / scale));
 
         asset.decodeBitmapRegion(scaledCropRect, cropRect.width(), cropRect.height(), isRtl,
                 new BitmapReceiver() {
                     @Override
                     public void onBitmapDecoded(Bitmap bitmap) {
-
-                        // Asset provides a bitmap which is appropriate for the target width & height, but since
-                        // it does not guarantee an exact size we need to fit the bitmap to the cropRect.
-                        ScaleBitmapTask task = new ScaleBitmapTask(bitmap, cropRect, callback);
-                        task.execute();
+                        if (bitmap == null) {
+                            callback.onError(null);
+                            return;
+                        }
+                        // Asset provides a bitmap which is appropriate for the target width &
+                        // height, but since it does not guarantee an exact size we need to fit
+                        // the bitmap to the cropRect.
+                        sExecutorService.execute(() -> {
+                            try {
+                                // Fit bitmap to exact dimensions of crop rect.
+                                Bitmap result = Bitmap.createScaledBitmap(
+                                        bitmap,
+                                        cropRect.width(),
+                                        cropRect.height(),
+                                        FILTER_SCALED_BITMAP);
+                                new Handler(Looper.getMainLooper()).post(
+                                        () -> callback.onBitmapCropped(result));
+                            } catch (OutOfMemoryError e) {
+                                Log.w(TAG,
+                                        "Not enough memory to fit the final cropped and "
+                                                + "scaled bitmap to size", e);
+                                new Handler(Looper.getMainLooper()).post(() -> callback.onError(e));
+                            }
+                        });
                     }
                 });
-    }
-
-    /**
-     * AsyncTask subclass which creates a new bitmap which is resized to the exact dimensions of a
-     * Rect using Bitmap#createScaledBitmap.
-     */
-    private static class ScaleBitmapTask extends AsyncTask<Void, Void, Boolean> {
-
-        private final Rect mCropRect;
-        private final Callback mCallback;
-        private Throwable mThrowable;
-
-        private Bitmap mBitmap;
-
-        public ScaleBitmapTask(Bitmap bitmap, Rect cropRect, Callback callback) {
-            super();
-            mBitmap = bitmap;
-            mCropRect = cropRect;
-            mCallback = callback;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... unused) {
-            if (mBitmap == null) {
-                return false;
-            }
-
-            try {
-                // Fit bitmap to exact dimensions of crop rect.
-                mBitmap = Bitmap.createScaledBitmap(
-                        mBitmap,
-                        mCropRect.width(),
-                        mCropRect.height(),
-                        FILTER_SCALED_BITMAP);
-
-                return true;
-            } catch (OutOfMemoryError e) {
-                Log.w(TAG, "Not enough memory to fit the final cropped and scaled bitmap to size", e);
-                mThrowable = e;
-                return false;
-            }
-        }
-
-        @Override
-        protected void onPostExecute(Boolean isSuccess) {
-            if (isSuccess) {
-                mCallback.onBitmapCropped(mBitmap);
-            } else {
-                mCallback.onError(mThrowable);
-            }
-        }
     }
 }

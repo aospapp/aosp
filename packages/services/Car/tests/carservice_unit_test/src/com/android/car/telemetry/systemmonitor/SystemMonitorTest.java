@@ -19,7 +19,6 @@ package com.android.car.telemetry.systemmonitor;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
@@ -28,7 +27,6 @@ import static org.mockito.Mockito.when;
 
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
-import android.content.Context;
 import android.os.Handler;
 
 import org.junit.Before;
@@ -50,11 +48,10 @@ public class SystemMonitorTest {
 
     @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    private static final String TEST_LOADAVG = "1.2 3.4 2.2 123/1452 21348";
+    private static final String TEST_LOADAVG = "0.2 3.4 2.2 123/1452 21348";
     private static final String TEST_LOADAVG_BAD_FORMAT = "1.2 3.4";
     private static final String TEST_LOADAVG_NOT_FLOAT = "1.2 abc 2.1 12/231 2";
 
-    @Mock private Context mMockContext;
     @Mock private Handler mMockHandler; // it promptly executes the runnable in the same thread
     @Mock private ActivityManager mMockActivityManager;
     @Mock private SystemMonitor.SystemMonitorCallback mMockCallback;
@@ -64,7 +61,6 @@ public class SystemMonitorTest {
 
     @Before
     public void setup() {
-        when(mMockContext.getSystemService(anyString())).thenReturn(mMockActivityManager);
         when(mMockHandler.post(any(Runnable.class))).thenAnswer(i -> {
             Runnable runnable = i.getArgument(0);
             runnable.run();
@@ -74,7 +70,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventCpuUsageLevel_setsCorrectUsageLevelForHighUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventCpuUsageLevel(event, /* cpuLoadPerCore= */ 1.5);
@@ -85,7 +81,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventCpuUsageLevel_setsCorrectUsageLevelForMedUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventCpuUsageLevel(event, /* cpuLoadPerCore= */ 0.6);
@@ -96,7 +92,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventCpuUsageLevel_setsCorrectUsageLevelForLowUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventCpuUsageLevel(event, /* cpuLoadPerCore= */ 0.5);
@@ -107,7 +103,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventMemUsageLevel_setsCorrectUsageLevelForHighUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventMemUsageLevel(event, /* memLoadRatio= */ 0.98);
@@ -118,7 +114,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventMemUsageLevel_setsCorrectUsageLevelForMedUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventMemUsageLevel(event, /* memLoadRatio= */ 0.85);
@@ -129,7 +125,7 @@ public class SystemMonitorTest {
 
     @Test
     public void testSetEventMemUsageLevel_setsCorrectUsageLevelForLowUsage() {
-        SystemMonitor systemMonitor = SystemMonitor.create(mMockContext, mMockHandler);
+        SystemMonitor systemMonitor = SystemMonitor.create(mMockActivityManager, mMockHandler);
         SystemMonitorEvent event = new SystemMonitorEvent();
 
         systemMonitor.setEventMemUsageLevel(event, /* memLoadRatio= */ 0.80);
@@ -147,13 +143,13 @@ public class SystemMonitorTest {
             return null;
         }).when(mMockActivityManager).getMemoryInfo(any(MemoryInfo.class));
         SystemMonitor systemMonitor = new SystemMonitor(
-                mMockContext, mMockHandler, writeTempFile(TEST_LOADAVG));
+                mMockActivityManager, mMockHandler, writeTempFile(TEST_LOADAVG));
 
         systemMonitor.setSystemMonitorCallback(mMockCallback);
 
         verify(mMockCallback, atLeastOnce()).onSystemMonitorEvent(mEventCaptor.capture());
         SystemMonitorEvent event = mEventCaptor.getValue();
-        // from TEST_LOADAVG, cpu load = 1.2 / numProcessors, CPU usage should be low
+        // from TEST_LOADAVG, cpu load = 0.2 / numProcessors, CPU usage should be low
         assertThat(event.getCpuUsageLevel()).isEqualTo(SystemMonitorEvent.USAGE_LEVEL_LOW);
         // 1 - 5_000_000 / 10_000_000 = 0.5, memory usage should be low
         assertThat(event.getMemoryUsageLevel()).isEqualTo(SystemMonitorEvent.USAGE_LEVEL_LOW);
@@ -168,7 +164,7 @@ public class SystemMonitorTest {
             return null;
         }).when(mMockActivityManager).getMemoryInfo(any(MemoryInfo.class));
         SystemMonitor systemMonitor = new SystemMonitor(
-                mMockContext, mMockHandler, writeTempFile(TEST_LOADAVG));
+                mMockActivityManager, mMockHandler, writeTempFile(TEST_LOADAVG));
 
         systemMonitor.setSystemMonitorCallback(mMockCallback);
 
@@ -181,7 +177,7 @@ public class SystemMonitorTest {
     @Test
     public void testWhenLoadavgIsBadFormat_getCpuLoadReturnsNull() throws IOException {
         SystemMonitor systemMonitor = new SystemMonitor(
-                mMockContext, mMockHandler, writeTempFile(TEST_LOADAVG_BAD_FORMAT));
+                mMockActivityManager, mMockHandler, writeTempFile(TEST_LOADAVG_BAD_FORMAT));
 
         assertThat(systemMonitor.getCpuLoad()).isNull();
     }
@@ -189,7 +185,7 @@ public class SystemMonitorTest {
     @Test
     public void testWhenLoadavgIsNotFloatParsable_getCpuLoadReturnsNull() throws IOException {
         SystemMonitor systemMonitor = new SystemMonitor(
-                mMockContext, mMockHandler, writeTempFile(TEST_LOADAVG_NOT_FLOAT));
+                mMockActivityManager, mMockHandler, writeTempFile(TEST_LOADAVG_NOT_FLOAT));
 
         assertThat(systemMonitor.getCpuLoad()).isNull();
     }
@@ -197,7 +193,7 @@ public class SystemMonitorTest {
     @Test
     public void testWhenUnsetCallback_sameCallbackFromSetCallbackIsRemoved() throws IOException {
         SystemMonitor systemMonitor = new SystemMonitor(
-                mMockContext, mMockHandler, writeTempFile(TEST_LOADAVG));
+                mMockActivityManager, mMockHandler, writeTempFile(TEST_LOADAVG));
 
         systemMonitor.setSystemMonitorCallback(mMockCallback);
         systemMonitor.unsetSystemMonitorCallback();

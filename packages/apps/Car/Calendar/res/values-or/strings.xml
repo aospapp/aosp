@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1756632159204796305">"କ୍ୟାଲେଣ୍ଡର୍"</string>
+    <string name="app_name" msgid="1756632159204796305">"କ୍ୟାଲେଣ୍ଡର"</string>
     <string name="no_dialler" msgid="1448265958659890310">"କୌଣସି ଡାଏଲର୍ ଉପଲବ୍ଧ ନାହିଁ"</string>
     <string name="no_events" msgid="2454460886004475314">"କୌଣସି ସିଡୁଲ୍ କରାଯାଇଥିବା ଇଭେଣ୍ଟ ନାହିଁ। ଆପଣ ଖାଲି ଅଛନ୍ତି!"</string>
     <string name="no_calendars" msgid="5059614627806215716">"କ୍ୟାଲେଣ୍ଡର୍ ଆରମ୍ଭ ହୋଇପାରେ କିମ୍ବା ଆପଣ କମ୍ପାନିୟନ୍ ଆପରେ ଆପଣଙ୍କ ସେଟିଂସ୍ ଯାଞ୍ଚ କରିବା ଆବଶ୍ୟକ କରିପାରନ୍ତି"</string>

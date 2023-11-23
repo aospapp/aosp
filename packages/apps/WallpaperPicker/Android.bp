@@ -14,19 +14,19 @@
 // limitations under the License.
 //
 
-// Standalone Wallpaper picker app
-// ========================================================
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+// Standalone Wallpaper picker app
+// ========================================================
 android_app {
     name: "WallpaperPicker",
     static_libs: ["android-support-v4"],
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
-    product_specific: true,
     sdk_version: "current",
+    product_specific: true,
 }
 
 // Static library for target

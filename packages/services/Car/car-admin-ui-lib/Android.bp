@@ -34,4 +34,5 @@ android_library {
     resource_dirs: [
         "src/main/res"
     ],
+    sdk_version: "module_current",
 }

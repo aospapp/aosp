@@ -34,7 +34,7 @@ public class TaskExecutor implements AbstractProvisioningTask.Callback {
     }
 
     @Override
-    public void onError(AbstractProvisioningTask task, int errorMsg) {
+    public void onError(AbstractProvisioningTask task, int errorMsg, String errorMessage) {
         ProvisionLogger.logd("Error running task: " + task.getClass().getSimpleName());
     }
 }

@@ -198,7 +198,7 @@ Result<void> isValidResourceOveruseConfig(
     }
     for (const auto& config : resourceOveruseConfig.resourceSpecificConfigurations) {
         if (config.getTag() != ResourceSpecificConfiguration::ioOveruseConfiguration) {
-            return Error() << "Invalid resource type: " << config.getTag();
+            return Error() << "Invalid resource type: " << static_cast<int32_t>(config.getTag());
         }
         const auto& ioOveruseConfig =
                 config.get<ResourceSpecificConfiguration::ioOveruseConfiguration>();

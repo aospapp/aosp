@@ -21,6 +21,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Random;
 
 /**
@@ -35,14 +36,89 @@ public class SettingsManager {
     // Check for expiring certs in the next 3 days
     public static final int EXPIRING_BY_MS_DEFAULT = 1000 * 60 * 60 * 24 * 3;
     public static final String URL_DEFAULT = "https://remoteprovisioning.googleapis.com/v1";
+    public static final boolean IS_TEST_MODE = false;
+    // Limit data consumption from failures within a window of time to 1 MB.
+    public static final int FAILURE_DATA_USAGE_MAX = 1024 * 1024;
+    public static final Duration FAILURE_DATA_USAGE_WINDOW = Duration.ofDays(1);
 
     private static final String KEY_EXPIRING_BY = "expiring_by";
     private static final String KEY_EXTRA_KEYS = "extra_keys";
     private static final String KEY_ID = "settings_id";
+    private static final String KEY_FAILURE_DATA_WINDOW_START_TIME = "failure_start_time";
     private static final String KEY_FAILURE_COUNTER = "failure_counter";
+    private static final String KEY_FAILURE_BYTES = "failure_data";
     private static final String KEY_URL = "url";
     private static final String PREFERENCES_NAME = "com.android.remoteprovisioner.preferences";
     private static final String TAG = "RemoteProvisionerSettings";
+
+    /**
+     * Determines whether or not there is enough data budget remaining to attempt provisioning.
+     * If {@code FAILURE_DATA_USAGE_MAX} bytes have already been used up in previous calls that
+     * resulted in errors, then false will be returned.
+     *
+     * Additionally, the rolling window of data usage is managed within this call. The used data
+     * budget will be reset if a time greater than @{code FAILURE_DATA_USAGE_WINDOW} has passed.
+     *
+     * @param context The application context
+     * @param curTime An instant representing the current time to measure the window against. If
+     *                null, then the code will use {@code Instant.now()} instead.
+     * @return whether or not the data budget has been exceeded.
+     */
+    public static boolean hasErrDataBudget(Context context, Instant curTime) {
+        if (curTime == null) {
+            curTime = Instant.now();
+        }
+        SharedPreferences sharedPref =
+                context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        Instant logged =
+                Instant.ofEpochMilli(sharedPref.getLong(KEY_FAILURE_DATA_WINDOW_START_TIME, 0));
+        if (Duration.between(logged, curTime).compareTo(FAILURE_DATA_USAGE_WINDOW) > 0) {
+            SharedPreferences.Editor editor = sharedPref.edit();
+            editor.putLong(KEY_FAILURE_DATA_WINDOW_START_TIME, curTime.toEpochMilli());
+            editor.putInt(KEY_FAILURE_BYTES, 0);
+            editor.apply();
+            return true;
+        }
+        return sharedPref.getInt(KEY_FAILURE_BYTES, 0) < FAILURE_DATA_USAGE_MAX;
+    }
+
+    /**
+     * Fetches the amount of data currently consumed by calls within the current accounting window
+     * to the backend that resulted in errors and returns it.
+     *
+     * @param context the application context.
+     * @return the amount of data consumed.
+     */
+    public static int getErrDataBudgetConsumed(Context context) {
+        SharedPreferences sharedPref =
+                context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        return sharedPref.getInt(KEY_FAILURE_BYTES, 0);
+    }
+
+    /**
+     * Increments the counter of data currently used up in transactions with the backend server.
+     * This call will not check the current state of the rolling window, leaving that up to
+     * {@code hasDataBudget}.
+     *
+     * @param context the application context.
+     * @param bytesTransacted the number of bytes sent or received over the network. Must be a value
+     *                        greater than {@code 0}.
+     */
+    public static void consumeErrDataBudget(Context context, int bytesTransacted) {
+        if (bytesTransacted < 1) return;
+        SharedPreferences sharedPref =
+                context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        int budgetUsed = 0;
+        try {
+            budgetUsed = Math.addExact(sharedPref.getInt(KEY_FAILURE_BYTES, 0), bytesTransacted);
+        } catch (Exception e) {
+            Log.e(TAG, "Overflow on number of bytes sent over the network.");
+            budgetUsed = Integer.MAX_VALUE;
+        }
+        editor.putInt(KEY_FAILURE_BYTES, budgetUsed);
+        editor.apply();
+    }
 
     /**
      * Generates a random ID for the use of gradual ramp up of remote provisioning.
@@ -69,6 +145,15 @@ public class SettingsManager {
                 context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         Random rand = new Random();
         return sharedPref.getInt(KEY_ID, rand.nextInt(ID_UPPER_BOUND) /* defaultValue */);
+    }
+
+    public static void resetDefaultConfig(Context context) {
+        setDeviceConfig(
+                context,
+                EXTRA_SIGNED_KEYS_AVAILABLE_DEFAULT,
+                Duration.ofMillis(EXPIRING_BY_MS_DEFAULT),
+                URL_DEFAULT);
+        clearFailureCounter(context);
     }
 
     /**
@@ -124,6 +209,14 @@ public class SettingsManager {
         SharedPreferences sharedPref =
                 context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         return Duration.ofMillis(sharedPref.getLong(KEY_EXPIRING_BY, EXPIRING_BY_MS_DEFAULT));
+    }
+
+    /**
+     * Returns an Instant which represents the point in time that the provisioner should check
+     * keys for expiration.
+     */
+    public static Instant getExpirationTime(Context context) {
+        return Instant.now().plusMillis(getExpiringBy(context).toMillis());
     }
 
     /**
@@ -184,5 +277,13 @@ public class SettingsManager {
         SharedPreferences.Editor editor = sharedPref.edit();
         editor.clear();
         editor.apply();
+    }
+
+    /**
+     * Checks whether RKP is in test mode.
+     * @return true if device is in test mode, false otherwise.
+     */
+    public static boolean isTestMode() {
+        return IS_TEST_MODE;
     }
 }

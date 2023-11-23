@@ -51,6 +51,7 @@ import com.android.internal.net.eap.EapResult.EapError;
 import com.android.internal.net.eap.EapResult.EapFailure;
 import com.android.internal.net.eap.EapResult.EapResponse;
 import com.android.internal.net.eap.EapResult.EapSuccess;
+import com.android.internal.net.eap.EapSimAkaIdentityTracker;
 import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
 import com.android.internal.net.eap.exceptions.EapSilentException;
 import com.android.internal.net.eap.exceptions.UnsupportedEapTypeException;
@@ -245,11 +246,9 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
         @VisibleForTesting
         EapResult getIdentityResponse(int eapIdentifier) {
             try {
-                LOG.d(
-                        mTAG,
-                        "Returning EAP-Identity: " + LOG.pii(mEapSessionConfig.getEapIdentity()));
-                EapData identityData =
-                        new EapData(EAP_IDENTITY, mEapSessionConfig.getEapIdentity());
+                byte[] eapIdentity = getEapIdentity();
+                LOG.d(mTAG, "Returning EAP-Identity: " + LOG.pii(eapIdentity));
+                EapData identityData = new EapData(EAP_IDENTITY, eapIdentity);
                 return EapResponse.getEapResponse(
                         new EapMessage(EAP_CODE_RESPONSE, eapIdentifier, identityData));
             } catch (EapSilentException ex) {
@@ -258,6 +257,27 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
                         + LOG.pii(eapIdentifier));
                 return new EapError(ex);
             }
+        }
+
+        @VisibleForTesting
+        byte[] getEapIdentity() {
+            if (mEapSessionConfig.getEapAkaConfig() != null
+                    && mEapSessionConfig.getEapAkaConfig().getEapAkaOption() != null
+                    && mEapSessionConfig.getEapAkaConfig().getEapAkaOption()
+                    .getReauthId() != null) {
+                byte[] reauthIdBytes =
+                        mEapSessionConfig.getEapAkaConfig().getEapAkaOption().getReauthId();
+                String reauthId = new String(reauthIdBytes, StandardCharsets.UTF_8);
+                String permanentId =
+                        new String(mEapSessionConfig.getEapIdentity(), StandardCharsets.UTF_8);
+                EapSimAkaIdentityTracker.ReauthInfo reauthInfo =
+                        EapSimAkaIdentityTracker.getInstance().getReauthInfo(reauthId, permanentId);
+
+                if (reauthInfo != null && reauthInfo.isValid()) {
+                    return reauthIdBytes;
+                }
+            }
+            return mEapSessionConfig.getEapIdentity();
         }
     }
 
@@ -338,7 +358,8 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
                             mContext,
                             mEapSessionConfig.getEapIdentity(),
                             eapAkaConfig,
-                            supportsEapAkaPrime);
+                            supportsEapAkaPrime,
+                            mSecureRandom);
                 case EAP_TYPE_AKA_PRIME:
                     EapAkaPrimeConfig eapAkaPrimeConfig = (EapAkaPrimeConfig) eapMethodConfig;
                     return new EapAkaPrimeMethodStateMachine(

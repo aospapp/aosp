@@ -19,14 +19,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.networkstack.tethering"
           android:sharedUserId="android.uid.networkstack">
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
 
     <!-- Permissions must be defined here, and not in the base manifest, as the tethering
          running in the system server process does not need any permission, and having
          privileged permissions added would cause crashes on startup unless they are also
-         added to the privileged permissions allowlist for that package. -->
+         added to the privileged permissions allowlist for that package. EntitlementManager
+         would set exact alarm but declare SCHEDULE_EXACT_ALARM is not necessary here because
+         privilege application would be in the allowlist. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_PRIVILEGED" />
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
@@ -39,6 +41,7 @@
     <uses-permission android:name="android.permission.UPDATE_APP_OPS_STATS" />
     <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <protected-broadcast android:name="com.android.server.connectivity.tethering.DISABLE_TETHERING" />
 

@@ -22,10 +22,11 @@
 
 namespace android {
 
-int register_android_net_util_TetheringUtils(JNIEnv* env);
-int register_com_android_networkstack_tethering_BpfMap(JNIEnv* env);
+int register_com_android_net_module_util_BpfMap(JNIEnv* env, char const* class_name);
+int register_com_android_net_module_util_TcUtils(JNIEnv* env, char const* class_name);
 int register_com_android_networkstack_tethering_BpfCoordinator(JNIEnv* env);
 int register_com_android_networkstack_tethering_BpfUtils(JNIEnv* env);
+int register_com_android_networkstack_tethering_util_TetheringUtils(JNIEnv* env);
 
 extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
     JNIEnv *env;
@@ -34,13 +35,15 @@ extern "C" jint JNI_OnLoad(JavaVM* vm, void*) {
         return JNI_ERR;
     }
 
-    if (register_android_net_util_TetheringUtils(env) < 0) return JNI_ERR;
+    if (register_com_android_networkstack_tethering_util_TetheringUtils(env) < 0) return JNI_ERR;
 
-    if (register_com_android_networkstack_tethering_BpfMap(env) < 0) return JNI_ERR;
+    if (register_com_android_net_module_util_BpfMap(env,
+            "com/android/networkstack/tethering/util/BpfMap") < 0) return JNI_ERR;
+
+    if (register_com_android_net_module_util_TcUtils(env,
+            "com/android/networkstack/tethering/util/TcUtils") < 0) return JNI_ERR;
 
     if (register_com_android_networkstack_tethering_BpfCoordinator(env) < 0) return JNI_ERR;
-
-    if (register_com_android_networkstack_tethering_BpfUtils(env) < 0) return JNI_ERR;
 
     return JNI_VERSION_1_6;
 }

@@ -20,12 +20,6 @@ import static android.net.wifi.WifiManager.EASY_CONNECT_NETWORK_ROLE_AP;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.hardware.wifi.supplicant.V1_2.DppAkm;
-import android.hardware.wifi.supplicant.V1_2.DppNetRole;
-import android.hardware.wifi.supplicant.V1_3.DppProgressCode;
-import android.hardware.wifi.supplicant.V1_3.DppSuccessCode;
-import android.hardware.wifi.supplicant.V1_4.DppCurve;
-import android.hardware.wifi.supplicant.V1_4.DppFailureCode;
 import android.net.wifi.EasyConnectStatusCallback;
 import android.net.wifi.IDppCallback;
 import android.net.wifi.ScanResult;
@@ -44,6 +38,12 @@ import androidx.annotation.RequiresApi;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.WakeupMessage;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppAkm;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppCurve;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppEventType;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppFailureCode;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppNetRole;
+import com.android.server.wifi.SupplicantStaIfaceHal.DppProgressCode;
 import com.android.server.wifi.WifiNative.DppEventCallback;
 import com.android.server.wifi.util.ApConfigUtil;
 import com.android.server.wifi.util.WifiPermissionsUtil;
@@ -106,6 +106,13 @@ public class DppManager {
                 DppManager.this.onFailure(dppStatusCode, ssid, channelList, bandList);
             });
         }
+
+        @Override
+        public void onDppConfiguratorKeyUpdate(byte[] key) {
+            mHandler.post(() -> {
+                DppManager.this.onDppConfiguratorKeyUpdate(key);
+            });
+        }
     };
 
     DppManager(Handler handler, WifiNative wifiNative, WifiConfigManager wifiConfigManager,
@@ -159,6 +166,34 @@ public class DppManager {
 
         // Clean up resources and let the caller know about the timeout
         onFailure(DppFailureCode.TIMEOUT);
+    }
+
+    /**
+     * Generate DPP connection keys for Configurator. This is used to connect to
+     * other devices (APs) which this configurator has enrolled using DPP-AKM.
+     * DPP connection keys are received via DppEventCallback.onSuccessConfigReceived
+     *
+     * @param networkId Network ID of DPP-AKM wifi configuration.
+     */
+    private void generateSelfDppConfiguration(int networkId) {
+        WifiConfiguration config = mWifiConfigManager
+                .getConfiguredNetworkWithoutMasking(networkId);
+
+        if (config == null || !config.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)
+                || !config.isDppConfigurator() || (config.getDppConnector().length > 0)) {
+            Log.e(TAG, "Not eligible for generateSelfDppConfiguration yet.");
+            return;
+        }
+
+        mDppRequestInfo.isGeneratingSelfConfiguration = true;
+
+        if (!mWifiNative.generateSelfDppConfiguration(mClientIfaceName,
+                    config.SSID, config.getDppPrivateEcKey())) {
+            Log.e(TAG, "generateSelfDppConfiguration failed!!");
+            mDppRequestInfo.isGeneratingSelfConfiguration = false;
+        }
+
+        return;
     }
 
     /**
@@ -232,11 +267,12 @@ public class DppManager {
         String password = null;
         String psk = null;
         int securityAkm;
+        byte[] privEcKey = null;
 
-        // Currently support either SAE mode or PSK mode
+        // Currently support either SAE mode or PSK mode or DPP mode
         // Check PSK first because PSK config always has a SAE type as a upgrading type.
         if (selectedNetwork.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)) {
-            if (selectedNetwork.preSharedKey.matches(String.format("[0-9A-Fa-f]{%d}", 64))) {
+            if (selectedNetwork.preSharedKey.matches("[0-9A-Fa-f]{64}")) {
                 // PSK
                 psk = selectedNetwork.preSharedKey;
             } else {
@@ -248,9 +284,29 @@ public class DppManager {
             // SAE
             password = selectedNetwork.preSharedKey;
             securityAkm = DppAkm.SAE;
+        } else if (selectedNetwork.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)) {
+            // DPP
+            if (selectedNetwork.isDppConfigurator()) {
+                privEcKey = selectedNetwork.getDppPrivateEcKey();
+            } else {
+                if (enrolleeNetworkRole != EASY_CONNECT_NETWORK_ROLE_AP) {
+                    try {
+                        Log.e(TAG, "Device is not configured previously to configure"
+                                + "the peer enrollee devices to this network");
+                        callback.onFailure(
+                                EasyConnectStatusCallback
+                                .EASY_CONNECT_EVENT_FAILURE_INVALID_NETWORK,
+                                null, null, new int[0]);
+                    } catch (RemoteException e) {
+                        // Empty
+                    }
+                    return;
+                }
+            }
+            securityAkm = DppAkm.DPP;
         } else {
             try {
-                // Key management must be either PSK or SAE
+                // Key management must be either PSK or SAE or DPP
                 Log.e(TAG, "Key management must be either PSK or SAE");
                 mDppMetrics.updateDppFailure(EasyConnectStatusCallback
                         .EASY_CONNECT_EVENT_FAILURE_INVALID_NETWORK);
@@ -269,6 +325,7 @@ public class DppManager {
         mDppRequestInfo.binder = binder;
         mDppRequestInfo.callback = callback;
         mDppRequestInfo.authRole = DPP_AUTH_ROLE_INITIATOR;
+        mDppRequestInfo.networkId = selectedNetworkId;
 
         if (!linkToDeath(mDppRequestInfo)) {
             // Notify failure and clean up
@@ -307,7 +364,7 @@ public class DppManager {
                 mDppRequestInfo.peerId, 0, ssidEncoded, passwordEncoded, psk,
                 enrolleeNetworkRole == EASY_CONNECT_NETWORK_ROLE_AP ? DppNetRole.AP
                         : DppNetRole.STA,
-                securityAkm)) {
+                securityAkm, privEcKey)) {
             Log.e(TAG, "DPP Start Configurator Initiator failure");
 
             // Notify failure and clean up
@@ -508,6 +565,7 @@ public class DppManager {
             }
         }
 
+        mDppRequestInfo.isGeneratingSelfConfiguration = false;
         cleanupDppResources();
 
         logd("Success: Stopped DPP Session");
@@ -516,6 +574,11 @@ public class DppManager {
     private void cleanupDppResources() {
         logd("DPP clean up resources");
         if (!isSessionInProgress()) {
+            return;
+        }
+
+        if (mDppRequestInfo.isGeneratingSelfConfiguration) {
+            logd("Generate Self Configuration in progress. Skip cleanup");
             return;
         }
 
@@ -555,6 +618,8 @@ public class DppManager {
         public long startTime;
         public int authRole = DPP_AUTH_ROLE_INACTIVE;
         public int bootstrapId;
+        public int networkId;
+        public boolean isGeneratingSelfConfiguration = false;
 
         @Override
         public String toString() {
@@ -563,7 +628,8 @@ public class DppManager {
                     .append(", callback=").append(callback)
                     .append(", peerId=").append(peerId)
                     .append(", authRole=").append(authRole)
-                    .append(", bootstrapId=").append(bootstrapId).toString();
+                    .append(", bootstrapId=").append(bootstrapId)
+                    .append(", nId=").append(networkId).toString();
         }
     }
 
@@ -572,15 +638,45 @@ public class DppManager {
      *
      * @param verbose 0 to disable verbose logging, or any other value to enable.
      */
-    public void enableVerboseLogging(int verbose) {
-        mVerboseLoggingEnabled = verbose != 0 ? true : false;
+    public void enableVerboseLogging(boolean verboseEnabled) {
+        mVerboseLoggingEnabled = verboseEnabled;
     }
 
     private void onSuccessConfigReceived(WifiConfiguration newWifiConfiguration) {
         try {
             logd("onSuccessConfigReceived");
 
-            if (mDppRequestInfo != null) {
+            if (mDppRequestInfo != null && mDppRequestInfo.isGeneratingSelfConfiguration) {
+                WifiConfiguration existingWifiConfig = mWifiConfigManager
+                        .getConfiguredNetworkWithoutMasking(mDppRequestInfo.networkId);
+
+                if (newWifiConfiguration.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)
+                        && existingWifiConfig != null && existingWifiConfig.isDppConfigurator()
+                        && TextUtils.equals(existingWifiConfig.SSID, newWifiConfiguration.SSID)
+                        && existingWifiConfig.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)) {
+                    if (newWifiConfiguration.getDppConnector().length > 0
+                            && newWifiConfiguration.getDppCSignKey().length > 0
+                            && newWifiConfiguration.getDppNetAccessKey().length > 0) {
+                        Log.d(TAG, "Updating DPP Connection keys for self");
+                        existingWifiConfig.setDppConnectionKeys(
+                                newWifiConfiguration.getDppConnector(),
+                                newWifiConfiguration.getDppCSignKey(),
+                                newWifiConfiguration.getDppNetAccessKey());
+
+                        NetworkUpdateResult networkUpdateResult = mWifiConfigManager
+                                .addOrUpdateNetwork(existingWifiConfig, mDppRequestInfo.uid);
+
+                        if (!networkUpdateResult.isSuccess()) {
+                            Log.e(TAG, "DPP configuration generated, but failed to update network");
+                            mDppRequestInfo.callback.onFailure(EasyConnectStatusCallback
+                                    .EASY_CONNECT_EVENT_FAILURE_CONFIGURATION, null,
+                                    null, new int[0]);
+                        }
+                    }
+                }
+                // Done with self configuration. reset flag.
+                mDppRequestInfo.isGeneratingSelfConfiguration = false;
+            } else if (mDppRequestInfo != null) {
                 long now = mClock.getElapsedSinceBootMillis();
                 mDppMetrics.updateDppOperationTime((int) (now - mDppRequestInfo.startTime));
 
@@ -593,10 +689,7 @@ public class DppManager {
                         mDppMetrics.updateDppEnrolleeResponderSuccess();
                     }
                     mDppRequestInfo.callback.onSuccessConfigReceived(
-                            WifiConfigurationUtil.addSecurityTypeToNetworkId(
-                                    networkUpdateResult.getNetworkId(),
-                                    newWifiConfiguration.getDefaultSecurityParams()
-                                            .getSecurityType()));
+                            networkUpdateResult.getNetworkId());
                 } else {
                     Log.e(TAG, "DPP configuration received, but failed to update network");
                     mDppMetrics.updateDppFailure(EasyConnectStatusCallback
@@ -630,13 +723,15 @@ public class DppManager {
 
             // Convert from HAL codes to WifiManager/user codes
             switch (dppStatusCode) {
-                case DppSuccessCode.CONFIGURATION_SENT:
+                case DppEventType.CONFIGURATION_SENT:
                     mDppMetrics.updateDppR1CapableEnrolleeResponderDevices();
                     dppSuccessCode = EasyConnectStatusCallback
                             .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_SENT;
+                    // For Configurator STA, generate self signed keys for network access.
+                    generateSelfDppConfiguration(mDppRequestInfo.networkId);
                     break;
 
-                case DppSuccessCode.CONFIGURATION_APPLIED:
+                case DppEventType.CONFIGURATION_APPLIED:
                     dppSuccessCode = EasyConnectStatusCallback
                             .EASY_CONNECT_EVENT_SUCCESS_CONFIGURATION_APPLIED;
                     break;
@@ -644,6 +739,7 @@ public class DppManager {
                 default:
                     Log.e(TAG, "onSuccess: unknown code " + dppStatusCode);
                     // Success, DPP is complete. Clear the DPP session automatically
+                    mDppRequestInfo.isGeneratingSelfConfiguration = false;
                     cleanupDppResources();
                     return;
             }
@@ -707,6 +803,31 @@ public class DppManager {
 
     private void onFailure(int dppStatusCode) {
         onFailure(dppStatusCode, null, null, null);
+    }
+
+    private void onDppConfiguratorKeyUpdate(byte[] privEcKey) {
+        if (mDppRequestInfo == null) {
+            Log.e(TAG,
+                    "onDppConfiguratorKeyUpdate event without a request information object");
+            return;
+        }
+
+        WifiConfiguration selectedNetwork = mWifiConfigManager
+                .getConfiguredNetworkWithoutMasking(mDppRequestInfo.networkId);
+
+        if (selectedNetwork != null && privEcKey != null && privEcKey.length > 0
+                && selectedNetwork.isSecurityType(WifiConfiguration.SECURITY_TYPE_DPP)) {
+            Log.d(TAG, "Updating network access keys for DPP networkId="
+                    + mDppRequestInfo.networkId);
+            selectedNetwork.setDppConfigurator(privEcKey);
+
+            NetworkUpdateResult networkUpdateResult = mWifiConfigManager
+                    .addOrUpdateNetwork(selectedNetwork, mDppRequestInfo.uid);
+
+            if (!networkUpdateResult.isSuccess()) {
+                Log.e(TAG, "Failed to update DPP configurator key.");
+            }
+        }
     }
 
     /**
@@ -773,7 +894,7 @@ public class DppManager {
         boolean isNetworkInScanCache = false;
         boolean channelMatch = false;
         for (ScanResult scanResult : mScanRequestProxy.getScanResults()) {
-            if (!ssid.equals(scanResult.SSID)) {
+            if (!TextUtils.equals(ssid, scanResult.SSID)) {
                 continue;
             }
             isNetworkInScanCache = true;
@@ -905,6 +1026,7 @@ public class DppManager {
         }
 
         // All failures are fatal, clear the DPP session
+        mDppRequestInfo.isGeneratingSelfConfiguration = false;
         cleanupDppResources();
     }
 
@@ -926,6 +1048,7 @@ public class DppManager {
                 logd("binderDied: uid=" + dppRequestInfo.uid);
 
                 mHandler.post(() -> {
+                    dppRequestInfo.isGeneratingSelfConfiguration = false;
                     cleanupDppResources();
                 });
             }

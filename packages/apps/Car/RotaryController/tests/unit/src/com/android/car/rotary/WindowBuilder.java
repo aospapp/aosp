@@ -58,6 +58,8 @@ class WindowBuilder {
                 .thenReturn(MockNodeCopierProvider.get().copy(mRoot))
                 .thenReturn(MockNodeCopierProvider.get().copy(mRoot))
                 .thenReturn(MockNodeCopierProvider.get().copy(mRoot))
+                .thenReturn(MockNodeCopierProvider.get().copy(mRoot))
+                .thenReturn(MockNodeCopierProvider.get().copy(mRoot))
                 .thenThrow(new RuntimeException(
                         "Exceeded the maximum calls. Please add more parameters"));
         if (mBoundsInScreen != null) {

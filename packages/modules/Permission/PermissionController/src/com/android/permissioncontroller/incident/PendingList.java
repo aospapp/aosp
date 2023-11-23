@@ -270,6 +270,7 @@ class PendingList {
                         .setColor(mContext.getColor(
                                     android.R.color.system_notification_accent_color))
                         .extend(new Notification.TvExtender())
+                        .setLocalOnly(true)
                         .build();
 
                 // Show the notification

@@ -22,27 +22,29 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.Car;
 import android.car.VehicleHvacFanDirection;
+import android.car.builtin.util.Slogf;
 import android.car.hardware.property.VehicleVendorPermission;
-import android.hardware.automotive.vehicle.V2_0.ElectronicTollCollectionCardStatus;
-import android.hardware.automotive.vehicle.V2_0.ElectronicTollCollectionCardType;
-import android.hardware.automotive.vehicle.V2_0.EvConnectorType;
-import android.hardware.automotive.vehicle.V2_0.FuelType;
-import android.hardware.automotive.vehicle.V2_0.PortLocationType;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat;
-import android.hardware.automotive.vehicle.V2_0.VehicleGear;
-import android.hardware.automotive.vehicle.V2_0.VehicleIgnitionState;
-import android.hardware.automotive.vehicle.V2_0.VehicleLightState;
-import android.hardware.automotive.vehicle.V2_0.VehicleLightSwitch;
-import android.hardware.automotive.vehicle.V2_0.VehicleOilLevel;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
-import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyGroup;
-import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
-import android.hardware.automotive.vehicle.V2_0.VehicleSeatOccupancyState;
-import android.hardware.automotive.vehicle.V2_0.VehicleTurnSignal;
-import android.hardware.automotive.vehicle.V2_0.VehicleUnit;
+import android.hardware.automotive.vehicle.ElectronicTollCollectionCardStatus;
+import android.hardware.automotive.vehicle.ElectronicTollCollectionCardType;
+import android.hardware.automotive.vehicle.EvChargeState;
+import android.hardware.automotive.vehicle.EvConnectorType;
+import android.hardware.automotive.vehicle.EvRegenerativeBrakingState;
+import android.hardware.automotive.vehicle.FuelType;
+import android.hardware.automotive.vehicle.PortLocationType;
+import android.hardware.automotive.vehicle.TrailerState;
+import android.hardware.automotive.vehicle.VehicleAreaSeat;
+import android.hardware.automotive.vehicle.VehicleGear;
+import android.hardware.automotive.vehicle.VehicleIgnitionState;
+import android.hardware.automotive.vehicle.VehicleLightState;
+import android.hardware.automotive.vehicle.VehicleLightSwitch;
+import android.hardware.automotive.vehicle.VehicleOilLevel;
+import android.hardware.automotive.vehicle.VehicleProperty;
+import android.hardware.automotive.vehicle.VehiclePropertyGroup;
+import android.hardware.automotive.vehicle.VehiclePropertyType;
+import android.hardware.automotive.vehicle.VehicleSeatOccupancyState;
+import android.hardware.automotive.vehicle.VehicleTurnSignal;
+import android.hardware.automotive.vehicle.VehicleUnit;
 import android.util.Pair;
-import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
@@ -103,6 +105,12 @@ public class PropertyHalServiceIds {
             new HashSet<>(getIntegersFromDataEnums(ElectronicTollCollectionCardType.class));
     private static final Set<Integer> ETC_CARD_STATUS =
             new HashSet<>(getIntegersFromDataEnums(ElectronicTollCollectionCardStatus.class));
+    private static final Set<Integer> EV_CHARGE_STATE =
+            new HashSet<>(getIntegersFromDataEnums(EvChargeState.class));
+    private static final Set<Integer> EV_REGENERATIVE_BREAKING_STATE =
+            new HashSet<>(getIntegersFromDataEnums(EvRegenerativeBrakingState.class));
+    private static final Set<Integer> TRAILER_PRESENT =
+            new HashSet<>(getIntegersFromDataEnums(TrailerState.class));
 
     // default vendor permission
     private static final int PERMISSION_CAR_VENDOR_DEFAULT = 0x00000000;
@@ -192,10 +200,10 @@ public class PropertyHalServiceIds {
                 Car.PERMISSION_CONTROL_CAR_MIRRORS,
                 Car.PERMISSION_CONTROL_CAR_MIRRORS));
         mProps.put(VehicleProperty.SEAT_MEMORY_SELECT, new Pair<>(
-                Car.PERMISSION_CONTROL_CAR_SEATS,
+                null,
                 Car.PERMISSION_CONTROL_CAR_SEATS));
         mProps.put(VehicleProperty.SEAT_MEMORY_SET, new Pair<>(
-                Car.PERMISSION_CONTROL_CAR_SEATS,
+                null,
                 Car.PERMISSION_CONTROL_CAR_SEATS));
         mProps.put(VehicleProperty.SEAT_BELT_BUCKLED, new Pair<>(
                 Car.PERMISSION_CONTROL_CAR_SEATS,
@@ -428,6 +436,18 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.EV_BATTERY_LEVEL, new Pair<>(
                 Car.PERMISSION_ENERGY,
                 null));
+        mProps.put(VehicleProperty.EV_CHARGE_CURRENT_DRAW_LIMIT, new Pair<>(
+                Car.PERMISSION_ENERGY, Car.PERMISSION_CONTROL_CAR_ENERGY));
+        mProps.put(VehicleProperty.EV_CHARGE_PERCENT_LIMIT, new Pair<>(
+                Car.PERMISSION_ENERGY, Car.PERMISSION_CONTROL_CAR_ENERGY));
+        mProps.put(VehicleProperty.EV_CHARGE_STATE, new Pair<>(
+                Car.PERMISSION_ENERGY, null));
+        mProps.put(VehicleProperty.EV_CHARGE_SWITCH, new Pair<>(
+                Car.PERMISSION_ENERGY, Car.PERMISSION_CONTROL_CAR_ENERGY));
+        mProps.put(VehicleProperty.EV_CHARGE_TIME_REMAINING, new Pair<>(
+                Car.PERMISSION_ENERGY, null));
+        mProps.put(VehicleProperty.EV_REGENERATIVE_BRAKING_STATE, new Pair<>(
+                Car.PERMISSION_ENERGY, null));
         mProps.put(VehicleProperty.EV_CHARGE_PORT_OPEN, new Pair<>(
                 Car.PERMISSION_ENERGY_PORTS,
                 Car.PERMISSION_CONTROL_ENERGY_PORTS));
@@ -494,6 +514,12 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.FOG_LIGHTS_STATE, new Pair<>(
                 Car.PERMISSION_EXTERIOR_LIGHTS,
                 null));
+        mProps.put(VehicleProperty.FRONT_FOG_LIGHTS_STATE, new Pair<>(
+                Car.PERMISSION_EXTERIOR_LIGHTS,
+                null));
+        mProps.put(VehicleProperty.REAR_FOG_LIGHTS_STATE, new Pair<>(
+                Car.PERMISSION_EXTERIOR_LIGHTS,
+                null));
         mProps.put(VehicleProperty.HAZARD_LIGHTS_STATE, new Pair<>(
                 Car.PERMISSION_EXTERIOR_LIGHTS,
                 null));
@@ -504,6 +530,12 @@ public class PropertyHalServiceIds {
                 Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS,
                 Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS));
         mProps.put(VehicleProperty.FOG_LIGHTS_SWITCH, new Pair<>(
+                Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS,
+                Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS));
+        mProps.put(VehicleProperty.FRONT_FOG_LIGHTS_SWITCH, new Pair<>(
+                Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS,
+                Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS));
+        mProps.put(VehicleProperty.REAR_FOG_LIGHTS_SWITCH, new Pair<>(
                 Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS,
                 Car.PERMISSION_CONTROL_EXTERIOR_LIGHTS));
         mProps.put(VehicleProperty.HAZARD_LIGHTS_SWITCH, new Pair<>(
@@ -521,8 +553,8 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.CABIN_LIGHTS_SWITCH, new Pair<>(
                 Car.PERMISSION_CONTROL_INTERIOR_LIGHTS,
                 Car.PERMISSION_CONTROL_INTERIOR_LIGHTS));
-        mProps.put(VehicleProperty.EPOCH_TIME, new Pair<>(
-                Car.PERMISSION_CAR_EPOCH_TIME,
+        mProps.put(VehicleProperty.ANDROID_EPOCH_TIME, new Pair<>(
+                null,
                 Car.PERMISSION_CAR_EPOCH_TIME));
         mProps.put(VehicleProperty.STORAGE_ENCRYPTION_BINDING_SEED, new Pair<>(
                 Car.PERMISSION_STORAGE_ENCRYPTION_BINDING_SEED,
@@ -562,6 +594,10 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS, new Pair<>(
                 Car.PERMISSION_CAR_INFO,
                 null));
+        mProps.put(VehicleProperty.VEHICLE_CURB_WEIGHT, new Pair<>(
+                Car.PERMISSION_PRIVILEGED_CAR_INFO, null));
+        mProps.put(VehicleProperty.TRAILER_PRESENT, new Pair<>(
+                Car.PERMISSION_PRIVILEGED_CAR_INFO, null));
         // mPropToValidValue should contain all properties which has @data_enum in types.hal
         mPropToValidValue.put(VehicleProperty.INFO_FUEL_TYPE, FUEL_TYPE);
         mPropToValidValue.put(VehicleProperty.INFO_EV_CONNECTOR_TYPE, EV_CONNECTOR_TYPE);
@@ -582,12 +618,19 @@ public class PropertyHalServiceIds {
         mPropToValidValue.put(VehicleProperty.HIGH_BEAM_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
         mPropToValidValue.put(VehicleProperty.HEADLIGHTS_STATE, VEHICLE_LIGHT_STATE);
         mPropToValidValue.put(VehicleProperty.FOG_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
+        mPropToValidValue.put(VehicleProperty.FRONT_FOG_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
+        mPropToValidValue.put(VehicleProperty.REAR_FOG_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
         mPropToValidValue.put(VehicleProperty.HAZARD_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
         mPropToValidValue.put(VehicleProperty.CABIN_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
         mPropToValidValue.put(VehicleProperty.READING_LIGHTS_STATE, VEHICLE_LIGHT_STATE);
+        mPropToValidValue.put(VehicleProperty.EV_CHARGE_STATE, EV_CHARGE_STATE);
+        mPropToValidValue.put(VehicleProperty.EV_REGENERATIVE_BRAKING_STATE,
+                EV_REGENERATIVE_BREAKING_STATE);
         mPropToValidValue.put(VehicleProperty.HEADLIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.HIGH_BEAM_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.FOG_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
+        mPropToValidValue.put(VehicleProperty.FRONT_FOG_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
+        mPropToValidValue.put(VehicleProperty.REAR_FOG_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.HAZARD_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.CABIN_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.READING_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
@@ -595,6 +638,8 @@ public class PropertyHalServiceIds {
                 ETC_CARD_STATUS);
         mPropToValidValue.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS,
                 ETC_CARD_TYPE);
+        mPropToValidValue.put(VehicleProperty.TRAILER_PRESENT,
+                TRAILER_PRESENT);
         // mPropToValidBitFlag contains all properties which return values are combinations of bits
         mPropToValidBitFlag.put(VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE,
                 HVAC_FAN_DIRECTION_COMBINATIONS);
@@ -613,7 +658,7 @@ public class PropertyHalServiceIds {
         if (p != null) {
             // Property ID exists.  Return read permission.
             if (p.first == null) {
-                Slog.e(TAG, "propId is not available for reading : 0x" + toHexString(propId));
+                Slogf.e(TAG, "propId is not available for reading : 0x" + toHexString(propId));
             }
             return p.first;
         } else if (isVendorProperty(propId)) {
@@ -635,7 +680,7 @@ public class PropertyHalServiceIds {
         if (p != null) {
             // Property ID exists.  Return write permission.
             if (p.second == null) {
-                Slog.e(TAG, "propId is not writable : 0x" + toHexString(propId));
+                Slogf.e(TAG, "propId is not writable : 0x" + toHexString(propId));
             }
             return p.second;
         } else if (isVendorProperty(propId)) {
@@ -670,20 +715,20 @@ public class PropertyHalServiceIds {
      * @param configArray the configArray for
      * {@link VehicleProperty#SUPPORT_CUSTOMIZE_VENDOR_PERMISSION}
      */
-    public void customizeVendorPermission(@NonNull List<Integer> configArray) {
-        if (configArray == null || configArray.size() % 3 != 0) {
+    public void customizeVendorPermission(@NonNull int[] configArray) {
+        if (configArray == null || configArray.length % 3 != 0) {
             throw new IllegalArgumentException(
                     "ConfigArray for SUPPORT_CUSTOMIZE_VENDOR_PERMISSION is wrong");
         }
         int index = 0;
-        while (index < configArray.size()) {
-            int propId = configArray.get(index++);
+        while (index < configArray.length) {
+            int propId = configArray[index++];
             if (!isVendorProperty(propId)) {
                 throw new IllegalArgumentException("Property Id: " + propId
                         + " is not in vendor range");
             }
-            int readPermission = configArray.get(index++);
-            int writePermission = configArray.get(index++);
+            int readPermission = configArray[index++];
+            int writePermission = configArray[index++];
             mProps.put(propId, new Pair<>(
                     toPermissionString(readPermission, propId),
                     toPermissionString(writePermission, propId)));
@@ -777,7 +822,7 @@ public class PropertyHalServiceIds {
                 return null;
             default:
                 throw new IllegalArgumentException("permission Id: " + permissionEnum
-                    + " for property:" + propId + " is invalid vendor permission Id");
+                        + " for property:" + propId + " is invalid vendor permission Id");
         }
     }
 
@@ -786,28 +831,30 @@ public class PropertyHalServiceIds {
      * has @data_enum flag in types.hal.
      * @return true if property value's payload is valid.
      */
-    public boolean checkPayload(VehiclePropValue propValue) {
+    public boolean checkPayload(HalPropValue propValue) {
+        int propId = propValue.getPropId();
         // Mixed property uses config array to indicate the data format. Checked it when convert it
         // to CarPropertyValue.
-        if ((propValue.prop & VehiclePropertyType.MASK) == VehiclePropertyType.MIXED) {
+        if ((propId & VehiclePropertyType.MASK) == VehiclePropertyType.MIXED) {
             return true;
         }
         if (!checkFormatForAllProperties(propValue)) {
-            Slog.e(TAG, "Property value" + propValue + "has an invalid data format");
+            Slogf.e(TAG, "Property value" + propValue + "has an invalid data format");
             return false;
         }
-        if (mPropToValidValue.containsKey(propValue.prop)) {
+        if (mPropToValidValue.containsKey(propId)) {
             return checkDataEnum(propValue);
         }
-        if (mPropToValidBitFlag.containsKey(propValue.prop)) {
+        if (mPropToValidBitFlag.containsKey(propId)) {
             return checkValidBitFlag(propValue);
         }
         return true;
     }
 
-    private boolean checkValidBitFlag(VehiclePropValue propValue) {
-        int flagCombination = mPropToValidBitFlag.get(propValue.prop);
-        for (int value : propValue.value.int32Values) {
+    private boolean checkValidBitFlag(HalPropValue propValue) {
+        int flagCombination = mPropToValidBitFlag.get(propValue.getPropId());
+        for (int i = 0; i < propValue.getInt32ValuesSize(); i++) {
+            int value = propValue.getInt32Value(i);
             if ((value & flagCombination) != value) {
                 return false;
             }
@@ -815,46 +862,44 @@ public class PropertyHalServiceIds {
         return true;
     }
 
-    private boolean checkFormatForAllProperties(VehiclePropValue propValue) {
-        int propId = propValue.prop;
-        VehiclePropValue.RawValue rawValue = propValue.value;
+    private boolean checkFormatForAllProperties(HalPropValue propValue) {
+        int propId = propValue.getPropId();
         //Records sum size of int32values, floatValue, int64Values, bytes, String
-        int sizeOfAllValue = rawValue.int32Values.size() + rawValue.floatValues.size()
-                + rawValue.int64Values.size() + rawValue.bytes.size()
-                + rawValue.stringValue.length();
+        int sizeOfAllValue = propValue.getInt32ValuesSize() + propValue.getFloatValuesSize()
+                + propValue.getInt64ValuesSize() + propValue.getByteValuesSize()
+                + propValue.getStringValue().length();
         if (sizeOfAllValue == 0) {
-            Slog.e(TAG, "Property value is empty: " + propValue);
+            Slogf.e(TAG, "Property value is empty: " + propValue);
             return false;
         }
         switch (propId & VehiclePropertyType.MASK) {
             case VehiclePropertyType.BOOLEAN:
             case VehiclePropertyType.INT32:
-                return sizeOfAllValue == 1 && rawValue.int32Values.size() == 1;
+                return sizeOfAllValue == 1 && propValue.getInt32ValuesSize() == 1;
             case VehiclePropertyType.FLOAT:
-                return sizeOfAllValue == 1 && rawValue.floatValues.size() == 1;
+                return sizeOfAllValue == 1 && propValue.getFloatValuesSize() == 1;
             case VehiclePropertyType.INT64:
-                return sizeOfAllValue == 1 && rawValue.int64Values.size() == 1;
+                return sizeOfAllValue == 1 && propValue.getInt64ValuesSize() == 1;
             case VehiclePropertyType.FLOAT_VEC:
-                return sizeOfAllValue == rawValue.floatValues.size();
+                return sizeOfAllValue == propValue.getFloatValuesSize();
             case VehiclePropertyType.INT64_VEC:
-                return sizeOfAllValue == rawValue.int64Values.size();
+                return sizeOfAllValue == propValue.getInt64ValuesSize();
             case VehiclePropertyType.INT32_VEC:
-                return sizeOfAllValue == rawValue.int32Values.size();
+                return sizeOfAllValue == propValue.getInt32ValuesSize();
             case VehiclePropertyType.BYTES:
-                return sizeOfAllValue == rawValue.bytes.size();
+                return sizeOfAllValue == propValue.getByteValuesSize();
             case VehiclePropertyType.STRING:
-                return sizeOfAllValue == rawValue.stringValue.length();
+                return sizeOfAllValue == propValue.getStringValue().length();
             default:
                 throw new IllegalArgumentException("Unexpected property type for propId: "
                         + Integer.toHexString(propId));
         }
     }
-    private boolean checkDataEnum(VehiclePropValue propValue) {
-        int propId = propValue.prop;
-        VehiclePropValue.RawValue rawValue = propValue.value;
+    private boolean checkDataEnum(HalPropValue propValue) {
+        int propId = propValue.getPropId();
         Set<Integer> validValue = mPropToValidValue.get(propId);
-        for (int value : rawValue.int32Values) {
-            if (!validValue.contains(value)) {
+        for (int i = 0; i < propValue.getInt32ValuesSize(); i++) {
+            if (!validValue.contains(propValue.getInt32Value(i))) {
                 return false;
             }
         }
@@ -869,7 +914,7 @@ public class PropertyHalServiceIds {
                 try {
                     integerList.add(f.getInt(clazz));
                 } catch (IllegalAccessException | RuntimeException e) {
-                    Slog.w(TAG, "Failed to get value");
+                    Slogf.w(TAG, "Failed to get value");
                 }
             }
         }

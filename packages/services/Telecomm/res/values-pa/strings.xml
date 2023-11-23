@@ -114,10 +114,13 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"ਜਨਤਕ ਫ਼ੋਨਾਂ ਵਾਲੀਆਂ ਕਾਲਾਂ ਬਲਾਕ ਕਰੋ"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"ਅਗਿਆਤ"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"ਅਣਪਛਾਤੇ ਕਾਲਰਾਂ ਵਾਲੀਆਂ ਕਾਲਾਂ ਬਲਾਕ ਕਰੋ"</string>
+    <string name="phone_settings_unavailable_txt" msgid="825918186053980858">"ਉਪਲਬਧ ਨਹੀਂ"</string>
+    <string name="phone_settings_unavailable_summary_txt" msgid="8221686031038282633">"ਨੰਬਰ ਉਪਲਬਧ ਨਾ ਹੋਣ \'ਤੇ ਕਾਲਾਂ ਨੂੰ ਬਲਾਕ ਕਰੋ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"ਕਾਲ ਬਲਾਕ ਕਰਨਾ"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"ਕਾਲ ਬਲਾਕਿੰਗ ਵਿਕਲਪ ਬੰਦ ਕੀਤਾ ਗਿਆ"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"ਸੰਕਟਕਾਲੀਨ ਕਾਲ ਕੀਤੀ ਗਈ"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ਸੰਕਟਕਾਲੀਨ ਸਥਿਤੀ ਵਿੱਚ ਮਦਦ ਕਰਨ ਵਾਲੇ ਵਿਅਕਤੀ ਨੂੰ ਤੁਹਾਨੂੰ ਸੰਪਰਕ ਕਰਨ ਦੇਣ ਲਈ ਕਾਲ ਬਲਾਕਿੰਗ ਵਿਕਲਪ ਬੰਦ ਕਰ ਦਿੱਤਾ ਗਿਆ ਹੈ।"</string>
     <string name="developer_title" msgid="9146088855661672353">"ਟੈਲੀਕੋਮ ਵਿਕਾਸਕਾਰ ਮੀਨੂ"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ਕਿਸੇ ਸੰਕਟਕਾਲੀਨ ਕਾਲ ਦੌਰਾਨ ਹੋਰ ਕਾਲਾਂ ਨਹੀਂ ਲਈਆਂ ਜਾ ਸਕਦੀਆਂ।"</string>
+    <string name="cancel" msgid="6733466216239934756">"ਰੱਦ ਕਰੋ"</string>
 </resources>

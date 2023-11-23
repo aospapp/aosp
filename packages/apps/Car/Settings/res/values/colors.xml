@@ -60,4 +60,11 @@
         Therefore, the color specified here is more of a placeholder to create the initial fill.
     -->
     <color name="qc_default_icon_color">@android:color/white</color>
+
+    <!-- Semi-transparent background color for user disclaimer activity. -->
+    <color name="user_disclaimer_activity_background">#c7000000</color>
+    <!-- Color of text in new user disclaimer activity. -->
+    <color name="user_disclaimer_text_color">@android:color/white</color>
+    <!-- Background color of button. -->
+    <color name="user_disclaimer_action_button_background_color">@*android:color/car_grey_868</color>
 </resources>

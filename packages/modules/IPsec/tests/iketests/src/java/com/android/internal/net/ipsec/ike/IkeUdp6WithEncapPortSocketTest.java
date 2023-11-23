@@ -34,10 +34,10 @@ public final class IkeUdp6WithEncapPortSocketTest extends IkeSocketTestBase {
             new IkeSocketFactory() {
                 @Override
                 public IkeSocket getIkeSocket(
-                        IkeSocketConfig ikeSockConfig, IkeSessionStateMachine ikeSession)
+                        IkeSocketConfig ikeSockConfig, IkeSocket.Callback callback)
                         throws ErrnoException, IOException {
                     return IkeUdp6WithEncapPortSocket.getIkeUdpEncapSocket(
-                            ikeSockConfig, ikeSession, mHandler);
+                            ikeSockConfig, callback, mHandler);
                 }
             };
 

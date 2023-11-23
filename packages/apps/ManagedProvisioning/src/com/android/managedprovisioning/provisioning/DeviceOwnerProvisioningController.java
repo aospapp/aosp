@@ -27,7 +27,7 @@ import com.android.managedprovisioning.task.ConnectMobileNetworkTask;
 import com.android.managedprovisioning.task.DownloadPackageTask;
 import com.android.managedprovisioning.task.InstallPackageTask;
 import com.android.managedprovisioning.task.ProvisionFullyManagedDeviceTask;
-import com.android.managedprovisioning.task.VerifyPackageTask;
+import com.android.managedprovisioning.task.VerifyAdminPackageTask;
 
 /**
  * Controller for Device Owner provisioning.
@@ -94,11 +94,11 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
                 case DownloadPackageTask.ERROR_OTHER:
                     return R.string.cant_set_up_device;
             }
-        } else if (task instanceof VerifyPackageTask) {
+        } else if (task instanceof VerifyAdminPackageTask) {
             switch (errorCode) {
-                case VerifyPackageTask.ERROR_HASH_MISMATCH:
+                case VerifyAdminPackageTask.ERROR_HASH_MISMATCH:
                     return R.string.error_hash_mismatch;
-                case VerifyPackageTask.ERROR_DEVICE_ADMIN_MISSING:
+                case VerifyAdminPackageTask.ERROR_DEVICE_ADMIN_MISSING:
                     return R.string.error_package_invalid;
             }
         } else if (task instanceof InstallPackageTask) {

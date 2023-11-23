@@ -34,6 +34,10 @@
     <!-- To change the preferred activity. -->
     <uses-permission android:name="android.permission.SET_PREFERRED_APPLICATIONS" />
 
+    <!-- DisplayResolveInfo requires this permission to read a flag that guards delegate chooser
+         flow. -->
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
+
     <application android:label="@string/app_name">
 
         <activity
@@ -41,7 +45,9 @@
             android:exported="true"
             android:launchMode="singleInstance"
             android:noHistory="true">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
     </application>
 </manifest>
+

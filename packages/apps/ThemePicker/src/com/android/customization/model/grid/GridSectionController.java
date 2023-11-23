@@ -72,7 +72,7 @@ public class GridSectionController implements CustomizationSectionController<Gri
                 sectionDescription.setText(R.string.something_went_wrong);
                 sectionTile.setVisibility(View.GONE);
             }
-        }, /* reload= */ true);
+        }, /* The result is getting when calling isAvailable(), so reload= */ false);
 
         gridSectionView.setOnClickListener(
                 v -> mSectionNavigationController.navigateTo(new GridFragment()));

@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"അടിയന്തര കോൾബാക്ക് മോഡ്"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"ഡാറ്റ കണക്ഷൻ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> വരെ ഡാറ്റാ കണക്ഷൻ ലഭ്യമല്ല"</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> മിനിറ്റിനുള്ളിൽ ഫോൺ അടിയന്തര കോൾബാക്ക് മോഡിലാകും. ഈ മോഡിലാകുമ്പോൾ ഡാറ്റ കണക്ഷൻ ഉപയോഗിക്കുന്ന അപ്ലിക്കേഷനുകളൊന്നും ഉപയോഗിക്കാനാവില്ല. നിങ്ങൾക്കിപ്പോൾ പുറത്തുപോകണോ?</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%s</xliff:g> മിനിറ്റിനുള്ളിൽ ഫോൺ അടിയന്തര കോൾബാക്ക് മോഡിലാകും. ഈ മോഡിലാകുമ്പോൾ ഡാറ്റ കണക്ഷൻ ഉപയോഗിക്കുന്ന അപ്ലിക്കേഷനുകളൊന്നും ഉപയോഗിക്കാനാവില്ല. നിങ്ങൾക്കിപ്പോൾ പുറത്തുപോകണോ?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കുമ്പോൾ തിരഞ്ഞെടുത്ത പ്രവർത്തനമൊന്നും ലഭ്യമാകില്ല. <xliff:g id="COUNT_1">%s</xliff:g> മിനിറ്റിനുള്ളിൽ ഫോൺ ഈ മോഡിലാകും. നിങ്ങൾക്കിപ്പോൾ പുറത്തുപോകണോ?</item>
-      <item quantity="one">അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കുമ്പോൾ തിരഞ്ഞെടുത്ത പ്രവർത്തനമൊന്നും ലഭ്യമാകില്ല. <xliff:g id="COUNT_0">%s</xliff:g> മിനിറ്റിനുള്ളിൽ ഫോൺ ഈ മോഡിലാകും. നിങ്ങൾക്കിപ്പോൾ പുറത്തുപോകണോ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{ഫോൺ ഒരു മിനിറ്റ്, അടിയന്തര കോൾ ബാക്ക് മോഡിൽ ആയിരിക്കും. ഈ മോഡിൽ ആയിരിക്കുമ്പോൾ ഡാറ്റാ കണക്ഷൻ ഉപയോഗിക്കുന്ന ആപ്പുകളൊന്നും ഉപയോഗിക്കാനാകില്ല. ഇപ്പോൾ പുറത്തുകടക്കണോ?}other{ഫോൺ %s മിനിറ്റ്, അടിയന്തര കോൾ ബാക്ക് മോഡിൽ ആയിരിക്കും. ഈ മോഡിൽ ആയിരിക്കുമ്പോൾ ഡാറ്റാ കണക്ഷൻ ഉപയോഗിക്കുന്ന ആപ്പുകളൊന്നും ഉപയോഗിക്കാനാകില്ല. ഇപ്പോൾ പുറത്തുകടക്കണോ?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{അടിയന്തര കോൾ ബാക്ക് മോഡിൽ ആയിരിക്കുമ്പോൾ, തിരഞ്ഞെടുത്ത പ്രവർത്തനം ലഭ്യമല്ല. ഫോൺ ഒരു മിനിറ്റ് ഈ മോഡിൽ ആയിരിക്കും. ഇപ്പോൾ പുറത്തുകടക്കണോ?}other{അടിയന്തര കോൾ ബാക്ക് മോഡിൽ ആയിരിക്കുമ്പോൾ, തിരഞ്ഞെടുത്ത പ്രവർത്തനം ലഭ്യമല്ല. ഫോൺ %s മിനിറ്റ് ഈ മോഡിൽ ആയിരിക്കും. ഇപ്പോൾ പുറത്തുകടക്കണോ?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"അടിയന്തര കോളിലായിരിക്കുമ്പോൾ തിരഞ്ഞെടുത്ത പ്രവർത്തനം ലഭ്യമാകില്ല."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"നിലവിലെ അടിയന്തര കോൾബാക്ക് മോഡ്"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"വേണം"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"നിരസിക്കുക"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"ഫോൺ അടിയന്തര കോൾബാക്ക് മോഡിലാണ്"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> വരെ"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">ഫോൺ <xliff:g id="COUNT_1">%s</xliff:g> മിനിറ്റ്, അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കും.\nനിങ്ങൾക്ക് ഇപ്പോൾ പുറത്ത് കടക്കണോ?</item>
-      <item quantity="one">ഫോൺ <xliff:g id="COUNT_0">%s</xliff:g> മിനിറ്റ്, അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കും.\nനിങ്ങൾക്ക് ഇപ്പോൾ പുറത്ത് കടക്കണോ?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{ഫോൺ ഒരു മിനിറ്റ്, അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കും.\nഇപ്പോൾ പുറത്തുകടക്കണോ?}other{ഫോൺ %s മിനിറ്റ്, അടിയന്തര കോൾബാക്ക് മോഡിലായിരിക്കും.\nഇപ്പോൾ പുറത്തുകടക്കണോ?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"സേവനം"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"സജ്ജമാക്കുക"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;സജ്ജീകരിച്ചിട്ടില്ല&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"ഉപയോഗസഹായി"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"ഈ വ്യക്തിയിൽ നിന്നുള്ള Wi-Fi കോൾ"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"വൈഫൈ കോൾ"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"തുറക്കുന്നതിന് വീണ്ടും ടാപ്പുചെയ്യുക"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"സന്ദേശം ഡീകോഡുചെയ്യുമ്പോൾ ഒരു പിശകുണ്ടായി."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"ഒരു SIM കാർഡ് നിങ്ങളുടെ സേവനം സജീവമാക്കി, ഫോണിന്റെ റോമിംഗ് ശേഷികൾ അപ്‌ഡേറ്റ് ചെയ്തു."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"നിരവധി കോളുകൾ നിലവിൽ സജീവമായുണ്ട്. പുതിയ കോൾ വിളിക്കുന്നതിനുമുമ്പ് നിലവിലുള്ള കോളുകൾ അവസാനിപ്പിക്കുകയോ ലയിപ്പിക്കുകയോ ചെയ്യുക."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"മറ്റൊരു ഔട്ട്ഗോയിംഗ് കോൾ മുമ്പേ തന്നെ ഡയൽ ചെയ്യുന്നതിനാൽ, ഒരു കോൾ നടത്താനാവില്ല."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"മറുപടി ലഭിക്കാത്ത ഒരു ഇൻ‌കമിംഗ് കോൾ ഉള്ളതിനാൽ, ഒരു കോൾ നടത്താനാവില്ല. ഒരു പുതിയ കോൾ നടത്തുന്നതിന് മുൻപായി ഇൻകമിംഗ് കോളിന് മറുപടി നൽകുക അല്ലെങ്കിൽ നിരസിക്കുക."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-കോൾ സിസ്‌റ്റം പ്രോപ്പർട്ടി ഉപയോഗിച്ച് കോൾ ചെയ്യൽ പ്രവർത്തനരഹിതമാക്കിയതിനാൽ ഒരു കോൾ നടത്താനാവില്ല."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"മുമ്പേ രണ്ട് കോളുകൾ പുരോഗതിയിൽ ആയതിനാൽ ഒരു പുതിയ കോൾ നടത്താനാവില്ല. ഒരു പുതിയ കോൾ നടത്താനായി, മുമ്പത്തെ കോളുകളിലൊന്ന് വിച്‌ഛേദിക്കുകയോ അല്ലെങ്കിൽ അവയെ ഒരു കോൺഫറൻസ് കോളിലേക്ക് ലയിപ്പിക്കുകയോ ചെയ്യുക."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"മുമ്പേ തന്നെ രണ്ട് കോളുകൾ പുരോഗതിയിൽ ആയതിനാൽ പുതിയൊരു കോൾ ചെയ്യാനാകില്ല. പുതിയൊരു കോൾ ചെയ്യുന്നതിന് മുമ്പത്തെ കോളുകളിലൊന്ന് വിച്‌ഛേദിക്കുകയോ അവയെ ഒരു കോൺഫറൻസ് കോളിലേക്ക് ലയിപ്പിക്കുകയോ ചെയ്യുക."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> എന്നത് ഉപയോഗിക്കാൻ, മൊബൈൽ ഡാറ്റ ഓണാണ് എന്ന് ഉറപ്പാക്കുക. നിങ്ങൾക്ക് ഇത് മൊബൈൽ നെറ്റ്‌വർക്ക് ക്രമീകരണത്തിൽ മാറ്റാം."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> എന്നത് ഉപയോഗിക്കാൻ, നിങ്ങളുടെ മൊബൈൽ ഡാറ്റയും ഡാറ്റ റോമിംഗും ഓണാണ് എന്ന് ഉറപ്പാക്കുക. നിങ്ങൾക്ക് ഇത് മൊബൈൽ നെറ്റ്‌വർക്ക് ക്രമീകരണത്തിൽ മാറ്റാം."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> ഉപയോഗിക്കാൻ, SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> എന്നതിനായി മൊബൈൽ ഡാറ്റ ഓണാണ് എന്ന് ഉറപ്പാക്കുക. നിങ്ങൾക്ക് ഇത് മൊബൈൽ നെറ്റ്‌വർക്ക് ക്രമീകരണത്തിൽ മാറ്റാം."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"ഈ ക്രമീകരണം മാറ്റാൻ നിങ്ങളുടെ ഉപകരണം റീസ്‌റ്റാർട്ട് ചെയ്യേണ്ടതുണ്ട്."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"റീസ്റ്റാർട്ട് ചെയ്യുക"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"റദ്ദാക്കുക"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"നീക്കം ചെയ്യാവുന്ന ഇ-സിം ഡിഫോൾട്ടായി സജ്ജീകരിക്കുക"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"മൊബൈൽ റേഡിയോ പവർ"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"സിം വിലാസ പുസ്‌തകം കാണുക"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"സ്ഥിര ഡയലിംഗ് നമ്പറുകൾ കാണുക"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"റേഡിയോ ബാൻഡ് തിരഞ്ഞെടുക്കുക"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"വോയ്സ് നെറ്റ്‌വർക്ക് തരം:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ഡാറ്റ നെറ്റ്‌വർക്ക് തരം:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"അസാധുവാക്കൽ നെറ്റ്‌വർക്ക് തരം:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ഫോൺ സൂചിക തിരഞ്ഞെടുക്കുക"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് തരം സജ്ജീകരിക്കുക:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ഹോസ്റ്റുനാമം(www.google.com) IPv4 പിംഗ് ചെയ്യുക:"</string>
@@ -907,13 +899,13 @@
     <string name="ping_test_label" msgid="448617502935719694">"പിംഗ് പരിശോധന റൺ ചെയ്യുക"</string>
     <string name="radio_info_smsc_label" msgid="3749927072726033763">"SMSC:"</string>
     <string name="radio_info_smsc_update_label" msgid="5141996256097115753">"അപ്ഡേറ്റ് ചെയ്യുക"</string>
-    <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"പുതുക്കിയെടുക്കുക"</string>
+    <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"റീഫ്രഷ് ചെയ്യുക"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS പരിശോധന മാറ്റുക"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-നിർദ്ദിഷ്‌ട വിവരം/ക്രമീകരണം"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ലഭ്യം:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR നിയന്ത്രിച്ചിരിക്കുന്നു:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ലഭ്യം:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR നില:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC ലഭ്യമാണ് (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR നിയന്ത്രിച്ചിരിക്കുന്നു (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR ലഭ്യമാണ് (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR നില (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ഫ്രീക്വൻസി:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"റേഡിയോ ബാൻഡ് മോഡ് സജ്ജീകരിക്കുക"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ബാൻഡ് ലിസ്‌റ്റ് ലോഡ് ചെയ്യുന്നു…"</string>

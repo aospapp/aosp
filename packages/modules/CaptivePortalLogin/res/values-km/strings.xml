@@ -31,4 +31,6 @@
     <string name="channel_description_downloads" msgid="8751992699855833481">"ការជូនដំណឹង​ដែលបង្ហាញ​អំពីការទាញយក​ដែលបានបោះបង់ ឬបញ្ចប់"</string>
     <string name="channel_name_download_progress" msgid="6805362260479605374">"ដំណើរការនៃ​ការទាញយក"</string>
     <string name="channel_description_download_progress" msgid="5788105841492070647">"ការជូនដំណឹង​ដែលបង្ហាញ​អំពីដំណើរការ​នៃការទាញយកឯកសារ"</string>
+    <string name="cancel_pending_downloads" msgid="5008679442917702269">"បាន​បោះបង់​ការ​ទាញ​យក"</string>
+    <string name="file_too_large_cancel_download" msgid="6566664838386301681">"ឯកសារ​មាន​ទំហំ​ធំ​ពេក​ ដូច្នេះការទាញយកត្រូវបានបោះបង់។"</string>
 </resources>

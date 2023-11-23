@@ -56,7 +56,7 @@ android_test {
     defaults: ["CtsTetheringTestDefaults"],
 
     min_sdk_version: "30",
-    target_sdk_version: "30",
+    target_sdk_version: "33",
 
     static_libs: [
         "TetheringIntegrationTestsLatestSdkLib",
@@ -71,6 +71,7 @@ android_test {
 
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
+    jarjar_rules: ":NetworkStackJarJarRules",
 }
 
 // Tethering CTS tests for development and release. These tests always target the platform SDK
@@ -95,4 +96,5 @@ android_test {
 
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
+    jarjar_rules: ":NetworkStackJarJarRules",
 }

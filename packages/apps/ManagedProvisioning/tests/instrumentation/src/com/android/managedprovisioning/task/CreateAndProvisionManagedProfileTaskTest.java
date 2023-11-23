@@ -22,12 +22,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.admin.DevicePolicyManager;
+import android.app.admin.ProvisioningException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.res.Resources;
@@ -38,8 +40,6 @@ import androidx.test.filters.SmallTest;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.task.interactacrossprofiles.CrossProfileAppsSnapshot;
-import com.android.managedprovisioning.task.nonrequiredapps.SystemAppsSnapshot;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -64,20 +64,16 @@ public class CreateAndProvisionManagedProfileTaskTest {
             .setDeviceAdminComponentName(ADMIN)
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .build();
-    private static final ProvisioningParams LEAVE_SYSTEM_APPS_PARAMS =
-            new ProvisioningParams.Builder()
-                    .setDeviceAdminComponentName(ADMIN)
-                    .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
-                    .setLeaveAllSystemAppsEnabled(true)
-                    .build();
 
     @Mock private Context mContext;
     @Mock private DevicePolicyManager mDevicePolicyManager;
-    @Mock private CrossProfileAppsSnapshot mCrossProfileAppsSnapshot;
-    @Mock private SystemAppsSnapshot mSystemAppsSnapshot;
     @Mock private AbstractProvisioningTask.Callback mCallback;
     @Mock private Utils mUtils;
     @Mock private Resources mResources;
+
+    private static final String TEST_ERROR_MESSAGE = "test error message";
+    private static final ProvisioningException PROVISIONING_EXCEPTION = new ProvisioningException(
+            new Exception(), /* provisioningError= */ 0, TEST_ERROR_MESSAGE);
 
     @Before
     public void setUp() throws Exception {
@@ -103,8 +99,6 @@ public class CreateAndProvisionManagedProfileTaskTest {
         assertThat(task.getProfileUserId()).isEqualTo(TEST_USER_ID);
         verify(mCallback).onSuccess(task);
         verifyNoMoreInteractions(mCallback);
-        verify(mSystemAppsSnapshot).takeNewSnapshot(TEST_USER_ID);
-        verify(mCrossProfileAppsSnapshot).takeNewSnapshot(TEST_PARENT_USER_ID);
     }
 
     @Test
@@ -115,34 +109,26 @@ public class CreateAndProvisionManagedProfileTaskTest {
 
         task.run(TEST_PARENT_USER_ID);
 
-        verify(mCallback).onError(task, 0);
+        verify(mCallback).onError(task, 0, /* errorMessage= */ null);
         verifyNoMoreInteractions(mCallback);
-        verifyNoMoreInteractions(mSystemAppsSnapshot);
-        verifyNoMoreInteractions(mCrossProfileAppsSnapshot);
     }
 
     @Test
-    public void testLeaveSystemAppsEnabled() throws Exception {
-        CreateAndProvisionManagedProfileTask task = createProvisioningTask(
-                LEAVE_SYSTEM_APPS_PARAMS);
-        when(mDevicePolicyManager.createAndProvisionManagedProfile(any()))
-                .thenReturn(new UserHandle(TEST_USER_ID));
+    public void testTextError() throws Exception {
+        CreateAndProvisionManagedProfileTask task = createProvisioningTask(TEST_PARAMS);
+        doThrow(PROVISIONING_EXCEPTION)
+                .when(mDevicePolicyManager).createAndProvisionManagedProfile(any());
 
         task.run(TEST_PARENT_USER_ID);
 
-        assertThat(task.getProfileUserId()).isEqualTo(TEST_USER_ID);
-        verify(mCallback).onSuccess(task);
+        verify(mCallback).onError(task, 0, TEST_ERROR_MESSAGE);
         verifyNoMoreInteractions(mCallback);
-        verifyNoMoreInteractions(mSystemAppsSnapshot);
-        verify(mCrossProfileAppsSnapshot).takeNewSnapshot(TEST_PARENT_USER_ID);
     }
 
     private CreateAndProvisionManagedProfileTask createProvisioningTask(ProvisioningParams params) {
         return new CreateAndProvisionManagedProfileTask(
                 mUtils,
                 mContext,
-                mSystemAppsSnapshot,
-                mCrossProfileAppsSnapshot,
                 params,
                 mCallback,
                 mock(ProvisioningAnalyticsTracker.class));

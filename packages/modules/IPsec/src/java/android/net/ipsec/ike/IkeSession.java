@@ -295,6 +295,10 @@ public final class IkeSession implements AutoCloseable {
      *       IkeSessionParams.Builder#setConfiguredNetwork(Network)}.
      * </ul>
      *
+     * <p>As MOBIKE support is negotiated, callers are advised to check for MOBIKE support in {@link
+     * IkeSessionConfiguration} before calling this method. Failure to do so may cause this call to
+     * be ignored.
+     *
      * @see <a href="https://tools.ietf.org/html/rfc4555">RFC 4555, IKEv2 Mobility and Multihoming
      *     Protocol (MOBIKE)</a>
      * @param network the Network to use for this IkeSession

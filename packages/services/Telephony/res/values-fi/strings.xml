@@ -637,14 +637,8 @@
     <string name="phone_in_ecm_notification_title" msgid="6825016389926367946">"Hätäpuhelujen takaisinsoittotila"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Verkkoyhteys pois käytöstä"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Datayhteyden voi muodostaa vasta <xliff:g id="COMPLETETIME">%s</xliff:g>."</string>
-    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">Puhelin siirtyy hätäpuhelujen takaisinsoittotilaan <xliff:g id="COUNT_1">%s</xliff:g> minuutin ajaksi. Et voi käyttää verkkoyhteyttä hyödyntäviä sovelluksia tänä aikana. Haluatko poistua nyt?</item>
-      <item quantity="one">Puhelin siirtyy hätäpuhelujen takaisinsoittotilaan <xliff:g id="COUNT_0">%s</xliff:g> minuutin ajaksi. Et voi käyttää verkkoyhteyttä hyödyntäviä sovelluksia tänä aikana. Haluatko poistua nyt?</item>
-    </plurals>
-    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
-      <item quantity="other">Valittua toimintoa ei voi käyttää, kun puhelin on hätäpuhelujen takaisinsoittotilassa. Puhelin on takaisinsoittotilassa <xliff:g id="COUNT_1">%s</xliff:g> minuutin ajan. Haluatko poistua nyt?</item>
-      <item quantity="one">Valittua toimintoa ei voi käyttää, kun puhelin on hätäpuhelujen takaisinsoittotilassa. Puhelin on takaisinsoittotilassa <xliff:g id="COUNT_0">%s</xliff:g> minuutin ajan. Haluatko poistua nyt?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm" msgid="7661603870224398025">"{count,plural, =1{Puhelin on hätäpuhelujen takaisinsoittotilassa yhden minuutin ajan. Tässä tilassa datayhteyttä hyödyntäviä sovelluksia ei voi käyttää. Haluatko lopettaa nyt?}other{Puhelin on hätäpuhelujen takaisinsoittotilassa %s minuutin ajan. Tässä tilassa datayhteyttä hyödyntäviä sovelluksia ei voi käyttää. Haluatko lopettaa nyt?}}"</string>
+    <string name="alert_dialog_not_avaialble_in_ecm" msgid="8717711120099503279">"{count,plural, =1{Valittu toiminto ei ole käytettävissä hätäpuhelujen takaisinsoittotilassa. Puhelin pysyy tässä tilassa yhden minuutin ajan. Haluatko lopettaa nyt?}other{Valittu toiminto ei ole käytettävissä hätäpuhelujen takaisinsoittotilassa. Puhelin pysyy tässä tilassa %s minuutin ajan. Haluatko lopettaa nyt?}}"</string>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"Valittu toiminto ei ole käytettävissä hätäpuhelun aikana"</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Poistutaan hätäpuhelujen takaisinsoittotilasta"</string>
     <string name="alert_dialog_yes" msgid="3532525979632841417">"Kyllä"</string>
@@ -652,10 +646,7 @@
     <string name="alert_dialog_dismiss" msgid="1336356286354517054">"Hylkää"</string>
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Puhelin on hätäpuhelujen takaisinsoittotilassa."</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"<xliff:g id="COMPLETETIME">%s</xliff:g> asti"</string>
-    <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
-      <item quantity="other">Puhelin on hätäpuhelujen takaisinsoittotilassa <xliff:g id="COUNT_1">%s</xliff:g> minuutin ajan.\nHaluatko poistua nyt?</item>
-      <item quantity="one">Puhelin on hätäpuhelujen takaisinsoittotilassa <xliff:g id="COUNT_0">%s</xliff:g> minuutin ajan.\nHaluatko poistua nyt?</item>
-    </plurals>
+    <string name="alert_dialog_exit_ecm_without_data_restriction_hint" msgid="7549850847524907932">"{count,plural, =1{Puhelin on hätäpuhelujen takaisinsoittotilassa yhden minuutin ajan.\nHaluatko lopettaa nyt?}other{Puhelin on hätäpuhelujen takaisinsoittotilassa %s minuutin ajan.\nHaluatko lopettaa nyt?}}"</string>
     <string name="voicemail_provider" msgid="4158806657253745294">"Palveluntarjoaja"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Asetukset"</string>
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;Ei asetettu&gt;"</string>
@@ -683,7 +674,6 @@
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Esteettömyys"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi-puhelu henkilöltä"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi-puhelu"</string>
-    <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Avaa koskettamalla uudelleen."</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Virhe purettaessa viestiä."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM-kortti on aktivoinut palvelusi ja päivittänyt puhelimesi roaming-toiminnot."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Aktiivisia puheluja on liian monta. Lopeta puheluita tai yhdistä niitä ennen uuden puhelun aloittamista."</string>
@@ -827,7 +817,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Puhelua ei voida soittaa, koska toisen lähtevän puhelun soittaminen on kesken."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"Puhelua ei voida soittaa, koska saapuvaan puheluun ei ole vielä vastattu. Vastaa saapuvaan puheluun tai hylkää se, ennen kuin soitat uuden puhelun."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"Puhelua ei voida soittaa, koska soittaminen on poistettu käytöstä ro.telephony.disable-call-järjestelmätoiminnolla."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"Puhelua ei voida soittaa, koska kaksi puhelua on jo käynnissä. Katkaise toinen puheluista tai yhdistä puhelut puhelinneuvotteluksi ennen uuden puhelun soittamista."</string>
+    <string name="callFailed_too_many_calls" msgid="2761754044990799580">"Puhelua ei voida soittaa, koska kaksi puhelua on jo käynnissä. Katkaise toinen puheluista tai yhdistä puhelut neuvotteluksi ennen uuden puhelun soittamista."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> toimii, jos mobiilidata on käytössä. Voit ottaa mobiilidatan käyttöön mobiiliverkkoasetuksista."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> toimii, jos mobiilidata ja roaming ovat käytössä. Voit ottaa ne käyttöön mobiiliverkkoasetuksista."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> toimii, jos mobiilidata on käytössä SIM-kortilla <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Voit ottaa mobiilidatan käyttöön mobiiliverkkoasetuksista."</string>
@@ -845,6 +835,7 @@
     <string name="dsds_dialog_message" msgid="4047480385678538850">"Laite on käynnistettävä uudelleen asetuksen muuttamiseksi."</string>
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"Käynnistä uudelleen"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Peru"</string>
+    <string name="removable_esim_string" msgid="7931369811671787649">"Aseta poistettava eSIM oletukseksi"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Mobiiliradion voimakkuus"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"Näytä SIM-kortin osoitekirja"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Näytä sallitut numerot"</string>
@@ -899,6 +890,7 @@
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"Valitse radiotaajuus"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Äänipuhelujen verkon tyyppi:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Tietoverkon tyyppi:"</string>
+    <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Ohita verkon tyyppi:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Valitse puhelimen hakemisto"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Aseta ensisijainen verkon tyyppi:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"Ping-kutsu isäntänimelle (www.google.com), IPv4:"</string>
@@ -910,10 +902,10 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Päivitä"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Ota DNS-tarkistus käyttöön tai poista se käytöstä"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-kohtaiset tiedot/asetukset"</string>
-    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC saatavilla:"</string>
-    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR rajoitettu:"</string>
-    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR saatavilla:"</string>
-    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR:n tila:"</string>
+    <string name="radio_info_endc_available" msgid="2983767110681230019">"EN-DC saatavana (NSA):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="7147511536420148173">"DCNR rajoitettu (NSA):"</string>
+    <string name="radio_info_nr_available" msgid="3383388088451237182">"NR saatavana (NSA):"</string>
+    <string name="radio_info_nr_state" msgid="4158805093187555149">"NR:n tila (NSA):"</string>
     <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR:n taajuus:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Radion taajuustilan valinta"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Ladataan taajuusluetteloa…"</string>

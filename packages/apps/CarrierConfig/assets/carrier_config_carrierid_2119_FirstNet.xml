@@ -29,5 +29,4 @@
         <item value="#8"/>
         <item value="#9"/>
     </string-array>
-    <boolean name="use_lower_mtu_value_if_both_received" value="true" />
 </carrier_config>

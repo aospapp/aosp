@@ -18,6 +18,9 @@ package com.android.server.wifi.scanner;
 
 import static com.android.server.wifi.ScanTestUtil.setupMockChannels;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
@@ -36,6 +39,8 @@ public class HalWifiScannerTest extends BaseWifiScannerImplTest {
                 new int[]{5600, 5650},
                 new int[]{5945, 5985},
                 new int[]{58320, 60480});
+        when(mWifiNative.getMaxSsidsPerScan(anyString())).thenReturn(
+                WificondScannerTest.MAX_NUM_SCAN_SSIDS + 1);
         mScanner = new HalWifiScannerImpl(mContext, BaseWifiScannerImplTest.IFACE_NAME,
                 mWifiNative, mWifiMonitor, mLooper.getLooper(), mClock);
     }

@@ -93,3 +93,4 @@ public class CarInputManagerPermisisonTest {
                 "Injecting KeyEvent requires INJECT_EVENTS permission");
     }
 }
+

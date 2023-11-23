@@ -18,6 +18,8 @@
 
 #include "BundleWrapper.h"
 
+#include <android-base/logging.h>
+
 #include <sstream>
 #include <string>
 #include <utility>
@@ -43,15 +45,21 @@ enum LuaNumReturnedResults {
     ZERO_RETURNED_RESULTS = 0,
 };
 
+// Prefix for logging messages coming from lua script.
+const char kLuaLogTag[] = "LUA: ";
+
 // TODO(b/199415783): Revisit the topic of limits to potentially move it to standalone file.
 constexpr int MAX_ARRAY_SIZE = 1000;
 
 // Helper method that goes over Lua table fields one by one and populates PersistableBundle
 // object wrapped in BundleWrapper.
-// It is assumed that Lua table is located on top of the Lua stack.
+// It is assumed that Lua table is located on top of the Lua stack. There could be other
+// items in the stack, this function will not touch them.
 //
 // Returns false if the conversion encountered unrecoverable error.
 // Otherwise, returns true for success.
+//
+// If the function succeeds, the stack should be unchanged.
 // In case of an error, there is no need to pop elements or clean the stack. When Lua calls C,
 // the stack used to pass data between Lua and C is private for each call. According to
 // https://www.lua.org/pil/26.1.html, after C function returns back to Lua, Lua
@@ -62,8 +70,8 @@ Result<void> convertLuaTableToBundle(lua_State* lua, BundleWrapper* bundleWrappe
     // lua_next call pops the key from the top of the stack and finds the next
     // key-value pair. It returns 0 if the next pair was not found.
     // More on lua_next in: https://www.lua.org/manual/5.3/manual.html#lua_next
-    lua_pushnil(lua);  // First key is a null value.
-    while (lua_next(lua, /* index = */ -2) != 0) {
+    lua_pushnil(lua);  // First key is a null value, at index -1
+    while (lua_next(lua, /* table index = */ -2) != 0) {
         //  'key' is at index -2 and 'value' is at index -1
         // -1 index is the top of the stack.
         // remove 'value' and keep 'key' for next iteration
@@ -228,18 +236,22 @@ int LuaEngine::loadScript(const char* scriptBody) {
         // ~20 elements and its critical function because all interaction with
         // Lua happens via the stack.
         // Starting read about Lua stack: https://www.lua.org/pil/24.2.html
+        const char* error = lua_tostring(mLuaState, -1);
         lua_pop(mLuaState, 1);
         std::ostringstream out;
         out << "Error encountered while loading the script. A possible cause could be syntax "
-               "errors in the script.";
+               "errors in the script. Error: "
+            << error;
         sListener->onError(ERROR_TYPE_LUA_RUNTIME_ERROR, out.str().c_str(), "");
         return status;
     }
 
     // Register limited set of reserved methods for Lua to call native side.
+    lua_register(mLuaState, "log", LuaEngine::scriptLog);
     lua_register(mLuaState, "on_success", LuaEngine::onSuccess);
     lua_register(mLuaState, "on_script_finished", LuaEngine::onScriptFinished);
     lua_register(mLuaState, "on_error", LuaEngine::onError);
+    lua_register(mLuaState, "on_metrics_report", LuaEngine::onMetricsReport);
     return status;
 }
 
@@ -268,13 +280,26 @@ int LuaEngine::run() {
     // Doc on lua_pcall: https://www.lua.org/manual/5.3/manual.html#lua_pcall
     int status = lua_pcall(mLuaState, /* nargs= */ 2, /* nresults= */ 0, /*errfunc= */ 0);
     if (status) {
+        const char* error = lua_tostring(mLuaState, -1);
         lua_pop(mLuaState, 1);  // pop the error object from the stack.
         std::ostringstream out;
         out << "Error encountered while running the script. The returned error code=" << status
-            << ". Refer to lua.h file of Lua C API library for error code definitions.";
+            << ". Refer to lua.h file of Lua C API library for error code definitions. Error: "
+            << error;
         sListener->onError(ERROR_TYPE_LUA_RUNTIME_ERROR, out.str().c_str(), "");
     }
     return status;
+}
+
+int LuaEngine::scriptLog(lua_State* lua) {
+    const auto n = lua_gettop(lua);
+    // Loop through each argument, Lua table indices range from [1 .. N] instead of [0 .. N-1].
+    // Negative indexes are stack positions and positive indexes are argument positions.
+    for (int i = 1; i <= n; i++) {
+        const char* message = lua_tostring(lua, i);
+        LOG(INFO) << kLuaLogTag << message;
+    }
+    return ZERO_RETURNED_RESULTS;
 }
 
 int LuaEngine::onSuccess(lua_State* lua) {
@@ -341,6 +366,73 @@ int LuaEngine::onError(lua_State* lua) {
     }
     sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, lua_tostring(lua, /* index = */ -1),
                        /* stackTrace =*/"");
+    return ZERO_RETURNED_RESULTS;
+}
+
+int LuaEngine::onMetricsReport(lua_State* lua) {
+    // Any script we run can call on_metrics_report with at most 2 arguments of Lua table type.
+    if (lua_gettop(lua) > 2 || !lua_istable(lua, /* index =*/-1)) {
+        sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR,
+                           "on_metrics_report should push 1 to 2 parameters of Lua table type. "
+                           "The first table is a metrics report and the second is an optional "
+                           "state to save",
+                           "");
+        return ZERO_RETURNED_RESULTS;
+    }
+
+    // stack with 2 items:                      stack with 1 item:
+    //     index -1: state_to_persist               index -1: report
+    //     index -2: report
+    // If the stack has 2 items, top of the stack is the state.
+    // If the stack only has one item, top of the stack is the report.
+
+    // Process the top of the stack. Create helper object and populate Java PersistableBundle
+    // object.
+    BundleWrapper topBundleWrapper(sListener->getCurrentJNIEnv());
+    // If the helper function succeeds, it should not change the stack
+    const auto status = convertLuaTableToBundle(lua, &topBundleWrapper);
+    if (!status.ok()) {
+        sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, status.error().message().c_str(), "");
+        // We explicitly must tell Lua how many results we return, which is 0 in this case.
+        // More on the topic: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
+        return ZERO_RETURNED_RESULTS;
+    }
+
+    // If the script provided 1 argument, return now
+    if (lua_gettop(lua) == 1) {
+        sListener->onMetricsReport(topBundleWrapper.getBundle(), nullptr);
+        return ZERO_RETURNED_RESULTS;
+    }
+
+    // Otherwise the script provided a report and a state
+    // pop the state_to_persist because it has already been processed in topBundleWrapper
+    lua_pop(lua, 1);
+
+    // check that the second argument is also a table
+    if (!lua_istable(lua, /* index =*/-1)) {
+        sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR,
+                           "on_metrics_report should push 1 to 2 parameters of Lua table type. "
+                           "The first table is a metrics report and the second is an optional "
+                           "state to save",
+                           "");
+        return ZERO_RETURNED_RESULTS;
+    }
+
+    // process the report
+    BundleWrapper bottomBundleWrapper(sListener->getCurrentJNIEnv());
+    const auto statusBottom = convertLuaTableToBundle(lua, &bottomBundleWrapper);
+    if (!statusBottom.ok()) {
+        sListener->onError(ERROR_TYPE_LUA_SCRIPT_ERROR, statusBottom.error().message().c_str(), "");
+        // We explicitly must tell Lua how many results we return, which is 0 in this case.
+        // More on the topic: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
+        return ZERO_RETURNED_RESULTS;
+    }
+
+    // Top of the stack = state, bottom of the stack = report
+    sListener->onMetricsReport(bottomBundleWrapper.getBundle(), topBundleWrapper.getBundle());
+
+    // We explicitly must tell Lua how many results we return, which is 0 in this case.
+    // More on the topic: https://www.lua.org/manual/5.3/manual.html#lua_CFunction
     return ZERO_RETURNED_RESULTS;
 }
 

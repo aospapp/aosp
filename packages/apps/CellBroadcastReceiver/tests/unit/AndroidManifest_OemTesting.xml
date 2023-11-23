@@ -40,7 +40,7 @@
         android:targetPackage="com.android.cellbroadcastreceiver.tests.unit"
         android:label="CellBroadcastReceiver OEM Unit Test Cases">
     </instrumentation>
-    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="33" />
 
 </manifest>
 

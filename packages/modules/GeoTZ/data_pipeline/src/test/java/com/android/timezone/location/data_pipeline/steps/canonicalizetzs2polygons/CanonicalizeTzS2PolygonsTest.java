@@ -19,8 +19,10 @@ package com.android.timezone.location.data_pipeline.steps.canonicalizetzs2polygo
 import static com.android.timezone.location.data_pipeline.steps.TestSupport.copyTestResource;
 import static com.android.timezone.location.data_pipeline.steps.TestSupport.copyTestResourceWithoutLicense;
 import static com.android.timezone.location.data_pipeline.steps.Types.DEFAULT_PROTO_STORAGE_FORMAT;
-import static java.time.ZoneOffset.UTC;
+
 import static org.junit.Assert.assertEquals;
+
+import static java.time.ZoneOffset.UTC;
 
 import com.android.timezone.location.data_pipeline.steps.CanonicalizeTzS2Polygons;
 import com.android.timezone.location.data_pipeline.steps.TestSupport;

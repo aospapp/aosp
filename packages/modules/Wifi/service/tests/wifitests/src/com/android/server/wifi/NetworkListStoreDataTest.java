@@ -21,21 +21,29 @@ import static android.os.Process.SYSTEM_UID;
 import static com.android.server.wifi.WifiConfigurationTestUtil.TEST_EAP_PASSWORD;
 import static com.android.server.wifi.WifiConfigurationTestUtil.TEST_IDENTITY;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.MacAddress;
+import android.net.wifi.SecurityParams;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.util.ScanResultUtil;
 import android.util.Xml;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.modules.utils.build.SdkLevel;
-import com.android.server.wifi.util.ScanResultUtil;
 import com.android.server.wifi.util.WifiConfigStoreEncryptionUtil;
 import com.android.server.wifi.util.XmlUtilTest;
 
@@ -86,6 +94,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
                     + "<int name=\"DeletionPriority\" value=\"0\" />\n"
                     + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"0\" />\n"
@@ -101,6 +110,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "</SecurityParams>\n"
                     + "</SecurityParamsList>\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
+                    + "<boolean name=\"IsRestricted\" value=\"false\" />\n"
                     + "<boolean name=\"OemPaid\" value=\"false\" />\n"
                     + "<boolean name=\"OemPrivate\" value=\"false\" />\n"
                     + "<boolean name=\"CarrierMerged\" value=\"false\" />\n"
@@ -127,6 +137,10 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<int name=\"CarrierId\" value=\"-1\" />\n"
                     + "<boolean name=\"IsMostRecentlyConnected\" value=\"false\" />\n"
                     + "<int name=\"SubscriptionId\" value=\"-1\" />\n"
+                    + "<byte-array name=\"DppPrivateEcKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppConnector\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppCSignKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppNetAccessKey\" num=\"0\"></byte-array>\n"
                     + "</WifiConfiguration>\n"
                     + "<NetworkStatus>\n"
                     + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -163,6 +177,195 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
                     + "<int name=\"DeletionPriority\" value=\"0\" />\n"
                     + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
+                    + "<SecurityParamsList>\n"
+                    + "<SecurityParams>\n"
+                    + "<int name=\"SecurityType\" value=\"3\" />\n"
+                    + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "</SecurityParams>\n"
+                    + "<SecurityParams>\n"
+                    + "<int name=\"SecurityType\" value=\"9\" />\n"
+                    + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"true\" />\n"
+                    + "</SecurityParams>\n"
+                    + "</SecurityParamsList>\n"
+                    + "<boolean name=\"Trusted\" value=\"true\" />\n"
+                    + "<boolean name=\"IsRestricted\" value=\"false\" />\n"
+                    + "<boolean name=\"OemPaid\" value=\"false\" />\n"
+                    + "<boolean name=\"OemPrivate\" value=\"false\" />\n"
+                    + "<boolean name=\"CarrierMerged\" value=\"false\" />\n"
+                    + "<null name=\"BSSID\" />\n"
+                    + "<int name=\"Status\" value=\"2\" />\n"
+                    + "<null name=\"FQDN\" />\n"
+                    + "<null name=\"ProviderFriendlyName\" />\n"
+                    + "<null name=\"LinkedNetworksList\" />\n"
+                    + "<null name=\"DefaultGwMacAddress\" />\n"
+                    + "<boolean name=\"ValidatedInternetAccess\" value=\"false\" />\n"
+                    + "<boolean name=\"NoInternetAccessExpected\" value=\"false\" />\n"
+                    + "<boolean name=\"MeteredHint\" value=\"false\" />\n"
+                    + "<int name=\"MeteredOverride\" value=\"0\" />\n"
+                    + "<boolean name=\"UseExternalScores\" value=\"false\" />\n"
+                    + "<int name=\"CreatorUid\" value=\"%d\" />\n"
+                    + "<string name=\"CreatorName\">%s</string>\n"
+                    + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
+                    + "<null name=\"LastUpdateName\" />\n"
+                    + "<int name=\"LastConnectUid\" value=\"0\" />\n"
+                    + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
+                    + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
+                    + "<string name=\"RandomizedMacAddress\">%s</string>\n"
+                    + "<int name=\"MacRandomizationSetting\" value=\"3\" />\n"
+                    + "<int name=\"CarrierId\" value=\"-1\" />\n"
+                    + "<boolean name=\"IsMostRecentlyConnected\" value=\"false\" />\n"
+                    + "<int name=\"SubscriptionId\" value=\"-1\" />\n"
+                    + "<byte-array name=\"DppPrivateEcKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppConnector\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppCSignKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppNetAccessKey\" num=\"0\"></byte-array>\n"
+                    + "</WifiConfiguration>\n"
+                    + "<NetworkStatus>\n"
+                    + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
+                    + "<string name=\"DisableReason\">NETWORK_SELECTION_ENABLE</string>\n"
+                    + "<null name=\"ConnectChoice\" />\n"
+                    + "<int name=\"ConnectChoiceRssi\" value=\"0\" />\n"
+                    + "<boolean name=\"HasEverConnected\" value=\"false\" />\n"
+                    + "<boolean name=\"CaptivePortalNeverDetected\" value=\"true\" />\n"
+                    + "</NetworkStatus>\n"
+                    + "<IpConfiguration>\n"
+                    + "<string name=\"IpAssignment\">DHCP</string>\n"
+                    + "<string name=\"ProxySettings\">NONE</string>\n"
+                    + "</IpConfiguration>\n"
+                    + "<WifiEnterpriseConfiguration>\n"
+                    + "<string name=\"Identity\">" + TEST_IDENTITY + "</string>\n"
+                    + "<string name=\"AnonIdentity\"></string>\n"
+                    + "<string name=\"Password\">" + TEST_EAP_PASSWORD + "</string>\n"
+                    + "<string name=\"ClientCert\"></string>\n"
+                    + "<string name=\"CaCert\"></string>\n"
+                    + "<string name=\"SubjectMatch\"></string>\n"
+                    + "<string name=\"Engine\"></string>\n"
+                    + "<string name=\"EngineId\"></string>\n"
+                    + "<string name=\"PrivateKeyId\"></string>\n"
+                    + "<string name=\"AltSubjectMatch\"></string>\n"
+                    + "<string name=\"DomSuffixMatch\">%s</string>\n"
+                    + "<string name=\"CaPath\">%s</string>\n"
+                    + "<int name=\"EapMethod\" value=\"2\" />\n"
+                    + "<int name=\"Phase2Method\" value=\"3\" />\n"
+                    + "<string name=\"PLMN\"></string>\n"
+                    + "<string name=\"Realm\"></string>\n"
+                    + "<int name=\"Ocsp\" value=\"0\" />\n"
+                    + "<string name=\"WapiCertSuite\"></string>\n"
+                    + "<boolean name=\"AppInstalledRootCaCert\" value=\"false\" />\n"
+                    + "<boolean name=\"AppInstalledPrivateKey\" value=\"false\" />\n"
+                    + "<null name=\"KeyChainAlias\" />\n"
+                    + (SdkLevel.isAtLeastS()
+                    ? "<null name=\"DecoratedIdentityPrefix\" />\n" : "")
+                    + "<boolean name=\"TrustOnFirstUse\" value=\"false\" />\n"
+                    + "<boolean name=\"UserApproveNoCaCert\" value=\"false\" />\n"
+                    + "</WifiEnterpriseConfiguration>\n"
+                    + "</Network>\n";;
+
+    private static final String SINGLE_SAE_NETWORK_DATA_XML_STRING_FORMAT =
+            "<Network>\n"
+                    + "<WifiConfiguration>\n"
+                    + "<string name=\"ConfigKey\">%s</string>\n"
+                    + "<string name=\"SSID\">%s</string>\n"
+                    + "<string name=\"PreSharedKey\">&quot;WifiConfigurationTestUtilPsk&quot;"
+                    + "</string>\n"
+                    + "<null name=\"WEPKeys\" />\n"
+                    + "<int name=\"WEPTxKeyIndex\" value=\"0\" />\n"
+                    + "<boolean name=\"HiddenSSID\" value=\"false\" />\n"
+                    + "<boolean name=\"RequirePMF\" value=\"true\" />\n"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"2\">0001</byte-array>\n"
+                    + "<byte-array name=\"AllowedProtocols\" num=\"1\">02</byte-array>\n"
+                    + "<byte-array name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">a8</byte-array>\n"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">2c</byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupMgmtCiphers\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
+                    + "<boolean name=\"Shared\" value=\"%s\" />\n"
+                    + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
+                    + "<int name=\"DeletionPriority\" value=\"0\" />\n"
+                    + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
+                    + "<SecurityParamsList>\n"
+                    + "<SecurityParams>\n"
+                    + "<int name=\"SecurityType\" value=\"4\" />\n"
+                    + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
+                    + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
+                    + "</SecurityParams>\n"
+                    + "</SecurityParamsList>\n"
+                    + "<boolean name=\"Trusted\" value=\"true\" />\n"
+                    + "<boolean name=\"IsRestricted\" value=\"false\" />\n"
+                    + "<boolean name=\"OemPaid\" value=\"false\" />\n"
+                    + "<boolean name=\"OemPrivate\" value=\"false\" />\n"
+                    + "<boolean name=\"CarrierMerged\" value=\"false\" />\n"
+                    + "<null name=\"BSSID\" />\n"
+                    + "<int name=\"Status\" value=\"2\" />\n"
+                    + "<null name=\"FQDN\" />\n"
+                    + "<null name=\"ProviderFriendlyName\" />\n"
+                    + "<null name=\"LinkedNetworksList\" />\n"
+                    + "<null name=\"DefaultGwMacAddress\" />\n"
+                    + "<boolean name=\"ValidatedInternetAccess\" value=\"false\" />\n"
+                    + "<boolean name=\"NoInternetAccessExpected\" value=\"false\" />\n"
+                    + "<boolean name=\"MeteredHint\" value=\"false\" />\n"
+                    + "<int name=\"MeteredOverride\" value=\"0\" />\n"
+                    + "<boolean name=\"UseExternalScores\" value=\"false\" />\n"
+                    + "<int name=\"CreatorUid\" value=\"%d\" />\n"
+                    + "<string name=\"CreatorName\">%s</string>\n"
+                    + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
+                    + "<null name=\"LastUpdateName\" />\n"
+                    + "<int name=\"LastConnectUid\" value=\"0\" />\n"
+                    + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
+                    + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
+                    + "<string name=\"RandomizedMacAddress\">%s</string>\n"
+                    + "<int name=\"MacRandomizationSetting\" value=\"3\" />\n"
+                    + "<int name=\"CarrierId\" value=\"-1\" />\n"
+                    + "<boolean name=\"IsMostRecentlyConnected\" value=\"false\" />\n"
+                    + "<int name=\"SubscriptionId\" value=\"-1\" />\n"
+                    + "<byte-array name=\"DppPrivateEcKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppConnector\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppCSignKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppNetAccessKey\" num=\"0\"></byte-array>\n"
+                    + "</WifiConfiguration>\n"
+                    + "<NetworkStatus>\n"
+                    + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
+                    + "<string name=\"DisableReason\">NETWORK_SELECTION_ENABLE</string>\n"
+                    + "<null name=\"ConnectChoice\" />\n"
+                    + "<int name=\"ConnectChoiceRssi\" value=\"0\" />\n"
+                    + "<boolean name=\"HasEverConnected\" value=\"false\" />\n"
+                    + "<boolean name=\"CaptivePortalNeverDetected\" value=\"true\" />\n"
+                    + "</NetworkStatus>\n"
+                    + "<IpConfiguration>\n"
+                    + "<string name=\"IpAssignment\">DHCP</string>\n"
+                    + "<string name=\"ProxySettings\">NONE</string>\n"
+                    + "</IpConfiguration>\n"
+                    + "</Network>\n";
+
+    private static final String SINGLE_LEGACY_WPA3_EAP_NETWORK_DATA_XML_STRING_FORMAT =
+            "<Network>\n"
+                    + "<WifiConfiguration>\n"
+                    + "<string name=\"ConfigKey\">%s</string>\n"
+                    + "<string name=\"SSID\">%s</string>\n"
+                    + "<null name=\"PreSharedKey\" />\n"
+                    + "<null name=\"WEPKeys\" />\n"
+                    + "<int name=\"WEPTxKeyIndex\" value=\"0\" />\n"
+                    + "<boolean name=\"HiddenSSID\" value=\"false\" />\n"
+                    + "<boolean name=\"RequirePMF\" value=\"false\" />\n"
+                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"1\">0c</byte-array>\n"
+                    + "<byte-array name=\"AllowedProtocols\" num=\"1\">03</byte-array>\n"
+                    + "<byte-array name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">28</byte-array>\n"
+                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">0c</byte-array>\n"
+                    + "<byte-array name=\"AllowedGroupMgmtCiphers\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
+                    + "<boolean name=\"Shared\" value=\"%s\" />\n"
+                    + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
+                    + "<int name=\"DeletionPriority\" value=\"0\" />\n"
+                    + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
                     + "<SecurityParamsList>\n"
                     + "<SecurityParams>\n"
                     + "<int name=\"SecurityType\" value=\"3\" />\n"
@@ -204,6 +407,10 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<int name=\"CarrierId\" value=\"-1\" />\n"
                     + "<boolean name=\"IsMostRecentlyConnected\" value=\"false\" />\n"
                     + "<int name=\"SubscriptionId\" value=\"-1\" />\n"
+                    + "<byte-array name=\"DppPrivateEcKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppConnector\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppCSignKey\" num=\"0\"></byte-array>\n"
+                    + "<byte-array name=\"DppNetAccessKey\" num=\"0\"></byte-array>\n"
                     + "</WifiConfiguration>\n"
                     + "<NetworkStatus>\n"
                     + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
@@ -241,80 +448,10 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<null name=\"KeyChainAlias\" />\n"
                     + (SdkLevel.isAtLeastS()
                     ? "<null name=\"DecoratedIdentityPrefix\" />\n" : "")
+                    + "<boolean name=\"TrustOnFirstUse\" value=\"false\" />\n"
+                    + "<boolean name=\"UserApproveNoCaCert\" value=\"false\" />\n"
                     + "</WifiEnterpriseConfiguration>\n"
                     + "</Network>\n";;
-
-    private static final String SINGLE_SAE_NETWORK_DATA_XML_STRING_FORMAT =
-            "<Network>\n"
-                    + "<WifiConfiguration>\n"
-                    + "<string name=\"ConfigKey\">%s</string>\n"
-                    + "<string name=\"SSID\">%s</string>\n"
-                    + "<string name=\"PreSharedKey\">&quot;WifiConfigurationTestUtilPsk&quot;"
-                    + "</string>\n"
-                    + "<null name=\"WEPKeys\" />\n"
-                    + "<int name=\"WEPTxKeyIndex\" value=\"0\" />\n"
-                    + "<boolean name=\"HiddenSSID\" value=\"false\" />\n"
-                    + "<boolean name=\"RequirePMF\" value=\"true\" />\n"
-                    + "<byte-array name=\"AllowedKeyMgmt\" num=\"2\">0001</byte-array>\n"
-                    + "<byte-array name=\"AllowedProtocols\" num=\"1\">02</byte-array>\n"
-                    + "<byte-array name=\"AllowedAuthAlgos\" num=\"0\"></byte-array>\n"
-                    + "<byte-array name=\"AllowedGroupCiphers\" num=\"1\">a8</byte-array>\n"
-                    + "<byte-array name=\"AllowedPairwiseCiphers\" num=\"1\">2c</byte-array>\n"
-                    + "<byte-array name=\"AllowedGroupMgmtCiphers\" num=\"0\"></byte-array>\n"
-                    + "<byte-array name=\"AllowedSuiteBCiphers\" num=\"0\"></byte-array>\n"
-                    + "<boolean name=\"Shared\" value=\"%s\" />\n"
-                    + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
-                    + "<int name=\"DeletionPriority\" value=\"0\" />\n"
-                    + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
-                    + "<SecurityParamsList>\n"
-                    + "<SecurityParams>\n"
-                    + "<int name=\"SecurityType\" value=\"4\" />\n"
-                    + "<boolean name=\"SaeIsH2eOnlyMode\" value=\"false\" />\n"
-                    + "<boolean name=\"SaeIsPkOnlyMode\" value=\"false\" />\n"
-                    + "<boolean name=\"IsAddedByAutoUpgrade\" value=\"false\" />\n"
-                    + "</SecurityParams>\n"
-                    + "</SecurityParamsList>\n"
-                    + "<boolean name=\"Trusted\" value=\"true\" />\n"
-                    + "<boolean name=\"OemPaid\" value=\"false\" />\n"
-                    + "<boolean name=\"OemPrivate\" value=\"false\" />\n"
-                    + "<boolean name=\"CarrierMerged\" value=\"false\" />\n"
-                    + "<null name=\"BSSID\" />\n"
-                    + "<int name=\"Status\" value=\"2\" />\n"
-                    + "<null name=\"FQDN\" />\n"
-                    + "<null name=\"ProviderFriendlyName\" />\n"
-                    + "<null name=\"LinkedNetworksList\" />\n"
-                    + "<null name=\"DefaultGwMacAddress\" />\n"
-                    + "<boolean name=\"ValidatedInternetAccess\" value=\"false\" />\n"
-                    + "<boolean name=\"NoInternetAccessExpected\" value=\"false\" />\n"
-                    + "<boolean name=\"MeteredHint\" value=\"false\" />\n"
-                    + "<int name=\"MeteredOverride\" value=\"0\" />\n"
-                    + "<boolean name=\"UseExternalScores\" value=\"false\" />\n"
-                    + "<int name=\"CreatorUid\" value=\"%d\" />\n"
-                    + "<string name=\"CreatorName\">%s</string>\n"
-                    + "<int name=\"LastUpdateUid\" value=\"-1\" />\n"
-                    + "<null name=\"LastUpdateName\" />\n"
-                    + "<int name=\"LastConnectUid\" value=\"0\" />\n"
-                    + "<boolean name=\"IsLegacyPasspointConfig\" value=\"false\" />\n"
-                    + "<long-array name=\"RoamingConsortiumOIs\" num=\"0\" />\n"
-                    + "<string name=\"RandomizedMacAddress\">%s</string>\n"
-                    + "<int name=\"MacRandomizationSetting\" value=\"3\" />\n"
-                    + "<int name=\"CarrierId\" value=\"-1\" />\n"
-                    + "<boolean name=\"IsMostRecentlyConnected\" value=\"false\" />\n"
-                    + "<int name=\"SubscriptionId\" value=\"-1\" />\n"
-                    + "</WifiConfiguration>\n"
-                    + "<NetworkStatus>\n"
-                    + "<string name=\"SelectionStatus\">NETWORK_SELECTION_ENABLED</string>\n"
-                    + "<string name=\"DisableReason\">NETWORK_SELECTION_ENABLE</string>\n"
-                    + "<null name=\"ConnectChoice\" />\n"
-                    + "<int name=\"ConnectChoiceRssi\" value=\"0\" />\n"
-                    + "<boolean name=\"HasEverConnected\" value=\"false\" />\n"
-                    + "<boolean name=\"CaptivePortalNeverDetected\" value=\"true\" />\n"
-                    + "</NetworkStatus>\n"
-                    + "<IpConfiguration>\n"
-                    + "<string name=\"IpAssignment\">DHCP</string>\n"
-                    + "<string name=\"ProxySettings\">NONE</string>\n"
-                    + "</IpConfiguration>\n"
-                    + "</Network>\n";
 
     /**
      * Repro'es the scenario in b/153435438.
@@ -344,6 +481,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
                     + "<boolean name=\"AutoJoinEnabled\" value=\"true\" />\n"
                     + "<int name=\"DeletionPriority\" value=\"0\" />\n"
                     + "<int name=\"NumRebootsSinceLastUse\" value=\"0\" />\n"
+                    + "<boolean name=\"RepeaterEnabled\" value=\"false\" />\n"
                     + "<boolean name=\"Trusted\" value=\"true\" />\n"
                     + "<null name=\"BSSID\" />\n"
                     + "<int name=\"Status\" value=\"2\" />\n"
@@ -641,6 +779,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
      *
      * @throws Exception
      */
+    @Test
     public void parseNetworkWithMismatchConfigKey() throws Exception {
         WifiConfiguration openNetwork = WifiConfigurationTestUtil.createOpenNetwork();
         byte[] xmlData = String.format(SINGLE_OPEN_NETWORK_DATA_XML_STRING_FORMAT,
@@ -834,7 +973,7 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         List<WifiConfiguration> storedWIfiConfig = new ArrayList<>();
         for (int i = 1; i <= 1; i++) {
             WifiConfiguration network = WifiConfigurationTestUtil.createOpenNetwork(
-                    ScanResultUtil.createQuotedSSID(testSSID + (1 - i)));
+                    ScanResultUtil.createQuotedSsid(testSSID + (1 - i)));
             network.creatorName = TEST_CREATOR_NAME;
         }
         // Add to store data based on added order.
@@ -877,5 +1016,71 @@ public class NetworkListStoreDataTest extends WifiBaseTest {
         WifiConfiguration deserializedPskNetwork = deserializedNetworks.get(0);
         WifiConfigurationTestUtil.assertConfigurationEqualForConfigStore(
                 pskNetwork, deserializedPskNetwork);
+    }
+
+    @Test
+    public void testMalformedConfigKeyInTheXml() throws Exception {
+        WifiConfiguration wpa3EapNetwork = WifiConfigurationTestUtil.createEapNetwork();
+        wpa3EapNetwork.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+        wpa3EapNetwork.creatorName = TEST_CREATOR_NAME;
+        String malformedNetworkKey = "\"NotThisSsid\"TYPE";
+        byte[] xmlData = String.format(
+                SINGLE_LEGACY_WPA3_EAP_NETWORK_DATA_XML_STRING_FORMAT,
+                malformedNetworkKey.replaceAll("\"", "&quot;"),
+                wpa3EapNetwork.SSID.replaceAll("\"", "&quot;"),
+                wpa3EapNetwork.shared, wpa3EapNetwork.creatorUid,
+                wpa3EapNetwork.creatorName, wpa3EapNetwork.getRandomizedMacAddress(),
+                wpa3EapNetwork.enterpriseConfig.getDomainSuffixMatch(),
+                wpa3EapNetwork.enterpriseConfig.getCaPath())
+                .getBytes(StandardCharsets.UTF_8);
+        List<WifiConfiguration> deserializedNetworks = deserializeData(xmlData);
+        assertEquals(1, deserializedNetworks.size());
+
+        WifiConfiguration deserializedWpa3EapNetwork = deserializedNetworks.get(0);
+        assertEquals(wpa3EapNetwork.SSID, deserializedWpa3EapNetwork.SSID);
+        assertTrue(deserializedWpa3EapNetwork.isSecurityType(
+                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE));
+    }
+
+    @Test
+    public void testSerializeDeserializeWithSecurityUpdate() throws Exception {
+        WifiConfiguration pskConfig = WifiConfigurationTestUtil.createPskNetwork();
+        WifiConfiguration wpa2EapConfig = WifiConfigurationTestUtil
+                .createWpa2Wpa3EnterpriseNetwork();
+        wpa2EapConfig.setSecurityParams(SecurityParams
+                .createSecurityParamsBySecurityType(
+                        WifiConfiguration.SECURITY_TYPE_EAP));
+        WifiConfiguration openConfig = WifiConfigurationTestUtil.createOpenNetwork();
+
+        List<WifiConfiguration> expected = new ArrayList<>();
+        expected.add(pskConfig);
+        expected.add(wpa2EapConfig);
+        expected.add(openConfig);
+        mNetworkListSharedStoreData.setConfigurations(expected);
+        List<WifiConfiguration> retrieved = deserializeData(serializeData());
+        assertEquals(expected.size(), retrieved.size());
+        for (int i = 0; i < expected.size(); i++) {
+            verifyAutoUpgradeType(expected.get(i), retrieved.get(i));
+        }
+    }
+
+    /**
+     * This helper method tests the auto-upgrade type is added for Open,
+     * PSK, and Enterprise networks.
+     */
+    private static void verifyAutoUpgradeType(WifiConfiguration expected,
+            WifiConfiguration actual) {
+        if (expected.isSecurityType(WifiConfiguration.SECURITY_TYPE_OPEN)) {
+            assertTrue(actual.isSecurityType(WifiConfiguration.SECURITY_TYPE_OPEN));
+            assertTrue(actual.isSecurityType(WifiConfiguration.SECURITY_TYPE_OWE));
+        } else if (expected.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK)) {
+            assertTrue(actual.isSecurityType(WifiConfiguration.SECURITY_TYPE_PSK));
+            assertTrue(actual.isSecurityType(WifiConfiguration.SECURITY_TYPE_SAE));
+        } else if (expected.isSecurityType(WifiConfiguration.SECURITY_TYPE_EAP)
+                && expected.isEnterprise()) {
+            assertTrue(actual.isSecurityType(WifiConfiguration.SECURITY_TYPE_EAP));
+            assertTrue(actual.isSecurityType(
+                    WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE));
+        }
     }
 }
